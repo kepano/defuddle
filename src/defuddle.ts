@@ -291,6 +291,37 @@ const PARTIAL_SELECTORS = [
 	'twitter'
 ];
 
+// Add new selectors for footnotes and citations
+const FOOTNOTE_SELECTORS = [
+	'sup.reference',
+	'cite.ltx_cite',
+	'sup[id^="fnref:"]',
+	'span.footnote-link',
+	'a.citation',
+	'a[href^="#fn"]',
+	'a[href^="#cite"]',
+	'a[href^="#reference"]',
+	'a[href^="#footnote"]',
+	'a[href^="#r"]', // Common in academic papers
+	'a[href^="#b"]', // Common for bibliography references
+	'a[href*="cite_note"]',
+	'a[href*="cite_ref"]'
+].join(',');
+
+const REFERENCE_LIST_SELECTORS = [
+	'ol.references',
+	'ol.footnotes-list',
+	'ul.footnotes-list',
+	'div.footnotes ol',
+	'div.footnote ol',
+	'section.footnotes ol',
+	'ul.ltx_biblist',
+	'div[role="doc-endnotes"]',
+	'section[role="doc-endnotes"]',
+	'div[role="doc-footnotes"]',
+	'section[role="doc-footnotes"]'
+].join(',');
+
 // Elements that are allowed to be empty
 // These are not removed even if they have no content
 const ALLOWED_EMPTY_ELEMENTS = new Set([
@@ -678,6 +709,9 @@ export class Defuddle {
 		// Handle h1 elements - remove first one and convert others to h2
 		this.handleHeadings(element);
 		
+		// Standardize footnotes and citations
+		this.standardizeFootnotes(element);
+		
 		// Strip unwanted attributes
 		this.stripUnwantedAttributes(element);
 
@@ -798,6 +832,154 @@ export class Defuddle {
 		this._log('Removed empty elements:', {
 			count: removedCount,
 			iterations
+		});
+	}
+
+	private standardizeFootnotes(element: Element) {
+		const footnotes = new Map<string, number>();
+		let footnoteCount = 1;
+
+		// First pass: collect all footnotes and their numbers
+		const referenceLists = element.querySelectorAll(REFERENCE_LIST_SELECTORS);
+		referenceLists.forEach(list => {
+			const items = list.querySelectorAll('li');
+			items.forEach(li => {
+				let id = '';
+
+				// Extract ID from various formats
+				if (li.id.startsWith('bib.bib')) {
+					id = li.id.replace('bib.bib', '');
+				} else if (li.id.startsWith('fn:')) {
+					id = li.id.replace('fn:', '');
+				} else {
+					const match = li.id.split('/').pop()?.match(/cite_note-(.+)/);
+					id = match ? match[1] : li.id;
+				}
+
+				if (id && !footnotes.has(id.toLowerCase())) {
+					footnotes.set(id.toLowerCase(), footnoteCount++);
+				}
+			});
+		});
+
+		// Second pass: standardize inline references using the collected numbers
+		const footnoteElements = element.querySelectorAll(FOOTNOTE_SELECTORS);
+		footnoteElements.forEach(el => {
+			if (!(el instanceof HTMLElement)) return;
+
+			let footnoteId = '';
+			let footnoteContent = '';
+
+			// Extract footnote ID based on element type
+			if (el.matches('sup.reference')) {
+				const links = el.querySelectorAll('a');
+				Array.from(links).forEach(link => {
+					const href = link.getAttribute('href');
+					if (href) {
+						const match = href.split('/').pop()?.match(/(?:cite_note|cite_ref)-(.+)/);
+						if (match) {
+							footnoteId = match[1].toLowerCase();
+						}
+					}
+				});
+			} else if (el.matches('cite.ltx_cite')) {
+				const link = el.querySelector('a');
+				if (link) {
+					const href = link.getAttribute('href');
+					if (href) {
+						const match = href.split('/').pop()?.match(/bib\.bib(\d+)/);
+						if (match) {
+							footnoteId = match[1].toLowerCase();
+						}
+					}
+				}
+			} else if (el.matches('sup[id^="fnref:"]')) {
+				footnoteId = el.id.replace('fnref:', '').toLowerCase();
+			} else if (el.matches('span.footnote-link')) {
+				footnoteId = el.getAttribute('data-footnote-id') || '';
+				footnoteContent = el.getAttribute('data-footnote-content') || '';
+			} else if (el.matches('a.citation')) {
+				footnoteId = el.textContent?.trim() || '';
+				footnoteContent = el.getAttribute('href') || '';
+			} else {
+				// Handle other citation types
+				const href = el.getAttribute('href');
+				if (href) {
+					const id = href.replace(/^[#]/, '');
+					footnoteId = id.toLowerCase();
+				}
+			}
+
+			if (footnoteId) {
+				const footnoteNumber = footnotes.get(footnoteId);
+				if (footnoteNumber) {
+					// Create standardized footnote reference
+					const sup = document.createElement('sup');
+					sup.id = `fnref:${footnoteNumber}`;
+					const link = document.createElement('a');
+					link.href = `#fn:${footnoteNumber}`;
+					link.textContent = footnoteNumber.toString();
+					sup.appendChild(link);
+					el.replaceWith(sup);
+				}
+			}
+		});
+
+		// Third pass: standardize reference lists using the collected numbers
+		referenceLists.forEach(list => {
+			const items = list.querySelectorAll('li');
+			const newList = document.createElement('div');
+			newList.className = 'footnotes';
+			const orderedList = document.createElement('ol');
+
+			items.forEach(li => {
+				let id = '';
+
+				// Extract ID from various formats
+				if (li.id.startsWith('bib.bib')) {
+					id = li.id.replace('bib.bib', '');
+				} else if (li.id.startsWith('fn:')) {
+					id = li.id.replace('fn:', '');
+				} else {
+					const match = li.id.split('/').pop()?.match(/cite_note-(.+)/);
+					id = match ? match[1] : li.id;
+				}
+
+				const footnoteNumber = footnotes.get(id.toLowerCase());
+				if (footnoteNumber) {
+					// Remove sup elements that just contain the reference number
+					const sup = li.querySelector('sup');
+					if (sup && sup.textContent?.trim() === id) {
+						sup.remove();
+					}
+
+					// Create standardized footnote item
+					const newItem = document.createElement('li');
+					newItem.className = 'footnote';
+					newItem.id = `fn:${footnoteNumber}`;
+
+					// Wrap content in paragraph
+					const paragraph = document.createElement('p');
+					paragraph.innerHTML = li.innerHTML;
+
+					// Add backlink
+					const backlink = document.createElement('a');
+					backlink.href = `#fnref:${footnoteNumber}`;
+					backlink.title = 'return to article';
+					backlink.innerHTML = ' ↩';
+					paragraph.appendChild(backlink);
+
+					// Add empty paragraph for spacing
+					const spacer = document.createElement('p');
+
+					newItem.appendChild(paragraph);
+					newItem.appendChild(spacer);
+					orderedList.appendChild(newItem);
+				}
+			});
+
+			newList.appendChild(orderedList);
+			list.replaceWith(newList);
 		});
 	}
 

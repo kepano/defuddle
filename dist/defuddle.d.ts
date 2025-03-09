@@ -23,6 +23,7 @@ export declare class Defuddle {
     private removeHtmlComments;
     private stripUnwantedAttributes;
     private removeEmptyElements;
+    private standardizeFootnotes;
     private findSmallImages;
     private removeSmallImages;
     private getElementIdentifier;
