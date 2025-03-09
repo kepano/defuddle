@@ -297,7 +297,7 @@ const PARTIAL_SELECTORS = [
 	'twitter'
 ];
 
-// Add new selectors for footnotes and citations
+// Selectors for footnotes and citations
 const FOOTNOTE_SELECTORS = [
 	'sup.reference',
 	'cite.ltx_cite',
@@ -842,7 +842,10 @@ export class Defuddle {
 	}
 
 	private standardizeFootnotes(element: Element) {
+		// Map to store footnote IDs and their corresponding number
 		const footnotes = new Map<string, number>();
+		// Map to store all reference IDs for each footnote number
+		const footnoteRefs = new Map<number, string[]>();
 		let footnoteCount = 1;
 
 		// First pass: collect all footnotes and their numbers
@@ -863,13 +866,16 @@ export class Defuddle {
 				}
 
 				if (id && !footnotes.has(id.toLowerCase())) {
-					footnotes.set(id.toLowerCase(), footnoteCount++);
+					const num = footnoteCount++;
+					footnotes.set(id.toLowerCase(), num);
+					footnoteRefs.set(num, []);
 				}
 			});
 		});
 
 		// Second pass: standardize inline references using the collected numbers
 		const footnoteElements = element.querySelectorAll(FOOTNOTE_SELECTORS);
+		let refCounter = 0;
 		footnoteElements.forEach(el => {
 			if (!(el instanceof HTMLElement)) return;
 
@@ -919,9 +925,20 @@ export class Defuddle {
 			if (footnoteId) {
 				const footnoteNumber = footnotes.get(footnoteId);
 				if (footnoteNumber) {
+					// Store reference ID for this footnote number
+					const refs = footnoteRefs.get(footnoteNumber) || [];
+					
+					// Create reference ID - only add suffix if this is a duplicate reference
+					const refId = refs.length > 0 ? 
+						`fnref:${footnoteNumber}-${refs.length + 1}` : 
+						`fnref:${footnoteNumber}`;
+					
+					refs.push(refId);
+					footnoteRefs.set(footnoteNumber, refs);
+
 					// Create standardized footnote reference
 					const sup = document.createElement('sup');
-					sup.id = `fnref:${footnoteNumber}`;
+					sup.id = refId;
 					const link = document.createElement('a');
 					link.href = `#fn:${footnoteNumber}`;
 					link.textContent = footnoteNumber.toString();
@@ -964,22 +981,40 @@ export class Defuddle {
 					newItem.className = 'footnote';
 					newItem.id = `fn:${footnoteNumber}`;
 
-					// Wrap content in paragraph
-					const paragraph = document.createElement('p');
-					paragraph.innerHTML = li.innerHTML;
+					// Get all paragraphs from the content
+					const paragraphs = Array.from(li.querySelectorAll('p'));
+					if (paragraphs.length === 0) {
+						// If no paragraphs, wrap content in a paragraph
+						const paragraph = document.createElement('p');
+						paragraph.innerHTML = li.innerHTML;
+						paragraphs.push(paragraph);
+						newItem.appendChild(paragraph);
+					} else {
+						// Copy existing paragraphs
+						paragraphs.forEach(p => {
+							const newP = document.createElement('p');
+							newP.innerHTML = p.innerHTML;
+							newItem.appendChild(newP);
+						});
+					}
 
-					// Add backlink
-					const backlink = document.createElement('a');
-					backlink.href = `#fnref:${footnoteNumber}`;
-					backlink.title = 'return to article';
-					backlink.innerHTML = ' ↩';
-					paragraph.appendChild(backlink);
+					// Add backlinks to the last paragraph for each reference
+					const lastParagraph = newItem.querySelector('p:last-of-type');
+					if (lastParagraph) {
+						const refs = footnoteRefs.get(footnoteNumber) || [];
+						refs.forEach((refId, index) => {
+							const backlink = document.createElement('a');
+							backlink.href = `#${refId}`;
+							backlink.title = 'return to article';
+							backlink.className = 'footnote-backref';
+							backlink.innerHTML = ' ↩';
+							if (index < refs.length - 1) {
+								backlink.innerHTML += ' ';
+							}
+							lastParagraph.appendChild(backlink);
+						});
+					}
 
-					// Add empty paragraph for spacing
-					const spacer = document.createElement('p');
-
-					newItem.appendChild(paragraph);
-					newItem.appendChild(spacer);
 					orderedList.appendChild(newItem);
 				}
 			});
