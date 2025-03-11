@@ -131,6 +131,7 @@ const EXACT_SELECTORS = [
 	'table.infobox',
 
 	// other
+	'.pencraft:not(.pc-display-contents)', // Substack
 	'[data-optimizely="related-articles-section" i]' // The Economist
 ];
 
@@ -302,7 +303,6 @@ const PARTIAL_SELECTORS = [
 	'overlay',
 	'page-title',
 	'-partners',
-	'pencraft', // Substack
 	'plea',
 	'popular',
 //	'popup', Gwern
