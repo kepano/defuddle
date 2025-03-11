@@ -83,6 +83,7 @@ const EXACT_SELECTORS = [
 	// inputs, forms, elements
 	'aside',
 	'button',
+		// '[role="button"]', Medium images
 	'canvas',
 	'dialog',
 	'fieldset',
@@ -94,8 +95,11 @@ const EXACT_SELECTORS = [
 	'select',
 	'textarea',
 	'time',
-		// 'iframe' maybe narrow this down to only allow iframes for video
-		// '[role="button"]', Medium images
+
+	// iframes — maybe narrow this down to a few vendors
+		// 'iframe' 
+	'instaread-player',
+	'iframe[id*="audio-player"]',
 
 	// logos
 	'[class="logo" i]',
@@ -108,6 +112,7 @@ const EXACT_SELECTORS = [
 	'[class="noprint" i]',
 	'[data-link-name*="skip" i]',
 	'[data-print-layout="hide" i]',
+	'[data-block="donotprint" i]',
 
 	// footnotes, citations
 	'[class*="clickable-icon" i]',
@@ -158,6 +163,7 @@ const PARTIAL_SELECTORS = [
 	'article-topics',
 	'article-type',
 	'article--lede', // The Verge
+	'associated-people',
 //	'author', Gwern
 	'back-to-top',
 	'backlinks-section',
@@ -186,6 +192,7 @@ const PARTIAL_SELECTORS = [
 	'complementary',
 	'consent',
 	'content-card', // The Verge
+	'content-topics',
 	'contentpromo',
 	'core-collateral',
 	'_cta',
@@ -396,6 +403,7 @@ const PARTIAL_SELECTORS = [
 	'trust-feat',
 	'trust-badge',
 	'twitter',
+	'visually-hidden',
 	'welcomebox'
 ];
 
