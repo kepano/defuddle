@@ -128,6 +128,8 @@ const EXACT_SELECTORS = [
 	'[id="sidebar" i]',
 	'[id="sitesub" i]',
 	
+	'table.infobox',
+
 	// other
 	'[data-optimizely="related-articles-section" i]' // The Economist
 ];
@@ -279,6 +281,7 @@ const PARTIAL_SELECTORS = [
 	'morestories',
 	'mw-editsection',
 	'mw-cite-backlink',
+	'mw-indicators',
 	'mw-jump-link',
 	'nav-',
 	'nav_',
@@ -293,6 +296,8 @@ const PARTIAL_SELECTORS = [
 	'newsletterwidget',
 	'newsletterwrapper',
 	'not-found',
+	'nomobile',
+	'noprint',
 	'originally-published', // Mercury News
 	'overlay',
 	'page-title',
@@ -350,6 +355,7 @@ const PARTIAL_SELECTORS = [
 	'reading-time',
 	'reading-list',
 	'recommend',
+	'redirectedfrom',
 	'recirc',
 	'register',
 	'related',
@@ -366,6 +372,7 @@ const PARTIAL_SELECTORS = [
 	'similar_',
 	'similars-',
 	'sideitems',
+	'side-box',
 	'site-index',
 	'site-header',
 	'site-logo',
