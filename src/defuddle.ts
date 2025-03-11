@@ -208,8 +208,11 @@ const PARTIAL_SELECTORS = [
 	'eletters',
 	'emailsignup',
 	'engagement-widget',
+	'entry-author-info',
 	'entry-date',
 	'entry-meta',
+	'entry-title',
+	'entry-utility',
 	'eyebrow',
 	'expand-reduce',
 	'externallinkembedwrapper', // The New Yorker
@@ -921,85 +924,75 @@ export class Defuddle {
 		let exactSelectorCount = 0;
 		let partialSelectorCount = 0;
 
-		// Combine all exact selectors into a single selector string
-		const combinedExactSelector = EXACT_SELECTORS.join(',');
-		
-		// First pass: Remove elements matching exact selectors
-		const exactElements = doc.querySelectorAll(combinedExactSelector);
-		if (exactElements.length > 0) {
-			// Batch remove elements
-			const fragment = document.createDocumentFragment();
-			exactElements.forEach(el => {
-				if (el?.parentNode) {
-					fragment.appendChild(el);
-					exactSelectorCount++;
-				}
-			});
-		}
+		// Track all elements to be removed
+		const elementsToRemove = new Set<Element>();
 
-		// Second pass: Handle partial selectors
-		// Pre-compile regexes for better performance
-		const partialRegexes = PARTIAL_SELECTORS.map(pattern => ({
-			pattern,
-			regex: new RegExp(pattern, 'i')
-		}));
+		// First collect elements matching exact selectors
+		const exactElements = doc.querySelectorAll(EXACT_SELECTORS.join(','));
+		exactElements.forEach(el => {
+			if (el?.parentNode) {
+				elementsToRemove.add(el);
+				exactSelectorCount++;
+			}
+		});
 
-		// Create an efficient lookup for partial matches
-		const shouldRemoveElement = (el: Element): boolean => {
-			// Get all relevant attributes once
-			const className = el.className && typeof el.className === 'string' ? 
-				el.className.toLowerCase() : '';
-			const id = el.id ? el.id.toLowerCase() : '';
-			const testId = el.getAttribute('data-testid')?.toLowerCase() || '';
-			const testQa = el.getAttribute('data-qa')?.toLowerCase() || '';
-			const testCy = el.getAttribute('data-cy')?.toLowerCase() || '';
+		// Pre-compile regexes and combine into a single regex for better performance
+		const combinedPattern = PARTIAL_SELECTORS.join('|');
+		const partialRegex = new RegExp(combinedPattern, 'i');
 
-			// Combine attributes for single-pass checking
-			const attributeText = `${className} ${id} ${testId} ${testQa} ${testCy}`;
-			
-			// Early return if no content to check
-			if (!attributeText.trim()) {
-				return false;
+		// Create an efficient attribute selector for elements we care about
+		const attributeSelector = '[class],[id],[data-testid],[data-qa],[data-cy]';
+		const allElements = doc.querySelectorAll(attributeSelector);
+
+		// Process elements for partial matches
+		allElements.forEach(el => {
+			// Skip if already marked for removal
+			if (elementsToRemove.has(el)) {
+				return;
 			}
 
-			// Use some() for early termination
-			return partialRegexes.some(({ regex }) => regex.test(attributeText));
-		};
+			// Get all relevant attributes and combine into a single string
+			const attrs = [
+				el.className && typeof el.className === 'string' ? el.className : '',
+				el.id || '',
+				el.getAttribute('data-testid') || '',
+				el.getAttribute('data-qa') || '',
+				el.getAttribute('data-cy') || ''
+			].join(' ').toLowerCase();
 
-		// Process elements in batches to avoid long tasks
-		const BATCH_SIZE = 100;
-		const allElements = Array.from(doc.querySelectorAll('[class], [id], [data-testid], [data-qa], [data-cy]'));
-		
-		for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
-			const batch = allElements.slice(i, i + BATCH_SIZE);
-			const elementsToRemove: Element[] = [];
-
-			// Read phase - identify elements to remove
-			batch.forEach(el => {
-				if (shouldRemoveElement(el)) {
-					elementsToRemove.push(el);
-					partialSelectorCount++;
-				}
-			});
-
-			// Write phase - batch remove elements
-			if (elementsToRemove.length > 0) {
-				const fragment = document.createDocumentFragment();
-				elementsToRemove.forEach(el => {
-					if (el?.parentNode) {
-						fragment.appendChild(el);
-					}
-				});
+			// Skip if no attributes to check
+			if (!attrs.trim()) {
+				return;
 			}
-		}
+
+			// Check for partial match using single regex test
+			if (partialRegex.test(attrs)) {
+				elementsToRemove.add(el);
+				partialSelectorCount++;
+			}
+		});
+
+		// Remove all collected elements in a single pass
+		elementsToRemove.forEach(el => el.remove());
 
 		const endTime = performance.now();
-		this._log('Found clutter elements:', {
+		this._log('Removed clutter elements:', {
 			exactSelectors: exactSelectorCount,
 			partialSelectors: partialSelectorCount,
-			total: exactSelectorCount + partialSelectorCount,
+			total: elementsToRemove.size,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
 		});
+	}
+
+	// Helper method to get element depth in DOM tree
+	private getElementDepth(element: Element): number {
+		let depth = 0;
+		let current = element;
+		while (current.parentElement) {
+			depth++;
+			current = current.parentElement;
+		}
+		return depth;
 	}
 
 	private cleanContent(element: Element, metadata: DefuddleMetadata) {
