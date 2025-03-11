@@ -261,6 +261,7 @@ const PARTIAL_SELECTORS = [
 //	'keyword', // used in syntax highlighting
 	'kicker',
 	'-labels',
+	'language-name',
 	'latest-content',
 	'-ledes-', // The Verge
 	'-license',
@@ -792,6 +793,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 			const code = document.createElement('code');
 			if (language) {
 				code.setAttribute('data-lang', language);
+				code.setAttribute('class', `language-${language}`);
 			}
 			code.textContent = codeContent;
 			
