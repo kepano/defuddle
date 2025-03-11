@@ -62,7 +62,7 @@ const EXACT_SELECTORS = [
 	'[class="pagination" i]',
 
 	// metadata
-	'[class*="author" i]',
+	'[class="author" i]',
 	'[class="date" i]',
 	'[class="meta" i]',
 	'[class="toc" i]',
@@ -149,6 +149,7 @@ const PARTIAL_SELECTORS = [
 	'article__meta',
 	'article-subject',
 	'article_subject',
+	'article-snippet',
 	'article-tags',
 	'article_tags',
 	'article-title',
@@ -984,17 +985,6 @@ export class Defuddle {
 		});
 	}
 
-	// Helper method to get element depth in DOM tree
-	private getElementDepth(element: Element): number {
-		let depth = 0;
-		let current = element;
-		while (current.parentElement) {
-			depth++;
-			current = current.parentElement;
-		}
-		return depth;
-	}
-
 	private cleanContent(element: Element, metadata: DefuddleMetadata) {
 		// Remove HTML comments
 		this.removeHtmlComments(element);
@@ -1407,6 +1397,10 @@ export class Defuddle {
 				});
 			} else if (el.matches('sup[id^="fnref:"]')) {
 				footnoteId = el.id.replace('fnref:', '').toLowerCase();
+			} else if (el.matches('sup[id^="fnr"]')) {
+				footnoteId = el.id.replace('fnr', '').toLowerCase();
+			} else if (el.matches('span.footnote-reference')) {
+				footnoteId = el.getAttribute('data-footnote-id') || '';
 			} else if (el.matches('span.footnote-link')) {
 				footnoteId = el.getAttribute('data-footnote-id') || '';
 				footnoteContent = el.getAttribute('data-footnote-content') || '';

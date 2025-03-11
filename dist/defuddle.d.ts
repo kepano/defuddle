@@ -18,7 +18,6 @@ export declare class Defuddle {
     private applyMobileStyles;
     private removeHiddenElements;
     private removeClutter;
-    private getElementDepth;
     private cleanContent;
     private removeTrailingHeadings;
     private handleHeadings;
