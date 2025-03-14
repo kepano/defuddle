@@ -564,6 +564,10 @@ const ALLOWED_ATTRIBUTES = new Set([
 	'type',
 	'width'
 ]);
+const ALLOWED_ATTRIBUTES_DEBUG = new Set([
+	'class',
+	'id',
+]);
 
 // Supported languages for code blocks
 const SUPPORTED_LANGUAGES = new Set([
@@ -1728,20 +1732,29 @@ export class Defuddle {
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
 
-		// First pass of div flattening
-		this.flattenDivs(element);
-		
-		// Strip unwanted attributes
-		this.stripUnwantedAttributes(element);
+		// Skip div flattening in debug mode
+		if (!this.debug) {
+			// First pass of div flattening
+			this.flattenDivs(element);
+			
+			// Strip unwanted attributes
+			this.stripUnwantedAttributes(element);
 
-		// Remove empty elements
-		this.removeEmptyElements(element);
+			// Remove empty elements
+			this.removeEmptyElements(element);
 
-		// Remove trailing headings
-		this.removeTrailingHeadings(element);
+			// Remove trailing headings
+			this.removeTrailingHeadings(element);
 
-		// Final pass of div flattening after cleanup operations
-		this.flattenDivs(element);
+			// Final pass of div flattening after cleanup operations
+			this.flattenDivs(element);
+		} else {
+			// In debug mode, still do basic cleanup but preserve structure
+			this.stripUnwantedAttributes(element);
+			this.removeEmptyElements(element);
+			this.removeTrailingHeadings(element);
+			this._log('Debug mode: Skipping div flattening to preserve structure');
+		}
 	}
 
 	private removeTrailingHeadings(element: Element) {
@@ -1857,9 +1870,20 @@ export class Defuddle {
 			
 			attributes.forEach(attr => {
 				const attrName = attr.name.toLowerCase();
-				if (!ALLOWED_ATTRIBUTES.has(attrName)) {
-					el.removeAttribute(attr.name);
-					attributeCount++;
+				// In debug mode, allow debug attributes and data- attributes
+				if (this.debug) {
+					if (!ALLOWED_ATTRIBUTES.has(attrName) && 
+						!ALLOWED_ATTRIBUTES_DEBUG.has(attrName) && 
+						!attrName.startsWith('data-')) {
+						el.removeAttribute(attr.name);
+						attributeCount++;
+					}
+				} else {
+					// In normal mode, only allow standard attributes
+					if (!ALLOWED_ATTRIBUTES.has(attrName)) {
+						el.removeAttribute(attr.name);
+						attributeCount++;
+					}
 				}
 			});
 		};

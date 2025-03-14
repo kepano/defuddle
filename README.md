@@ -34,6 +34,19 @@ console.log(article.content);  // HTML string of the main content
 console.log(article.title);    // Title of the article
 ```
 
+### Debug mode
+
+You can enable debug mode by passing an options object when creating a new Defuddle instance:
+
+```typescript
+const article = new Defuddle(document, { debug: true }).parse();
+```
+
+- More verbose console logging about the parsing process
+- Preserves HTML class and id attributes that are normally stripped
+- Retains all data-* attributes
+- Skips div flattening to preserve document structure
+
 ### Server-side usage
 
 When using Defuddle in a Node.js environment, you can use JSDOM to create a DOM document:
