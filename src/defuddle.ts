@@ -544,7 +544,6 @@ const ALLOWED_ATTRIBUTES = new Set([
 	'allow',
 	'allowfullscreen',
 	'aria-label',
-	'class',
 	'checked',
 	'colspan',
 	'controls',
@@ -556,7 +555,6 @@ const ALLOWED_ATTRIBUTES = new Set([
 	'headers',
 	'height',
 	'href',
-	'id',
 	'lang',
 	'role',
 	'rowspan',
@@ -1434,6 +1432,156 @@ export class Defuddle {
 		});
 	}
 
+	private flattenDivs(element: Element) {
+		let processedCount = 0;
+		const startTime = performance.now();
+
+		// Process in batches to maintain performance
+		const BATCH_SIZE = 100;
+		let keepProcessing = true;
+
+		// Elements that should not be unwrapped
+		const PRESERVE_ELEMENTS = new Set([
+			'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
+			'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+			'figure', 'figcaption',
+			'details', 'summary',
+			'blockquote',
+			'form', 'fieldset'
+		]);
+
+		// Inline elements that should not be unwrapped
+		const INLINE_ELEMENTS = new Set([
+			'a', 'span', 'strong', 'em', 'i', 'b', 'u', 'code', 'br', 'small',
+			'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'time'
+		]);
+
+		const shouldPreserveElement = (el: Element): boolean => {
+			const tagName = el.tagName.toLowerCase();
+			
+			// Check if element should be preserved
+			if (PRESERVE_ELEMENTS.has(tagName)) return true;
+			
+			// Check for semantic roles
+			const role = el.getAttribute('role');
+			if (role && ['article', 'main', 'navigation', 'banner', 'contentinfo'].includes(role)) {
+				return true;
+			}
+			
+			// Check for semantic classes
+			const className = el.className.toLowerCase();
+			if (className.match(/(?:article|main|content|footnote|reference|bibliography)/)) {
+				return true;
+			}
+			
+			return false;
+		};
+
+		while (keepProcessing) {
+			keepProcessing = false;
+			const divs = Array.from(element.getElementsByTagName('div'));
+			
+			// Process divs in batches
+			for (let i = 0; i < divs.length; i += BATCH_SIZE) {
+				const batch = divs.slice(i, i + BATCH_SIZE);
+				let batchModified = false;
+
+				batch.forEach(div => {
+					// Skip processing if div has been removed or should be preserved
+					if (!div.isConnected || shouldPreserveElement(div)) return;
+
+					// Case 1: Empty div or div with only whitespace
+					if (!div.hasChildNodes() || !div.textContent?.trim()) {
+						div.remove();
+						processedCount++;
+						batchModified = true;
+						return;
+					}
+
+					// Case 2: Div only contains text content - convert to paragraph
+					if (!div.children.length && div.textContent?.trim()) {
+						const p = document.createElement('p');
+						p.textContent = div.textContent;
+						div.replaceWith(p);
+						processedCount++;
+						batchModified = true;
+						return;
+					}
+
+					// Case 3: Div has single child
+					if (div.children.length === 1) {
+						const child = div.firstElementChild!;
+						const childTag = child.tagName.toLowerCase();
+						
+						// Don't unwrap if child is inline or should be preserved
+						if (!INLINE_ELEMENTS.has(childTag) && !shouldPreserveElement(child)) {
+							div.replaceWith(child);
+							processedCount++;
+							batchModified = true;
+							return;
+						}
+					}
+
+					// Case 4: Div only contains other divs - merge up
+					const children = Array.from(div.children);
+					const onlyDivs = children.every(child => 
+						child.tagName.toLowerCase() === 'div' && 
+						!shouldPreserveElement(child)
+					);
+
+					if (onlyDivs && children.length > 0) {
+						const fragment = document.createDocumentFragment();
+						while (div.firstChild) {
+							// If child is a div, move its children instead
+							const child = div.firstChild;
+							if (child instanceof Element && child.tagName.toLowerCase() === 'div') {
+								while (child.firstChild) {
+									fragment.appendChild(child.firstChild);
+								}
+								child.remove();
+							} else {
+								fragment.appendChild(child);
+							}
+						}
+						div.replaceWith(fragment);
+						processedCount++;
+						batchModified = true;
+						return;
+					}
+
+					// Case 5: Div is purely for layout - merge children up if no semantic value
+					const style = window.getComputedStyle(div);
+					const isLayoutDiv = (
+						div.className.match(/(?:grid|flex|layout|container|wrapper|row|col|section)/i) ||
+						style.display === 'grid' ||
+						style.display === 'flex' ||
+						(div.children.length > 0 && !div.textContent?.trim()) // Empty parent with children
+					);
+
+					if (isLayoutDiv && div.children.length > 0) {
+						const fragment = document.createDocumentFragment();
+						while (div.firstChild) {
+							fragment.appendChild(div.firstChild);
+						}
+						div.replaceWith(fragment);
+						processedCount++;
+						batchModified = true;
+					}
+				});
+
+				if (batchModified) {
+					keepProcessing = true;
+				}
+			}
+		}
+
+		const endTime = performance.now();
+		this._log('Flattened divs:', {
+			count: processedCount,
+			processingTime: `${(endTime - startTime).toFixed(2)}ms`
+		});
+	}
+
 	private cleanContent(element: Element, metadata: DefuddleMetadata) {
 		// Remove HTML comments
 		this.removeHtmlComments(element);
@@ -1449,12 +1597,15 @@ export class Defuddle {
 
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
-		
+
 		// Strip unwanted attributes
 		this.stripUnwantedAttributes(element);
 
 		// Remove empty elements
 		this.removeEmptyElements(element);
+
+		// Flatten unnecessary div elements
+		this.flattenDivs(element);
 
 		// Remove trailing headings
 		this.removeTrailingHeadings(element);
@@ -1573,7 +1724,7 @@ export class Defuddle {
 			
 			attributes.forEach(attr => {
 				const attrName = attr.name.toLowerCase();
-				if (!ALLOWED_ATTRIBUTES.has(attrName) && !attrName.startsWith('data-')) {
+				if (!ALLOWED_ATTRIBUTES.has(attrName)) {
 					el.removeAttribute(attr.name);
 					attributeCount++;
 				}
@@ -1923,7 +2074,7 @@ export class Defuddle {
 		});
 
 		// Create the standardized footnote list
-		const newList = document.createElement('div');
+		const newList = document.createElement('footnotes');
 		newList.className = 'footnotes';
 		const orderedList = document.createElement('ol');
 
