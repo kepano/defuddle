@@ -1491,7 +1491,6 @@ export class Defuddle {
 			return false;
 		};
 
-		// Function to check if a div is a wrapper div
 		const isWrapperDiv = (div: Element): boolean => {
 			// Check if it's just empty space
 			if (!div.textContent?.trim()) return true;
