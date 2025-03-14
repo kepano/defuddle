@@ -1473,107 +1473,183 @@ export class Defuddle {
 			if (className.match(/(?:article|main|content|footnote|reference|bibliography)/)) {
 				return true;
 			}
+
+			// Check if div contains mixed content types that should be preserved
+			if (tagName === 'div') {
+				const children = Array.from(el.children);
+				const hasPreservedElements = children.some(child => 
+					PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
+					child.getAttribute('role') === 'article' ||
+					child.className.toLowerCase().includes('article')
+				);
+				if (hasPreservedElements) return true;
+			}
 			
 			return false;
 		};
 
-		while (keepProcessing) {
-			keepProcessing = false;
-			const divs = Array.from(element.getElementsByTagName('div'));
+		// Function to check if a div is a wrapper div
+		const isWrapperDiv = (div: Element): boolean => {
+			// Check if it's just empty space
+			if (!div.textContent?.trim()) return true;
+
+			// Check if it only contains other divs
+			const children = Array.from(div.children);
+			if (children.length === 0) return true;
 			
-			// Process divs in batches
-			for (let i = 0; i < divs.length; i += BATCH_SIZE) {
-				const batch = divs.slice(i, i + BATCH_SIZE);
-				let batchModified = false;
+			// Check if all children are divs
+			const allDivs = children.every(child => child.tagName.toLowerCase() === 'div');
+			if (allDivs) return true;
 
-				batch.forEach(div => {
-					// Skip processing if div has been removed or should be preserved
-					if (!div.isConnected || shouldPreserveElement(div)) return;
+			// Check for common wrapper patterns
+			const className = div.className.toLowerCase();
+			const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
+			if (isWrapper) return true;
 
-					// Case 1: Empty div or div with only whitespace
-					if (!div.hasChildNodes() || !div.textContent?.trim()) {
-						div.remove();
-						processedCount++;
-						batchModified = true;
-						return;
-					}
+			// Check if it has excessive whitespace or empty text nodes
+			const textNodes = Array.from(div.childNodes).filter(node => 
+				node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+			);
+			if (textNodes.length === 0) return true;
 
-					// Case 2: Div only contains text content - convert to paragraph
-					if (!div.children.length && div.textContent?.trim()) {
-						const p = document.createElement('p');
-						p.textContent = div.textContent;
-						div.replaceWith(p);
-						processedCount++;
-						batchModified = true;
-						return;
-					}
+			return false;
+		};
 
-					// Case 3: Div has single child
-					if (div.children.length === 1) {
-						const child = div.firstElementChild!;
-						const childTag = child.tagName.toLowerCase();
-						
-						// Don't unwrap if child is inline or should be preserved
-						if (!INLINE_ELEMENTS.has(childTag) && !shouldPreserveElement(child)) {
-							div.replaceWith(child);
-							processedCount++;
-							batchModified = true;
-							return;
-						}
-					}
+		// Function to process a single div
+		const processDiv = (div: Element): boolean => {
+			// Skip processing if div has been removed or should be preserved
+			if (!div.isConnected || shouldPreserveElement(div)) return false;
 
-					// Case 4: Div only contains other divs - merge up
-					const children = Array.from(div.children);
-					const onlyDivs = children.every(child => 
-						child.tagName.toLowerCase() === 'div' && 
-						!shouldPreserveElement(child)
-					);
+			// Case 1: Empty div or div with only whitespace
+			if (!div.hasChildNodes() || !div.textContent?.trim()) {
+				div.remove();
+				processedCount++;
+				return true;
+			}
 
-					if (onlyDivs && children.length > 0) {
-						const fragment = document.createDocumentFragment();
-						while (div.firstChild) {
-							// If child is a div, move its children instead
-							const child = div.firstChild;
-							if (child instanceof Element && child.tagName.toLowerCase() === 'div') {
-								while (child.firstChild) {
-									fragment.appendChild(child.firstChild);
-								}
-								child.remove();
-							} else {
-								fragment.appendChild(child);
-							}
-						}
-						div.replaceWith(fragment);
-						processedCount++;
-						batchModified = true;
-						return;
-					}
+			// Case 2: Wrapper div - merge up aggressively
+			if (isWrapperDiv(div)) {
+				const fragment = document.createDocumentFragment();
+				while (div.firstChild) {
+					fragment.appendChild(div.firstChild);
+				}
+				div.replaceWith(fragment);
+				processedCount++;
+				return true;
+			}
 
-					// Case 5: Div is purely for layout - merge children up if no semantic value
-					const style = window.getComputedStyle(div);
-					const isLayoutDiv = (
-						div.className.match(/(?:grid|flex|layout|container|wrapper|row|col|section)/i) ||
-						style.display === 'grid' ||
-						style.display === 'flex' ||
-						(div.children.length > 0 && !div.textContent?.trim()) // Empty parent with children
-					);
+			// Case 3: Div only contains text content - convert to paragraph
+			if (!div.children.length && div.textContent?.trim()) {
+				const p = document.createElement('p');
+				p.textContent = div.textContent;
+				div.replaceWith(p);
+				processedCount++;
+				return true;
+			}
 
-					if (isLayoutDiv && div.children.length > 0) {
-						const fragment = document.createDocumentFragment();
-						while (div.firstChild) {
-							fragment.appendChild(div.firstChild);
-						}
-						div.replaceWith(fragment);
-						processedCount++;
-						batchModified = true;
-					}
-				});
-
-				if (batchModified) {
-					keepProcessing = true;
+			// Case 4: Div has single child
+			if (div.children.length === 1) {
+				const child = div.firstElementChild!;
+				const childTag = child.tagName.toLowerCase();
+				
+				// Don't unwrap if child is inline or should be preserved
+				if (!INLINE_ELEMENTS.has(childTag) && !shouldPreserveElement(child)) {
+					div.replaceWith(child);
+					processedCount++;
+					return true;
 				}
 			}
-		}
+
+			// Case 5: Deeply nested div - merge up
+			let nestingDepth = 0;
+			let parent = div.parentElement;
+			while (parent) {
+				if (parent.tagName.toLowerCase() === 'div') {
+					nestingDepth++;
+				}
+				parent = parent.parentElement;
+			}
+
+			if (nestingDepth > 1) {
+				const fragment = document.createDocumentFragment();
+				while (div.firstChild) {
+					fragment.appendChild(div.firstChild);
+				}
+				div.replaceWith(fragment);
+				processedCount++;
+				return true;
+			}
+
+			return false;
+		};
+
+		// First pass: Process top-level divs
+		const processTopLevelDivs = () => {
+			const topDivs = Array.from(element.children).filter(
+				el => el.tagName.toLowerCase() === 'div'
+			);
+			
+			let modified = false;
+			topDivs.forEach(div => {
+				if (processDiv(div)) {
+					modified = true;
+				}
+			});
+			return modified;
+		};
+
+		// Second pass: Process remaining divs from deepest to shallowest
+		const processRemainingDivs = () => {
+			const allDivs = Array.from(element.getElementsByTagName('div'))
+				.sort((a, b) => {
+					// Count nesting depth
+					const getDepth = (el: Element): number => {
+						let depth = 0;
+						let parent = el.parentElement;
+						while (parent) {
+							if (parent.tagName.toLowerCase() === 'div') depth++;
+							parent = parent.parentElement;
+						}
+						return depth;
+					};
+					return getDepth(b) - getDepth(a); // Process deepest first
+				});
+
+			let modified = false;
+			allDivs.forEach(div => {
+				if (processDiv(div)) {
+					modified = true;
+				}
+			});
+			return modified;
+		};
+
+		// Final cleanup pass
+		const finalCleanup = () => {
+			const remainingDivs = Array.from(element.getElementsByTagName('div'));
+			let modified = false;
+			
+			remainingDivs.forEach(div => {
+				if (!shouldPreserveElement(div) && isWrapperDiv(div)) {
+					const fragment = document.createDocumentFragment();
+					while (div.firstChild) {
+						fragment.appendChild(div.firstChild);
+					}
+					div.replaceWith(fragment);
+					processedCount++;
+					modified = true;
+				}
+			});
+			return modified;
+		};
+
+		// Execute all passes until no more changes
+		do {
+			keepProcessing = false;
+			if (processTopLevelDivs()) keepProcessing = true;
+			if (processRemainingDivs()) keepProcessing = true;
+			if (finalCleanup()) keepProcessing = true;
+		} while (keepProcessing);
 
 		const endTime = performance.now();
 		this._log('Flattened divs:', {
@@ -1598,14 +1674,14 @@ export class Defuddle {
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
 
+		// Flatten unnecessary div elements - moved earlier in the process
+		this.flattenDivs(element);
+		
 		// Strip unwanted attributes
 		this.stripUnwantedAttributes(element);
 
 		// Remove empty elements
 		this.removeEmptyElements(element);
-
-		// Flatten unnecessary div elements
-		this.flattenDivs(element);
 
 		// Remove trailing headings
 		this.removeTrailingHeadings(element);
