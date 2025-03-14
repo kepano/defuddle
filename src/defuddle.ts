@@ -19,6 +19,22 @@ const ENTRY_POINT_ELEMENTS = [
 const MOBILE_WIDTH = 600;
 const BLOCK_ELEMENTS = ['div', 'section', 'article', 'main'];
 
+// Elements that should not be unwrapped
+const PRESERVE_ELEMENTS = new Set([
+	'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
+	'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+	'figure', 'figcaption', 'picture',
+	'details', 'summary',
+	'blockquote',
+	'form', 'fieldset'
+]);
+
+// Inline elements that should not be unwrapped
+const INLINE_ELEMENTS = new Set([
+	'a', 'span', 'strong', 'em', 'i', 'b', 'u', 'code', 'br', 'small',
+	'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'time'
+]);
+
 // Hidden elements that should be removed
 const HIDDEN_ELEMENT_SELECTORS = [
 	'[hidden]',
@@ -1441,24 +1457,7 @@ export class Defuddle {
 		const startTime = performance.now();
 
 		// Process in batches to maintain performance
-		const BATCH_SIZE = 100;
 		let keepProcessing = true;
-
-		// Elements that should not be unwrapped
-		const PRESERVE_ELEMENTS = new Set([
-			'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
-			'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-			'figure', 'figcaption',
-			'details', 'summary',
-			'blockquote',
-			'form', 'fieldset'
-		]);
-
-		// Inline elements that should not be unwrapped
-		const INLINE_ELEMENTS = new Set([
-			'a', 'span', 'strong', 'em', 'i', 'b', 'u', 'code', 'br', 'small',
-			'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'time'
-		]);
 
 		const shouldPreserveElement = (el: Element): boolean => {
 			const tagName = el.tagName.toLowerCase();
