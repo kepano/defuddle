@@ -1493,13 +1493,19 @@ export class Defuddle {
 			// Check if it's just empty space
 			if (!div.textContent?.trim()) return true;
 
-			// Check if it only contains other divs
+			// Check if it only contains other divs or block elements
 			const children = Array.from(div.children);
 			if (children.length === 0) return true;
 			
-			// Check if all children are divs
-			const allDivs = children.every(child => child.tagName.toLowerCase() === 'div');
-			if (allDivs) return true;
+			// Check if all children are block elements
+			const allBlockElements = children.every(child => {
+				const tag = child.tagName.toLowerCase();
+				return tag === 'div' || tag === 'p' || tag === 'h1' || tag === 'h2' || 
+					   tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6' ||
+					   tag === 'ul' || tag === 'ol' || tag === 'pre' || tag === 'blockquote' ||
+					   tag === 'figure';
+			});
+			if (allBlockElements) return true;
 
 			// Check for common wrapper patterns
 			const className = div.className.toLowerCase();
@@ -1511,6 +1517,13 @@ export class Defuddle {
 				node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
 			);
 			if (textNodes.length === 0) return true;
+
+			// Check if it's a div that only contains block elements
+			const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
+				const tag = child.tagName.toLowerCase();
+				return INLINE_ELEMENTS.has(tag);
+			});
+			if (hasOnlyBlockElements) return true;
 
 			return false;
 		};
@@ -1527,8 +1540,45 @@ export class Defuddle {
 				return true;
 			}
 
-			// Case 2: Wrapper div - merge up aggressively
+			// Case 2: Top-level div - be more aggressive
+			if (div.parentElement === element) {
+				const children = Array.from(div.children);
+				const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
+					const tag = child.tagName.toLowerCase();
+					return INLINE_ELEMENTS.has(tag);
+				});
+
+				if (hasOnlyBlockElements) {
+					const fragment = document.createDocumentFragment();
+					while (div.firstChild) {
+						fragment.appendChild(div.firstChild);
+					}
+					div.replaceWith(fragment);
+					processedCount++;
+					return true;
+				}
+			}
+
+			// Case 3: Wrapper div - merge up aggressively
 			if (isWrapperDiv(div)) {
+				// Special case: if div only contains block elements, merge them up
+				const children = Array.from(div.children);
+				const onlyBlockElements = !children.some(child => {
+					const tag = child.tagName.toLowerCase();
+					return INLINE_ELEMENTS.has(tag);
+				});
+				
+				if (onlyBlockElements) {
+					const fragment = document.createDocumentFragment();
+					while (div.firstChild) {
+						fragment.appendChild(div.firstChild);
+					}
+					div.replaceWith(fragment);
+					processedCount++;
+					return true;
+				}
+
+				// Otherwise handle as normal wrapper
 				const fragment = document.createDocumentFragment();
 				while (div.firstChild) {
 					fragment.appendChild(div.firstChild);
@@ -1538,7 +1588,7 @@ export class Defuddle {
 				return true;
 			}
 
-			// Case 3: Div only contains text content - convert to paragraph
+			// Case 4: Div only contains text content - convert to paragraph
 			if (!div.children.length && div.textContent?.trim()) {
 				const p = document.createElement('p');
 				p.textContent = div.textContent;
@@ -1547,7 +1597,7 @@ export class Defuddle {
 				return true;
 			}
 
-			// Case 4: Div has single child
+			// Case 5: Div has single child
 			if (div.children.length === 1) {
 				const child = div.firstElementChild!;
 				const childTag = child.tagName.toLowerCase();
@@ -1560,7 +1610,7 @@ export class Defuddle {
 				}
 			}
 
-			// Case 5: Deeply nested div - merge up
+			// Case 6: Deeply nested div - merge up
 			let nestingDepth = 0;
 			let parent = div.parentElement;
 			while (parent) {
@@ -1570,7 +1620,7 @@ export class Defuddle {
 				parent = parent.parentElement;
 			}
 
-			if (nestingDepth > 1) {
+			if (nestingDepth > 0) { // Changed from > 1 to > 0 to be more aggressive
 				const fragment = document.createDocumentFragment();
 				while (div.firstChild) {
 					fragment.appendChild(div.firstChild);
@@ -1624,13 +1674,17 @@ export class Defuddle {
 			return modified;
 		};
 
-		// Final cleanup pass
+		// Final cleanup pass - aggressively flatten remaining divs
 		const finalCleanup = () => {
 			const remainingDivs = Array.from(element.getElementsByTagName('div'));
 			let modified = false;
 			
 			remainingDivs.forEach(div => {
-				if (!shouldPreserveElement(div) && isWrapperDiv(div)) {
+				// Check if div only contains paragraphs
+				const children = Array.from(div.children);
+				const onlyParagraphs = children.every(child => child.tagName.toLowerCase() === 'p');
+				
+				if (onlyParagraphs || (!shouldPreserveElement(div) && isWrapperDiv(div))) {
 					const fragment = document.createDocumentFragment();
 					while (div.firstChild) {
 						fragment.appendChild(div.firstChild);
@@ -1645,11 +1699,11 @@ export class Defuddle {
 
 		// Execute all passes until no more changes
 		do {
-			keepProcessing = false;
-			if (processTopLevelDivs()) keepProcessing = true;
-			if (processRemainingDivs()) keepProcessing = true;
-			if (finalCleanup()) keepProcessing = true;
-		} while (keepProcessing);
+				keepProcessing = false;
+				if (processTopLevelDivs()) keepProcessing = true;
+				if (processRemainingDivs()) keepProcessing = true;
+				if (finalCleanup()) keepProcessing = true;
+			} while (keepProcessing);
 
 		const endTime = performance.now();
 		this._log('Flattened divs:', {
@@ -1674,7 +1728,7 @@ export class Defuddle {
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
 
-		// Flatten unnecessary div elements - moved earlier in the process
+		// First pass of div flattening
 		this.flattenDivs(element);
 		
 		// Strip unwanted attributes
@@ -1685,6 +1739,9 @@ export class Defuddle {
 
 		// Remove trailing headings
 		this.removeTrailingHeadings(element);
+
+		// Final pass of div flattening after cleanup operations
+		this.flattenDivs(element);
 	}
 
 	private removeTrailingHeadings(element: Element) {
