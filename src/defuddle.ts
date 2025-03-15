@@ -29,6 +29,81 @@ interface StandardizationRule {
 const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	// Math elements
 	{
+		selector: 'span.MathJax',
+		element: 'math',
+		transform: (el: Element): Element => {
+			if (!(el instanceof HTMLElement)) return el;
+
+			// Try to get MathML from data-mathml attribute
+			const mathmlStr = el.getAttribute('data-mathml');
+			if (!mathmlStr) {
+				// Check for assistive MathML as fallback
+				const assistiveMml = el.querySelector('.MJX_Assistive_MathML math');
+				if (assistiveMml) {
+					// Create new math element
+					const newMath = document.createElement('math');
+					
+					// Copy attributes from assistive MathML
+					Array.from(assistiveMml.attributes).forEach(attr => {
+						if (ALLOWED_ATTRIBUTES.has(attr.name)) {
+							newMath.setAttribute(attr.name, attr.value);
+						}
+					});
+
+					// Set display mode (default to inline)
+					const isBlock = assistiveMml.getAttribute('display') === 'block';
+					newMath.setAttribute('display', isBlock ? 'block' : 'inline');
+
+					// Convert to LaTeX and store
+					try {
+						const latex = MathMLToLaTeX.convert(assistiveMml.outerHTML);
+						newMath.setAttribute('data-latex', latex);
+					} catch (error) {
+						console.error('Error converting MathML to LaTeX:', error);
+					}
+
+					// Copy content
+					newMath.innerHTML = assistiveMml.innerHTML;
+					return newMath;
+				}
+				return el;
+			}
+
+			// Create a temporary div to parse the MathML string
+			const tempDiv = document.createElement('div');
+			tempDiv.innerHTML = mathmlStr;
+
+			const mathElement = tempDiv.querySelector('math');
+			if (!mathElement) return el;
+
+			// Create new math element
+			const newMath = document.createElement('math');
+			
+			// Copy attributes from original math element
+			Array.from(mathElement.attributes).forEach(attr => {
+				if (ALLOWED_ATTRIBUTES.has(attr.name)) {
+					newMath.setAttribute(attr.name, attr.value);
+				}
+			});
+
+			// Set display mode (default to inline)
+			const isBlock = mathElement.getAttribute('display') === 'block';
+			newMath.setAttribute('display', isBlock ? 'block' : 'inline');
+
+			// Convert to LaTeX and store
+			try {
+				const latex = MathMLToLaTeX.convert(mathElement.outerHTML);
+				newMath.setAttribute('data-latex', latex);
+			} catch (error) {
+				console.error('Error converting MathML to LaTeX:', error);
+			}
+
+			// Copy content
+			newMath.innerHTML = mathElement.innerHTML;
+			return newMath;
+		}
+	},
+	{
 		selector: 'mjx-container',
 		element: 'math',
 		transform: (el: Element): Element => {
@@ -50,13 +125,11 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 				}
 			});
 
-			// Set display mode
+			// Set display mode (default to inline)
 			const isBlock = mathElement.getAttribute('display') === 'block';
-			if (isBlock) {
-				newMath.setAttribute('display', 'block');
-			}
+			newMath.setAttribute('display', isBlock ? 'block' : 'inline');
 
-			// Convert to LaTeX and store as alttext
+			// Convert to LaTeX and store
 			try {
 				const latex = MathMLToLaTeX.convert(mathElement.outerHTML);
 				newMath.setAttribute('data-latex', latex);
@@ -133,9 +206,8 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 				(el.parentElement?.classList.contains('mwe-math-element') && 
 				el.parentElement.previousElementSibling?.nodeName.toLowerCase() === 'p');
 
-			if (isBlock) {
-				newMath.setAttribute('display', 'block');
-			}
+			// Always set display mode (default to inline)
+			newMath.setAttribute('display', isBlock ? 'block' : 'inline');
 
 			// Extract and store LaTeX as alttext
 			const latex = extractLatex(el);
@@ -180,16 +252,18 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 				latex = el.textContent?.trim() || '';
 			}
 
-			// Store LaTeX as alttext
+			// Store LaTeX
 			if (latex) {
-				newMath.setAttribute('alttext', latex);
+				newMath.setAttribute('data-latex', latex);
 			}
 
-			// Set display mode
-			const isInline = el.classList.contains('math-inline');
-			if (!isInline) {
-				newMath.setAttribute('display', 'block');
-			}
+			// Set display mode (default to inline)
+			const isBlock = !el.classList.contains('math-inline') && (
+				el.classList.contains('math-display') ||
+				el.classList.contains('katex-display') ||
+				el.closest('.katex-display') !== null
+			);
+			newMath.setAttribute('display', isBlock ? 'block' : 'inline');
 
 			// Try to get content from mathml if available
 			const mathml = el.querySelector('.katex-mathml math');
