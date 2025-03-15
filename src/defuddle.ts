@@ -59,7 +59,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 			// Convert to LaTeX and store as alttext
 			try {
 				const latex = MathMLToLaTeX.convert(mathElement.outerHTML);
-				newMath.setAttribute('alttext', latex);
+				newMath.setAttribute('data-latex', latex);
 			} catch (error) {
 				console.error('Error converting MathML to LaTeX:', error);
 			}
@@ -140,7 +140,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 			// Extract and store LaTeX as alttext
 			const latex = extractLatex(el);
 			if (latex) {
-				newMath.setAttribute('alttext', latex);
+				newMath.setAttribute('data-latex', latex);
 			}
 
 			// If original is a math element, copy its content
