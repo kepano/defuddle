@@ -1,4 +1,5 @@
 import { MetadataExtractor } from './metadata';
+import { MathMLToLaTeX } from 'mathml-to-latex';
 import { DefuddleOptions, DefuddleResponse, DefuddleMetadata } from './types';
 import { 
 	HIDDEN_ELEMENT_SELECTORS,
@@ -26,6 +27,179 @@ interface StandardizationRule {
 }
 
 const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
+	// Math elements
+	{
+		selector: 'mjx-container',
+		element: 'math',
+		transform: (el: Element): Element => {
+			if (!(el instanceof HTMLElement)) return el;
+
+			const assistiveMml = el.querySelector('mjx-assistive-mml');
+			if (!assistiveMml) return el;
+
+			const mathElement = assistiveMml.querySelector('math');
+			if (!mathElement) return el;
+
+			// Create new math element
+			const newMath = document.createElement('math');
+			
+			// Copy attributes from original math element
+			Array.from(mathElement.attributes).forEach(attr => {
+				if (ALLOWED_ATTRIBUTES.has(attr.name)) {
+					newMath.setAttribute(attr.name, attr.value);
+				}
+			});
+
+			// Set display mode
+			const isBlock = mathElement.getAttribute('display') === 'block';
+			if (isBlock) {
+				newMath.setAttribute('display', 'block');
+			}
+
+			// Convert to LaTeX and store as alttext
+			try {
+				const latex = MathMLToLaTeX.convert(mathElement.outerHTML);
+				newMath.setAttribute('alttext', latex);
+			} catch (error) {
+				console.error('Error converting MathML to LaTeX:', error);
+			}
+
+			// Copy content
+			newMath.innerHTML = mathElement.innerHTML;
+			return newMath;
+		}
+	},
+	{
+		selector: 'math, .mwe-math-element, .mwe-math-fallback-image-inline, .mwe-math-fallback-image-display',
+		element: 'math',
+		transform: (el: Element): Element => {
+			if (!(el instanceof HTMLElement)) return el;
+
+			// Helper function to extract LaTeX from various formats
+			const extractLatex = (element: Element): string => {
+				// Check if the element is a <math> element and has an alttext attribute
+				if (element.nodeName.toLowerCase() === 'math') {
+					const alttext = element.getAttribute('alttext');
+					if (alttext) {
+						return alttext.trim();
+					}
+				}
+
+				// If not, look for a nested <math> element with alttext
+				const mathElement = element.querySelector('math[alttext]');
+				if (mathElement) {
+					const alttext = mathElement.getAttribute('alttext');
+					if (alttext) {
+						return alttext.trim();
+					}
+				}
+
+				// Try to find LaTeX in annotation
+				const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
+				if (annotation?.textContent) {
+					return annotation.textContent.trim();
+				}
+
+				// Try to convert MathML to LaTeX
+				const mathNode = element.nodeName.toLowerCase() === 'math' ? element : element.querySelector('math');
+				if (mathNode) {
+					try {
+						return MathMLToLaTeX.convert(mathNode.outerHTML);
+					} catch (error) {
+						console.error('Error converting MathML to LaTeX:', error);
+					}
+				}
+
+				// Fallback to img alt text
+				const imgNode = element.querySelector('img');
+				return imgNode?.getAttribute('alt') || '';
+			};
+
+			// Create new math element
+			const newMath = document.createElement('math');
+			
+			// Copy attributes from original element if it's a math element
+			if (el.tagName.toLowerCase() === 'math') {
+				Array.from(el.attributes).forEach(attr => {
+					if (ALLOWED_ATTRIBUTES.has(attr.name)) {
+						newMath.setAttribute(attr.name, attr.value);
+					}
+				});
+			}
+
+			// Determine if it's a block element
+			const isBlock = el.getAttribute('display') === 'block' || 
+				el.classList.contains('mwe-math-fallback-image-display') ||
+				(el.parentElement?.classList.contains('mwe-math-element') && 
+				el.parentElement.previousElementSibling?.nodeName.toLowerCase() === 'p');
+
+			if (isBlock) {
+				newMath.setAttribute('display', 'block');
+			}
+
+			// Extract and store LaTeX as alttext
+			const latex = extractLatex(el);
+			if (latex) {
+				newMath.setAttribute('alttext', latex);
+			}
+
+			// If original is a math element, copy its content
+			if (el.tagName.toLowerCase() === 'math') {
+				newMath.innerHTML = el.innerHTML;
+			} else {
+				// Otherwise, try to find and copy content from a nested math element
+				const nestedMath = el.querySelector('math');
+				if (nestedMath) {
+					newMath.innerHTML = nestedMath.innerHTML;
+				}
+			}
+
+			return newMath;
+		}
+	},
+	{
+		selector: '.math, .katex',
+		element: 'math',
+		transform: (el: Element): Element => {
+			if (!(el instanceof HTMLElement)) return el;
+
+			// Create new math element
+			const newMath = document.createElement('math');
+
+			// Try to find the original LaTeX content
+			let latex = el.getAttribute('data-latex');
+			
+			if (!latex) {
+				// Try to get from .katex-mathml
+				const mathml = el.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
+				latex = mathml?.textContent || '';
+			}
+
+			if (!latex) {
+				// Use text content as fallback
+				latex = el.textContent?.trim() || '';
+			}
+
+			// Store LaTeX as alttext
+			if (latex) {
+				newMath.setAttribute('alttext', latex);
+			}
+
+			// Set display mode
+			const isInline = el.classList.contains('math-inline');
+			if (!isInline) {
+				newMath.setAttribute('display', 'block');
+			}
+
+			// Try to get content from mathml if available
+			const mathml = el.querySelector('.katex-mathml math');
+			if (mathml) {
+				newMath.innerHTML = mathml.innerHTML;
+			}
+
+			return newMath;
+		}
+	},
 	// Code blocks
 	{
 		selector: 'pre',
