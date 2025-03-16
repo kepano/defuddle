@@ -48,5 +48,8 @@
 		"dist",
 		"README.md",
 		"LICENSE"
-	]
+	],
+	"dependencies": {
+		"mathml-to-latex": "^1.4.3"
+	}
 }
