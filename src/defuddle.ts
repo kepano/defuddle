@@ -1667,12 +1667,15 @@ export class Defuddle {
 			...Array.from(doc.getElementsByTagName('svg'))
 		].filter(element => {
 			// Skip lazy-loaded images that haven't been processed yet
+			// and math images which may be small
 			if (element instanceof HTMLImageElement) {
-				const isLazy = element.classList.contains('lazy') || 
+				const ignoredImage = element.classList.contains('lazy') || 
 					element.classList.contains('lazyload') ||
+					element.classList.contains('latex') ||
+					element.hasAttribute('decoding') ||
 					element.hasAttribute('data-src') ||
 					element.hasAttribute('data-srcset');
-				return !isLazy;
+				return !ignoredImage;
 			}
 			return true;
 		});
