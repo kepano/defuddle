@@ -621,8 +621,6 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'framespacing',
 	'linethickness',
 	'lspace',
-	'mathbackground',
-	'mathcolor',
 	'mathsize',
 	'mathvariant',
 	'maxsize',
