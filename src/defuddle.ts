@@ -29,6 +29,7 @@ interface StandardizationRule {
 const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	// Math elements
 	...mathStandardizationRules,
+
 	// Code blocks
 	{
 		selector: 'pre',
