@@ -261,6 +261,9 @@ export const mathStandardizationRules = [
 		// MathJax elements (v2 and v3)
 			'span.MathJax',
 			'mjx-container',
+			'script[type="math/tex"]',
+			'script[type="math/tex; mode=display"]',
+			'.MathJax_Preview + script[type="math/tex"]',
 			'.MathJax_Display',
 			'.MathJax_SVG',
 			'.MathJax_MathML',
@@ -285,6 +288,7 @@ export const mathStandardizationRules = [
 			'[data-math]',
 			'[data-latex]',
 			'[data-tex]',
+			'script[type^="math/"]',
 			'annotation[encoding="application/x-tex"]'
 		].join(','),
 		element: 'math',
@@ -294,7 +298,24 @@ export const mathStandardizationRules = [
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
 			const isBlock = isBlockDisplay(el);
-			return createCleanMathEl(mathData, latex, isBlock);
+			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock);
+
+			// Clean up any associated math scripts after we've extracted their content
+			if (el.parentElement) {
+				// Remove all math-related scripts and previews
+				const mathElements = el.parentElement.querySelectorAll(`
+					/* MathJax scripts and previews */
+					script[type^="math/"],
+					.MathJax_Preview,
+
+					/* External math library scripts */
+					script[type="text/javascript"][src*="mathjax"],
+					script[type="text/javascript"][src*="katex"]
+				`);
+				mathElements.forEach(el => el.remove());
+			}
+
+			return cleanMathEl;
 		}
 	}
 ];
