@@ -1648,8 +1648,6 @@ export class Defuddle {
 			processedCount++;
 		});
 
-		// Add future embed conversions (Twitter, Instagram, etc.)
-
 		this._log('Converted embedded elements:', processedCount);
 	}
 

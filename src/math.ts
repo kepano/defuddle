@@ -80,13 +80,13 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 };
 
 export const getLatexFromElement = (el: Element): string | null => {
-	// 1. Direct data-latex attribute
+	// Direct data-latex attribute
 	const dataLatex = el.getAttribute('data-latex');
 	if (dataLatex) {
 		return dataLatex;
 	}
 
-	// 2. WordPress LaTeX images
+	// WordPress LaTeX images
 	if (el instanceof HTMLImageElement && el.classList.contains('latex')) {
 		// Try alt text first as it's cleaner
 		const altLatex = el.getAttribute('alt');
@@ -106,13 +106,13 @@ export const getLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// 3. LaTeX in annotation
+	// LaTeX in annotation
 	const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
 	if (annotation?.textContent) {
 		return annotation.textContent.trim();
 	}
 
-	// 4. KaTeX specific formats
+	// KaTeX formats
 	if (el.matches('.katex')) {
 		// Try katex-mathml annotation first
 		const katexAnnotation = el.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
@@ -121,12 +121,21 @@ export const getLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// 5. MathJax specific formats
-	if (el.matches('script[type="math/tex"]')) {
+	// MathJax scripts
+	// Important: this will only work if the script has not been removed at an earlier stage
+	if (el.matches('script[type="math/tex"]') || el.matches('script[type="math/tex; mode=display"]')) {
 		return el.textContent?.trim() || null;
 	}
 
-	// 6. Try to convert MathML to LaTeX as last resort
+	// Check for sibling script element
+	if (el.parentElement) {
+		const siblingScript = el.parentElement.querySelector('script[type="math/tex"], script[type="math/tex; mode=display"]');
+		if (siblingScript) {
+			return siblingScript.textContent?.trim() || null;
+		}
+	}
+
+	// Try to convert MathML to LaTeX as last resort
 	const mathml = getMathMLFromElement(el);
 	if (mathml?.mathml) {
 		try {
@@ -137,7 +146,7 @@ export const getLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// 7. Fallback to alt text or text content
+	// Fallback to alt text or text content
 	return el.getAttribute('alt') || el.textContent?.trim() || null;
 };
 
@@ -208,6 +217,9 @@ export const createStandardMathElement = (mathData: MathData | null, latex: stri
 	});
 
 	const newMath = document.createElement('math');
+
+	// Set MathML namespace
+	newMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 
 	// Set display mode
 	newMath.setAttribute('display', isBlock ? 'block' : 'inline');
