@@ -137,7 +137,7 @@ export const getLatexFromElement = (el: Element): string | null => {
 	return el.getAttribute('alt') || el.textContent?.trim() || null;
 };
 
-export const isInlineOrBlock = (el: Element): boolean => {
+export const isBlockDisplay = (el: Element): boolean => {
 	// Check explicit display attribute
 	const displayAttr = el.getAttribute('display');
 	if (displayAttr === 'block') {
@@ -175,6 +175,15 @@ export const isInlineOrBlock = (el: Element): boolean => {
 	}
 
 	// Check MathJax v3 display attribute
+	if (el.hasAttribute('display')) {
+		return el.getAttribute('display') === 'true';
+	}
+
+	// Check MathJax script display attribute
+	if (el.matches('script[type="math/tex; mode=display"]')) {
+		return true;
+	}
+
 	if (el.hasAttribute('display')) {
 		return el.getAttribute('display') === 'true';
 	}
@@ -242,28 +251,16 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 	return cleanMathEl;
 };
 
-// Math element standardization rules
+// Find math elements
 export const mathStandardizationRules = [
 	{
-		// WordPress LaTeX images
-		selector: 'img.latex[src*="latex.php"]',
-		element: 'math',
-		transform: (el: Element): Element => {
-			if (!(el instanceof HTMLImageElement)) return el;
-
-			const latex = getLatexFromElement(el);
-			const isBlock = isInlineOrBlock(el);
-			return createCleanMathEl(null, latex, isBlock);
-		}
-	},
-	{
 		selector: [
+		// WordPress LaTeX images
+			'img.latex[src*="latex.php"]',
+
 		// MathJax elements (v2 and v3)
 			'span.MathJax',
 			'mjx-container',
-			'script[type="math/tex"]',
-			'script[type="math/tex; mode=display"]',
-			'.MathJax_Preview + script[type="math/tex"]',
 			'.MathJax_Display',
 			'.MathJax_SVG',
 			'.MathJax_MathML',
@@ -274,7 +271,6 @@ export const mathStandardizationRules = [
 			'.mwe-math-fallback-image-display',
 			'.mwe-math-mathml-inline',
 			'.mwe-math-mathml-display',
-			'math[xmlns="http://www.w3.org/1998/Math/MathML"]',
 
 		// KaTeX elements
 			'.katex',
@@ -289,7 +285,6 @@ export const mathStandardizationRules = [
 			'[data-math]',
 			'[data-latex]',
 			'[data-tex]',
-			'script[type^="math/"]',
 			'annotation[encoding="application/x-tex"]'
 		].join(','),
 		element: 'math',
@@ -298,8 +293,8 @@ export const mathStandardizationRules = [
 
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
-			const isBlock = isInlineOrBlock(el);
+			const isBlock = isBlockDisplay(el);
 			return createCleanMathEl(mathData, latex, isBlock);
 		}
 	}
-]; 
+];

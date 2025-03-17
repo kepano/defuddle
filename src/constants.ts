@@ -47,7 +47,7 @@ export const HIDDEN_ELEMENT_SELECTORS = [
 export const EXACT_SELECTORS = [
 	// scripts, styles
 	'noscript',
-	'script',
+	'script:not([type^="math/"])',
 	'style',
 
 	// ads
@@ -175,6 +175,7 @@ export const PARTIAL_SELECTORS = [
 	'-ad-',
 	'_ad_',
 	'allterms',
+	'alert-box',
 	'around-the-web',
 	'article-bottom-section',
 	'article__copy',
