@@ -592,6 +592,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'data-lang',
 	'dir',
 	'display',
+	'displaystyle',
 	'frameborder',
 	'headers',
 	'height',

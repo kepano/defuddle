@@ -7,12 +7,16 @@ export interface MathData {
 }
 
 export const getMathMLFromElement = (el: Element): MathData | null => {
+	console.log('getMathMLFromElement input:', el.outerHTML);
+
 	// 1. Direct MathML content
 	if (el.tagName.toLowerCase() === 'math') {
+		const isBlock = el.getAttribute('display') === 'block';
+		console.log('Direct MathML - isBlock:', isBlock);
 		return {
 			mathml: el.outerHTML,
 			latex: el.getAttribute('alttext') || null,
-			isBlock: el.getAttribute('display') === 'block'
+			isBlock
 		};
 	}
 
@@ -23,27 +27,46 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		tempDiv.innerHTML = mathmlStr;
 		const mathElement = tempDiv.querySelector('math');
 		if (mathElement) {
+			const isBlock = mathElement.getAttribute('display') === 'block';
+			console.log('data-mathml - isBlock:', isBlock);
 			return {
 				mathml: mathElement.outerHTML,
 				latex: mathElement.getAttribute('alttext') || null,
-				isBlock: mathElement.getAttribute('display') === 'block'
+				isBlock
 			};
 		}
 	}
 
 	// 3. MathJax assistive MathML
-	const assistiveMml = el.querySelector('.MJX_Assistive_MathML math, mjx-assistive-mml math');
-	if (assistiveMml) {
-		return {
-			mathml: assistiveMml.outerHTML,
-			latex: assistiveMml.getAttribute('alttext') || null,
-			isBlock: assistiveMml.getAttribute('display') === 'block'
-		};
+	const assistiveMmlContainer = el.querySelector('.MJX_Assistive_MathML, mjx-assistive-mml');
+	console.log('Found assistiveMmlContainer:', assistiveMmlContainer?.outerHTML);
+	
+	if (assistiveMmlContainer) {
+		const mathElement = assistiveMmlContainer.querySelector('math');
+		console.log('Found mathElement:', mathElement?.outerHTML);
+		
+		if (mathElement) {
+			// Check both the math element and container for display mode
+			const mathDisplayAttr = mathElement.getAttribute('display');
+			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');
+			console.log('Math display attribute:', mathDisplayAttr);
+			console.log('Container display attribute:', containerDisplayAttr);
+			
+			const isBlock = mathDisplayAttr === 'block' || containerDisplayAttr === 'block';
+			console.log('Final isBlock determination:', isBlock);
+			
+			return {
+				mathml: mathElement.outerHTML,
+				latex: mathElement.getAttribute('alttext') || null,
+				isBlock
+			};
+		}
 	}
 
 	// 4. KaTeX MathML
 	const katexMathml = el.querySelector('.katex-mathml math');
 	if (katexMathml) {
+		console.log('KaTeX MathML found');
 		return {
 			mathml: katexMathml.outerHTML,
 			latex: null, // We'll get LaTeX separately for KaTeX
@@ -51,6 +74,7 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		};
 	}
 
+	console.log('No MathML found');
 	return null;
 };
 
@@ -97,25 +121,32 @@ export const getLatexFromElement = (el: Element): string | null => {
 };
 
 export const isBlockMath = (el: Element): boolean => {
+	console.log('isBlockMath checking element:', el.outerHTML);
+
 	// 1. Check explicit display attribute
-	if (el.getAttribute('display') === 'block') {
+	const displayAttr = el.getAttribute('display');
+	console.log('display attribute:', displayAttr);
+	if (displayAttr === 'block') {
 		return true;
 	}
 
 	// 2. Check common class names
 	const classNames = el.className.toLowerCase();
+	console.log('class names:', classNames);
 	if (classNames.includes('display') || classNames.includes('block')) {
 		return true;
 	}
 
 	// 3. Check container classes
 	const container = el.closest('.katex-display, .MathJax_Display, [data-display="block"]');
+	console.log('container found:', container?.outerHTML);
 	if (container) {
 		return true;
 	}
 
 	// 4. Check if preceded by block element
 	const prevElement = el.previousElementSibling;
+	console.log('previous element:', prevElement?.outerHTML);
 	if (prevElement?.tagName.toLowerCase() === 'p') {
 		return true;
 	}
@@ -125,15 +156,36 @@ export const isBlockMath = (el: Element): boolean => {
 		return true;
 	}
 
-	// 6. Check if not explicitly inline
+	// 6. Check KaTeX display mode
 	if (el.matches('.katex')) {
-		return !el.classList.contains('math-inline');
+		// KaTeX elements are inline by default
+		// Only block if explicitly marked as display
+		return el.closest('.katex-display') !== null;
+	}
+
+	// 7. Check MathJax v3 display attribute
+	if (el.hasAttribute('display')) {
+		console.log('Found display attribute:', el.getAttribute('display'));
+		return el.getAttribute('display') === 'true';
+	}
+
+	// 8. Check parent container display attribute
+	const parentContainer = el.closest('[display]');
+	if (parentContainer) {
+		console.log('Parent container display:', parentContainer.getAttribute('display'));
+		return parentContainer.getAttribute('display') === 'true';
 	}
 
 	return false;
 };
 
 export const createStandardMathElement = (mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
+	console.log('createStandardMathElement inputs:', {
+		mathData,
+		latex,
+		isBlock
+	});
+
 	const newMath = document.createElement('math');
 
 	// Set display mode
@@ -154,6 +206,7 @@ export const createStandardMathElement = (mathData: MathData | null, latex: stri
 		}
 	}
 
+	console.log('Created math element:', newMath.outerHTML);
 	return newMath;
 };
 
@@ -161,16 +214,16 @@ export const createStandardMathElement = (mathData: MathData | null, latex: stri
 export const mathStandardizationRules = [
 	{
 		// MathJax elements (v2 and v3)
-		selector: `
-			span.MathJax,
-			mjx-container,
-			script[type="math/tex"],
-			script[type="math/tex; mode=display"],
-			.MathJax_Preview + script[type="math/tex"],
-			.MathJax_Display,
-			.MathJax_SVG,
-			.MathJax_MathML
-		`.replace(/\s+/g, ','),
+		selector: [
+			'span.MathJax',
+			'mjx-container',
+			'script[type="math/tex"]',
+			'script[type="math/tex; mode=display"]',
+			'.MathJax_Preview + script[type="math/tex"]',
+			'.MathJax_Display',
+			'.MathJax_SVG',
+			'.MathJax_MathML'
+		].join(','),
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
@@ -190,14 +243,14 @@ export const mathStandardizationRules = [
 	},
 	{
 		// MediaWiki math elements
-		selector: `
-			.mwe-math-element,
-			.mwe-math-fallback-image-inline,
-			.mwe-math-fallback-image-display,
-			.mwe-math-mathml-inline,
-			.mwe-math-mathml-display,
-			math[xmlns="http://www.w3.org/1998/Math/MathML"]
-		`.replace(/\s+/g, ','),
+		selector: [
+			'.mwe-math-element',
+			'.mwe-math-fallback-image-inline',
+			'.mwe-math-fallback-image-display',
+			'.mwe-math-mathml-inline',
+			'.mwe-math-mathml-display',
+			'math[xmlns="http://www.w3.org/1998/Math/MathML"]'
+		].join(','),
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
@@ -217,14 +270,14 @@ export const mathStandardizationRules = [
 	},
 	{
 		// KaTeX elements
-		selector: `
-			.katex,
-			.katex-display,
-			.katex-mathml,
-			.katex-html,
-			[data-katex],
-			script[type="math/katex"]
-		`.replace(/\s+/g, ','),
+		selector: [
+			'.katex',
+			'.katex-display',
+			'.katex-mathml',
+			'.katex-html',
+			'[data-katex]',
+			'script[type="math/katex"]'
+		].join(','),
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
@@ -244,14 +297,14 @@ export const mathStandardizationRules = [
 	},
 	{
 		// Generic math elements and other formats
-		selector: `
-			math,
-			[data-math],
-			[data-latex],
-			[data-tex],
-			script[type^="math/"],
-			annotation[encoding="application/x-tex"]
-		`.replace(/\s+/g, ','),
+		selector: [
+			'math',
+			'[data-math]',
+			'[data-latex]',
+			'[data-tex]',
+			'script[type^="math/"]',
+			'annotation[encoding="application/x-tex"]'
+		].join(','),
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
