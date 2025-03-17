@@ -143,7 +143,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 		}
 	},
 	{
-		selector: 'math, .mwe-math-element, .mwe-math-fallback-image-inline, .mwe-math-fallback-image-display',
+		selector: '.mwe-math-element, .mwe-math-fallback-image-inline, .mwe-math-fallback-image-display',
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
@@ -230,7 +230,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 		}
 	},
 	{
-		selector: '.math, .katex',
+		selector: '.katex',
 		element: 'math',
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;

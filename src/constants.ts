@@ -34,8 +34,8 @@ export const INLINE_ELEMENTS = new Set([
 // Hidden elements that should be removed
 export const HIDDEN_ELEMENT_SELECTORS = [
 	'[hidden]',
-	'[aria-hidden="true"]',
-//	'[style*="display: none"]', causes problems for math formulas
+//	'[aria-hidden="true"]', needed for math formulas
+//	'[style*="display: none"]', needed for for math formulas
 //	'[style*="display:none"]',
 	'[style*="visibility: hidden"]',
 	'[style*="visibility:hidden"]',
