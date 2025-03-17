@@ -1,4 +1,5 @@
 import { MathMLToLaTeX } from 'mathml-to-latex';
+import * as temml from 'temml';
 
 export interface MathData {
 	mathml: string;
@@ -85,13 +86,33 @@ export const getLatexFromElement = (el: Element): string | null => {
 		return dataLatex;
 	}
 
-	// 2. LaTeX in annotation
+	// 2. WordPress LaTeX images
+	if (el instanceof HTMLImageElement && el.classList.contains('latex')) {
+		// Try alt text first as it's cleaner
+		const altLatex = el.getAttribute('alt');
+		if (altLatex) {
+			return altLatex;
+		}
+		
+		// Fallback to extracting from URL
+		const src = el.getAttribute('src');
+		if (src) {
+			const match = src.match(/latex\.php\?latex=([^&]+)/);
+			if (match) {
+				return decodeURIComponent(match[1])
+					.replace(/\+/g, ' ') // Replace + with spaces
+					.replace(/%5C/g, '\\'); // Fix escaped backslashes
+			}
+		}
+	}
+
+	// 3. LaTeX in annotation
 	const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
 	if (annotation?.textContent) {
 		return annotation.textContent.trim();
 	}
 
-	// 3. KaTeX specific formats
+	// 4. KaTeX specific formats
 	if (el.matches('.katex')) {
 		// Try katex-mathml annotation first
 		const katexAnnotation = el.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
@@ -100,12 +121,12 @@ export const getLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// 4. MathJax specific formats
+	// 5. MathJax specific formats
 	if (el.matches('script[type="math/tex"]')) {
 		return el.textContent?.trim() || null;
 	}
 
-	// 5. Try to convert MathML to LaTeX as last resort
+	// 6. Try to convert MathML to LaTeX as last resort
 	const mathml = getMathMLFromElement(el);
 	if (mathml?.mathml) {
 		try {
@@ -116,7 +137,7 @@ export const getLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// 6. Fallback to alt text or text content
+	// 7. Fallback to alt text or text content
 	return el.getAttribute('alt') || el.textContent?.trim() || null;
 };
 
@@ -196,13 +217,50 @@ export const createStandardMathElement = (mathData: MathData | null, latex: stri
 		newMath.setAttribute('data-latex', latex);
 	}
 
-	// Copy MathML content if available
+	// First try to use existing MathML content
 	if (mathData?.mathml) {
 		const tempDiv = document.createElement('div');
 		tempDiv.innerHTML = mathData.mathml;
 		const mathContent = tempDiv.querySelector('math');
 		if (mathContent) {
 			newMath.innerHTML = mathContent.innerHTML;
+		}
+	}
+	// If no MathML content but we have LaTeX, convert using Temml
+	else if (latex) {
+		try {
+			console.log('Converting LaTeX to MathML:', latex);
+			
+			// Convert LaTeX to MathML using Temml
+			const mathml = temml.renderToString(latex, {
+				displayMode: isBlock,
+				throwOnError: false
+			});
+			console.log('Temml conversion result:', mathml);
+			
+			if (typeof mathml === 'string') {
+				// Extract the inner content of the math element
+				const tempDiv = document.createElement('div');
+				tempDiv.innerHTML = mathml;
+				const mathContent = tempDiv.querySelector('math');
+				if (mathContent) {
+					// Copy attributes except display mode
+					Array.from(mathContent.attributes).forEach(attr => {
+						if (attr.name !== 'display') {
+							newMath.setAttribute(attr.name, attr.value);
+						}
+					});
+					newMath.innerHTML = mathContent.innerHTML;
+				} else {
+					// Use the entire output as fallback
+					newMath.innerHTML = mathml;
+				}
+			} else {
+				newMath.textContent = latex;
+			}
+		} catch (error) {
+			console.error('Error converting LaTeX to MathML:', error);
+			newMath.textContent = latex;
 		}
 	}
 
@@ -212,6 +270,23 @@ export const createStandardMathElement = (mathData: MathData | null, latex: stri
 
 // Math element standardization rules
 export const mathStandardizationRules = [
+	{
+		// WordPress LaTeX images
+		selector: 'img.latex[src*="latex.php"]',
+		element: 'math',
+		transform: (el: Element): Element => {
+			if (!(el instanceof HTMLImageElement)) return el;
+
+			// Get LaTeX formula
+			const latex = getLatexFromElement(el);
+			
+			// WordPress LaTeX images are inline by default
+			const isBlock = isBlockMath(el);
+			
+			// Create standardized math element without MathML
+			return createStandardMathElement(null, latex, isBlock);
+		}
+	},
 	{
 		// MathJax elements (v2 and v3)
 		selector: [

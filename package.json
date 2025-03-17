@@ -50,6 +50,7 @@
 		"LICENSE"
 	],
 	"dependencies": {
-		"mathml-to-latex": "^1.4.3"
+		"mathml-to-latex": "^1.4.3",
+		"temml": "^0.11.2"
 	}
 }
