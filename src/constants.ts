@@ -34,8 +34,8 @@ export const INLINE_ELEMENTS = new Set([
 // Hidden elements that should be removed
 export const HIDDEN_ELEMENT_SELECTORS = [
 	'[hidden]',
-	'[aria-hidden="true"]',
-//	'[style*="display: none"]', causes problems for math formulas
+//	'[aria-hidden="true"]', needed for math formulas
+//	'[style*="display: none"]', needed for for math formulas
 //	'[style*="display:none"]',
 	'[style*="visibility: hidden"]',
 	'[style*="visibility:hidden"]',
@@ -47,7 +47,7 @@ export const HIDDEN_ELEMENT_SELECTORS = [
 export const EXACT_SELECTORS = [
 	// scripts, styles
 	'noscript',
-	'script',
+	'script:not([type^="math/"])',
 	'style',
 
 	// ads
@@ -175,6 +175,7 @@ export const PARTIAL_SELECTORS = [
 	'-ad-',
 	'_ad_',
 	'allterms',
+	'alert-box',
 	'around-the-web',
 	'article-bottom-section',
 	'article-bottom',
@@ -591,10 +592,12 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'checked',
 	'colspan',
 	'controls',
+	'data-latex',
 	'data-src',
 	'data-srcset',
 	'data-lang',
 	'dir',
+	'display',
 	'frameborder',
 	'headers',
 	'height',
@@ -606,7 +609,41 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'srcset',
 	'title',
 	'type',
-	'width'
+	'width',
+
+	// MathML attributes
+	'accent',
+	'accentunder',
+	'align',
+	'columnalign',
+	'columnlines',
+	'columnspacing',
+	'columnspan',
+	'data-mjx-texclass',
+	'depth',
+	'displaystyle',
+	'fence',
+	'frame',
+	'framespacing',
+	'linethickness',
+	'lspace',
+	'mathsize',
+	'mathvariant',
+	'maxsize',
+	'minsize',
+	'movablelimits',
+	'notation',
+	'rowalign',
+	'rowlines',
+	'rowspacing',
+	'rowspan',
+	'rspace',
+	'scriptlevel',
+	'separator',
+	'stretchy',
+	'symmetric',
+	'voffset',
+	'xmlns'
 ]);
 export const ALLOWED_ATTRIBUTES_DEBUG = new Set([
 	'class',

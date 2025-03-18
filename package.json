@@ -34,7 +34,11 @@
 	"bugs": {
 		"url": "https://github.com/kepano/defuddle/issues"
 	},
-	"homepage": "https://github.com/kepano/defuddle#readme",
+	"homepage": "https://github.com/kepano/defuddle",
+	"dependencies": {
+		"mathml-to-latex": "^1.4.3",
+		"temml": "^0.11.2"
+	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
 		"concurrently": "^8.2.2",

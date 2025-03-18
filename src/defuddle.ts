@@ -16,6 +16,7 @@ import {
 	ENTRY_POINT_ELEMENTS,
 	ALLOWED_EMPTY_ELEMENTS
 } from './constants';
+import { mathStandardizationRules } from './math';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name
@@ -26,6 +27,9 @@ interface StandardizationRule {
 }
 
 const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
+	// Math elements
+	...mathStandardizationRules,
+
 	// Code blocks
 	{
 		selector: 'pre',
@@ -1645,8 +1649,6 @@ export class Defuddle {
 			processedCount++;
 		});
 
-		// Add future embed conversions (Twitter, Instagram, etc.)
-
 		this._log('Converted embedded elements:', processedCount);
 	}
 
@@ -1664,12 +1666,15 @@ export class Defuddle {
 			...Array.from(doc.getElementsByTagName('svg'))
 		].filter(element => {
 			// Skip lazy-loaded images that haven't been processed yet
+			// and math images which may be small
 			if (element instanceof HTMLImageElement) {
-				const isLazy = element.classList.contains('lazy') || 
+				const ignoredImage = element.classList.contains('lazy') || 
 					element.classList.contains('lazyload') ||
+					element.classList.contains('latex') ||
+					element.hasAttribute('decoding') ||
 					element.hasAttribute('data-src') ||
 					element.hasAttribute('data-srcset');
-				return !isLazy;
+				return !ignoredImage;
 			}
 			return true;
 		});
