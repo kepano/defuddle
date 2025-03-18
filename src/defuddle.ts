@@ -1284,17 +1284,6 @@ export class Defuddle {
 				if (tag === 'pre' || tag === 'code') {
 					return;
 				}
-
-				// Special handling for empty elements with only special characters
-				if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i' || tag === 'span') {
-					const content = node.textContent || '';
-					// If element only contains special characters, remove it
-					if (content.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF\xA0\s]*$/)) {
-						node.remove();
-						removedCount++;
-						return;
-					}
-				}
 			}
 
 			// Process children first (depth-first)
