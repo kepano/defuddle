@@ -1284,6 +1284,17 @@ export class Defuddle {
 				if (tag === 'pre' || tag === 'code') {
 					return;
 				}
+
+				// Special handling for empty elements with only special characters
+				if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i' || tag === 'span') {
+					const content = node.textContent || '';
+					// If element only contains special characters, remove it
+					if (content.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF\xA0\s]*$/)) {
+						node.remove();
+						removedCount++;
+						return;
+					}
+				}
 			}
 
 			// Process children first (depth-first)
@@ -1293,8 +1304,8 @@ export class Defuddle {
 			// Then handle this node
 			if (node.nodeType === Node.TEXT_NODE) {
 				const text = node.textContent || '';
-				// If it's completely empty or just newlines/tabs, remove it
-				if (!text || text.match(/^[\n\r\t]*$/)) {
+				// If it's completely empty or just special characters/whitespace, remove it
+				if (!text || text.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF\xA0\s]*$/)) {
 					node.parentNode?.removeChild(node);
 					removedCount++;
 				} else {
@@ -1306,7 +1317,10 @@ export class Defuddle {
 						.replace(/[ \t]*\n[ \t]*/g, '\n') // Remove spaces around newlines
 						.replace(/[ \t]{3,}/g, ' ') // 3+ spaces -> 1 space
 						.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
-						.replace(/\s+([,.!?:;])/g, '$1'); // Remove spaces before punctuation
+						.replace(/\s+([,.!?:;])/g, '$1') // Remove spaces before punctuation
+						// Clean up zero-width characters and multiple non-breaking spaces
+						.replace(/[\u200C\u200B\u200D\u200E\u200F\uFEFF]+/g, '')
+						.replace(/(?:\xA0){2,}/g, '\xA0'); // Multiple &nbsp; -> single &nbsp;
 
 					if (newText !== text) {
 						node.textContent = newText;
@@ -1337,8 +1351,8 @@ export class Defuddle {
 			
 			// Only remove empty text nodes at the start and end if they contain just newlines/tabs
 			// For block elements, also remove spaces
-			const startPattern = isBlockElement ? /^[\n\r\t ]*$/ : /^[\n\r\t]*$/;
-			const endPattern = isBlockElement ? /^[\n\r\t ]*$/ : /^[\n\r\t]*$/;
+			const startPattern = isBlockElement ? /^[\n\r\t \u200C\u200B\u200D\u200E\u200F\uFEFF\xA0]*$/ : /^[\n\r\t\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/;
+			const endPattern = isBlockElement ? /^[\n\r\t \u200C\u200B\u200D\u200E\u200F\uFEFF\xA0]*$/ : /^[\n\r\t\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/;
 			
 			while (node.firstChild && 
 				   node.firstChild.nodeType === Node.TEXT_NODE && 
@@ -1364,7 +1378,7 @@ export class Defuddle {
 					const text = prevSibling.textContent || '';
 					// Don't add space if next content starts with punctuation
 					const nextContent = node.textContent || '';
-					if (!text.endsWith(' ') && !text.endsWith('\n') && 
+					if (!text.endsWith(' ') && !text.endsWith('\n') && !text.endsWith('\xA0') && 
 						!nextContent.match(/^[,.!?:;]/)) {
 						prevSibling.textContent = text + ' ';
 					}
@@ -1374,7 +1388,7 @@ export class Defuddle {
 				if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
 					const text = nextSibling.textContent || '';
 					// Don't add space if text starts with punctuation
-					if (!text.startsWith(' ') && !text.startsWith('\n') && 
+					if (!text.startsWith(' ') && !text.startsWith('\n') && !text.startsWith('\xA0') && 
 						!text.match(/^[,.!?:;]/)) {
 						nextSibling.textContent = ' ' + text;
 					}
