@@ -1065,6 +1065,9 @@ export class Defuddle {
 
 			// Final pass of div flattening after cleanup operations
 			this.flattenDivs(element);
+
+			// Clean up empty lines
+			this.removeEmptyLines(element);
 		} else {
 			// In debug mode, still do basic cleanup but preserve structure
 			this.stripUnwantedAttributes(element);
@@ -1266,6 +1269,127 @@ export class Defuddle {
 		this._log('Removed empty elements:', {
 			count: removedCount,
 			iterations
+		});
+	}
+
+	private removeEmptyLines(element: Element) {
+		let removedCount = 0;
+		const startTime = performance.now();
+
+		// First pass: Remove empty text nodes
+		const removeEmptyTextNodes = (node: Node) => {
+			// Skip if inside pre or code
+			if (node instanceof Element) {
+				const tag = node.tagName.toLowerCase();
+				if (tag === 'pre' || tag === 'code') {
+					return;
+				}
+			}
+
+			// Process children first (depth-first)
+			const children = Array.from(node.childNodes);
+			children.forEach(removeEmptyTextNodes);
+
+			// Then handle this node
+			if (node.nodeType === Node.TEXT_NODE) {
+				const text = node.textContent || '';
+				// If it's completely empty or just newlines/tabs, remove it
+				if (!text || text.match(/^[\n\r\t]*$/)) {
+					node.parentNode?.removeChild(node);
+					removedCount++;
+				} else {
+					// Clean up the text content while preserving important spaces
+					const newText = text
+						.replace(/\n{3,}/g, '\n\n') // More than 2 newlines -> 2 newlines
+						.replace(/^[\n\r\t]+/, '') // Remove leading newlines/tabs (preserve spaces)
+						.replace(/[\n\r\t]+$/, '') // Remove trailing newlines/tabs (preserve spaces)
+						.replace(/[ \t]*\n[ \t]*/g, '\n') // Remove spaces around newlines
+						.replace(/[ \t]{3,}/g, ' ') // 3+ spaces -> 1 space
+						.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
+						.replace(/\s+([,.!?:;])/g, '$1'); // Remove spaces before punctuation
+
+					if (newText !== text) {
+						node.textContent = newText;
+						removedCount += text.length - newText.length;
+					}
+				}
+			}
+		};
+
+		// Second pass: Clean up empty elements and normalize spacing
+		const cleanupEmptyElements = (node: Node) => {
+			if (!(node instanceof Element)) return;
+
+			// Skip pre and code elements
+			const tag = node.tagName.toLowerCase();
+			if (tag === 'pre' || tag === 'code') {
+				return;
+			}
+
+			// Process children first (depth-first)
+			Array.from(node.children).forEach(cleanupEmptyElements);
+
+			// Then normalize this element's whitespace
+			node.normalize(); // Combine adjacent text nodes
+
+			// Special handling for block elements
+			const isBlockElement = getComputedStyle(node).display === 'block';
+			
+			// Only remove empty text nodes at the start and end if they contain just newlines/tabs
+			// For block elements, also remove spaces
+			const startPattern = isBlockElement ? /^[\n\r\t ]*$/ : /^[\n\r\t]*$/;
+			const endPattern = isBlockElement ? /^[\n\r\t ]*$/ : /^[\n\r\t]*$/;
+			
+			while (node.firstChild && 
+				   node.firstChild.nodeType === Node.TEXT_NODE && 
+				   (node.firstChild.textContent || '').match(startPattern)) {
+				node.removeChild(node.firstChild);
+				removedCount++;
+			}
+			
+			while (node.lastChild && 
+				   node.lastChild.nodeType === Node.TEXT_NODE && 
+				   (node.lastChild.textContent || '').match(endPattern)) {
+				node.removeChild(node.lastChild);
+				removedCount++;
+			}
+
+			// Ensure there's a space between inline elements if needed
+			if (!isBlockElement) {
+				const prevSibling = node.previousSibling;
+				const nextSibling = node.nextSibling;
+
+				// Add space before if needed
+				if (prevSibling && prevSibling.nodeType === Node.TEXT_NODE) {
+					const text = prevSibling.textContent || '';
+					// Don't add space if next content starts with punctuation
+					const nextContent = node.textContent || '';
+					if (!text.endsWith(' ') && !text.endsWith('\n') && 
+						!nextContent.match(/^[,.!?:;]/)) {
+						prevSibling.textContent = text + ' ';
+					}
+				}
+
+				// Add space after if needed
+				if (nextSibling && nextSibling.nodeType === Node.TEXT_NODE) {
+					const text = nextSibling.textContent || '';
+					// Don't add space if text starts with punctuation
+					if (!text.startsWith(' ') && !text.startsWith('\n') && 
+						!text.match(/^[,.!?:;]/)) {
+						nextSibling.textContent = ' ' + text;
+					}
+				}
+			}
+		};
+
+		// Run both passes
+		removeEmptyTextNodes(element);
+		cleanupEmptyElements(element);
+
+		const endTime = performance.now();
+		this._log('Removed empty lines:', {
+			charactersRemoved: removedCount,
+			processingTime: `${(endTime - startTime).toFixed(2)}ms`
 		});
 	}
 
