@@ -16,7 +16,7 @@ import {
 	ENTRY_POINT_ELEMENTS,
 	ALLOWED_EMPTY_ELEMENTS
 } from './constants';
-import { mathStandardizationRules } from './math';
+import { mathStandardizationRules } from './math.core';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name

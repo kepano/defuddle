@@ -1,6 +1,3 @@
-import { MathMLToLaTeX } from 'mathml-to-latex';
-import * as temml from 'temml';
-
 export interface MathData {
 	mathml: string;
 	latex: string | null;
@@ -43,7 +40,7 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		if (mathElement) {
 			// Check both the math element and container for display mode
 			const mathDisplayAttr = mathElement.getAttribute('display');
-			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');			
+			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');		 
 			const isBlock = mathDisplayAttr === 'block' || containerDisplayAttr === 'block';
 			
 			return {
@@ -63,11 +60,11 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 			isBlock: false // We'll determine this from container
 		};
 	}
-;
+
 	return null;
 };
 
-export const getLatexFromElement = (el: Element): string | null => {
+export const getBasicLatexFromElement = (el: Element): string | null => {
 	// Direct data-latex attribute
 	const dataLatex = el.getAttribute('data-latex');
 	if (dataLatex) {
@@ -109,7 +106,6 @@ export const getLatexFromElement = (el: Element): string | null => {
 	}
 
 	// MathJax scripts
-	// Important: this will only work if the script has not been removed at an earlier stage
 	if (el.matches('script[type="math/tex"]') || el.matches('script[type="math/tex; mode=display"]')) {
 		return el.textContent?.trim() || null;
 	}
@@ -119,17 +115,6 @@ export const getLatexFromElement = (el: Element): string | null => {
 		const siblingScript = el.parentElement.querySelector('script[type="math/tex"], script[type="math/tex; mode=display"]');
 		if (siblingScript) {
 			return siblingScript.textContent?.trim() || null;
-		}
-	}
-
-	// Try to convert MathML to LaTeX as last resort
-	const mathml = getMathMLFromElement(el);
-	if (mathml?.mathml) {
-		try {
-			return MathMLToLaTeX.convert(mathml.mathml);
-		} catch (error) {
-			console.error('Error converting MathML to LaTeX:', error);
-			return null;
 		}
 	}
 
@@ -197,125 +182,41 @@ export const isBlockDisplay = (el: Element): boolean => {
 	return false;
 };
 
-export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
-	const cleanMathEl = document.createElement('math');
+// Shared selector for math elements
+export const mathSelectors = [
+	// WordPress LaTeX images
+	'img.latex[src*="latex.php"]',
 
-	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
-	cleanMathEl.setAttribute('display', isBlock ? 'block' : 'inline');
-	cleanMathEl.setAttribute('data-latex', latex || '');
+	// MathJax elements (v2 and v3)
+	'span.MathJax',
+	'mjx-container',
+	'script[type="math/tex"]',
+	'script[type="math/tex; mode=display"]',
+	'.MathJax_Preview + script[type="math/tex"]',
+	'.MathJax_Display',
+	'.MathJax_SVG',
+	'.MathJax_MathML',
 
-	// First try to use existing MathML content
-	if (mathData?.mathml) {
-		const tempDiv = document.createElement('div');
-		tempDiv.innerHTML = mathData.mathml;
-		const mathContent = tempDiv.querySelector('math');
-		if (mathContent) {
-			cleanMathEl.innerHTML = mathContent.innerHTML;
-		}
-	}
-	// If no MathML content but we have LaTeX, convert using Temml
-	else if (latex) {
-		try {
-			// Convert LaTeX to MathML using Temml
-			const mathml = temml.renderToString(latex, {
-				displayMode: isBlock,
-				throwOnError: false
-			});
-			
-			if (typeof mathml === 'string') {
-				// Extract the inner content of the math element
-				const tempDiv = document.createElement('div');
-				tempDiv.innerHTML = mathml;
-				const mathContent = tempDiv.querySelector('math');
-				if (mathContent) {
-					// Copy attributes except display mode
-					Array.from(mathContent.attributes).forEach(attr => {
-						if (attr.name !== 'display') {
-							cleanMathEl.setAttribute(attr.name, attr.value);
-						}
-					});
-					cleanMathEl.innerHTML = mathContent.innerHTML;
-				} else {
-					// Use the entire output as fallback
-					cleanMathEl.innerHTML = mathml;
-				}
-			} else {
-				cleanMathEl.textContent = latex;
-			}
-		} catch (error) {
-			console.error('Error converting LaTeX to MathML:', error);
-			cleanMathEl.textContent = latex;
-		}
-	}
+	// MediaWiki math elements
+	'.mwe-math-element',
+	'.mwe-math-fallback-image-inline',
+	'.mwe-math-fallback-image-display',
+	'.mwe-math-mathml-inline',
+	'.mwe-math-mathml-display',
 
-	return cleanMathEl;
-};
+	// KaTeX elements
+	'.katex',
+	'.katex-display',
+	'.katex-mathml',
+	'.katex-html',
+	'[data-katex]',
+	'script[type="math/katex"]',
 
-// Find math elements
-export const mathStandardizationRules = [
-	{
-		selector: [
-		// WordPress LaTeX images
-			'img.latex[src*="latex.php"]',
-
-		// MathJax elements (v2 and v3)
-			'span.MathJax',
-			'mjx-container',
-			'script[type="math/tex"]',
-			'script[type="math/tex; mode=display"]',
-			'.MathJax_Preview + script[type="math/tex"]',
-			'.MathJax_Display',
-			'.MathJax_SVG',
-			'.MathJax_MathML',
-
-		// MediaWiki math elements
-			'.mwe-math-element',
-			'.mwe-math-fallback-image-inline',
-			'.mwe-math-fallback-image-display',
-			'.mwe-math-mathml-inline',
-			'.mwe-math-mathml-display',
-
-		// KaTeX elements
-			'.katex',
-			'.katex-display',
-			'.katex-mathml',
-			'.katex-html',
-			'[data-katex]',
-			'script[type="math/katex"]',
-
-		// Generic math elements and other formats
-			'math',
-			'[data-math]',
-			'[data-latex]',
-			'[data-tex]',
-			'script[type^="math/"]',
-			'annotation[encoding="application/x-tex"]'
-		].join(','),
-		element: 'math',
-		transform: (el: Element): Element => {
-			if (!(el instanceof HTMLElement)) return el;
-
-			const mathData = getMathMLFromElement(el);
-			const latex = getLatexFromElement(el);
-			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock);
-
-			// Clean up any associated math scripts after we've extracted their content
-			if (el.parentElement) {
-				// Remove all math-related scripts and previews
-				const mathElements = el.parentElement.querySelectorAll(`
-					/* MathJax scripts and previews */
-					script[type^="math/"],
-					.MathJax_Preview,
-
-					/* External math library scripts */
-					script[type="text/javascript"][src*="mathjax"],
-					script[type="text/javascript"][src*="katex"]
-				`);
-				mathElements.forEach(el => el.remove());
-			}
-
-			return cleanMathEl;
-		}
-	}
-];
+	// Generic math elements and other formats
+	'math',
+	'[data-math]',
+	'[data-latex]',
+	'[data-tex]',
+	'script[type^="math/"]',
+	'annotation[encoding="application/x-tex"]'
+].join(','); 

@@ -4,19 +4,10 @@ const TerserPlugin = require('terser-webpack-plugin');
 module.exports = (env, argv) => {
   const isDevelopment = argv.mode === 'development';
 
-  return {
+  // Common configuration for both bundles
+  const commonConfig = {
     mode: argv.mode || 'production',
-    entry: './src/index.ts',
     devtool: isDevelopment ? 'inline-source-map' : false,
-    output: {
-      path: path.resolve(__dirname, 'dist'),
-      filename: 'index.js',
-      library: {
-        name: 'Defuddle',
-        type: 'umd'
-      },
-      globalObject: 'typeof self !== "undefined" ? self : this'
-    },
     resolve: {
       extensions: ['.ts', '.js']
     },
@@ -52,4 +43,50 @@ module.exports = (env, argv) => {
       ]
     }
   };
+
+  // Core bundle configuration (without math conversion dependencies)
+  const coreConfig = {
+    ...commonConfig,
+    entry: './src/index.ts',
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'index.js',
+      library: {
+        name: 'Defuddle',
+        type: 'umd'
+      },
+      globalObject: 'typeof self !== "undefined" ? self : this'
+    },
+    resolve: {
+      ...commonConfig.resolve,
+      alias: {
+        // Alias the math module to use core version
+        './math': path.resolve(__dirname, 'src/math.core.ts')
+      }
+    }
+  };
+
+  // Full bundle configuration (with all dependencies)
+  const fullConfig = {
+    ...commonConfig,
+    entry: './src/index.ts',
+    output: {
+      path: path.resolve(__dirname, 'dist'),
+      filename: 'index.full.js',
+      library: {
+        name: 'Defuddle',
+        type: 'umd'
+      },
+      globalObject: 'typeof self !== "undefined" ? self : this'
+    },
+    resolve: {
+      ...commonConfig.resolve,
+      alias: {
+        // Alias the math module to use full version
+        './math': path.resolve(__dirname, 'src/math.full.ts')
+      }
+    }
+  };
+
+  return [coreConfig, fullConfig];
 }; 

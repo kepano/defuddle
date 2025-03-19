@@ -34,6 +34,19 @@ console.log(article.content);  // HTML string of the main content
 console.log(article.title);    // Title of the article
 ```
 
+Defuddle comes in two bundles:
+
+1. **Core bundle** (~50kB)
+   ```js
+   import { Defuddle } from 'defuddle';
+   ```
+2. **Full bundle** (~460kB) includes advanced math conversion capabilities
+   ```js
+   import { Defuddle } from 'defuddle/full';
+   ```
+
+The core bundle is recommended for most use cases. It still handles math content by preserving the original MathML or LaTeX, but doesn't include conversion between formats. The full bundle adds the ability to convert between MathML and LaTeX formats using `mathml-to-latex` and `temml` libraries.
+
 ### Debug mode
 
 You can enable debug mode by passing an options object when creating a new Defuddle instance:
