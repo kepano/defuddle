@@ -40,7 +40,7 @@ Defuddle comes in two bundles:
    ```js
    import { Defuddle } from 'defuddle';
    ```
-2. **Full bundle** (~460kB) includes advanced math conversion capabilities
+2. **Full bundle** (~434kB) includes advanced math conversion capabilities
    ```js
    import { Defuddle } from 'defuddle/full';
    ```

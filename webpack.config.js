@@ -44,9 +44,10 @@ module.exports = (env, argv) => {
     }
   };
 
-  // Core bundle configuration (without math conversion dependencies)
+  // Core bundle configuration
   const coreConfig = {
     ...commonConfig,
+    name: 'core',
     entry: './src/index.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
@@ -66,10 +67,11 @@ module.exports = (env, argv) => {
     }
   };
 
-  // Full bundle configuration (with all dependencies)
+  // Full bundle configuration
   const fullConfig = {
     ...commonConfig,
-    entry: './src/index.ts',
+    name: 'full',
+    entry: './src/index.full.ts',
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: 'index.full.js',
