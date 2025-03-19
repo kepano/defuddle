@@ -86,6 +86,7 @@ export const EXACT_SELECTORS = [
 	'.Author',
 	'.contributor',
 	'.date',
+	'[data-date]',
 	'.meta',
 	'.tags',
 	'.toc',
