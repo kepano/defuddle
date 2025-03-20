@@ -1095,7 +1095,7 @@ export class Defuddle {
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
 
-		// Skip div flattening in debug mode
+		// If not debug mode, do the full cleanup
 		if (!this.debug) {
 			// First pass of div flattening
 			this.flattenDivs(element);
@@ -1898,7 +1898,8 @@ export class Defuddle {
 					element.classList.contains('latex') ||
 					element.hasAttribute('decoding') ||
 					element.hasAttribute('data-src') ||
-					element.hasAttribute('data-srcset');
+					element.hasAttribute('data-srcset') ||
+					element.hasAttribute('loading')
 				return !ignoredImage;
 			}
 			return true;

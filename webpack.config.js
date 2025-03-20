@@ -7,7 +7,7 @@ module.exports = (env, argv) => {
   // Common configuration for both bundles
   const commonConfig = {
     mode: argv.mode || 'production',
-    devtool: isDevelopment ? 'inline-source-map' : false,
+    devtool: isDevelopment ? 'source-map' : false,
     resolve: {
       extensions: ['.ts', '.js']
     },

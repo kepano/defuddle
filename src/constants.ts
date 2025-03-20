@@ -68,7 +68,7 @@ export const EXACT_SELECTORS = [
 
 	// header, nav
 	'header',
-	'.header',
+//	'.header',
 	'#header',
 	'nav',
 	'.navigation',
@@ -225,7 +225,7 @@ export const PARTIAL_SELECTORS = [
 	'author-mini-bio',
 	'back-to-top',
 	'backlinks-section',
-	'banner',
+//	'banner',
 	'bio-block',
 	'blog-pager',
 	'bookmark-',
