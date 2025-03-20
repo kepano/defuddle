@@ -87,7 +87,8 @@ The `parse()` method returns an object with the following properties:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `content` | string | HTML string of the extracted main content |
+| `content` | string | HTML string of the extracted main content. If multiple article sections are found, they will be wrapped in a div with class `defuddle-content` |
+| `sections` | string[] | Array of HTML strings for each article section found |
 | `title` | string | Title of the article |
 | `description` | string | Description or summary of the article |
 | `domain` | string | Domain name of the website |

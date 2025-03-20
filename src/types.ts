@@ -16,6 +16,7 @@ export interface DefuddleMetadata {
 // Define the DefuddleResponse interface
 export interface DefuddleResponse extends DefuddleMetadata {
 	content: string;
+	sections: string[];
 }
 
 // Define the DefuddleOptions interface

@@ -517,12 +517,13 @@ export class Defuddle {
 			// Apply mobile style to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
-			// Find main content
-			const mainContent = this.findMainContent(clone);
-			if (!mainContent) {
+			// Find main content elements
+			const mainContentElements = this.findMainContent(clone);
+			if (mainContentElements.length === 0) {
 				const endTime = performance.now();
 				return {
 					content: this.doc.body.innerHTML,
+					sections: [],
 					...metadata,
 					wordCount: this.countWords(this.doc.body.innerHTML),
 					parseTime: Math.round(endTime - startTime)
@@ -536,16 +537,33 @@ export class Defuddle {
 			this.removeHiddenElements(clone);
 			this.removeClutter(clone);
 
-			// Clean up the main content
-			this.cleanContent(mainContent, metadata);
+			// Clean up each content element
+			mainContentElements.forEach(element => {
+				this.cleanContent(element, metadata);
+			});
 
-			const content = mainContent ? mainContent.outerHTML : this.doc.body.innerHTML;
+			// Get the HTML for each section
+			const sections = mainContentElements.map(element => element.outerHTML);
+
+			// Create a container for combined content if there are multiple sections
+			let content: string;
+			if (sections.length > 1) {
+				const container = document.createElement('div');
+				container.className = 'defuddle-content';
+				container.innerHTML = sections.join('\n');
+				content = container.outerHTML;
+			} else {
+				content = sections[0];
+			}
+
 			const endTime = performance.now();
+			const totalWordCount = sections.reduce((total, section) => total + this.countWords(section), 0);
 
 			return {
 				content,
+				sections,
 				...metadata,
-				wordCount: this.countWords(content),
+				wordCount: totalWordCount,
 				parseTime: Math.round(endTime - startTime)
 			};
 		} catch (error) {
@@ -553,6 +571,7 @@ export class Defuddle {
 			const endTime = performance.now();
 			return {
 				content: this.doc.body.innerHTML,
+				sections: [],
 				...metadata,
 				wordCount: this.countWords(this.doc.body.innerHTML),
 				parseTime: Math.round(endTime - startTime)
@@ -2015,42 +2034,31 @@ export class Defuddle {
 		return null;
 	}
 
-	private findMainContent(doc: Document): Element | null {
-
+	private findMainContent(doc: Document): Element[] {
 		// Find all potential content containers
-		const candidates: { element: Element; score: number }[] = [];
+		const candidates: Element[] = [];
 
-		ENTRY_POINT_ELEMENTS.forEach((selector, index) => {
+		ENTRY_POINT_ELEMENTS.forEach((selector) => {
 			const elements = doc.querySelectorAll(selector);
 			elements.forEach(element => {
-				// Base score from selector priority (earlier = higher)
-				let score = (ENTRY_POINT_ELEMENTS.length - index) * 10;
-				
-				// Add score based on content analysis
-				score += this.scoreElement(element);
-				
-				candidates.push({ element, score });
+				candidates.push(element);
 			});
 		});
 
 		if (candidates.length === 0) {
 			// Fall back to scoring block elements
 			// Currently <body> element is used as the fallback, so this is not used
-			return this.findContentByScoring(doc);
+			const fallback = this.findContentByScoring(doc);
+			return fallback ? [fallback] : [];
 		}
 
-		// Sort by score descending
-		candidates.sort((a, b) => b.score - a.score);
-		
-		if (this.debug) {
-			this._log('Content candidates:', candidates.map(c => ({
-				element: c.element.tagName,
-				selector: this.getElementSelector(c.element),
-				score: c.score
-			})));
-		}
+		// Return all article elements, or just the first element if no articles found
+		const articles = candidates.filter(element => 
+			element.tagName.toLowerCase() === 'article' || 
+			element.getAttribute('role') === 'article'
+		);
 
-		return candidates[0].element;
+		return articles.length > 0 ? articles : [candidates[0]];
 	}
 
 	private findContentByScoring(doc: Document): Element | null {
