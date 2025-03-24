@@ -21,7 +21,11 @@ export class MetadataExtractor {
 			}
 
 			if (url) {
-				domain = new URL(url).hostname.replace(/^www\./, '');
+				try {
+					domain = new URL(url).hostname.replace(/^www\./, '');
+				} catch (e) {
+					console.warn('Failed to parse URL:', e);
+				}
 			}
 		} catch (e) {
 			// If URL parsing fails, try to get from base tag

@@ -6,8 +6,8 @@ import {
 	mathSelectors
 } from './math.base';
 
-export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
-	const cleanMathEl = document.createElement('math');
+export const createCleanMathEl = (doc: Document, mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
+	const cleanMathEl = doc.createElement('math');
 
 	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 	cleanMathEl.setAttribute('display', isBlock ? 'block' : 'inline');
@@ -15,7 +15,7 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 
 	// First try to use existing MathML content
 	if (mathData?.mathml) {
-		const tempDiv = document.createElement('div');
+		const tempDiv = doc.createElement('div');
 		tempDiv.innerHTML = mathData.mathml;
 		const mathContent = tempDiv.querySelector('math');
 		if (mathContent) {
@@ -41,7 +41,7 @@ export const mathRules = [
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
 			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock);
+			const cleanMathEl = createCleanMathEl(el.ownerDocument, mathData, latex, isBlock);
 
 			// Clean up any associated math scripts after we've extracted their content
 			if (el.parentElement) {

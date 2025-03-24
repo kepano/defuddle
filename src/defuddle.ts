@@ -185,7 +185,7 @@ export class Defuddle {
 	 * Parse the document and extract its main content
 	 */
 	parse(): DefuddleResponse {
-		const startTime = performance.now();
+		const startTime = Date.now();
 
 		// Extract metadata first since we'll need it in multiple places
 		const schemaOrgData = MetadataExtractor.extractSchemaOrgData(this.doc);
@@ -207,7 +207,7 @@ export class Defuddle {
 			// Find main content
 			const mainContent = this.findMainContent(clone);
 			if (!mainContent) {
-				const endTime = performance.now();
+				const endTime = Date.now();
 				return {
 					content: this.doc.body.innerHTML,
 					...metadata,
@@ -227,7 +227,7 @@ export class Defuddle {
 			this.cleanContent(mainContent, metadata);
 
 			const content = mainContent ? mainContent.outerHTML : this.doc.body.innerHTML;
-			const endTime = performance.now();
+			const endTime = Date.now();
 
 			return {
 				content,
@@ -237,7 +237,7 @@ export class Defuddle {
 			};
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const endTime = performance.now();
+			const endTime = Date.now();
 			return {
 				content: this.doc.body.innerHTML,
 				...metadata,
@@ -395,16 +395,22 @@ export class Defuddle {
 			const batch = elements.slice(i, i + BATCH_SIZE);
 			
 			// Read phase - gather all computedStyles
-			const styles = batch.map(el => window.getComputedStyle(el));
+			const styles = batch.map(element => {
+				try {
+					return element.ownerDocument.defaultView?.getComputedStyle(element);
+				} catch (e) {
+					return null;
+				}
+			});
 			
 			// Write phase - mark elements for removal
 			batch.forEach((element, index) => {
 				const computedStyle = styles[index];
-				if (
+				if (computedStyle && (
 					computedStyle.display === 'none' ||
 					computedStyle.visibility === 'hidden' ||
 					computedStyle.opacity === '0'
-				) {
+				)) {
 					elementsToRemove.add(element);
 					count++;
 				}
@@ -418,7 +424,7 @@ export class Defuddle {
 	}
 
 	private removeClutter(doc: Document) {
-		const startTime = performance.now();
+		const startTime = Date.now();
 		let exactSelectorCount = 0;
 		let partialSelectorCount = 0;
 
@@ -475,7 +481,7 @@ export class Defuddle {
 		// Remove all collected elements in a single pass
 		elementsToRemove.forEach(el => el.remove());
 
-		const endTime = performance.now();
+		const endTime = Date.now();
 		this._log('Removed clutter elements:', {
 			exactSelectors: exactSelectorCount,
 			partialSelectors: partialSelectorCount,
@@ -486,7 +492,7 @@ export class Defuddle {
 
 	private flattenDivs(element: Element) {
 		let processedCount = 0;
-		const startTime = performance.now();
+		const startTime = Date.now();
 
 		// Process in batches to maintain performance
 		let keepProcessing = true;
@@ -515,7 +521,8 @@ export class Defuddle {
 				const hasPreservedElements = children.some(child => 
 					PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
 					child.getAttribute('role') === 'article' ||
-					(typeof child.className === 'string' && child.className.toLowerCase().includes('article'))
+					(child.className && typeof child.className === 'string' && 
+						child.className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/))
 				);
 				if (hasPreservedElements) return true;
 			}
@@ -583,7 +590,7 @@ export class Defuddle {
 				});
 
 				if (hasOnlyBlockElements) {
-					const fragment = document.createDocumentFragment();
+					const fragment = this.doc.createDocumentFragment();
 					while (div.firstChild) {
 						fragment.appendChild(div.firstChild);
 					}
@@ -603,7 +610,7 @@ export class Defuddle {
 				});
 				
 				if (onlyBlockElements) {
-					const fragment = document.createDocumentFragment();
+					const fragment = this.doc.createDocumentFragment();
 					while (div.firstChild) {
 						fragment.appendChild(div.firstChild);
 					}
@@ -613,7 +620,7 @@ export class Defuddle {
 				}
 
 				// Otherwise handle as normal wrapper
-				const fragment = document.createDocumentFragment();
+				const fragment = this.doc.createDocumentFragment();
 				while (div.firstChild) {
 					fragment.appendChild(div.firstChild);
 				}
@@ -624,7 +631,7 @@ export class Defuddle {
 
 			// Case 4: Div only contains text content - convert to paragraph
 			if (!div.children.length && div.textContent?.trim()) {
-				const p = document.createElement('p');
+				const p = this.doc.createElement('p');
 				p.textContent = div.textContent;
 				div.replaceWith(p);
 				processedCount++;
@@ -655,7 +662,7 @@ export class Defuddle {
 			}
 
 			if (nestingDepth > 0) { // Changed from > 1 to > 0 to be more aggressive
-				const fragment = document.createDocumentFragment();
+				const fragment = this.doc.createDocumentFragment();
 				while (div.firstChild) {
 					fragment.appendChild(div.firstChild);
 				}
@@ -719,7 +726,7 @@ export class Defuddle {
 				const onlyParagraphs = children.every(child => child.tagName.toLowerCase() === 'p');
 				
 				if (onlyParagraphs || (!shouldPreserveElement(div) && isWrapperDiv(div))) {
-					const fragment = document.createDocumentFragment();
+					const fragment = this.doc.createDocumentFragment();
 					while (div.firstChild) {
 						fragment.appendChild(div.firstChild);
 					}
@@ -739,7 +746,7 @@ export class Defuddle {
 				if (finalCleanup()) keepProcessing = true;
 			} while (keepProcessing);
 
-		const endTime = performance.now();
+		const endTime = Date.now();
 		this._log('Flattened divs:', {
 			count: processedCount,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
@@ -1061,10 +1068,10 @@ export class Defuddle {
 
 	private stripExtraBrElements(element: Element) {
 		let processedCount = 0;
-		const startTime = performance.now();
+		const startTime = Date.now();
 
 		// Use TreeWalker to find text nodes and br elements
-		const treeWalker = document.createTreeWalker(
+		const treeWalker = this.doc.createTreeWalker(
 			element,
 			NodeFilter.SHOW_ELEMENT,
 			{
@@ -1122,7 +1129,7 @@ export class Defuddle {
 		// Process any remaining br elements
 		processBrs();
 
-		const endTime = performance.now();
+		const endTime = Date.now();
 		this._log('Standardized br elements:', {
 			removed: processedCount,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
@@ -1131,7 +1138,7 @@ export class Defuddle {
 
 	private removeEmptyLines(element: Element) {
 		let removedCount = 0;
-		const startTime = performance.now();
+		const startTime = Date.now();
 
 		// First pass: remove empty text nodes
 		const removeEmptyTextNodes = (node: Node) => {
@@ -1249,7 +1256,7 @@ export class Defuddle {
 		removeEmptyTextNodes(element);
 		cleanupEmptyElements(element);
 
-		const endTime = performance.now();
+		const endTime = Date.now();
 		this._log('Removed empty lines:', {
 			charactersRemoved: removedCount,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
@@ -1645,7 +1652,7 @@ export class Defuddle {
 		const MIN_DIMENSION = 33;
 		const smallImages = new Set<string>();
 		const transformRegex = /scale\(([\d.]+)\)/;
-		const startTime = performance.now();
+		const startTime = Date.now();
 		let processedCount = 0;
 
 		// 1. Read phase - Gather all elements in a single pass
@@ -1662,7 +1669,7 @@ export class Defuddle {
 					element.hasAttribute('decoding') ||
 					element.hasAttribute('data-src') ||
 					element.hasAttribute('data-srcset') ||
-					element.hasAttribute('loading')
+					element.hasAttribute('loading');
 				return !ignoredImage;
 			}
 			return true;
@@ -1689,14 +1696,30 @@ export class Defuddle {
 			
 			try {
 				// Read phase - compute all styles at once
-				const styles = batch.map(({ element }) => window.getComputedStyle(element));
-				const rects = batch.map(({ element }) => element.getBoundingClientRect());
+				const styles = batch.map(({ element }) => {
+					try {
+						return element.ownerDocument.defaultView?.getComputedStyle(element);
+					} catch (e) {
+						return null;
+					}
+				});
+
+				// Get bounding rectangles if available
+				const rects = batch.map(({ element }) => {
+					try {
+						return element.getBoundingClientRect();
+					} catch (e) {
+						return null;
+					}
+				});
 				
 				// Process phase - no DOM operations
 				batch.forEach((measurement, index) => {
 					try {
 						const style = styles[index];
 						const rect = rects[index];
+						
+						if (!style) return;
 						
 						// Get transform scale in the same batch
 						const transform = style.transform;
@@ -1708,14 +1731,14 @@ export class Defuddle {
 							measurement.naturalWidth,
 							measurement.attrWidth,
 							parseInt(style.width) || 0,
-							rect.width * scale
+							rect ? rect.width * scale : 0
 						].filter(dim => typeof dim === 'number' && dim > 0);
 
 						const heights = [
 							measurement.naturalHeight,
 							measurement.attrHeight,
 							parseInt(style.height) || 0,
-							rect.height * scale
+							rect ? rect.height * scale : 0
 						].filter(dim => typeof dim === 'number' && dim > 0);
 
 						// Decision phase - no DOM operations
@@ -1744,10 +1767,9 @@ export class Defuddle {
 			}
 		}
 
-		const endTime = performance.now();
+		const endTime = Date.now();
 		this._log('Found small elements:', {
 			count: processedCount,
-			totalElements: elements.length,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
 		});
 
