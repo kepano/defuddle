@@ -1,5 +1,6 @@
 import { MetadataExtractor } from './metadata';
 import { DefuddleOptions, DefuddleResponse, DefuddleMetadata } from './types';
+import { ExtractorRegistry } from './extractor-registry';
 import { 
 	HIDDEN_ELEMENT_SELECTORS,
 	MOBILE_WIDTH,
@@ -192,6 +193,29 @@ export class Defuddle {
 		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData);
 
 		try {
+			// Try to use a specific extractor first
+			const extractor = ExtractorRegistry.findExtractor(this.doc, this.doc.URL, schemaOrgData);
+			if (extractor && extractor.canExtract()) {
+				const extracted = extractor.extract();
+				const endTime = Date.now();
+				
+				return {
+					content: extracted.contentHtml,
+					title: extracted.variables?.title || metadata.title,
+					description: metadata.description,
+					domain: metadata.domain,
+					favicon: metadata.favicon,
+					image: metadata.image,
+					published: extracted.variables?.published || metadata.published,
+					author: extracted.variables?.author || metadata.author,
+					site: metadata.site,
+					schemaOrgData: metadata.schemaOrgData,
+					wordCount: this.countWords(extracted.contentHtml),
+					parseTime: Math.round(endTime - startTime),
+					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase()
+				};
+			}
+
 			// Evaluate styles and sizes on original document
 			const mobileStyles = this._evaluateMediaQueries(this.doc);
 			
