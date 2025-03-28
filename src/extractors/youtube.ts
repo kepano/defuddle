@@ -1,6 +1,5 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { convertDate } from '../date-utils';
 
 export class YoutubeExtractor extends BaseExtractor {
 	private videoElement: HTMLVideoElement | null;
@@ -34,7 +33,7 @@ export class YoutubeExtractor extends BaseExtractor {
 				author: videoData.author || '',
 				site: 'YouTube',
 				image: Array.isArray(videoData.thumbnailUrl) ? videoData.thumbnailUrl[0] || '' : '',
-				published: videoData.uploadDate ? convertDate(new Date(videoData.uploadDate)) : '',
+				published: videoData.uploadDate,
 				description: description.slice(0, 200).trim(),
 			}
 		};

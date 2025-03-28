@@ -8,7 +8,6 @@ import { HackerNewsExtractor } from './extractors/hackernews';
 import { ChatGPTExtractor } from './extractors/chatgpt';
 import { ClaudeExtractor } from './extractors/claude';
 
-
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
 
 interface ExtractorMapping {
