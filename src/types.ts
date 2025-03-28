@@ -23,6 +23,7 @@ export interface DefuddleResponse extends DefuddleMetadata {
 export interface DefuddleOptions {
 	debug?: boolean;
 	keepClasses?: boolean;
+	url?: string;
 }
 
 // Define extractor-related interfaces

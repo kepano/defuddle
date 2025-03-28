@@ -194,7 +194,8 @@ export class Defuddle {
 
 		try {
 			// Try to use a specific extractor first
-			const extractor = ExtractorRegistry.findExtractor(this.doc, this.doc.URL, schemaOrgData);
+			const url = this.options.url || this.doc.URL;
+			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
 				const endTime = Date.now();
