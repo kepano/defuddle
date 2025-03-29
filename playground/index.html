@@ -2,6 +2,7 @@
 <html>
 <head>
 	<title>Defuddle Playground</title>
+	<meta charset="UTF-8">
 	<style>
 		:root {
 			--ax: rgb(16, 15, 15);
@@ -63,6 +64,22 @@
 			flex-direction: column;
 			gap: 1rem;
 			min-height: 0;
+		}
+
+		.url-input {
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+			margin-bottom: 0.5rem;
+		}
+
+		.url-input input {
+			flex: 1;
+			padding: 1rem;
+			background: var(--bg);
+			border: 1px solid var(--ui);
+			border-radius: 0.375rem;
+			font-size: 0.875rem;
 		}
 
 		.controls {
@@ -191,6 +208,9 @@
 				<div class="controls">
 					<button id="clearInput" class="btn">Clear</button>
 				</div>
+				<div class="url-input">
+					<input type="text" id="url" class="padding-0" placeholder="URL...">
+				</div>
 				<textarea id="input" placeholder="Paste your HTML here..."></textarea>
 			</div>
 
@@ -222,10 +242,11 @@
 		<div class="error-container" id="errorContainer"></div>
 	</div>
 
-	<script src="https://unpkg.com/defuddle@latest/dist/index.js"></script>
+	<script src="../dist/index.js"></script>
 	<script>
 		// DOM Elements
 		const input = document.getElementById('input');
+		const urlInput = document.getElementById('url');
 		const output = document.getElementById('output');
 		const metadataOutput = document.getElementById('metadataOutput');
 		const debugOutput = document.getElementById('debugOutput');
@@ -253,7 +274,9 @@
 				const parser = new DOMParser();
 				const doc = parser.parseFromString(input.value, 'text/html');
 				
-				const defuddle = new Defuddle(doc);
+				const defuddle = new Defuddle(doc, {
+					url: urlInput.value
+				});
 				const result = defuddle.parse();
 				
 				// Log the full result for debugging

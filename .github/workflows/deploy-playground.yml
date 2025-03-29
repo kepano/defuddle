@@ -27,6 +27,12 @@ jobs:
       - name: Build
         run: npm run build
         
+      - name: Copy dist to playground
+        run: mkdir -p playground/dist && cp -r dist/* playground/dist/
+        
+      - name: Update script reference in HTML
+        run: sed -i 's|\.\.\/dist\/|dist\/|g' playground/index.html
+        
       - name: Setup Pages
         uses: actions/configure-pages@v4
         
