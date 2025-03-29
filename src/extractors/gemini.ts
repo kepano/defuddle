@@ -45,8 +45,17 @@ export class GeminiExtractor extends ConversationExtractor {
 				const contentElement = extendedContent || regularContent;
 
 				if (contentElement) {
-					this.processTableElements(contentElement);
 					let content = contentElement.innerHTML || '';
+					
+					const tempDiv = document.createElement('div');
+					tempDiv.innerHTML = content;
+					
+					tempDiv.querySelectorAll('.table-content').forEach(el => {
+						// `table-content` is a PARTIAL selector in defuddle (table of contents, will be removed), but a real table in Gemini (should be kept).
+						el.classList.remove('table-content');
+					});
+					
+					content = tempDiv.innerHTML;
 					
 					messages.push({
 						author: 'Gemini',
@@ -80,36 +89,6 @@ export class GeminiExtractor extends ConversationExtractor {
 				}
 			});
 		}
-	}
-
-	private processTableElements(contentElement: Element): void {
-		const tableBlocks = contentElement.querySelectorAll('table-block');
-		
-		tableBlocks.forEach(tableBlock => {
-			const tableElement = tableBlock.querySelector('table.table-formatting');
-			
-			if (tableElement && tableBlock.parentElement) {
-				const tableContainer = document.createElement('div');
-				tableContainer.className = 'table-container';
-				tableContainer.appendChild(tableElement.cloneNode(true));
-				
-				let componentToReplace = tableBlock;
-				
-				const tableComponent = tableBlock.closest('.table-block-component');
-				if (tableComponent) {
-					componentToReplace = tableComponent;
-					
-					const scrollWrapper = tableComponent.closest('.horizontal-scroll-wrapper');
-					if (scrollWrapper) {
-						componentToReplace = scrollWrapper;
-					}
-				}
-				
-				if (componentToReplace.parentNode) {
-					componentToReplace.parentNode.replaceChild(tableContainer, componentToReplace);
-				}
-			}
-		});
 	}
 
 	protected getFootnotes(): Footnote[] {
