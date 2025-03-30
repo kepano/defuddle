@@ -1,3 +1,5 @@
+import { FOOTNOTE_INLINE_REFERENCES } from './constants';
+
 export interface ContentScore {
 	score: number;
 	element: Element;
@@ -49,7 +51,7 @@ export class ContentScorer {
 		}
 
 		// Check for footnotes/references
-		const hasFootnotes = element.querySelector('a[name^="fn"], a[name^="ref"], a[name^="note"]');
+		const hasFootnotes = element.querySelector(FOOTNOTE_INLINE_REFERENCES);
 		if (hasFootnotes) score += 10;
 
 		// Check for nested tables (penalize)
