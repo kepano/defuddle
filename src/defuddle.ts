@@ -21,6 +21,7 @@ import {
 import { mathRules } from './elements/math.full';
 import { codeBlockRules } from './elements/code';
 import { headingRules } from './elements/headings';
+import { ContentScorer, ContentScore } from './scoring';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name
@@ -154,11 +155,6 @@ interface FootnoteData {
 
 interface FootnoteCollection {
 	[footnoteNumber: number]: FootnoteData;
-}
-
-interface ContentScore {
-	score: number;
-	element: Element;
 }
 
 interface StyleChange {
@@ -1846,7 +1842,6 @@ export class Defuddle {
 	}
 
 	private findMainContent(doc: Document): Element | null {
-
 		// Find all potential content containers
 		const candidates: { element: Element; score: number }[] = [];
 
@@ -1857,7 +1852,7 @@ export class Defuddle {
 				let score = (ENTRY_POINT_ELEMENTS.length - index) * 10;
 				
 				// Add score based on content analysis
-				score += this.scoreElement(element);
+				score += ContentScorer.scoreElement(element);
 				
 				candidates.push({ element, score });
 			});
@@ -1865,7 +1860,6 @@ export class Defuddle {
 
 		if (candidates.length === 0) {
 			// Fall back to scoring block elements
-			// Currently <body> element is used as the fallback, so this is not used
 			return this.findContentByScoring(doc);
 		}
 
@@ -1880,12 +1874,35 @@ export class Defuddle {
 			})));
 		}
 
+		// If we only matched body, try table-based detection
+		if (candidates.length === 1 && candidates[0].element.tagName.toLowerCase() === 'body') {
+			const tableContent = this.findTableBasedContent(doc);
+			if (tableContent) {
+				return tableContent;
+			}
+		}
+
 		return candidates[0].element;
 	}
 
+	private findTableBasedContent(doc: Document): Element | null {
+		const cells = Array.from(doc.getElementsByTagName('td'));
+		return ContentScorer.findBestElement(cells);
+	}
+
 	private findContentByScoring(doc: Document): Element | null {
-		const candidates = this.scoreElements(doc);
-		return candidates.length > 0 ? candidates[0].element : null;
+		const candidates: ContentScore[] = [];
+
+		BLOCK_ELEMENTS.forEach((tag: string) => {
+			Array.from(doc.getElementsByTagName(tag)).forEach((element: Element) => {
+				const score = ContentScorer.scoreElement(element);
+				if (score > 0) {
+					candidates.push({ score, element });
+				}
+			});
+		});
+
+		return candidates.length > 0 ? candidates.sort((a, b) => b.score - a.score)[0].element : null;
 	}
 
 	private getElementSelector(element: Element): string {
@@ -1904,51 +1921,5 @@ export class Defuddle {
 		}
 		
 		return parts.join(' > ');
-	}
-
-	private scoreElements(doc: Document): ContentScore[] {
-		const candidates: ContentScore[] = [];
-
-		BLOCK_ELEMENTS.forEach((tag: string) => {
-			Array.from(doc.getElementsByTagName(tag)).forEach((element: Element) => {
-				const score = this.scoreElement(element);
-				if (score > 0) {
-					candidates.push({ score, element });
-				}
-			});
-		});
-
-		return candidates.sort((a, b) => b.score - a.score);
-	}
-
-	private scoreElement(element: Element): number {
-		let score = 0;
-
-		// Score based on element properties
-		const className = element.className && typeof element.className === 'string' ? 
-			element.className.toLowerCase() : '';
-		const id = element.id ? element.id.toLowerCase() : '';
-
-		// Score based on content
-		const text = element.textContent || '';
-		const words = text.split(/\s+/).length;
-		score += Math.min(Math.floor(words / 100), 3);
-
-		// Score based on link density
-		const links = element.getElementsByTagName('a');
-		const linkText = Array.from(links).reduce((acc, link) => acc + (link.textContent?.length || 0), 0);
-		const linkDensity = text.length ? linkText / text.length : 0;
-		if (linkDensity > 0.5) {
-			score -= 10;
-		}
-
-		// Score based on presence of meaningful elements
-		const paragraphs = element.getElementsByTagName('p').length;
-		score += paragraphs;
-
-		const images = element.getElementsByTagName('img').length;
-		score += Math.min(images * 3, 9);
-
-		return score;
 	}
 } 
