@@ -28,8 +28,8 @@ export const getLatexFromElement = (el: Element): string | null => {
 	return null;
 };
 
-export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
-	const cleanMathEl = document.createElement('math');
+export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean, doc: Document): Element => {
+	const cleanMathEl = doc.createElement('math');
 
 	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 	cleanMathEl.setAttribute('display', isBlock ? 'block' : 'inline');
@@ -37,7 +37,7 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 
 	// First try to use existing MathML content
 	if (mathData?.mathml) {
-		const tempDiv = document.createElement('div');
+		const tempDiv = doc.createElement('div');
 		tempDiv.innerHTML = mathData.mathml;
 		const mathContent = tempDiv.querySelector('math');
 		if (mathContent) {
@@ -51,7 +51,7 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 				displayMode: isBlock,
 				throwOnError: false
 			});
-			const tempDiv = document.createElement('div');
+			const tempDiv = doc.createElement('div');
 			tempDiv.innerHTML = mathml;
 			const mathContent = tempDiv.querySelector('math');
 			if (mathContent) {
@@ -73,12 +73,25 @@ export const mathRules = [
 		selector: mathSelectors,
 		element: 'math',
 		transform: (el: Element): Element => {
+			// Get HTMLElement from window
+			const win = el.ownerDocument.defaultView;
+			if (!win) {
+				console.warn('No window object available');
+				return el;
+			}
+
+			const HTMLElement = (win as any).HTMLElement;
+			if (!HTMLElement) {
+				console.warn('No HTMLElement available');
+				return el;
+			}
+
 			if (!(el instanceof HTMLElement)) return el;
 
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
 			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock);
+			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock, el.ownerDocument);
 
 			// Clean up any associated math scripts after we've extracted their content
 			if (el.parentElement) {

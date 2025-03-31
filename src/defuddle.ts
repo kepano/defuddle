@@ -296,6 +296,25 @@ export class Defuddle {
 		const maxWidthRegex = /max-width[^:]*:\s*(\d+)/;
 
 		try {
+			// Get CSSMediaRule from window
+			const win = this.getWindow(doc);
+			if (!win) {
+				console.warn('No window object available');
+				return mobileStyles;
+			}
+
+			// Define the CSSMediaRule interface
+			interface CSSMediaRule extends CSSRule {
+				conditionText: string;
+				cssRules: CSSRuleList;
+			}
+
+			const CSSMediaRule = (win as any).CSSMediaRule as new () => CSSMediaRule;
+			if (!CSSMediaRule) {
+				console.warn('No CSSMediaRule available');
+				return mobileStyles;
+			}
+
 			// Get all styles, including inline styles
 			const sheets = Array.from(doc.styleSheets).filter(sheet => {
 				try {
@@ -380,7 +399,22 @@ export class Defuddle {
 	}
 
 	private getWindow(doc: Document): Window | null {
-		return doc.defaultView || (doc as any).ownerWindow || null;
+		// First try defaultView
+		if (doc.defaultView) {
+			return doc.defaultView;
+		}
+		
+		// Then try ownerWindow
+		if ((doc as any).ownerWindow) {
+			return (doc as any).ownerWindow;
+		}
+		
+		// Finally try to get window from document
+		if ((doc as any).window) {
+			return (doc as any).window;
+		}
+		
+		return null;
 	}
 
 	private getComputedStyle(element: Element): CSSStyleDeclaration | null {
