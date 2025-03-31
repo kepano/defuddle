@@ -1,0 +1,18 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"module": "ESNext",
+		"moduleResolution": "node",
+		"target": "ESNext",
+		"outDir": "dist",
+		"declaration": true,
+		"sourceMap": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"lib": ["ESNext", "DOM"],
+		"types": ["node", "jsdom"]
+	},
+	"include": ["src/node.ts"],
+	"exclude": ["node_modules", "dist"]
+} 

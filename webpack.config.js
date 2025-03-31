@@ -1,96 +1,52 @@
 const path = require('path');
-const TerserPlugin = require('terser-webpack-plugin');
 
-module.exports = (env, argv) => {
-	const isDevelopment = argv.mode === 'development';
-
-	// Common configuration for both bundles
-	const commonConfig = {
-		mode: argv.mode || 'production',
-		devtool: isDevelopment ? 'source-map' : false,
-		resolve: {
-			extensions: ['.ts', '.js']
-		},
-		module: {
-			rules: [
-				{
-				test: /\.ts$/,
-				use: [
-					{
-					loader: 'ts-loader',
-					options: {
-						configFile: 'tsconfig.json'
-					}
-					}
-				],
-				exclude: /node_modules/
-				}
-			]
+const commonConfig = {
+	mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+	devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
+	module: {
+		rules: [
+			{
+				test: /\.tsx?$/,
+				use: 'ts-loader',
+				exclude: /node_modules/,
 			},
-			optimization: {
-			// Ensure consistent output in both dev and prod
-			moduleIds: 'deterministic',
-			// Disable eval
-			minimize: !isDevelopment,
-			minimizer: [
-				new TerserPlugin({
-				terserOptions: {
-					output: {
-					ascii_only: true
-					}
-				}
-				})
-			]
-		}
-	};
+		],
+	},
+	resolve: {
+		extensions: ['.tsx', '.ts', '.js'],
+	},
+	optimization: {
+		usedExports: true,
+	},
+	experiments: {
+		outputModule: true
+	}
+};
 
-	// Core bundle configuration
-	const coreConfig = {
-		...commonConfig,
-		name: 'core',
-		entry: './src/index.ts',
-		output: {
-			path: path.resolve(__dirname, 'dist'),
-			filename: 'index.js',
-			library: {
-				name: 'Defuddle',
-				type: 'umd',
-				export: 'default'
-			},
-			globalObject: 'typeof self !== "undefined" ? self : this'
-		},
-		resolve: {
-			...commonConfig.resolve,
-			alias: {
-				// Alias the math module to use core version
-				'./math': path.resolve(__dirname, 'src/elements/math.core.ts')
-			}
+const coreConfig = {
+	...commonConfig,
+	entry: './src/index.ts',
+	output: {
+		filename: 'index.js',
+		path: path.resolve(__dirname, 'dist'),
+		library: {
+			type: 'module'
 		}
-	};
+	},
+	target: 'web'
+};
 
-	// Full bundle configuration
-	const fullConfig = {
-		...commonConfig,
-		name: 'full',
-		entry: './src/index.full.ts',
-		output: {
-				path: path.resolve(__dirname, 'dist'),
-				filename: 'index.full.js',
-				library: {
-				name: 'Defuddle',
-				type: 'umd',
-				export: 'default'
-			},
-			globalObject: 'typeof self !== "undefined" ? self : this'
-		},
-		resolve: {
-			...commonConfig.resolve,
-			alias: {
-				// Alias the math module to use full version
-				'./math': path.resolve(__dirname, 'src/elements/math.full.ts')
-			}
+const fullConfig = {
+	...commonConfig,
+	entry: './src/index.full.ts',
+	output: {
+		filename: 'index.full.js',
+		path: path.resolve(__dirname, 'dist'),
+		library: {
+			type: 'module'
 		}
-	};
+	},
+	target: 'web'
+};
 
-	return [coreConfig, fullConfig];
-}; 
+module.exports = [coreConfig, fullConfig]; 

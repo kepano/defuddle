@@ -270,7 +270,7 @@ export class Defuddle {
 
 	private countWords(content: string): number {
 		// Create a temporary div to parse HTML content
-		const tempDiv = document.createElement('div');
+		const tempDiv = this.doc.createElement('div');
 		tempDiv.innerHTML = content;
 
 		// Get text content, removing extra whitespace

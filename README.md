@@ -24,30 +24,58 @@ Defuddle can be used as a replacement for [Mozilla Readability](https://github.c
 npm install defuddle
 ```
 
+For Node.js usage, you'll also need to install JSDOM:
+
+```bash
+npm install jsdom
+```
+
 ## Usage
 
-```typescript
-import Defuddle from 'defuddle';
+### Browser
 
-const article = new Defuddle(document).parse();
+```javascript
+import { Defuddle } from 'defuddle';
 
-// Use the extracted content and metadata
-console.log(article.content);  // HTML string of the main content
-console.log(article.title);    // Title of the article
+// Parse the current document
+const defuddle = new Defuddle(document);
+const result = defuddle.parse();
+
+// Access the content and metadata
+console.log(result.content);
+console.log(result.title);
+console.log(result.author);
 ```
 
-### Bundles
+### Node.js
 
-Defuddle comes in two bundles:
+```javascript
+import { parseHTML } from 'defuddle/node';
 
-**Core bundle** (~50kB), no dependencies
-```js
-import Defuddle from 'defuddle';
+// Parse HTML from a string
+const html = '<html><body><article>...</article></body></html>';
+const result = await parseHTML(html);
+
+// Parse HTML from a URL
+const response = await fetch('https://example.com/article');
+const html = await response.text();
+const result = await parseHTML(html, 'https://example.com/article');
+
+// With options
+const result = await parseHTML(html, {
+  debug: true,
+  keepClasses: true,
+  url: 'https://example.com/article'
+});
 ```
-**Full bundle** (~432kB), includes advanced math conversion capabilities
-```js
-import Defuddle from 'defuddle/full';
-```
+
+## Bundles
+
+Defuddle is available in three different bundles:
+
+1. Core Bundle (`defuddle`): The main bundle for browser usage. Size: ~20KB gzipped.
+2. Full Bundle (`defuddle/full`): Includes additional features like math equation parsing. Size: ~25KB gzipped.
+3. Node.js Bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Size: ~30KB gzipped.
 
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
 
