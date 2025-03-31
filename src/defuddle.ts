@@ -379,14 +379,30 @@ export class Defuddle {
 
 	}
 
+	private getWindow(doc: Document): Window | null {
+		return doc.defaultView || (doc as any).ownerWindow || null;
+	}
+
+	private getComputedStyle(element: Element): CSSStyleDeclaration | null {
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) return null;
+		return win.getComputedStyle(element);
+	}
+
+	private getNodeFilter(doc: Document): typeof NodeFilter | null {
+		const win = this.getWindow(doc);
+		if (!win) return null;
+		return (win as any).NodeFilter as typeof NodeFilter;
+	}
+
 	private removeHiddenElements(doc: Document) {
 		let count = 0;
 		const elementsToRemove = new Set<Element>();
 
 		// Get NodeFilter from window
-		const win = doc.defaultView;
-		if (!win) {
-			console.warn('No window object available');
+		const NodeFilter = this.getNodeFilter(doc);
+		if (!NodeFilter) {
+			console.warn('No NodeFilter available');
 			return;
 		}
 
@@ -398,14 +414,14 @@ export class Defuddle {
 		// Second pass: Use TreeWalker for efficient traversal
 		const treeWalker = doc.createTreeWalker(
 			doc.body,
-			win.NodeFilter.SHOW_ELEMENT,
+			NodeFilter.SHOW_ELEMENT,
 			{
 				acceptNode: (node: Element) => {
 					// Skip elements already marked for removal
 					if (elementsToRemove.has(node)) {
-						return win.NodeFilter.FILTER_REJECT;
+						return NodeFilter.FILTER_REJECT;
 					}
-					return win.NodeFilter.FILTER_ACCEPT;
+					return NodeFilter.FILTER_ACCEPT;
 				}
 			}
 		);
@@ -423,13 +439,7 @@ export class Defuddle {
 			const batch = elements.slice(i, i + BATCH_SIZE);
 			
 			// Read phase - gather all computedStyles
-			const styles = batch.map(element => {
-				try {
-					return element.ownerDocument.defaultView?.getComputedStyle(element);
-				} catch (e) {
-					return null;
-				}
-			});
+			const styles = batch.map(element => this.getComputedStyle(element));
 			
 			// Write phase - mark elements for removal
 			batch.forEach((element, index) => {
@@ -832,22 +842,16 @@ export class Defuddle {
 	}
 
 	private standardizeSpaces(element: Element) {
-		const processNode = (node: Node) => {
-			// Get Element class from window
-			const doc = node.ownerDocument;
-			if (!doc) {
-				console.warn('No document available');
-				return;
-			}
-			const win = doc.defaultView;
-			if (!win) {
-				console.warn('No window object available');
-				return;
-			}
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
 
+		const processNode = (node: Node) => {
 			// Skip pre and code elements
-			if (node instanceof win.Element) {
-				const tag = node.tagName.toLowerCase();
+			if (node instanceof (win as any).Element) {
+				const tag = (node as Element).tagName.toLowerCase();
 				if (tag === 'pre' || tag === 'code') {
 					return;
 				}
@@ -887,6 +891,19 @@ export class Defuddle {
 		let removedCount = 0;
 
 		const hasContentAfter = (el: Element): boolean => {
+			// Get Node type from window
+			const win = this.getWindow(el.ownerDocument);
+			if (!win) {
+				console.warn('No window object available');
+				return false;
+			}
+
+			const Node = (win as any).Node;
+			if (!Node) {
+				console.warn('No Node type available');
+				return false;
+			}
+
 			// Check if there's any meaningful content after this element
 			let nextContent = '';
 			let sibling = el.nextSibling;
@@ -973,9 +990,15 @@ export class Defuddle {
 
 	private removeHtmlComments(element: Element) {
 		const comments: Comment[] = [];
+		const NodeFilter = this.getNodeFilter(this.doc);
+		if (!NodeFilter) {
+			console.warn('No NodeFilter available');
+			return;
+		}
+
 		const walker = this.doc.createTreeWalker(
 			element,
-			this.doc.defaultView?.NodeFilter.SHOW_COMMENT || 128,
+			NodeFilter.SHOW_COMMENT,
 			null
 		);
 
@@ -993,10 +1016,15 @@ export class Defuddle {
 
 	private stripUnwantedAttributes(element: Element) {
 		let attributeCount = 0;
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
 
 		const processElement = (el: Element) => {
 			// Skip SVG elements - preserve all their attributes
-			if (el instanceof SVGElement) {
+			if (el instanceof (win as any).SVGElement) {
 				return;
 			}
 
@@ -1052,6 +1080,19 @@ export class Defuddle {
 		let removedCount = 0;
 		let iterations = 0;
 		let keepRemoving = true;
+
+		// Get Node type from window
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
+
+		const Node = (win as any).Node;
+		if (!Node) {
+			console.warn('No Node type available');
+			return;
+		}
 
 		while (keepRemoving) {
 			iterations++;
@@ -1111,6 +1152,12 @@ export class Defuddle {
 		const startTime = Date.now();
 
 		// Use TreeWalker to find text nodes and br elements
+		const NodeFilter = this.getNodeFilter(this.doc);
+		if (!NodeFilter) {
+			console.warn('No NodeFilter available');
+			return;
+		}
+
 		const treeWalker = this.doc.createTreeWalker(
 			element,
 			NodeFilter.SHOW_ELEMENT,
@@ -1240,7 +1287,7 @@ export class Defuddle {
 			node.normalize(); // Combine adjacent text nodes
 
 			// Special handling for block elements
-			const isBlockElement = getComputedStyle(node).display === 'block';
+			const isBlockElement = this.getComputedStyle(node)?.display === 'block';
 			
 			// Only remove empty text nodes at the start and end if they contain just newlines/tabs
 			// For block elements, also remove spaces
@@ -1924,9 +1971,9 @@ export class Defuddle {
 		const tables = Array.from(doc.getElementsByTagName('table'));
 		const hasTableLayout = tables.some(table => {
 			const width = parseInt(table.getAttribute('width') || '0');
-			const style = window.getComputedStyle(table);
+			const style = this.getComputedStyle(table);
 			return width > 400 || 
-				(style.width.includes('px') && parseInt(style.width) > 400) ||
+				(style?.width.includes('px') && parseInt(style.width) > 400) ||
 				table.getAttribute('align') === 'center' ||
 				table.className.toLowerCase().includes('content') ||
 				table.className.toLowerCase().includes('article');

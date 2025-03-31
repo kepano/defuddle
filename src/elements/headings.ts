@@ -6,8 +6,15 @@ export const headingRules = [
 		selector: 'h1, h2, h3, h4, h5, h6',
 		element: 'keep',
 		transform: (el: Element): Element => {
+			// Get document from element's owner document
+			const doc = el.ownerDocument;
+			if (!doc) {
+				console.warn('No document available');
+				return el;
+			}
+
 			// Create new heading of same level
-			const newHeading = document.createElement(el.tagName);
+			const newHeading = doc.createElement(el.tagName);
 			
 			// Copy allowed attributes from original heading
 			Array.from(el.attributes).forEach(attr => {
