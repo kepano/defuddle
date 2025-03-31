@@ -591,6 +591,19 @@ export class Defuddle {
 			const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
 			if (isWrapper) return true;
 
+			// Get Node type from window
+			const win = this.getWindow(div.ownerDocument);
+			if (!win) {
+				console.warn('No window object available');
+				return true;
+			}
+
+			const Node = (win as any).Node;
+			if (!Node) {
+				console.warn('No Node type available');
+				return true;
+			}
+
 			// Check if it has excessive whitespace or empty text nodes
 			const textNodes = Array.from(div.childNodes).filter(node => 
 				node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
@@ -1151,6 +1164,19 @@ export class Defuddle {
 		let processedCount = 0;
 		const startTime = Date.now();
 
+		// Get Node type from window
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
+
+		const Node = (win as any).Node;
+		if (!Node) {
+			console.warn('No Node type available');
+			return;
+		}
+
 		// Use TreeWalker to find text nodes and br elements
 		const NodeFilter = this.getNodeFilter(this.doc);
 		if (!NodeFilter) {
@@ -1226,6 +1252,19 @@ export class Defuddle {
 	private removeEmptyLines(element: Element) {
 		let removedCount = 0;
 		const startTime = Date.now();
+
+		// Get Node type from window
+		const win = this.getWindow(element.ownerDocument);
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
+
+		const Node = (win as any).Node;
+		if (!Node) {
+			console.warn('No Node type available');
+			return;
+		}
 
 		// First pass: remove empty text nodes
 		const removeEmptyTextNodes = (node: Node) => {
