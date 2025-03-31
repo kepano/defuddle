@@ -37,7 +37,11 @@ const coreConfig = {
 			type: 'module'
 		}
 	},
-	target: 'web'
+	target: 'web',
+	externals: {
+		'mathml-to-latex': 'mathml-to-latex',
+		'temml': 'temml'
+	}
 };
 
 const fullConfig = {
@@ -63,7 +67,12 @@ const nodeConfig = {
 			type: 'commonjs2'
 		}
 	},
-	target: 'node'
+	target: 'node',
+	externals: {
+		'jsdom': 'jsdom',
+		'mathml-to-latex': 'mathml-to-latex',
+		'temml': 'temml'
+	}
 };
 
 module.exports = [coreConfig, fullConfig, nodeConfig]; 
