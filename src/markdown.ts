@@ -608,11 +608,12 @@ export function createMarkdownContent(content: string, url: string) {
 
 	function extractLatex(element: GenericElement): string {
 		// Check if the element is a <math> element and has an alttext attribute
-		if (element.nodeName.toLowerCase() === 'math') {
-			const alttext = element.getAttribute('alttext');
-			if (alttext) {
-				return alttext;
-			}
+		let latex = element.getAttribute('data-latex');
+			let alttext = element.getAttribute('alttext');
+			if (latex) {
+				return latex.trim();
+			} else if (alttext) {
+				return alttext.trim();
 		}
 		return '';
 	}
