@@ -8,6 +8,11 @@ export interface ContentScore {
 export class ContentScorer {
 	static scoreElement(element: Element): number {
 		let score = 0;
+		const win = element.ownerDocument.defaultView;
+		if (!win) {
+			console.warn('No window object available');
+			return score;
+		}
 
 		// Text density
 		const text = element.textContent || '';
@@ -31,7 +36,7 @@ export class ContentScorer {
 		// Position bonus (center/right elements)
 		try {
 			const rect = element.getBoundingClientRect();
-			const isRightSide = rect.left > window.innerWidth / 2;
+			const isRightSide = rect.left > win.innerWidth / 2;
 			if (isRightSide) score += 5;
 		} catch (e) {
 			// Ignore position if we can't get bounding rect
@@ -59,13 +64,13 @@ export class ContentScorer {
 		score -= nestedTables * 5;
 
 		// Additional scoring for table cells
-		if (element instanceof HTMLTableCellElement) {
+		if (element instanceof win.HTMLTableCellElement) {
 			// Table cells get a bonus for being in the main content area
 			const parentTable = element.closest('table');
 			if (parentTable) {
 				// Only favor cells in tables that look like old-style content layouts
 				const tableWidth = parseInt(parentTable.getAttribute('width') || '0');
-				const tableStyle = window.getComputedStyle(parentTable);
+				const tableStyle = win.getComputedStyle(parentTable);
 				const isTableLayout = 
 					tableWidth > 400 || // Common width for main content tables
 					tableStyle.width.includes('px') && parseInt(tableStyle.width) > 400 ||

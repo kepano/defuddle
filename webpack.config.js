@@ -75,4 +75,4 @@ const nodeConfig = {
 	}
 };
 
-module.exports = [coreConfig, fullConfig, nodeConfig]; 
+module.exports = [coreConfig, fullConfig, nodeConfig];

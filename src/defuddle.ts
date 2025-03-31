@@ -383,6 +383,13 @@ export class Defuddle {
 		let count = 0;
 		const elementsToRemove = new Set<Element>();
 
+		// Get NodeFilter from window
+		const win = doc.defaultView;
+		if (!win) {
+			console.warn('No window object available');
+			return;
+		}
+
 		// First pass: Get all elements matching hidden selectors
 		const hiddenElements = doc.querySelectorAll(HIDDEN_ELEMENT_SELECTORS);
 		hiddenElements.forEach(el => elementsToRemove.add(el));
@@ -391,14 +398,14 @@ export class Defuddle {
 		// Second pass: Use TreeWalker for efficient traversal
 		const treeWalker = doc.createTreeWalker(
 			doc.body,
-			NodeFilter.SHOW_ELEMENT,
+			win.NodeFilter.SHOW_ELEMENT,
 			{
 				acceptNode: (node: Element) => {
 					// Skip elements already marked for removal
 					if (elementsToRemove.has(node)) {
-						return NodeFilter.FILTER_REJECT;
+						return win.NodeFilter.FILTER_REJECT;
 					}
-					return NodeFilter.FILTER_ACCEPT;
+					return win.NodeFilter.FILTER_ACCEPT;
 				}
 			}
 		);
@@ -826,8 +833,20 @@ export class Defuddle {
 
 	private standardizeSpaces(element: Element) {
 		const processNode = (node: Node) => {
+			// Get Element class from window
+			const doc = node.ownerDocument;
+			if (!doc) {
+				console.warn('No document available');
+				return;
+			}
+			const win = doc.defaultView;
+			if (!win) {
+				console.warn('No window object available');
+				return;
+			}
+
 			// Skip pre and code elements
-			if (node instanceof Element) {
+			if (node instanceof win.Element) {
 				const tag = node.tagName.toLowerCase();
 				if (tag === 'pre' || tag === 'code') {
 					return;
@@ -954,9 +973,9 @@ export class Defuddle {
 
 	private removeHtmlComments(element: Element) {
 		const comments: Comment[] = [];
-		const walker = document.createTreeWalker(
+		const walker = this.doc.createTreeWalker(
 			element,
-			NodeFilter.SHOW_COMMENT,
+			this.doc.defaultView?.NodeFilter.SHOW_COMMENT || 128,
 			null
 		);
 
@@ -1289,13 +1308,14 @@ export class Defuddle {
 		content: string | Element,
 		refs: string[]
 	): HTMLLIElement {
-		const newItem = document.createElement('li');
+		const doc = content instanceof Element ? content.ownerDocument : this.doc;
+		const newItem = doc.createElement('li');
 		newItem.className = 'footnote';
 		newItem.id = `fn:${footnoteNumber}`;
 
 		// Handle content
 		if (typeof content === 'string') {
-			const paragraph = document.createElement('p');
+			const paragraph = doc.createElement('p');
 			paragraph.innerHTML = content;
 			newItem.appendChild(paragraph);
 		} else {
@@ -1303,13 +1323,13 @@ export class Defuddle {
 			const paragraphs = Array.from(content.querySelectorAll('p'));
 			if (paragraphs.length === 0) {
 				// If no paragraphs, wrap content in a paragraph
-				const paragraph = document.createElement('p');
+				const paragraph = doc.createElement('p');
 				paragraph.innerHTML = content.innerHTML;
 				newItem.appendChild(paragraph);
 			} else {
 				// Copy existing paragraphs
 				paragraphs.forEach(p => {
-					const newP = document.createElement('p');
+					const newP = doc.createElement('p');
 					newP.innerHTML = p.innerHTML;
 					newItem.appendChild(newP);
 				});
@@ -1319,7 +1339,7 @@ export class Defuddle {
 		// Add backlink(s) to the last paragraph
 		const lastParagraph = newItem.querySelector('p:last-of-type') || newItem;
 		refs.forEach((refId, index) => {
-			const backlink = document.createElement('a');
+			const backlink = doc.createElement('a');
 			backlink.href = `#${refId}`;
 			backlink.title = 'return to article';
 			backlink.className = 'footnote-backref';
@@ -1427,9 +1447,9 @@ export class Defuddle {
 	// Every footnote reference should be a sup element with an anchor inside
 	// e.g. <sup id="fnref:1"><a href="#fn:1">1</a></sup>
 	private createFootnoteReference(footnoteNumber: string, refId: string): HTMLElement {
-		const sup = document.createElement('sup');
+		const sup = this.doc.createElement('sup');
 		sup.id = refId;
-		const link = document.createElement('a');
+		const link = this.doc.createElement('a');
 		link.href = `#fn:${footnoteNumber}`;
 		link.textContent = footnoteNumber;
 		sup.appendChild(link);
@@ -1556,13 +1576,13 @@ export class Defuddle {
 		supGroups.forEach((references, container) => {
 			if (references.length > 0) {
 				// Create a document fragment to hold all the references
-				const fragment = document.createDocumentFragment();
+				const fragment = this.doc.createDocumentFragment();
 				
 				// Add each reference as its own sup element
 				references.forEach((ref, index) => {
 					const link = ref.querySelector('a');
 					if (link) {
-						const sup = document.createElement('sup');
+						const sup = this.doc.createElement('sup');
 						sup.id = ref.id;
 						sup.appendChild(link.cloneNode(true));
 						fragment.appendChild(sup);
@@ -1574,9 +1594,9 @@ export class Defuddle {
 		});
 
 		// Create the standardized footnote list
-		const newList = document.createElement('div');
+		const newList = this.doc.createElement('div');
 		newList.id = 'footnotes';
-		const orderedList = document.createElement('ol');
+		const orderedList = this.doc.createElement('ol');
 
 		// Create footnote items in order
 		Object.entries(footnotes).forEach(([number, data]) => {
@@ -1676,6 +1696,13 @@ export class Defuddle {
 		const startTime = Date.now();
 		let processedCount = 0;
 
+		// Get the window object from the document
+		const win = doc.defaultView;
+		if (!win) {
+			console.warn('No window object available');
+			return smallImages;
+		}
+
 		// 1. Read phase - Gather all elements in a single pass
 		const elements = [
 			...Array.from(doc.getElementsByTagName('img')),
@@ -1683,7 +1710,7 @@ export class Defuddle {
 		].filter(element => {
 			// Skip lazy-loaded images that haven't been processed yet
 			// and math images which may be small
-			if (element instanceof HTMLImageElement) {
+			if (element instanceof (win.HTMLImageElement || win.Image)) {
 				const ignoredImage = element.classList.contains('lazy') || 
 					element.classList.contains('lazyload') ||
 					element.classList.contains('latex') ||
@@ -1704,8 +1731,8 @@ export class Defuddle {
 		const measurements = elements.map(element => ({
 			element,
 			// Static attributes (no reflow)
-			naturalWidth: element instanceof HTMLImageElement ? element.naturalWidth : 0,
-			naturalHeight: element instanceof HTMLImageElement ? element.naturalHeight : 0,
+			naturalWidth: element instanceof (win.HTMLImageElement || win.Image) ? element.naturalWidth : 0,
+			naturalHeight: element instanceof (win.HTMLImageElement || win.Image) ? element.naturalHeight : 0,
 			attrWidth: parseInt(element.getAttribute('width') || '0'),
 			attrHeight: parseInt(element.getAttribute('height') || '0')
 		}));
@@ -1815,8 +1842,15 @@ export class Defuddle {
 	}
 
 	private getElementIdentifier(element: Element): string | null {
+		// Get the window object from the document
+		const win = element.ownerDocument.defaultView;
+		if (!win) {
+			console.warn('No window object available');
+			return null;
+		}
+
 		// Try to create a unique identifier using various attributes
-		if (element instanceof HTMLImageElement) {
+		if (element instanceof (win.HTMLImageElement || win.Image)) {
 			// For lazy-loaded images, use data-src as identifier if available
 			const dataSrc = element.getAttribute('data-src');
 			if (dataSrc) return `src:${dataSrc}`;
