@@ -9,7 +9,7 @@ import { DefuddleOptions, DefuddleResponse } from './types';
  * @param options - Options for parsing
  * @returns The parsed content and metadata
  */
-export async function parse(html: string, url?: string, options?: DefuddleOptions): Promise<DefuddleResponse> {
+export async function parseHTML(html: string, url?: string, options?: DefuddleOptions): Promise<DefuddleResponse> {
 	const virtualConsole = new VirtualConsole();
 	virtualConsole.on('error', () => {
 		// Suppress JSDOM errors

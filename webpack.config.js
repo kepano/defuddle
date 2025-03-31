@@ -17,14 +17,18 @@ const commonConfig = {
 	},
 	optimization: {
 		usedExports: true,
-	},
+	}
+};
+
+const webConfig = {
+	...commonConfig,
 	experiments: {
 		outputModule: true
 	}
 };
 
 const coreConfig = {
-	...commonConfig,
+	...webConfig,
 	entry: './src/index.ts',
 	output: {
 		filename: 'index.js',
@@ -37,7 +41,7 @@ const coreConfig = {
 };
 
 const fullConfig = {
-	...commonConfig,
+	...webConfig,
 	entry: './src/index.full.ts',
 	output: {
 		filename: 'index.full.js',
@@ -49,4 +53,17 @@ const fullConfig = {
 	target: 'web'
 };
 
-module.exports = [coreConfig, fullConfig]; 
+const nodeConfig = {
+	...commonConfig,
+	entry: './src/node.ts',
+	output: {
+		filename: 'node.js',
+		path: path.resolve(__dirname, 'dist'),
+		library: {
+			type: 'commonjs2'
+		}
+	},
+	target: 'node'
+};
+
+module.exports = [coreConfig, fullConfig, nodeConfig]; 
