@@ -21,6 +21,7 @@ export interface DefuddleOptions {
 	debug?: boolean;
 	keepClasses?: boolean;
 	url?: string;
+	markdown?: boolean;
 }
 
 export interface ExtractorVariables {
