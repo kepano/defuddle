@@ -518,6 +518,22 @@ export class Defuddle {
 		// Process in batches to maintain performance
 		let keepProcessing = true;
 
+		// Helper function to check if an element directly contains inline content
+		// This helps prevent unwrapping divs that visually act as paragraphs.
+		function hasDirectInlineContent(el: Element): boolean {
+			for (const child of el.childNodes) {
+				// Check for non-empty text nodes
+				if (child.nodeType === Node.TEXT_NODE && child.textContent?.trim()) {
+					return true;
+				}
+				// Check for element nodes that are considered inline
+				if (child.nodeType === Node.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase())) {
+					return true;
+				}
+			}
+			return false;
+		}
+
 		const shouldPreserveElement = (el: Element): boolean => {
 			const tagName = el.tagName.toLowerCase();
 			
@@ -552,6 +568,11 @@ export class Defuddle {
 		};
 
 		const isWrapperDiv = (div: Element): boolean => {
+			// If it directly contains inline content, it's NOT a wrapper
+			if (hasDirectInlineContent(div)) {
+				return false;
+			}
+
 			// Check if it's just empty space
 			if (!div.textContent?.trim()) return true;
 
@@ -650,22 +671,31 @@ export class Defuddle {
 				return true;
 			}
 
-			// Case 4: Div only contains text content - convert to paragraph
-			if (!div.children.length && div.textContent?.trim()) {
+			// Case 4: Div only contains text and/or inline elements - convert to paragraph
+			const childNodes = Array.from(div.childNodes);
+			const hasOnlyInlineOrText = childNodes.length > 0 && childNodes.every(child =>
+				(child.nodeType === Node.TEXT_NODE) ||
+				(child.nodeType === Node.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase()))
+			);
+
+			if (hasOnlyInlineOrText && div.textContent?.trim()) { // Ensure there's actual content
 				const p = this.doc.createElement('p');
-				p.textContent = div.textContent;
+				// Move all children (including inline tags like <font>) to the new <p>
+				while (div.firstChild) {
+					p.appendChild(div.firstChild);
+				}
 				div.replaceWith(p);
 				processedCount++;
 				return true;
 			}
 
-			// Case 5: Div has single child
+			// Case 5: Div has single child - unwrap only if child is block-level
 			if (div.children.length === 1) {
 				const child = div.firstElementChild!;
 				const childTag = child.tagName.toLowerCase();
 				
-				// Don't unwrap if child is inline or should be preserved
-				if (!INLINE_ELEMENTS.has(childTag) && !shouldPreserveElement(child)) {
+				// Only unwrap if the single child is a block element and not preserved
+				if (BLOCK_ELEMENTS.includes(childTag) && !shouldPreserveElement(child)) {
 					div.replaceWith(child);
 					processedCount++;
 					return true;
@@ -682,7 +712,8 @@ export class Defuddle {
 				parent = parent.parentElement;
 			}
 
-			if (nestingDepth > 0) { // Changed from > 1 to > 0 to be more aggressive
+			// Only unwrap if nested AND does not contain direct inline content
+			if (nestingDepth > 0 && !hasDirectInlineContent(div)) {
 				const fragment = this.doc.createDocumentFragment();
 				while (div.firstChild) {
 					fragment.appendChild(div.firstChild);
@@ -742,18 +773,22 @@ export class Defuddle {
 			let modified = false;
 			
 			remainingDivs.forEach(div => {
-				// Check if div only contains paragraphs
-				const children = Array.from(div.children);
-				const onlyParagraphs = children.every(child => child.tagName.toLowerCase() === 'p');
-				
-				if (onlyParagraphs || (!shouldPreserveElement(div) && isWrapperDiv(div))) {
-					const fragment = this.doc.createDocumentFragment();
-					while (div.firstChild) {
-						fragment.appendChild(div.firstChild);
+				// Only perform final cleanup/unwrap if the div is still connected,
+				// not preserved, and does not contain direct inline content.
+				if (div.isConnected && !shouldPreserveElement(div) && !hasDirectInlineContent(div)) {
+					const children = Array.from(div.children);
+					const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
+
+					// Unwrap if it only contains paragraphs OR is identified as a wrapper
+					if (onlyParagraphs || isWrapperDiv(div)) {
+						const fragment = this.doc.createDocumentFragment();
+						while (div.firstChild) {
+							fragment.appendChild(div.firstChild);
+						}
+						div.replaceWith(fragment);
+						processedCount++;
+						modified = true;
 					}
-					div.replaceWith(fragment);
-					processedCount++;
-					modified = true;
 				}
 			});
 			return modified;

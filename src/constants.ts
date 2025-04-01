@@ -31,7 +31,8 @@ export const PRESERVE_ELEMENTS = new Set([
 // Inline elements that should not be unwrapped
 export const INLINE_ELEMENTS = new Set([
 	'a', 'span', 'strong', 'em', 'i', 'b', 'u', 'code', 'br', 'small',
-	'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'time'
+	'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'time',
+	'font'
 ]);
 
 // Hidden elements that should be removed
