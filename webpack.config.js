@@ -1,78 +1,127 @@
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
 
-const commonConfig = {
-	mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-	devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
-	module: {
-		rules: [
-			{
-				test: /\.tsx?$/,
-				use: 'ts-loader',
-				exclude: /node_modules/,
+module.exports = (env, argv) => {
+	const isDevelopment = argv.mode === 'development';
+
+	// Common configuration for both bundles
+	const commonConfig = {
+		mode: argv.mode || 'production',
+		devtool: isDevelopment ? 'source-map' : false,
+		resolve: {
+			extensions: ['.tsx', '.ts', '.js'],
+		},
+		module: {
+			rules: [
+				{
+				test: /\.ts$/,
+				use: [
+					{
+					loader: 'ts-loader',
+					options: {
+						configFile: 'tsconfig.json'
+					}
+					}
+				],
+				exclude: /node_modules/
+				}
+			]
 			},
-		],
-	},
-	resolve: {
-		extensions: ['.tsx', '.ts', '.js'],
-	},
-	optimization: {
-		usedExports: true,
-	}
-};
-
-const webConfig = {
-	...commonConfig,
-	experiments: {
-		outputModule: true
-	}
-};
-
-const coreConfig = {
-	...webConfig,
-	entry: './src/index.ts',
-	output: {
-		filename: 'index.js',
-		path: path.resolve(__dirname, 'dist'),
-		library: {
-			type: 'module'
+			optimization: {
+			// Ensure consistent output in both dev and prod
+			moduleIds: 'deterministic',
+			// Disable eval
+			minimize: !isDevelopment,
+			minimizer: [
+				new TerserPlugin({
+				terserOptions: {
+					output: {
+					ascii_only: true
+					}
+				}
+				})
+			]
 		}
-	},
-	target: 'web',
-	externals: {
-		'mathml-to-latex': 'mathml-to-latex',
-		'temml': 'temml'
-	}
-};
+	};
 
-const fullConfig = {
-	...webConfig,
-	entry: './src/index.full.ts',
-	output: {
-		filename: 'index.full.js',
-		path: path.resolve(__dirname, 'dist'),
-		library: {
-			type: 'module'
+	// Core bundle configuration
+	const coreConfig = {
+		...commonConfig,
+		name: 'core',
+		entry: './src/index.ts',
+		externals: {
+			'mathml-to-latex': 'mathml-to-latex',
+			'temml': 'temml'
+		},
+		output: {
+			path: path.resolve(__dirname, 'dist'),
+			filename: 'index.js',
+			library: {
+				name: 'Defuddle',
+				type: 'umd',
+				export: 'default'
+			},
+			globalObject: 'typeof self !== "undefined" ? self : this'
+		},
+		target: 'web',
+		resolve: {
+			...commonConfig.resolve,
+			alias: {
+				// Alias the math module to use core version
+				'./math': path.resolve(__dirname, 'src/elements/math.core.ts')
+			}
 		}
-	},
-	target: 'web'
-};
+	};
 
-const nodeConfig = {
-	...commonConfig,
-	entry: './src/node.ts',
-	output: {
-		filename: 'node.js',
-		path: path.resolve(__dirname, 'dist'),
-		library: {
-			type: 'commonjs2'
+	// Full bundle configuration
+	const fullConfig = {
+		...commonConfig,
+		name: 'full',
+		entry: './src/index.full.ts',
+		output: {
+				path: path.resolve(__dirname, 'dist'),
+				filename: 'index.full.js',
+				library: {
+				name: 'Defuddle',
+				type: 'umd',
+				export: 'default'
+			},
+			globalObject: 'typeof self !== "undefined" ? self : this'
+		},
+		target: 'web',
+		resolve: {
+			...commonConfig.resolve,
+			alias: {
+				// Alias the math module to use full version
+				'./math': path.resolve(__dirname, 'src/elements/math.full.ts')
+			}
 		}
-	},
-	target: 'node',
-	externals: {
-		'jsdom': 'jsdom',
-		'mathml-to-latex': 'mathml-to-latex',
-		'temml': 'temml'
-	}
-};
+	};
 
-module.exports = [coreConfig, fullConfig, nodeConfig];
+	// Full bundle configuration
+	const nodeConfig = {
+		...commonConfig,
+		name: 'node',
+		entry: './src/node.ts',
+		output: {
+				path: path.resolve(__dirname, 'dist'),
+				filename: 'node.js',
+				library: {
+				name: 'Defuddle',
+				type: 'commonjs2',
+				export: 'default'
+			},
+			globalObject: 'typeof self !== "undefined" ? self : this'
+		},
+		target: 'node',
+		resolve: {
+			...commonConfig.resolve,
+			alias: {
+				// Alias the math module to use full version
+				'./math': path.resolve(__dirname, 'src/elements/math.full.ts')
+			}
+		}
+	};
+
+	return [coreConfig, fullConfig, nodeConfig];
+}; 

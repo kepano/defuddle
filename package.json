@@ -32,13 +32,11 @@
 		"clean": "rm -rf dist",
 		"build:types": "tsc --project tsconfig.declarations.json",
 		"build:js": "webpack",
-		"build:node": "tsc --project tsconfig.node.json",
-		"build": "npm run clean && npm run build:types && npm run build:js && npm run build:node",
+		"build": "npm run clean && npm run build:types && npm run build:js",
 		"prepublishOnly": "npm run build",
 		"dev:types": "tsc --project tsconfig.declarations.json --watch",
 		"dev:js": "webpack --watch --mode development",
-		"dev:node": "tsc --project tsconfig.node.json --watch",
-		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:js\" \"npm run dev:node\"",
+		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:js\"",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
