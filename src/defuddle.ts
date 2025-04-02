@@ -299,7 +299,7 @@ export class Defuddle {
 			// Get CSSMediaRule from window
 			const win = this.getWindow(doc);
 			if (!win) {
-				console.warn('No window object available');
+				console.warn('Evaluate media queries: No window object available');
 				return mobileStyles;
 			}
 
@@ -311,7 +311,7 @@ export class Defuddle {
 
 			const CSSMediaRule = (win as any).CSSMediaRule as new () => CSSMediaRule;
 			if (!CSSMediaRule) {
-				console.warn('No CSSMediaRule available');
+				console.warn('Evaluate media queries: No CSSMediaRule available');
 				return mobileStyles;
 			}
 
@@ -436,7 +436,7 @@ export class Defuddle {
 		// Get NodeFilter from window
 		const NodeFilter = this.getNodeFilter(doc);
 		if (!NodeFilter) {
-			console.warn('No NodeFilter available');
+			console.warn('Remove hidden elements: No NodeFilter available');
 			return;
 		}
 
@@ -473,7 +473,7 @@ export class Defuddle {
 			const batch = elements.slice(i, i + BATCH_SIZE);
 			
 			// Read phase - gather all computedStyles
-			const styles = batch.map(element => this.getComputedStyle(element));
+			const styles = batch.map(element => element.ownerDocument.defaultView?.getComputedStyle(element));
 			
 			// Write phase - mark elements for removal
 			batch.forEach((element, index) => {
@@ -628,13 +628,13 @@ export class Defuddle {
 			// Get Node type from window
 			const win = this.getWindow(div.ownerDocument);
 			if (!win) {
-				console.warn('No window object available');
+				console.warn('Is wrapper div: No window object available');
 				return true;
 			}
 
 			const Node = (win as any).Node;
 			if (!Node) {
-				console.warn('No Node type available');
+				console.warn('Is wrapper div: No Node type available');
 				return true;
 			}
 
@@ -891,7 +891,7 @@ export class Defuddle {
 	private standardizeSpaces(element: Element) {
 		const win = this.getWindow(element.ownerDocument);
 		if (!win) {
-			console.warn('No window object available');
+			console.warn('Standardize spaces: no window object available');
 			return;
 		}
 
@@ -941,13 +941,13 @@ export class Defuddle {
 			// Get Node type from window
 			const win = this.getWindow(el.ownerDocument);
 			if (!win) {
-				console.warn('No window object available');
+				console.warn('Remove trailing headings: no window object available');
 				return false;
 			}
 
 			const Node = (win as any).Node;
 			if (!Node) {
-				console.warn('No Node type available');
+				console.warn('Remove trailing headings: no Node type available');
 				return false;
 			}
 
@@ -1065,7 +1065,7 @@ export class Defuddle {
 		let attributeCount = 0;
 		const win = this.getWindow(element.ownerDocument);
 		if (!win) {
-			console.warn('No window object available');
+			console.warn('Strip unwanted attributes: no window object available');
 			return;
 		}
 
@@ -1131,13 +1131,13 @@ export class Defuddle {
 		// Get Node type from window
 		const win = this.getWindow(element.ownerDocument);
 		if (!win) {
-			console.warn('No window object available');
+			console.warn('Remove empty elements: no window object available');
 			return;
 		}
 
 		const Node = (win as any).Node;
 		if (!Node) {
-			console.warn('No Node type available');
+			console.warn('Remove empty elements: no Node type available');
 			return;
 		}
 
@@ -1198,23 +1198,10 @@ export class Defuddle {
 		let processedCount = 0;
 		const startTime = Date.now();
 
-		// Get Node type from window
-		const win = this.getWindow(element.ownerDocument);
-		if (!win) {
-			console.warn('No window object available');
-			return;
-		}
-
-		const Node = (win as any).Node;
-		if (!Node) {
-			console.warn('No Node type available');
-			return;
-		}
-
 		// Use TreeWalker to find text nodes and br elements
 		const NodeFilter = this.getNodeFilter(this.doc);
 		if (!NodeFilter) {
-			console.warn('No NodeFilter available');
+			console.warn('Strip extra br elements: no NodeFilter available');
 			return;
 		}
 
@@ -1286,19 +1273,6 @@ export class Defuddle {
 	private removeEmptyLines(element: Element) {
 		let removedCount = 0;
 		const startTime = Date.now();
-
-		// Get Node type from window
-		const win = this.getWindow(element.ownerDocument);
-		if (!win) {
-			console.warn('No window object available');
-			return;
-		}
-
-		const Node = (win as any).Node;
-		if (!Node) {
-			console.warn('No Node type available');
-			return;
-		}
 
 		// First pass: remove empty text nodes
 		const removeEmptyTextNodes = (node: Node) => {
@@ -1816,13 +1790,6 @@ export class Defuddle {
 		const startTime = Date.now();
 		let processedCount = 0;
 
-		// Get the window object from the document
-		const win = doc.defaultView;
-		if (!win) {
-			console.warn('No window object available');
-			return smallImages;
-		}
-
 		// 1. Read phase - Gather all elements in a single pass
 		const elements = [
 			...Array.from(doc.getElementsByTagName('img')),
@@ -1830,7 +1797,7 @@ export class Defuddle {
 		].filter(element => {
 			// Skip lazy-loaded images that haven't been processed yet
 			// and math images which may be small
-			if (element instanceof (win.HTMLImageElement || win.Image)) {
+			if (element.tagName.toLowerCase() === 'img') {
 				const ignoredImage = element.classList.contains('lazy') || 
 					element.classList.contains('lazyload') ||
 					element.classList.contains('latex') ||
@@ -1851,8 +1818,10 @@ export class Defuddle {
 		const measurements = elements.map(element => ({
 			element,
 			// Static attributes (no reflow)
-			naturalWidth: element instanceof (win.HTMLImageElement || win.Image) ? element.naturalWidth : 0,
-			naturalHeight: element instanceof (win.HTMLImageElement || win.Image) ? element.naturalHeight : 0,
+			naturalWidth: element.tagName.toLowerCase() === 'img' ? 
+				parseInt(element.getAttribute('width') || '0') || 0 : 0,
+			naturalHeight: element.tagName.toLowerCase() === 'img' ? 
+				parseInt(element.getAttribute('height') || '0') || 0 : 0,
 			attrWidth: parseInt(element.getAttribute('width') || '0'),
 			attrHeight: parseInt(element.getAttribute('height') || '0')
 		}));
@@ -1962,21 +1931,14 @@ export class Defuddle {
 	}
 
 	private getElementIdentifier(element: Element): string | null {
-		// Get the window object from the document
-		const win = element.ownerDocument.defaultView;
-		if (!win) {
-			console.warn('No window object available');
-			return null;
-		}
-
 		// Try to create a unique identifier using various attributes
-		if (element instanceof (win.HTMLImageElement || win.Image)) {
+		if (element.tagName.toLowerCase() === 'img') {
 			// For lazy-loaded images, use data-src as identifier if available
 			const dataSrc = element.getAttribute('data-src');
 			if (dataSrc) return `src:${dataSrc}`;
 			
-			const src = element.src || '';
-			const srcset = element.srcset || '';
+			const src = element.getAttribute('src') || '';
+			const srcset = element.getAttribute('srcset') || '';
 			const dataSrcset = element.getAttribute('data-srcset');
 			
 			if (src) return `src:${src}`;
@@ -1986,7 +1948,7 @@ export class Defuddle {
 
 		const id = element.id || '';
 		const className = element.className || '';
-		const viewBox = element instanceof SVGElement ? element.getAttribute('viewBox') || '' : '';
+		const viewBox = element.tagName.toLowerCase() === 'svg' ? element.getAttribute('viewBox') || '' : '';
 		
 		if (id) return `id:${id}`;
 		if (viewBox) return `viewBox:${viewBox}`;
