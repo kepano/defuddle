@@ -609,22 +609,9 @@ export class Defuddle {
 			const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
 			if (isWrapper) return true;
 
-			// Get Node type from window
-			const win = this.getWindow(div.ownerDocument);
-			if (!win) {
-				console.warn('Is wrapper div: No window object available');
-				return true;
-			}
-
-			const Node = (win as any).Node;
-			if (!Node) {
-				console.warn('Is wrapper div: No Node type available');
-				return true;
-			}
-
 			// Check if it has excessive whitespace or empty text nodes
 			const textNodes = Array.from(div.childNodes).filter(node => 
-				node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+				node.nodeType === 3 && node.textContent?.trim() // 3 is TEXT_NODE
 			);
 			if (textNodes.length === 0) return true;
 
@@ -873,15 +860,9 @@ export class Defuddle {
 	}
 
 	private standardizeSpaces(element: Element) {
-		const win = this.getWindow(element.ownerDocument);
-		if (!win) {
-			console.warn('Standardize spaces: no window object available');
-			return;
-		}
-
 		const processNode = (node: Node) => {
 			// Skip pre and code elements
-			if (node instanceof (win as any).Element) {
+			if (node.nodeType === 1) { // ELEMENT_NODE
 				const tag = (node as Element).tagName.toLowerCase();
 				if (tag === 'pre' || tag === 'code') {
 					return;
@@ -889,7 +870,7 @@ export class Defuddle {
 			}
 
 			// Process text nodes
-			if (node.nodeType === Node.TEXT_NODE) {
+			if (node.nodeType === 3) { // TEXT_NODE
 				const text = node.textContent || '';
 				// Replace &nbsp; with regular spaces, except when it's a single &nbsp; between words
 				const newText = text.replace(/\xA0+/g, (match) => {
@@ -922,28 +903,15 @@ export class Defuddle {
 		let removedCount = 0;
 
 		const hasContentAfter = (el: Element): boolean => {
-			// Get Node type from window
-			const win = this.getWindow(el.ownerDocument);
-			if (!win) {
-				console.warn('Remove trailing headings: no window object available');
-				return false;
-			}
-
-			const Node = (win as any).Node;
-			if (!Node) {
-				console.warn('Remove trailing headings: no Node type available');
-				return false;
-			}
-
 			// Check if there's any meaningful content after this element
 			let nextContent = '';
 			let sibling = el.nextSibling;
 
 			// First check direct siblings
 			while (sibling) {
-				if (sibling.nodeType === Node.TEXT_NODE) {
+				if (sibling.nodeType === 3) { // TEXT_NODE
 					nextContent += sibling.textContent || '';
-				} else if (sibling.nodeType === Node.ELEMENT_NODE) {
+				} else if (sibling.nodeType === 1) { // ELEMENT_NODE
 					// If we find an element sibling, check its content
 					nextContent += (sibling as Element).textContent || '';
 				}
@@ -1041,15 +1009,10 @@ export class Defuddle {
 
 	private stripUnwantedAttributes(element: Element) {
 		let attributeCount = 0;
-		const win = this.getWindow(element.ownerDocument);
-		if (!win) {
-			console.warn('Strip unwanted attributes: no window object available');
-			return;
-		}
 
 		const processElement = (el: Element) => {
 			// Skip SVG elements - preserve all their attributes
-			if (el instanceof (win as any).SVGElement) {
+			if (el.tagName.toLowerCase() === 'svg' || el.namespaceURI === 'http://www.w3.org/2000/svg') {
 				return;
 			}
 
