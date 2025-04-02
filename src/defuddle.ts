@@ -423,57 +423,41 @@ export class Defuddle {
 		return win.getComputedStyle(element);
 	}
 
-	private getNodeFilter(doc: Document): typeof NodeFilter | null {
-		const win = this.getWindow(doc);
-		if (!win) return null;
-		return (win as any).NodeFilter as typeof NodeFilter;
-	}
-
 	private removeHiddenElements(doc: Document) {
 		let count = 0;
 		const elementsToRemove = new Set<Element>();
-
-		// Get NodeFilter from window
-		const NodeFilter = this.getNodeFilter(doc);
-		if (!NodeFilter) {
-			console.warn('Remove hidden elements: No NodeFilter available');
-			return;
-		}
 
 		// First pass: Get all elements matching hidden selectors
 		const hiddenElements = doc.querySelectorAll(HIDDEN_ELEMENT_SELECTORS);
 		hiddenElements.forEach(el => elementsToRemove.add(el));
 		count += hiddenElements.length;
 
-		// Second pass: Use TreeWalker for efficient traversal
-		const treeWalker = doc.createTreeWalker(
-			doc.body,
-			NodeFilter.SHOW_ELEMENT,
-			{
-				acceptNode: (node: Element) => {
-					// Skip elements already marked for removal
-					if (elementsToRemove.has(node)) {
-						return NodeFilter.FILTER_REJECT;
-					}
-					return NodeFilter.FILTER_ACCEPT;
-				}
-			}
-		);
-
-		// Batch style computations
-		const elements: Element[] = [];
-		let currentNode: Element | null;
-		while (currentNode = treeWalker.nextNode() as Element) {
-			elements.push(currentNode);
-		}
+		// Second pass: Get all elements and check their styles
+		const allElements = Array.from(doc.getElementsByTagName('*'));
 
 		// Process styles in batches to minimize layout thrashing
 		const BATCH_SIZE = 100;
-		for (let i = 0; i < elements.length; i += BATCH_SIZE) {
-			const batch = elements.slice(i, i + BATCH_SIZE);
+		for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
+			const batch = allElements.slice(i, i + BATCH_SIZE);
 			
 			// Read phase - gather all computedStyles
-			const styles = batch.map(element => element.ownerDocument.defaultView?.getComputedStyle(element));
+			const styles = batch.map(element => {
+				try {
+					return element.ownerDocument.defaultView?.getComputedStyle(element);
+				} catch (e) {
+					// If we can't get computed style, check inline styles
+					const style = element.getAttribute('style');
+					if (!style) return null;
+					
+					// Create a temporary style element to parse inline styles
+					const tempStyle = doc.createElement('style');
+					tempStyle.textContent = `* { ${style} }`;
+					doc.head.appendChild(tempStyle);
+					const computedStyle = element.ownerDocument.defaultView?.getComputedStyle(element);
+					doc.head.removeChild(tempStyle);
+					return computedStyle;
+				}
+			});
 			
 			// Write phase - mark elements for removal
 			batch.forEach((element, index) => {
@@ -1036,29 +1020,23 @@ export class Defuddle {
 	}
 
 	private removeHtmlComments(element: Element) {
-		const comments: Comment[] = [];
-		const NodeFilter = this.getNodeFilter(this.doc);
-		if (!NodeFilter) {
-			console.warn('No NodeFilter available');
-			return;
-		}
+		let removedCount = 0;
 
-		const walker = this.doc.createTreeWalker(
-			element,
-			NodeFilter.SHOW_COMMENT,
-			null
-		);
-
-		let node;
-		while (node = walker.nextNode()) {
-			comments.push(node as Comment);
-		}
-
-		comments.forEach(comment => {
-			comment.remove();
+		// Get all elements and check their child nodes
+		const allElements = Array.from(element.getElementsByTagName('*'));
+		
+		// Process each element's child nodes
+		allElements.forEach(el => {
+			const childNodes = Array.from(el.childNodes);
+			childNodes.forEach(node => {
+				if (node.nodeType === 8) { // 8 is the node type for comments
+					node.remove();
+					removedCount++;
+				}
+			});
 		});
 
-		this._log('Removed HTML comments:', comments.length);
+		this._log('Removed HTML comments:', removedCount);
 	}
 
 	private stripUnwantedAttributes(element: Element) {
@@ -1128,19 +1106,6 @@ export class Defuddle {
 		let iterations = 0;
 		let keepRemoving = true;
 
-		// Get Node type from window
-		const win = this.getWindow(element.ownerDocument);
-		if (!win) {
-			console.warn('Remove empty elements: no window object available');
-			return;
-		}
-
-		const Node = (win as any).Node;
-		if (!Node) {
-			console.warn('Remove empty elements: no Node type available');
-			return;
-		}
-
 		while (keepRemoving) {
 			iterations++;
 			keepRemoving = false;
@@ -1158,7 +1123,7 @@ export class Defuddle {
 				// Check if element has no meaningful children
 				const hasNoChildren = !el.hasChildNodes() || 
 					(Array.from(el.childNodes).every(node => {
-						if (node.nodeType === Node.TEXT_NODE) {
+						if (node.nodeType === 3) { // TEXT_NODE
 							const nodeText = node.textContent || '';
 							return nodeText.trim().length === 0 && !nodeText.includes('\u00A0');
 						}
@@ -1188,38 +1153,18 @@ export class Defuddle {
 			}
 		}
 
-		this._log('Removed empty elements:', {
-			count: removedCount,
-			iterations
-		});
+		this._log('Removed empty elements:', removedCount, 'iterations:', iterations);
 	}
 
 	private stripExtraBrElements(element: Element) {
 		let processedCount = 0;
 		const startTime = Date.now();
 
-		// Use TreeWalker to find text nodes and br elements
-		const NodeFilter = this.getNodeFilter(this.doc);
-		if (!NodeFilter) {
-			console.warn('Strip extra br elements: no NodeFilter available');
-			return;
-		}
-
-		const treeWalker = this.doc.createTreeWalker(
-			element,
-			NodeFilter.SHOW_ELEMENT,
-			{
-				acceptNode: (node: Element) => {
-					return node.tagName.toLowerCase() === 'br' ? 
-						NodeFilter.FILTER_ACCEPT : 
-						NodeFilter.FILTER_SKIP;
-				}
-			}
-		);
+		// Get all br elements directly
+		const brElements = Array.from(element.getElementsByTagName('br'));
 
 		// Keep track of consecutive br elements
 		let consecutiveBrs: Element[] = [];
-		let currentNode: Element | null;
 
 		// Helper to process collected br elements
 		const processBrs = () => {
@@ -1233,8 +1178,8 @@ export class Defuddle {
 			consecutiveBrs = [];
 		};
 
-		// Find all br elements
-		while (currentNode = treeWalker.nextNode() as Element) {
+		// Process all br elements
+		brElements.forEach(currentNode => {
 			// Check if this br is consecutive with previous ones
 			let isConsecutive = false;
 			if (consecutiveBrs.length > 0) {
@@ -1242,7 +1187,7 @@ export class Defuddle {
 				let node: Node | null = currentNode.previousSibling;
 				
 				// Skip whitespace text nodes
-				while (node && node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()) {
+				while (node && node.nodeType === 3 && !node.textContent?.trim()) {
 					node = node.previousSibling;
 				}
 				
@@ -1258,7 +1203,7 @@ export class Defuddle {
 				processBrs();
 				consecutiveBrs = [currentNode];
 			}
-		}
+		});
 
 		// Process any remaining br elements
 		processBrs();
