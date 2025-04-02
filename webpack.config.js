@@ -98,30 +98,5 @@ module.exports = (env, argv) => {
 		}
 	};
 
-	// Full bundle configuration
-	const nodeConfig = {
-		...commonConfig,
-		name: 'node',
-		entry: './src/node.ts',
-		output: {
-				path: path.resolve(__dirname, 'dist'),
-				filename: 'node.js',
-				library: {
-				name: 'Defuddle',
-				type: 'commonjs2',
-				export: 'default'
-			},
-			globalObject: 'typeof self !== "undefined" ? self : this'
-		},
-		target: 'node',
-		resolve: {
-			...commonConfig.resolve,
-			alias: {
-				// Alias the math module to use full version
-				'./math': path.resolve(__dirname, 'src/elements/math.full.ts')
-			}
-		}
-	};
-
-	return [coreConfig, fullConfig, nodeConfig];
+	return [coreConfig, fullConfig];
 }; 
