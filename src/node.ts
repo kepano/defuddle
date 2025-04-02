@@ -21,7 +21,7 @@ export async function Defuddle(
 	if (typeof htmlOrDom === 'string') {
 		dom = new JSDOM(htmlOrDom, {
 			url,
-			runScripts: 'outside-only',
+//			runScripts: 'outside-only',
 			resources: 'usable',
 			pretendToBeVisual: true,
 			includeNodeLocations: true,

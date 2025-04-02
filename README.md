@@ -58,15 +58,14 @@ const html = '<html><body><article>...</article></body></html>';
 const result = await Defuddle(html);
 
 // Parse HTML from a URL
-const response = await fetch('https://example.com/article');
-const html = await response.text();
-const result = await Defuddle(html, 'https://example.com/article');
+const dom = await JSDOM.fromURL('https://example.com/article');
+const result = await Defuddle(dom);
 
 // With options
-const result = await Defuddle(html, {
-  debug: true,
-  markdown: true,
-  url: 'https://example.com/article'
+const result = await Defuddle(dom, {
+  debug: true, // Enable debug mode for verbose logging
+  markdown: true, // Convert content to markdown
+  url: 'https://example.com/article' // Original URL of the page
 });
 ```
 
@@ -94,11 +93,6 @@ const article = new Defuddle(document, { debug: true }).parse();
 - Preserves HTML class and id attributes that are normally stripped
 - Retains all data-* attributes
 - Skips div flattening to preserve document structure
-
-### Markdown
-
-
-
 
 ## Response
 
