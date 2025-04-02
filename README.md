@@ -178,7 +178,3 @@ npm install
 # Clean and build
 npm run build
 ```
-
-This will generate:
-- `dist/index.js` - UMD build for both Node.js and browsers
-- `dist/index.d.ts` - TypeScript declaration file
