@@ -1,5 +1,5 @@
 import { JSDOM, VirtualConsole } from 'jsdom';
-import Defuddle from './index';
+import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { createMarkdownContent } from './markdown';
 
@@ -10,7 +10,7 @@ import { createMarkdownContent } from './markdown';
  * @param options Optional parsing options
  * @returns Promise with parsed content and metadata
  */
-export async function parseHTML(
+export async function Defuddle(
 	htmlOrDom: string | JSDOM,
 	url?: string,
 	options?: DefuddleOptions
@@ -34,7 +34,7 @@ export async function parseHTML(
 	}
 
 	// Create Defuddle instance with URL in options
-	const defuddle = new Defuddle(dom.window.document, {
+	const defuddle = new DefuddleClass(dom.window.document, {
 		...options,
 		url: url || dom.window.location.href,
 		debug: true // Force debug mode to see what's happening
@@ -51,4 +51,4 @@ export async function parseHTML(
 	return result;
 }
 
-export { Defuddle, DefuddleOptions, DefuddleResponse }; 
+export { DefuddleClass, DefuddleOptions, DefuddleResponse }; 

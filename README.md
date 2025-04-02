@@ -50,21 +50,22 @@ console.log(result.author);
 ### Node.js
 
 ```javascript
-import { parseHTML } from 'defuddle/node';
+import { JSDOM } from 'jsdom';
+import { Defuddle } from 'defuddle/node';
 
 // Parse HTML from a string
 const html = '<html><body><article>...</article></body></html>';
-const result = await parseHTML(html);
+const result = await Defuddle(html);
 
 // Parse HTML from a URL
 const response = await fetch('https://example.com/article');
 const html = await response.text();
-const result = await parseHTML(html, 'https://example.com/article');
+const result = await Defuddle(html, 'https://example.com/article');
 
 // With options
-const result = await parseHTML(html, {
+const result = await Defuddle(html, {
   debug: true,
-  keepClasses: true,
+  markdown: true,
   url: 'https://example.com/article'
 });
 ```
@@ -73,11 +74,13 @@ const result = await parseHTML(html, {
 
 Defuddle is available in three different bundles:
 
-1. Core Bundle (`defuddle`): The main bundle for browser usage. Size: ~20KB gzipped.
-2. Full Bundle (`defuddle/full`): Includes additional features like math equation parsing. Size: ~25KB gzipped.
-3. Node.js Bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Size: ~30KB gzipped.
+1. Core bundle (`defuddle`): The main bundle for browser usage. No dependencies.
+2. Full bundle (`defuddle/full`): Includes additional features for math equation parsing.
+3. Node.js bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Includes full capabilities for math and Markdown conversion.
 
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
+
+## Options
 
 ### Debug mode
 
@@ -92,24 +95,10 @@ const article = new Defuddle(document, { debug: true }).parse();
 - Retains all data-* attributes
 - Skips div flattening to preserve document structure
 
-### Server-side usage
+### Markdown
 
-When using Defuddle in a Node.js environment, you can use JSDOM to create a DOM document:
 
-```typescript
-import Defuddle from 'defuddle';
-import { JSDOM } from 'jsdom';
 
-const html = '...'; // Your HTML string
-const dom = new JSDOM(html, {
-  url: "https://www.example.com/page-url" // Optional: helps resolve relative URLs
-});
-
-const article = new Defuddle(dom.window.document).parse();
-console.log(article.content);
-```
-
-Providing `url` in the JSDOM constructor helps convert relative URLs (images, links, etc.) to absolute URLs.
 
 ## Response
 
