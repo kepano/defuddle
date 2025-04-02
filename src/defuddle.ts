@@ -303,17 +303,22 @@ export class Defuddle {
 					sheet.cssRules;
 					return true;
 				} catch (e) {
-					// Expected error for cross-origin stylesheets
+					// Expected error for cross-origin stylesheets or Node.js environment
 					if (e instanceof DOMException && e.name === 'SecurityError') {
 						return false;
 					}
-					throw e;
+					return false;
 				}
 			});
 			
 			// Process all sheets in a single pass
 			const mediaRules = sheets.flatMap(sheet => {
 				try {
+					// Check if we're in a browser environment where CSSMediaRule is available
+					if (typeof CSSMediaRule === 'undefined') {
+						return [];
+					}
+
 					return Array.from(sheet.cssRules)
 						.filter((rule): rule is CSSMediaRule => 
 							rule instanceof CSSMediaRule &&
