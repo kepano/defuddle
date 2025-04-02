@@ -296,25 +296,6 @@ export class Defuddle {
 		const maxWidthRegex = /max-width[^:]*:\s*(\d+)/;
 
 		try {
-			// Get CSSMediaRule from window
-			const win = this.getWindow(doc);
-			if (!win) {
-				console.warn('Evaluate media queries: No window object available');
-				return mobileStyles;
-			}
-
-			// Define the CSSMediaRule interface
-			interface CSSMediaRule extends CSSRule {
-				conditionText: string;
-				cssRules: CSSRuleList;
-			}
-
-			const CSSMediaRule = (win as any).CSSMediaRule as new () => CSSMediaRule;
-			if (!CSSMediaRule) {
-				console.warn('Evaluate media queries: No CSSMediaRule available');
-				return mobileStyles;
-			}
-
 			// Get all styles, including inline styles
 			const sheets = Array.from(doc.styleSheets).filter(sheet => {
 				try {
@@ -1626,19 +1607,22 @@ export class Defuddle {
 		const lazyImages = element.querySelectorAll('img[data-src], img[data-srcset]');
 
 		lazyImages.forEach(img => {
-			if (!(img instanceof HTMLImageElement)) return;
+			// Check if element is an image by checking tag name and required properties
+			if (img.tagName.toLowerCase() !== 'img' || !('src' in img) || !('srcset' in img)) {
+				return;
+			}
 
 			// Handle data-src
 			const dataSrc = img.getAttribute('data-src');
-			if (dataSrc && !img.src) {
-				img.src = dataSrc;
+			if (dataSrc && !img.getAttribute('src')) {
+				img.setAttribute('src', dataSrc);
 				processedCount++;
 			}
 
 			// Handle data-srcset
 			const dataSrcset = img.getAttribute('data-srcset');
-			if (dataSrcset && !img.srcset) {
-				img.srcset = dataSrcset;
+			if (dataSrcset && !img.getAttribute('srcset')) {
+				img.setAttribute('srcset', dataSrcset);
 				processedCount++;
 			}
 

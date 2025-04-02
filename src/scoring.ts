@@ -8,11 +8,6 @@ export interface ContentScore {
 export class ContentScorer {
 	static scoreElement(element: Element): number {
 		let score = 0;
-		const win = element.ownerDocument.defaultView;
-		if (!win) {
-			console.warn('No window object available');
-			return score;
-		}
 
 		// Text density
 		const text = element.textContent || '';
@@ -35,11 +30,14 @@ export class ContentScorer {
 
 		// Position bonus (center/right elements)
 		try {
-			const rect = element.getBoundingClientRect();
-			const isRightSide = rect.left > win.innerWidth / 2;
+			const style = element.getAttribute('style') || '';
+			const align = element.getAttribute('align') || '';
+			const isRightSide = style.includes('float: right') || 
+							   style.includes('text-align: right') || 
+							   align === 'right';
 			if (isRightSide) score += 5;
 		} catch (e) {
-			// Ignore position if we can't get bounding rect
+			// Ignore position if we can't get style
 		}
 
 		// Content indicators
@@ -64,24 +62,24 @@ export class ContentScorer {
 		score -= nestedTables * 5;
 
 		// Additional scoring for table cells
-		if (element instanceof win.HTMLTableCellElement) {
+		if (element.tagName.toLowerCase() === 'td') {
 			// Table cells get a bonus for being in the main content area
 			const parentTable = element.closest('table');
 			if (parentTable) {
 				// Only favor cells in tables that look like old-style content layouts
 				const tableWidth = parseInt(parentTable.getAttribute('width') || '0');
-				const tableStyle = win.getComputedStyle(parentTable);
+				const tableAlign = parentTable.getAttribute('align') || '';
+				const tableClass = parentTable.className.toLowerCase();
 				const isTableLayout = 
 					tableWidth > 400 || // Common width for main content tables
-					tableStyle.width.includes('px') && parseInt(tableStyle.width) > 400 ||
-					parentTable.getAttribute('align') === 'center' ||
-					parentTable.className.toLowerCase().includes('content') ||
-					parentTable.className.toLowerCase().includes('article');
+					tableAlign === 'center' ||
+					tableClass.includes('content') ||
+					tableClass.includes('article');
 
 				if (isTableLayout) {
 					// Additional checks to ensure this is likely the main content cell
 					const allCells = Array.from(parentTable.getElementsByTagName('td'));
-					const cellIndex = allCells.indexOf(element);
+					const cellIndex = allCells.indexOf(element as HTMLTableCellElement);
 					const isCenterCell = cellIndex > 0 && cellIndex < allCells.length - 1;
 					
 					if (isCenterCell) {
