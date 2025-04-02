@@ -198,9 +198,10 @@ export class TwitterExtractor extends BaseExtractor {
 					return;
 				}
 
-				if (img instanceof HTMLImageElement) {
-					const highQualitySrc = img.src.replace(/&name=\w+$/, '&name=large');
-					const cleanAlt = img.alt?.replace(/\s+/g, ' ').trim() || '';
+				// Check if element is an image by checking tag name and required properties
+				if (img.tagName.toLowerCase() === 'img' && 'src' in img) {
+					const highQualitySrc = (img as Element).getAttribute('src')?.replace(/&name=\w+$/, '&name=large') || '';
+					const cleanAlt = (img as Element).getAttribute('alt')?.replace(/\s+/g, ' ').trim() || '';
 					images.push(`<img src="${highQualitySrc}" alt="${cleanAlt}" />`);
 				}
 			});
