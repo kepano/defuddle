@@ -13,7 +13,8 @@ import {
 	PARTIAL_SELECTORS,
 	ENTRY_POINT_ELEMENTS,
 	ALLOWED_EMPTY_ELEMENTS,
-	TEST_ATTRIBUTES
+	TEST_ATTRIBUTES,
+	NODE_TYPE
 } from './constants';
 
 import { mathRules } from './elements/math.full';
@@ -149,6 +150,11 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 interface StyleChange {
 	selector: string;
 	styles: string;
+}
+
+// Type guard
+function isElement(node: Node): node is Element {
+	return node.nodeType === NODE_TYPE.ELEMENT_NODE;
 }
 
 export class Defuddle {
@@ -533,11 +539,11 @@ export class Defuddle {
 		function hasDirectInlineContent(el: Element): boolean {
 			for (const child of el.childNodes) {
 				// Check for non-empty text nodes
-				if (child.nodeType === Node.TEXT_NODE && child.textContent?.trim()) {
+				if (child.nodeType === NODE_TYPE.TEXT_NODE && child.textContent?.trim()) {
 					return true;
 				}
 				// Check for element nodes that are considered inline
-				if (child.nodeType === Node.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase())) {
+				if (child.nodeType === NODE_TYPE.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase())) {
 					return true;
 				}
 			}
@@ -607,7 +613,7 @@ export class Defuddle {
 
 			// Check if it has excessive whitespace or empty text nodes
 			const textNodes = Array.from(div.childNodes).filter(node => 
-				node.nodeType === 3 && node.textContent?.trim() // 3 is TEXT_NODE
+				node.nodeType === NODE_TYPE.TEXT_NODE && node.textContent?.trim() // TEXT_NODE
 			);
 			if (textNodes.length === 0) return true;
 
@@ -684,8 +690,8 @@ export class Defuddle {
 			// Case 4: Div only contains text and/or inline elements - convert to paragraph
 			const childNodes = Array.from(div.childNodes);
 			const hasOnlyInlineOrText = childNodes.length > 0 && childNodes.every(child =>
-				(child.nodeType === Node.TEXT_NODE) ||
-				(child.nodeType === Node.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase()))
+				(child.nodeType === NODE_TYPE.TEXT_NODE) ||
+				(child.nodeType === NODE_TYPE.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase()))
 			);
 
 			if (hasOnlyInlineOrText && div.textContent?.trim()) { // Ensure there's actual content
@@ -872,7 +878,7 @@ export class Defuddle {
 	private standardizeSpaces(element: Element) {
 		const processNode = (node: Node) => {
 			// Skip pre and code elements
-			if (node.nodeType === 1) { // ELEMENT_NODE
+			if (node.nodeType === NODE_TYPE.ELEMENT_NODE) {
 				const tag = (node as Element).tagName.toLowerCase();
 				if (tag === 'pre' || tag === 'code') {
 					return;
@@ -880,7 +886,7 @@ export class Defuddle {
 			}
 
 			// Process text nodes
-			if (node.nodeType === 3) { // TEXT_NODE
+			if (node.nodeType === NODE_TYPE.TEXT_NODE) {
 				const text = node.textContent || '';
 				// Replace &nbsp; with regular spaces, except when it's a single &nbsp; between words
 				const newText = text.replace(/\xA0+/g, (match) => {
@@ -919,9 +925,9 @@ export class Defuddle {
 
 			// First check direct siblings
 			while (sibling) {
-				if (sibling.nodeType === 3) { // TEXT_NODE
+				if (sibling.nodeType === NODE_TYPE.TEXT_NODE) { // TEXT_NODE
 					nextContent += sibling.textContent || '';
-				} else if (sibling.nodeType === 1) { // ELEMENT_NODE
+				} else if (sibling.nodeType === NODE_TYPE.ELEMENT_NODE) { // ELEMENT_NODE
 					// If we find an element sibling, check its content
 					nextContent += (sibling as Element).textContent || '';
 				}
@@ -1096,7 +1102,7 @@ export class Defuddle {
 				// Check if element has no meaningful children
 				const hasNoChildren = !el.hasChildNodes() || 
 					(Array.from(el.childNodes).every(node => {
-						if (node.nodeType === 3) { // TEXT_NODE
+						if (node.nodeType === NODE_TYPE.TEXT_NODE) { // TEXT_NODE
 							const nodeText = node.textContent || '';
 							return nodeText.trim().length === 0 && !nodeText.includes('\u00A0');
 						}
@@ -1160,7 +1166,7 @@ export class Defuddle {
 				let node: Node | null = currentNode.previousSibling;
 				
 				// Skip whitespace text nodes
-				while (node && node.nodeType === 3 && !node.textContent?.trim()) {
+				while (node && node.nodeType === NODE_TYPE.TEXT_NODE && !node.textContent?.trim()) {
 					node = node.previousSibling;
 				}
 				
@@ -1195,8 +1201,8 @@ export class Defuddle {
 		// First pass: remove empty text nodes
 		const removeEmptyTextNodes = (node: Node) => {
 			// Skip if inside pre or code
-			if (node instanceof Element) {
-				const tag = node.tagName.toLowerCase();
+			if (node.nodeType === NODE_TYPE.ELEMENT_NODE) {
+				const tag = (node as Element).tagName.toLowerCase();
 				if (tag === 'pre' || tag === 'code') {
 					return;
 				}
@@ -1207,7 +1213,7 @@ export class Defuddle {
 			children.forEach(removeEmptyTextNodes);
 
 			// Then handle this node
-			if (node.nodeType === Node.TEXT_NODE) {
+			if (node.nodeType === NODE_TYPE.TEXT_NODE) {
 				const text = node.textContent || '';
 				// If it's completely empty or just special characters/whitespace, remove it
 				if (!text || text.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF\xA0\s]*$/)) {
@@ -1237,7 +1243,7 @@ export class Defuddle {
 
 		// Second pass: clean up empty elements and normalize spacing
 		const cleanupEmptyElements = (node: Node) => {
-			if (!(node instanceof Element)) return;
+			if (!isElement(node)) return;
 
 			// Skip pre and code elements
 			const tag = node.tagName.toLowerCase();
@@ -1246,7 +1252,9 @@ export class Defuddle {
 			}
 
 			// Process children first (depth-first)
-			Array.from(node.children).forEach(cleanupEmptyElements);
+			Array.from(node.childNodes)
+				.filter(isElement)
+				.forEach(cleanupEmptyElements);
 
 			// Then normalize this element's whitespace
 			node.normalize(); // Combine adjacent text nodes
@@ -1260,14 +1268,14 @@ export class Defuddle {
 			const endPattern = isBlockElement ? /^[\n\r\t \u200C\u200B\u200D\u200E\u200F\uFEFF\xA0]*$/ : /^[\n\r\t\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/;
 			
 			while (node.firstChild && 
-				   node.firstChild.nodeType === Node.TEXT_NODE && 
+				   node.firstChild.nodeType === NODE_TYPE.TEXT_NODE && 
 				   (node.firstChild.textContent || '').match(startPattern)) {
 				node.removeChild(node.firstChild);
 				removedCount++;
 			}
 			
 			while (node.lastChild && 
-				   node.lastChild.nodeType === Node.TEXT_NODE && 
+				   node.lastChild.nodeType === NODE_TYPE.TEXT_NODE && 
 				   (node.lastChild.textContent || '').match(endPattern)) {
 				node.removeChild(node.lastChild);
 				removedCount++;
@@ -1281,7 +1289,7 @@ export class Defuddle {
 					const next = children[i + 1];
 
 					// Only add space between elements or between element and text
-					if (current instanceof Element || next instanceof Element) {
+					if (isElement(current) || isElement(next)) {
 						// Don't add space if next content starts with punctuation
 						const nextContent = next.textContent || '';
 						const currentContent = current.textContent || '';
@@ -1289,13 +1297,13 @@ export class Defuddle {
 						if (!nextContent.match(/^[,.!?:;]/) && 
 							!currentContent.match(/[,.!?:;]$/)) {
 							// Check if there's already a space
-							const hasSpace = (current.nodeType === Node.TEXT_NODE && 
+							const hasSpace = (current.nodeType === NODE_TYPE.TEXT_NODE && 
 											(current.textContent || '').endsWith(' ')) ||
-											(next.nodeType === Node.TEXT_NODE && 
+											(next.nodeType === NODE_TYPE.TEXT_NODE && 
 											(next.textContent || '').startsWith(' '));
 							
 							if (!hasSpace) {
-								const space = document.createTextNode(' ');
+								const space = this.doc.createTextNode(' ');
 								node.insertBefore(space, next);
 							}
 						}

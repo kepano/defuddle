@@ -36,8 +36,7 @@ export async function Defuddle(
 	// Create Defuddle instance with URL in options
 	const defuddle = new DefuddleClass(dom.window.document, {
 		...options,
-		url: url || dom.window.location.href,
-		debug: true // Force debug mode to see what's happening
+		url: url || dom.window.location.href
 	});
 
 	const result = defuddle.parse();

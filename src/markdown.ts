@@ -34,8 +34,8 @@ function isGenericElement(node: unknown): node is GenericElement {
 	return node !== null && typeof node === 'object' && 'getAttribute' in node;
 }
 
-function isElement(node: unknown): node is Element {
-	return node !== null && typeof node === 'object' && 'nodeType' in node && (node as any).nodeType === NODE_TYPE.ELEMENT_NODE;
+function isElement(node: Node): node is Element {
+	return node.nodeType === NODE_TYPE.ELEMENT_NODE;
 }
 
 function asGenericElement(node: any): GenericElement {

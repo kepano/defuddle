@@ -1,4 +1,4 @@
-import { ALLOWED_ATTRIBUTES } from '../constants';
+import { NODE_TYPE } from '../constants';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
@@ -137,10 +137,15 @@ export const codeBlockRules = [
 			'div[class*="language-"]'
 		].join(', '),
 		element: 'pre',
-		transform: (el: Element): Element => {
-			if (!(el instanceof HTMLElement)) return el;
+		transform: (el: Element, doc: Document): Element => {
+			// Helper function to check if an element has specific properties
+			const hasHTMLElementProps = (el: Element): boolean => {
+				return 'classList' in el && 'getAttribute' in el && 'querySelector' in el;
+			};
 
-			const getCodeLanguage = (element: HTMLElement): string => {
+			if (!hasHTMLElementProps(el)) return el;
+
+			const getCodeLanguage = (element: Element): string => {
 				// Check data-lang attribute first
 				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language');
 				if (dataLang) {
@@ -148,10 +153,10 @@ export const codeBlockRules = [
 				}
 
 				// Check class names for patterns and supported languages
-				const classNames = Array.from(element.classList);
+				const classNames = Array.from(element.classList || []);
 				
 				// Check for syntax highlighter specific format
-				if (element.classList.contains('syntaxhighlighter')) {
+				if (element.classList?.contains('syntaxhighlighter')) {
 					const langClass = classNames.find(c => !['syntaxhighlighter', 'nogutter'].includes(c));
 					if (langClass && CODE_LANGUAGES.has(langClass.toLowerCase())) {
 						return langClass.toLowerCase();
@@ -180,21 +185,22 @@ export const codeBlockRules = [
 
 			// Try to get the language from the element and its ancestors
 			let language = '';
-			let currentElement: HTMLElement | null = el;
+			let currentElement: Element | null = el;
 			
 			while (currentElement && !language) {
 				language = getCodeLanguage(currentElement);
 				
 				// Also check for code elements within the current element
-				if (!language && currentElement.querySelector('code')) {
-					language = getCodeLanguage(currentElement.querySelector('code')!);
+				const codeEl = currentElement.querySelector('code');
+				if (!language && codeEl) {
+					language = getCodeLanguage(codeEl);
 				}
 				
 				currentElement = currentElement.parentElement;
 			}
 
 			// Extract content from WordPress syntax highlighter
-			const extractWordPressContent = (element: HTMLElement): string => {
+			const extractWordPressContent = (element: Element): string => {
 				// Handle WordPress syntax highlighter table format
 				const codeContainer = element.querySelector('.syntaxhighlighter table .code .container');
 				if (codeContainer) {
@@ -203,7 +209,7 @@ export const codeBlockRules = [
 							const codeParts = Array.from(line.querySelectorAll('code'))
 								.map(code => {
 									let text = code.textContent || '';
-									if (code.classList.contains('spaces')) {
+									if (code.classList?.contains('spaces')) {
 										text = ' '.repeat(text.length);
 									}
 									return text;
@@ -232,7 +238,7 @@ export const codeBlockRules = [
 
 			// Recursively extract text content while preserving structure
 			const extractStructuredText = (element: Node): string => {
-				if (element.nodeType === Node.TEXT_NODE) {
+				if (element.nodeType === NODE_TYPE.TEXT_NODE) {
 					return element.textContent || '';
 				}
 				
@@ -296,10 +302,10 @@ export const codeBlockRules = [
 				.replace(/\n+$/, '');           // Remove extra newlines at end
 
 			// Create new pre element
-			const newPre = document.createElement('pre');
+			const newPre = doc.createElement('pre');
 
 			// Create code element
-			const code = document.createElement('code');
+			const code = doc.createElement('code');
 			if (language) {
 				code.setAttribute('data-lang', language);
 				code.setAttribute('class', `language-${language}`);

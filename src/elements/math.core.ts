@@ -30,18 +30,22 @@ export const createCleanMathEl = (doc: Document, mathData: MathData | null, late
 	return cleanMathEl;
 };
 
+function hasHTMLElementProps(el: Element): boolean {
+	return 'classList' in el && 'getAttribute' in el && 'querySelector' in el;
+}
+
 // Find math elements
 export const mathRules = [
 	{
 		selector: mathSelectors,
 		element: 'math',
-		transform: (el: Element): Element => {
-			if (!(el instanceof HTMLElement)) return el;
+		transform: (el: Element, doc: Document): Element => {
+			if (!hasHTMLElementProps(el)) return el;
 
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
 			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(el.ownerDocument, mathData, latex, isBlock);
+			const cleanMathEl = createCleanMathEl(doc, mathData, latex, isBlock);
 
 			// Clean up any associated math scripts after we've extracted their content
 			if (el.parentElement) {
