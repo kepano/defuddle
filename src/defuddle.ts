@@ -829,7 +829,7 @@ export class Defuddle {
 		this.standardizeHeadings(element, metadata.title);
 		
 		// Standardize footnotes and citations
-		standardizeFootnotes(element, this.doc);
+		standardizeFootnotes(element);
 
 		// Handle lazy-loaded images
 		this.handleLazyImages(element);

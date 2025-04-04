@@ -1,7 +1,8 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES } from '../constants';
 
+// Use the global DOM types
 interface FootnoteData {
-	content: Element | string;
+	content: any;
 	originalId: string;
 	refs: string[];
 }
@@ -11,18 +12,18 @@ interface FootnoteCollection {
 }
 
 class FootnoteHandler {
-	private doc: Document;
+	private doc: any;
 
-	constructor(doc: Document) {
+	constructor(doc: any) {
 		this.doc = doc;
 	}
 
 	createFootnoteItem(
 		footnoteNumber: number,
-		content: string | Element,
+		content: string | any,
 		refs: string[]
-	): HTMLLIElement {
-		const doc = content instanceof Element ? content.ownerDocument : this.doc;
+	): any {
+		const doc = typeof content === 'string' ? this.doc : content.ownerDocument;
 		const newItem = doc.createElement('li');
 		newItem.className = 'footnote';
 		newItem.id = `fn:${footnoteNumber}`;
@@ -42,7 +43,7 @@ class FootnoteHandler {
 				newItem.appendChild(paragraph);
 			} else {
 				// Copy existing paragraphs
-				paragraphs.forEach(p => {
+				paragraphs.forEach((p: any) => {
 					const newP = doc.createElement('p');
 					newP.innerHTML = p.innerHTML;
 					newItem.appendChild(newP);
@@ -67,14 +68,14 @@ class FootnoteHandler {
 		return newItem;
 	}
 
-	collectFootnotes(element: Element): FootnoteCollection {
+	collectFootnotes(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 		let footnoteCount = 1;
 		const processedIds = new Set<string>(); // Track processed IDs
 
 		// Collect all footnotes and their IDs from footnote lists
 		const footnoteLists = element.querySelectorAll(FOOTNOTE_LIST_SELECTORS);
-		footnoteLists.forEach(list => {
+		footnoteLists.forEach((list: any) => {
 			// Substack has individual footnote divs with no parent
 			if (list.matches('div.footnote[data-component-name="FootnoteToDOM"]')) {
 				const anchor = list.querySelector('a.footnote-number');
@@ -96,9 +97,9 @@ class FootnoteHandler {
 
 			// Common format using OL/UL and LI elements
 			const items = list.querySelectorAll('li, div[role="listitem"]');
-			items.forEach(li => {
+			items.forEach((li: any) => {
 				let id = '';
-				let content: Element | null = null;
+				let content: any = null;
 
 				// Handle citations with .citations class
 				const citationsDiv = li.querySelector('.citations');
@@ -142,9 +143,9 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
-	findOuterFootnoteContainer(el: Element): Element {
-		let current: Element | null = el;
-		let parent: Element | null = el.parentElement;
+	findOuterFootnoteContainer(el: any): any {
+		let current: any = el;
+		let parent: any = el.parentElement;
 		
 		// Keep going up until we find an element that's not a span or sup
 		while (parent && (
@@ -160,7 +161,7 @@ class FootnoteHandler {
 
 	// Every footnote reference should be a sup element with an anchor inside
 	// e.g. <sup id="fnref:1"><a href="#fn:1">1</a></sup>
-	createFootnoteReference(footnoteNumber: string, refId: string): HTMLElement {
+	createFootnoteReference(footnoteNumber: string, refId: string): any {
 		const sup = this.doc.createElement('sup');
 		sup.id = refId;
 		const link = this.doc.createElement('a');
@@ -170,17 +171,17 @@ class FootnoteHandler {
 		return sup;
 	}
 
-	standardizeFootnotes(element: Element) {
+	standardizeFootnotes(element: any) {
 		const footnotes = this.collectFootnotes(element);
 
 		// Standardize inline footnotes using the collected IDs
 		const footnoteInlineReferences = element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES);
 		
 		// Group references by their parent sup element
-		const supGroups = new Map<Element, Element[]>();
+		const supGroups = new Map();
 		
-		footnoteInlineReferences.forEach(el => {
-			if (!(el instanceof HTMLElement)) return;
+		footnoteInlineReferences.forEach((el: any) => {
+			if (!el) return;
 
 			let footnoteId = '';
 			let footnoteContent = '';
@@ -220,7 +221,7 @@ class FootnoteHandler {
 				}
 			} else if (el.matches('sup.reference')) {
 				const links = el.querySelectorAll('a');
-				Array.from(links).forEach(link => {
+				Array.from(links).forEach((link: any) => {
 					const href = link.getAttribute('href');
 					if (href) {
 						const match = href.split('/').pop()?.match(/(?:cite_note|cite_ref)-(.+)/);
@@ -276,7 +277,7 @@ class FootnoteHandler {
 						if (!supGroups.has(container)) {
 							supGroups.set(container, []);
 						}
-						const group = supGroups.get(container)!;
+						const group = supGroups.get(container);
 						group.push(this.createFootnoteReference(footnoteNumber, refId));
 					} else {
 						// Replace the container directly
@@ -293,7 +294,7 @@ class FootnoteHandler {
 				const fragment = this.doc.createDocumentFragment();
 				
 				// Add each reference as its own sup element
-				references.forEach((ref, index) => {
+				references.forEach((ref: any) => {
 					const link = ref.querySelector('a');
 					if (link) {
 						const sup = this.doc.createElement('sup');
@@ -324,7 +325,7 @@ class FootnoteHandler {
 
 		// Remove original footnote lists
 		const footnoteLists = element.querySelectorAll(FOOTNOTE_LIST_SELECTORS);
-		footnoteLists.forEach(list => list.remove());
+		footnoteLists.forEach((list: any) => list.remove());
 
 		// If we have any footnotes, add the new list to the document
 		if (orderedList.children.length > 0) {
@@ -337,12 +338,12 @@ class FootnoteHandler {
 /**
  * Standardizes footnotes in the given element
  * @param element The element to standardize footnotes in
- * @param doc The document to use for creating elements
  */
-export function standardizeFootnotes(element: Element, doc: Document): void {
-	// Ensure we're in a browser environment
-	if (typeof window === 'undefined' || !doc) {
-		console.warn('standardizeFootnotes: Document not available in this environment');
+export function standardizeFootnotes(element: any): void {
+	// Get the document from the element's ownerDocument
+	const doc = element.ownerDocument;
+	if (!doc) {
+		console.warn('standardizeFootnotes: No document available');
 		return;
 	}
 
