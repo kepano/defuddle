@@ -1,4 +1,5 @@
 import { ALLOWED_ATTRIBUTES } from '../constants';
+import { BLOCK_ELEMENTS } from '../constants';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
@@ -137,8 +138,38 @@ export const codeBlockRules = [
 			'div[class*="language-"]'
 		].join(', '),
 		element: 'pre',
+		// This transform acts as a dispatcher for preformatted elements (<pre>, code divs).
+		// It checks the internal structure to decide how to handle it:
+		// 1. Complex children (p, br, block elements) -> Convert to <div> for generic HTML cleaning.
+		// 2. Contains <code> or is simple text -> Standardize as a code block <pre><code>.
 		transform: (el: Element): Element => {
 			if (!(el instanceof HTMLElement)) return el;
+
+			// --- 1. Check for complex children ---
+			// Define which elements indicate a structure too complex for a code block
+			let hasComplexChildren = false;
+			for (const child of el.childNodes) {
+				if (child.nodeType === Node.ELEMENT_NODE) {
+					const tagName = child.nodeName.toLowerCase();
+					// Check if the child is a block-level element (excluding pre/li) or a <br>
+					if ((BLOCK_ELEMENTS.includes(tagName) && tagName !== 'pre' && tagName !== 'li') || tagName === 'br') {
+						hasComplexChildren = true;
+						break;
+					}
+				}
+			}
+
+			if (hasComplexChildren) {
+				// Situation 1: Contains complex tags -> Convert to <div> for generic HTML cleaning
+				const div = document.createElement('div');
+				// Move all children from the original element to the new div
+				while (el.firstChild) {
+					div.appendChild(el.firstChild);
+				}
+				return div; // Return the div to replace the original element
+			}
+
+			// --- If not complex, treat as code block source (Situations 2 & 3) ---
 
 			const getCodeLanguage = (element: HTMLElement): string => {
 				// Check data-lang attribute first
