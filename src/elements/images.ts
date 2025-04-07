@@ -47,7 +47,23 @@ export const imageRules = [
 			// Copy other attributes from the original img if it exists
 			const originalImg = el.querySelector('img');
 			if (originalImg) {
-				copyAttributesExcept(originalImg, newImg, ['src', 'srcset']);
+				// Copy all attributes except srcset
+				copyAttributesExcept(originalImg, newImg, ['srcset']);
+				
+				// Always set the src attribute directly from the original img
+				const originalSrc = originalImg.getAttribute('src');
+				
+				// Always use the original src if it exists
+				if (originalSrc) {
+					newImg.setAttribute('src', originalSrc);
+				}
+			}
+
+			if (!newImg.hasAttribute('src') && originalImg) {
+				const originalSrc = originalImg.getAttribute('src');
+				if (originalSrc) {
+					newImg.setAttribute('src', originalSrc);
+				}
 			}
 			
 			return newImg;
@@ -223,8 +239,6 @@ export const imageRules = [
 			}
 		}
 	},
-	
-	// Additional image standardization rules can be added here
 ];
 
 /**
@@ -720,16 +734,13 @@ function processPictureElement(element: Element, doc: Document): Element {
 	// Copy other attributes from the original img if it exists
 	const originalImg = element.querySelector('img');
 	if (originalImg) {
-		copyAttributesExcept(originalImg, newImg, ['src', 'srcset']);
-	}
-	
-	// If we still don't have a valid src, try to find one from the original img
-	if (!newImg.hasAttribute('src') || !isValidImageUrl(newImg.getAttribute('src') || '')) {
-		if (originalImg) {
-			const originalSrc = originalImg.getAttribute('src');
-			if (originalSrc && isValidImageUrl(originalSrc)) {
-				newImg.setAttribute('src', originalSrc);
-			}
+		// Copy all attributes except srcset
+		copyAttributesExcept(originalImg, newImg, ['srcset']);
+		
+		// Always set the src attribute directly from the original img
+		const originalSrc = originalImg.getAttribute('src');
+		if (originalSrc) {
+			newImg.setAttribute('src', originalSrc);
 		}
 	}
 	
