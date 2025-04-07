@@ -652,6 +652,7 @@ export const PARTIAL_SELECTORS = [
 	'sidebar-item',
 	'side-box',
 	'side-logo',
+	'sign-in-gate',
 	'similar-',
 	'similar_',
 	'similars-',
