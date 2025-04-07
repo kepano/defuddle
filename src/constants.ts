@@ -683,6 +683,7 @@ export const PARTIAL_SELECTORS = [
 	'story-date',
 	'story-navigation',
 	'storyreadtime', // Medium
+	'storysmall',
 	'storypublishdate', // Medium
 	'subject-label',
 	'subhead',
