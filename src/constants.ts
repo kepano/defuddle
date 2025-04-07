@@ -328,6 +328,7 @@ export const PARTIAL_SELECTORS = [
 	'card-media',
 	'card-post',
 //	'carousel',
+	'carousel-container',
 	'cat_header',
 	'catlinks',
 	'chapter-list', // The Economist
@@ -644,6 +645,7 @@ export const PARTIAL_SELECTORS = [
 	'share-post',
 	'share-print',
 	'share-section',
+	'show-for-print',
 	'sidebartitle',
 //	'sidebar_',
 	'sidebar-content',
