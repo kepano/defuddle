@@ -207,6 +207,7 @@ export const EXACT_SELECTORS = [
 	'.copyright',
 	'#copyright',
 	'#rss',
+	'#feed',
 	'.gutter',
 	'#primaryaudio', // NPR
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',

@@ -108,6 +108,64 @@ export const imageRules = [
 		}
 	},
 	
+	// Handle span elements containing images with captions
+	{
+		selector: 'span:has(img)',
+		element: 'span',
+		transform: (el: Element, doc: Document): Element => {
+			try {
+				// Check if this element contains an image
+				const hasImage = containsImage(el);
+				if (!hasImage) {
+					return el; // Not an image element, return as is
+				}
+				
+				// Find the main image element
+				const imgElement = findMainImage(el);
+				if (!imgElement) {
+					return el; // No image found, return as is
+				}
+				
+				// Find any caption
+				const caption = findCaption(el);
+				
+				// Process the image element
+				const processedImg = processImageElement(imgElement, doc);
+				
+				// If there's a meaningful caption, wrap in a figure
+				if (caption && hasMeaningfulCaption(caption)) {
+					// Create a new figure element
+					const figure = doc.createElement('figure');
+					
+					// Add the processed image to the figure
+					figure.appendChild(processedImg);
+					
+					// Add caption - ensure we don't duplicate content
+					const figcaption = doc.createElement('figcaption');
+					
+					// Extract unique caption content
+					const uniqueCaptionContent = extractUniqueCaptionContent(caption);
+					figcaption.innerHTML = uniqueCaptionContent;
+					
+					figure.appendChild(figcaption);
+					
+					// Remove the original caption element to prevent duplication
+					if (caption.parentNode) {
+						caption.parentNode.removeChild(caption);
+					}
+					
+					return figure;
+				} else {
+					// No meaningful caption, just return the image
+					return processedImg;
+				}
+			} catch (error) {
+				console.warn('Error processing span with image:', error);
+				return el; // Return original element on error
+			}
+		}
+	},
+	
 	// Standardize complex image elements (figure, picture, source, figcaption)
 	{
 		selector: 'figure, [class*="figure"], [class*="image"], [class*="img"], [class*="photo"], [class*="picture"], [class*="media"], [class*="caption"]',
@@ -449,6 +507,49 @@ function findCaption(element: Element): Element | null {
 				if (textContent && textContent.length > 0) {
 					return sibling;
 				}
+			}
+		}
+	}
+	
+	// Look for text elements that follow an image within the same parent
+	// This handles cases like <p><img><em>caption</em></p>
+	const imgElements = element.querySelectorAll('img');
+	for (let i = 0; i < imgElements.length; i++) {
+		const img = imgElements[i];
+		const parent = img.parentElement;
+		if (!parent) continue;
+		
+		// Look for text elements that follow the image
+		let nextElement = img.nextElementSibling;
+		while (nextElement) {
+			// Check if it's a text element (em, strong, span, etc.)
+			if (['EM', 'STRONG', 'SPAN', 'I', 'B', 'SMALL', 'CITE'].includes(nextElement.tagName)) {
+				const textContent = nextElement.textContent?.trim();
+				if (textContent && textContent.length > 0) {
+					return nextElement;
+				}
+			}
+			nextElement = nextElement.nextElementSibling;
+		}
+	}
+	
+	// Check for text elements that are children of the same parent as the image
+	// This handles cases like <span><img><em>caption</em></span>
+	for (let i = 0; i < imgElements.length; i++) {
+		const img = imgElements[i];
+		const parent = img.parentElement;
+		if (!parent) continue;
+		
+		// Get all text elements in the parent
+		const textElements = parent.querySelectorAll('em, strong, span, i, b, small, cite');
+		for (let j = 0; j < textElements.length; j++) {
+			const textEl = textElements[j];
+			// Skip if this is the image itself
+			if (textEl === img) continue;
+			
+			const textContent = textEl.textContent?.trim();
+			if (textContent && textContent.length > 0) {
+				return textEl;
 			}
 		}
 	}
