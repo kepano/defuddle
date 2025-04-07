@@ -2,6 +2,62 @@
  * Standardization rules for handling images
  */
 export const imageRules = [
+	// Handle picture elements first to ensure we get the highest resolution
+	{
+		selector: 'picture',
+		element: 'img',
+		transform: (el: Element, doc: Document): Element => {
+			// Get all source elements
+			const sourceElements = Array.from(el.querySelectorAll('source'));
+			
+			// Create a new img element
+			const newImg = doc.createElement('img');
+			
+			// If we have multiple sources, try to select the best one
+			if (sourceElements.length > 1) {
+				// Find the best source based on media queries and srcset
+				const bestSource = selectBestSource(sourceElements);
+				if (bestSource) {
+					// Get the srcset from the best source
+					const srcset = bestSource.getAttribute('srcset');
+					if (srcset) {
+						newImg.setAttribute('srcset', srcset);
+						
+						// Extract the first URL from srcset as the src
+						const firstUrl = extractFirstUrlFromSrcset(srcset);
+						if (firstUrl) {
+							newImg.setAttribute('src', firstUrl);
+						}
+					}
+				}
+			} else if (sourceElements.length === 1) {
+				// If only one source, use it
+				const srcset = sourceElements[0].getAttribute('srcset');
+				if (srcset) {
+					newImg.setAttribute('srcset', srcset);
+					
+					// Extract the first URL from srcset as the src
+					const firstUrl = extractFirstUrlFromSrcset(srcset);
+					if (firstUrl) {
+						newImg.setAttribute('src', firstUrl);
+					}
+				}
+			}
+			
+			// Copy other attributes from the original img if it exists
+			const originalImg = el.querySelector('img');
+			if (originalImg) {
+				Array.from(originalImg.attributes).forEach(attr => {
+					if (attr.name !== 'src' && attr.name !== 'srcset') {
+						newImg.setAttribute(attr.name, attr.value);
+					}
+				});
+			}
+			
+			return newImg;
+		}
+	},
+	
 	// Handle lazy-loaded images
 	{
 		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload',
@@ -191,7 +247,15 @@ function findMainImage(element: Element): Element | null {
 		return element;
 	}
 	
-	// Look for img elements first, but skip placeholder images
+	// Look for picture elements first - they often contain the highest quality images
+	const pictureElements = element.querySelectorAll('picture');
+	if (pictureElements.length > 0) {
+		// For picture elements, we want to return the picture itself
+		// so we can process all its sources
+		return pictureElements[0];
+	}
+	
+	// Look for img elements next, but skip placeholder images
 	const imgElements = Array.from(element.querySelectorAll('img')).filter(img => {
 		// Skip placeholder images (SVG data URLs, empty alt, etc.)
 		const src = img.getAttribute('src') || '';
@@ -202,20 +266,13 @@ function findMainImage(element: Element): Element | null {
 			return false;
 		}
 		
-		// Skip small base64 images (placeholders)
+		// Skip base64 placeholder images
 		if (isBase64Placeholder(src)) {
 			return false;
 		}
 		
-		// Skip images with empty src
-		if (!src || src === '') {
-			return false;
-		}
-		
-		// Skip images with specific classes that indicate placeholders
-		if (img.classList.contains('placeholder') || 
-			img.classList.contains('lazy-placeholder') ||
-			img.parentElement?.classList.contains('Lazyload__loading')) {
+		// Skip empty alt text (often indicates decorative images)
+		if (!alt.trim()) {
 			return false;
 		}
 		
@@ -223,26 +280,10 @@ function findMainImage(element: Element): Element | null {
 	});
 	
 	if (imgElements.length > 0) {
-		// Return the first non-placeholder img element
 		return imgElements[0];
 	}
 	
-	// Look for source elements with data-srcset
-	const sourceElements = Array.from(element.querySelectorAll('source')).filter(source => {
-		return source.hasAttribute('data-srcset') && source.getAttribute('data-srcset') !== '';
-	});
-	
-	if (sourceElements.length > 0) {
-		return sourceElements[0];
-	}
-	
-	// Look for picture elements
-	const pictureElements = element.querySelectorAll('picture');
-	if (pictureElements.length > 0) {
-		return pictureElements[0];
-	}
-	
-	// Look for video elements
+	// Look for video elements next
 	const videoElements = element.querySelectorAll('video');
 	if (videoElements.length > 0) {
 		return videoElements[0];
@@ -429,12 +470,6 @@ function processImageElement(element: Element, doc: Document): Element {
 				});
 				
 				if (sourceElements.length > 0) {
-					// Create a picture element with the source
-					const picture = doc.createElement('picture');
-					sourceElements.forEach(source => {
-						picture.appendChild(source.cloneNode(true));
-					});
-					
 					// Create a new img element with the data-src
 					const newImg = doc.createElement('img');
 					const dataSrc = element.getAttribute('data-src');
@@ -449,62 +484,80 @@ function processImageElement(element: Element, doc: Document): Element {
 						}
 					});
 					
-					picture.appendChild(newImg);
-					return picture;
+					return newImg;
 				}
 			}
 		}
 		
-		// If we couldn't find a better image, just return a clone
-		return element.cloneNode(true) as Element;
-	} else if (tagName === 'video') {
-		// For video elements, return a clone
+		// Return a clone of the img element
 		return element.cloneNode(true) as Element;
 	} else if (tagName === 'picture') {
-		// For picture elements, process its children
-		const picture = doc.createElement('picture');
+		// For picture elements, we want to process all sources and select the best one
+		// Create a new img element
+		const newImg = doc.createElement('img');
 		
-		// Process source elements
-		const sources = element.querySelectorAll('source');
-		sources.forEach(source => {
-			picture.appendChild(source.cloneNode(true));
-		});
+		// Get all source elements
+		const sourceElements = Array.from(element.querySelectorAll('source'));
 		
-		// Process img element - find the best one (not a placeholder)
-		const imgElements = Array.from(element.querySelectorAll('img')).filter(img => {
-			const src = img.getAttribute('src') || '';
-			return !isBase64Placeholder(src) && 
-				   !src.includes('data:image/svg+xml') && 
-				   src !== '';
-		});
-		
-		if (imgElements.length > 0) {
-			picture.appendChild(imgElements[0].cloneNode(true));
-		} else {
-			// If no good img found, create a new one with data-src
-			const placeholderImg = element.querySelector('img');
-			if (placeholderImg && placeholderImg.hasAttribute('data-src')) {
-				const newImg = doc.createElement('img');
-				newImg.setAttribute('src', placeholderImg.getAttribute('data-src') || '');
-				
-				// Copy other attributes
-				Array.from(placeholderImg.attributes).forEach(attr => {
-					if (attr.name !== 'src') {
-						newImg.setAttribute(attr.name, attr.value);
+		// If we have multiple sources, try to select the best one
+		if (sourceElements.length > 1) {
+			// Find the best source based on media queries and srcset
+			const bestSource = selectBestSource(sourceElements);
+			if (bestSource) {
+				// Get the srcset from the best source
+				const srcset = bestSource.getAttribute('srcset');
+				if (srcset) {
+					newImg.setAttribute('srcset', srcset);
+					
+					// Extract the first URL from srcset as the src
+					const firstUrl = extractFirstUrlFromSrcset(srcset);
+					if (firstUrl) {
+						newImg.setAttribute('src', firstUrl);
 					}
-				});
+				}
+			}
+		} else if (sourceElements.length === 1) {
+			// If only one source, use it
+			const srcset = sourceElements[0].getAttribute('srcset');
+			if (srcset) {
+				newImg.setAttribute('srcset', srcset);
 				
-				picture.appendChild(newImg);
+				// Extract the first URL from srcset as the src
+				const firstUrl = extractFirstUrlFromSrcset(srcset);
+				if (firstUrl) {
+					newImg.setAttribute('src', firstUrl);
+				}
 			}
 		}
 		
-		return picture;
-	} else if (tagName === 'source') {
-		// For source elements, create a picture element with the source
-		const picture = doc.createElement('picture');
-		picture.appendChild(element.cloneNode(true));
+		// Copy other attributes from the original img if it exists
+		const originalImg = element.querySelector('img');
+		if (originalImg) {
+			Array.from(originalImg.attributes).forEach(attr => {
+				if (attr.name !== 'src' && attr.name !== 'srcset') {
+					newImg.setAttribute(attr.name, attr.value);
+				}
+			});
+		}
 		
-		// Try to find a related img element
+		return newImg;
+	} else if (tagName === 'source') {
+		// For source elements, create a new img element
+		const newImg = doc.createElement('img');
+		
+		// Get the srcset from the source
+		const srcset = element.getAttribute('srcset');
+		if (srcset) {
+			newImg.setAttribute('srcset', srcset);
+			
+			// Extract the first URL from srcset as the src
+			const firstUrl = extractFirstUrlFromSrcset(srcset);
+			if (firstUrl) {
+				newImg.setAttribute('src', firstUrl);
+			}
+		}
+		
+		// Try to find a related img element to copy other attributes
 		const parent = element.parentElement;
 		if (parent) {
 			const imgElements = Array.from(parent.querySelectorAll('img')).filter(img => {
@@ -515,29 +568,105 @@ function processImageElement(element: Element, doc: Document): Element {
 			});
 			
 			if (imgElements.length > 0) {
-				picture.appendChild(imgElements[0].cloneNode(true));
+				Array.from(imgElements[0].attributes).forEach(attr => {
+					if (attr.name !== 'src' && attr.name !== 'srcset') {
+						newImg.setAttribute(attr.name, attr.value);
+					}
+				});
 			} else {
 				// If no good img found, look for one with data-src
 				const dataSrcImg = parent.querySelector('img[data-src]');
 				if (dataSrcImg) {
-					const newImg = doc.createElement('img');
-					newImg.setAttribute('src', dataSrcImg.getAttribute('data-src') || '');
-					
-					// Copy other attributes
 					Array.from(dataSrcImg.attributes).forEach(attr => {
-						if (attr.name !== 'src') {
+						if (attr.name !== 'src' && attr.name !== 'srcset') {
 							newImg.setAttribute(attr.name, attr.value);
 						}
 					});
-					
-					picture.appendChild(newImg);
 				}
 			}
 		}
 		
-		return picture;
+		return newImg;
 	}
 	
 	// Default case: return a clone
 	return element.cloneNode(true) as Element;
+}
+
+/**
+ * Select the best source element from a list of sources
+ * based on media queries and srcset values
+ */
+function selectBestSource(sources: Element[]): Element | null {
+	if (sources.length === 0) {
+		return null;
+	}
+	
+	// If only one source, return it
+	if (sources.length === 1) {
+		return sources[0];
+	}
+	
+	// First, try to find a source without media queries (default)
+	const defaultSource = sources.find(source => !source.hasAttribute('media'));
+	if (defaultSource) {
+		return defaultSource;
+	}
+	
+	// If no default source, try to find the highest resolution source
+	// by analyzing the srcset values
+	let bestSource: Element | null = null;
+	let maxResolution = 0;
+	
+	for (const source of sources) {
+		const srcset = source.getAttribute('srcset');
+		if (!srcset) continue;
+		
+		// Extract width and DPR from srcset
+		const widthMatch = srcset.match(/\s(\d+)w/);
+		const dprMatch = srcset.match(/dpr=(\d+(?:\.\d+)?)/);
+		
+		if (widthMatch && widthMatch[1]) {
+			const width = parseInt(widthMatch[1], 10);
+			const dpr = dprMatch ? parseFloat(dprMatch[1]) : 1;
+			
+			// Calculate effective resolution (width * DPR)
+			const resolution = width * dpr;
+			
+			if (resolution > maxResolution) {
+				maxResolution = resolution;
+				bestSource = source;
+			}
+		}
+	}
+	
+	// If we found a source with resolution, return it
+	if (bestSource) {
+		return bestSource;
+	}
+	
+	// If no resolution found, return the first source
+	return sources[0];
+}
+
+/**
+ * Extract the first URL from a srcset attribute
+ */
+function extractFirstUrlFromSrcset(srcset: string): string | null {
+	// Split the srcset by commas
+	const parts = srcset.split(',');
+	if (parts.length === 0) {
+		return null;
+	}
+	
+	// Get the first part
+	const firstPart = parts[0].trim();
+	
+	// Extract the URL (everything before the first space)
+	const urlMatch = firstPart.match(/^([^\s]+)/);
+	if (urlMatch && urlMatch[1]) {
+		return urlMatch[1];
+	}
+	
+	return null;
 }
