@@ -426,7 +426,7 @@ export const PARTIAL_SELECTORS = [
 	'header_logo',
 	'header-logo',
 	'header-pattern', // The Verge
-	'headlines',
+//	'headlines', Mercurynews
 	'hero-list',
 	'hide-for-print',
 	'hide-print',
@@ -640,6 +640,7 @@ export const PARTIAL_SELECTORS = [
 	'sharedaddy',
 	'share-icons',
 	'sharelinks',
+	'share-post',
 	'share-print',
 	'share-section',
 	'sidebartitle',
