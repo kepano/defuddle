@@ -21,6 +21,7 @@ import { mathRules } from './elements/math.full';
 import { codeBlockRules } from './elements/code';
 import { standardizeFootnotes } from './elements/footnotes';
 import { headingRules } from './elements/headings';
+import { imageRules } from './elements/images';
 import { ContentScorer, ContentScore } from './scoring';
 
 // Element standardization rules
@@ -35,6 +36,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	...mathRules,
 	...codeBlockRules,
 	...headingRules,
+	...imageRules,
 
 	// Convert divs with paragraph role to actual paragraphs
 	{ 
@@ -837,9 +839,6 @@ export class Defuddle {
 		// Standardize footnotes and citations
 		standardizeFootnotes(element);
 
-		// Handle lazy-loaded images
-		this.handleLazyImages(element);
-
 		// Convert embedded content to standard formats
 		this.standardizeElements(element);
 
@@ -1321,40 +1320,6 @@ export class Defuddle {
 			charactersRemoved: removedCount,
 			processingTime: `${(endTime - startTime).toFixed(2)}ms`
 		});
-	}
-
-	private handleLazyImages(element: Element) {
-		let processedCount = 0;
-		const lazyImages = element.querySelectorAll('img[data-src], img[data-srcset]');
-
-		lazyImages.forEach(img => {
-			// Check if element is an image by checking tag name and required properties
-			if (img.tagName.toLowerCase() !== 'img' || !('src' in img) || !('srcset' in img)) {
-				return;
-			}
-
-			// Handle data-src
-			const dataSrc = img.getAttribute('data-src');
-			if (dataSrc && !img.getAttribute('src')) {
-				img.setAttribute('src', dataSrc);
-				processedCount++;
-			}
-
-			// Handle data-srcset
-			const dataSrcset = img.getAttribute('data-srcset');
-			if (dataSrcset && !img.getAttribute('srcset')) {
-				img.setAttribute('srcset', dataSrcset);
-				processedCount++;
-			}
-
-			// Remove lazy loading related classes and attributes
-			img.classList.remove('lazy', 'lazyload');
-			img.removeAttribute('data-ll-status');
-			img.removeAttribute('data-src');
-			img.removeAttribute('data-srcset');
-		});
-
-		this._log('Processed lazy images:', processedCount);
 	}
 
 	private standardizeElements(element: Element): void {
