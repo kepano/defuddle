@@ -1289,22 +1289,28 @@ export class Defuddle {
 
 					// Only add space between elements or between element and text
 					if (isElement(current) || isElement(next)) {
-						// Don't add space if next content starts with punctuation
+						// Get the text content
 						const nextContent = next.textContent || '';
 						const currentContent = current.textContent || '';
 						
-						if (!nextContent.match(/^[,.!?:;]/) && 
-							!currentContent.match(/[,.!?:;]$/)) {
-							// Check if there's already a space
-							const hasSpace = (current.nodeType === NODE_TYPE.TEXT_NODE && 
-											(current.textContent || '').endsWith(' ')) ||
-											(next.nodeType === NODE_TYPE.TEXT_NODE && 
-											(next.textContent || '').startsWith(' '));
-							
-							if (!hasSpace) {
-								const space = this.doc.createTextNode(' ');
-								node.insertBefore(space, next);
-							}
+						// Don't add space if:
+						// 1. Next content starts with punctuation or closing parenthesis
+						// 2. Current content ends with punctuation or opening parenthesis
+						// 3. There's already a space
+						const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
+						const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
+						
+						const hasSpace = (current.nodeType === NODE_TYPE.TEXT_NODE && 
+										(current.textContent || '').endsWith(' ')) ||
+										(next.nodeType === NODE_TYPE.TEXT_NODE && 
+										(next.textContent || '').startsWith(' '));
+						
+						// Only add space if none of the above conditions are true
+						if (!nextStartsWithPunctuation && 
+							!currentEndsWithPunctuation && 
+							!hasSpace) {
+							const space = this.doc.createTextNode(' ');
+							node.insertBefore(space, next);
 						}
 					}
 				}
