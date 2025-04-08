@@ -102,7 +102,7 @@ export const EXACT_SELECTORS = [
 	// metadata
 	'.author',
 	'.Author',
-	'.categories',
+	'[class$="_bio"]',
 	'#categories',
 	'.contributor',
 	'.date',
