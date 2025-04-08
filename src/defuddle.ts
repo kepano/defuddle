@@ -46,7 +46,7 @@ export class Defuddle {
 		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData);
 
 		try {
-			// Try to use a specific extractor first
+			// Use site-specific extractor first, if there is one
 			const url = this.options.url || this.doc.URL;
 			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
 			if (extractor && extractor.canExtract()) {
@@ -70,9 +70,11 @@ export class Defuddle {
 				};
 			}
 
-			// Evaluate styles and sizes on original document
+			// Continue if there is no extractor...
+
+			// Evaluate mobile styles and sizes on original document
 			const mobileStyles = this._evaluateMediaQueries(this.doc);
-			
+
 			// Find small images in original document, excluding lazy-loaded ones
 			const smallImages = this.findSmallImages(this.doc);
 			
