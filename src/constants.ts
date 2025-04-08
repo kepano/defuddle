@@ -331,6 +331,7 @@ export const PARTIAL_SELECTORS = [
 	'carousel-container',
 	'cat_header',
 	'catlinks',
+	'card-author',
 	'chapter-list', // The Economist
 	'collections',
 	'comments',
@@ -357,6 +358,7 @@ export const PARTIAL_SELECTORS = [
 	'cover-',
 	'created-date',
 	'creative-commons_',
+	'c-subscribe',
 	'_cta',
 	'-cta',
 	'cta-',
