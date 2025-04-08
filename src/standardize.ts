@@ -765,7 +765,7 @@ function flattenDivs(element: Element, doc: Document): void {
 
 		// Check if it has excessive whitespace or empty text nodes
 		const textNodes = Array.from(div.childNodes).filter(node => 
-			node.nodeType === NODE_TYPE.TEXT_NODE && node.textContent?.trim() // TEXT_NODE
+			node.nodeType === NODE_TYPE.TEXT_NODE && node.textContent?.trim()
 		);
 		if (textNodes.length === 0) return true;
 
