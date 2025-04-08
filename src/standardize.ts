@@ -159,7 +159,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	// If not debug mode, do the full cleanup
 	if (!debug) {
 		// First pass of div flattening
-		flattenDivs(element, doc);
+		flattenWrapperElements(element, doc);
 		
 		// Strip unwanted attributes
 		stripUnwantedAttributes(element, debug);
@@ -171,7 +171,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		removeTrailingHeadings(element);
 
 		// Final pass of div flattening after cleanup operations
-		flattenDivs(element, doc);
+		flattenWrapperElements(element, doc);
 
 		// Standardize consecutive br elements
 		stripExtraBrElements(element);
@@ -679,7 +679,7 @@ function standardizeElements(element: Element, doc: Document): void {
 	logDebug('Converted embedded elements:', processedCount);
 }
 
-function flattenDivs(element: Element, doc: Document): void {
+function flattenWrapperElements(element: Element, doc: Document): void {
 	let processedCount = 0;
 	const startTime = Date.now();
 
@@ -720,38 +720,37 @@ function flattenDivs(element: Element, doc: Document): void {
 			return true;
 		}
 
-		// Check if div contains mixed content types that should be preserved
-		if (tagName === 'div') {
-			const children = Array.from(el.children);
-			const hasPreservedElements = children.some(child => 
-				PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
-				child.getAttribute('role') === 'article' ||
-				(child.className && typeof child.className === 'string' && 
-					child.className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/))
-			);
-			if (hasPreservedElements) return true;
-		}
+		// Check if element contains mixed content types that should be preserved
+		const children = Array.from(el.children);
+		const hasPreservedElements = children.some(child => 
+			PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
+			child.getAttribute('role') === 'article' ||
+			(child.className && typeof child.className === 'string' && 
+				child.className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/))
+		);
+		if (hasPreservedElements) return true;
 		
 		return false;
 	};
 
-	const isWrapperDiv = (div: Element): boolean => {
+	const isWrapperElement = (el: Element): boolean => {
 		// If it directly contains inline content, it's NOT a wrapper
-		if (hasDirectInlineContent(div)) {
+		if (hasDirectInlineContent(el)) {
 			return false;
 		}
 
 		// Check if it's just empty space
-		if (!div.textContent?.trim()) return true;
+		if (!el.textContent?.trim()) return true;
 
-		// Check if it only contains other divs or block elements
-		const children = Array.from(div.children);
+		// Check if it only contains other block elements
+		const children = Array.from(el.children);
 		if (children.length === 0) return true;
 		
 		// Check if all children are block elements
 		const allBlockElements = children.every(child => {
 			const tag = child.tagName.toLowerCase();
-			return tag === 'div' || tag === 'p' || tag === 'h1' || tag === 'h2' || 
+			return BLOCK_ELEMENTS.includes(tag) || 
+				   tag === 'p' || tag === 'h1' || tag === 'h2' || 
 				   tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6' ||
 				   tag === 'ul' || tag === 'ol' || tag === 'pre' || tag === 'blockquote' ||
 				   tag === 'figure';
@@ -759,17 +758,17 @@ function flattenDivs(element: Element, doc: Document): void {
 		if (allBlockElements) return true;
 
 		// Check for common wrapper patterns
-		const className = div.className.toLowerCase();
+		const className = el.className.toLowerCase();
 		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
 		if (isWrapper) return true;
 
 		// Check if it has excessive whitespace or empty text nodes
-		const textNodes = Array.from(div.childNodes).filter(node => 
+		const textNodes = Array.from(el.childNodes).filter(node => 
 			node.nodeType === NODE_TYPE.TEXT_NODE && node.textContent?.trim()
 		);
 		if (textNodes.length === 0) return true;
 
-		// Check if it's a div that only contains block elements
+		// Check if it only contains block elements
 		const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
 			const tag = child.tagName.toLowerCase();
 			return INLINE_ELEMENTS.has(tag);
@@ -779,21 +778,21 @@ function flattenDivs(element: Element, doc: Document): void {
 		return false;
 	};
 
-	// Function to process a single div
-	const processDiv = (div: Element): boolean => {
-		// Skip processing if div has been removed or should be preserved
-		if (!div.isConnected || shouldPreserveElement(div)) return false;
+	// Function to process a single element
+	const processElement = (el: Element): boolean => {
+		// Skip processing if element has been removed or should be preserved
+		if (!el.isConnected || shouldPreserveElement(el)) return false;
 
-		// Case 1: Empty div or div with only whitespace
-		if (!div.hasChildNodes() || !div.textContent?.trim()) {
-			div.remove();
+		// Case 1: Empty element or element with only whitespace
+		if (!el.hasChildNodes() || !el.textContent?.trim()) {
+			el.remove();
 			processedCount++;
 			return true;
 		}
 
-		// Case 2: Top-level div - be more aggressive
-		if (div.parentElement === element) {
-			const children = Array.from(div.children);
+		// Case 2: Top-level element - be more aggressive
+		if (el.parentElement === element) {
+			const children = Array.from(el.children);
 			const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
 				const tag = child.tagName.toLowerCase();
 				return INLINE_ELEMENTS.has(tag);
@@ -801,19 +800,19 @@ function flattenDivs(element: Element, doc: Document): void {
 
 			if (hasOnlyBlockElements) {
 				const fragment = doc.createDocumentFragment();
-				while (div.firstChild) {
-					fragment.appendChild(div.firstChild);
+				while (el.firstChild) {
+					fragment.appendChild(el.firstChild);
 				}
-				div.replaceWith(fragment);
+				el.replaceWith(fragment);
 				processedCount++;
 				return true;
 			}
 		}
 
-		// Case 3: Wrapper div - merge up aggressively
-		if (isWrapperDiv(div)) {
-			// Special case: if div only contains block elements, merge them up
-			const children = Array.from(div.children);
+		// Case 3: Wrapper element - merge up aggressively
+		if (isWrapperElement(el)) {
+			// Special case: if element only contains block elements, merge them up
+			const children = Array.from(el.children);
 			const onlyBlockElements = !children.some(child => {
 				const tag = child.tagName.toLowerCase();
 				return INLINE_ELEMENTS.has(tag);
@@ -821,72 +820,73 @@ function flattenDivs(element: Element, doc: Document): void {
 			
 			if (onlyBlockElements) {
 				const fragment = doc.createDocumentFragment();
-				while (div.firstChild) {
-					fragment.appendChild(div.firstChild);
+				while (el.firstChild) {
+					fragment.appendChild(el.firstChild);
 				}
-				div.replaceWith(fragment);
+				el.replaceWith(fragment);
 				processedCount++;
 				return true;
 			}
 
 			// Otherwise handle as normal wrapper
 			const fragment = doc.createDocumentFragment();
-			while (div.firstChild) {
-				fragment.appendChild(div.firstChild);
+			while (el.firstChild) {
+				fragment.appendChild(el.firstChild);
 			}
-			div.replaceWith(fragment);
+			el.replaceWith(fragment);
 			processedCount++;
 			return true;
 		}
 
-		// Case 4: Div only contains text and/or inline elements - convert to paragraph
-		const childNodes = Array.from(div.childNodes);
+		// Case 4: Element only contains text and/or inline elements - convert to paragraph
+		const childNodes = Array.from(el.childNodes);
 		const hasOnlyInlineOrText = childNodes.length > 0 && childNodes.every(child =>
 			(child.nodeType === NODE_TYPE.TEXT_NODE) ||
 			(child.nodeType === NODE_TYPE.ELEMENT_NODE && INLINE_ELEMENTS.has(child.nodeName.toLowerCase()))
 		);
 
-		if (hasOnlyInlineOrText && div.textContent?.trim()) { // Ensure there's actual content
+		if (hasOnlyInlineOrText && el.textContent?.trim()) { // Ensure there's actual content
 			const p = doc.createElement('p');
 			// Move all children (including inline tags like <font>) to the new <p>
-			while (div.firstChild) {
-				p.appendChild(div.firstChild);
+			while (el.firstChild) {
+				p.appendChild(el.firstChild);
 			}
-			div.replaceWith(p);
+			el.replaceWith(p);
 			processedCount++;
 			return true;
 		}
 
-		// Case 5: Div has single child - unwrap only if child is block-level
-		if (div.children.length === 1) {
-			const child = div.firstElementChild!;
+		// Case 5: Element has single child - unwrap only if child is block-level
+		if (el.children.length === 1) {
+			const child = el.firstElementChild!;
 			const childTag = child.tagName.toLowerCase();
 			
 			// Only unwrap if the single child is a block element and not preserved
 			if (BLOCK_ELEMENTS.includes(childTag) && !shouldPreserveElement(child)) {
-				div.replaceWith(child);
+				el.replaceWith(child);
 				processedCount++;
 				return true;
 			}
 		}
 
-		// Case 6: Deeply nested div - merge up
+		// Case 6: Deeply nested element - merge up
 		let nestingDepth = 0;
-		let parent = div.parentElement;
+		let parent = el.parentElement;
 		while (parent) {
-			if (parent.tagName.toLowerCase() === 'div') {
+			const parentTag = parent.tagName.toLowerCase();
+			if (BLOCK_ELEMENTS.includes(parentTag)) {
 				nestingDepth++;
 			}
 			parent = parent.parentElement;
 		}
 
 		// Only unwrap if nested AND does not contain direct inline content
-		if (nestingDepth > 0 && !hasDirectInlineContent(div)) {
+		if (nestingDepth > 0 && !hasDirectInlineContent(el)) {
 			const fragment = doc.createDocumentFragment();
-			while (div.firstChild) {
-				fragment.appendChild(div.firstChild);
+			while (el.firstChild) {
+				fragment.appendChild(el.firstChild);
 			}
-			div.replaceWith(fragment);
+			el.replaceWith(fragment);
 			processedCount++;
 			return true;
 		}
@@ -894,31 +894,33 @@ function flattenDivs(element: Element, doc: Document): void {
 		return false;
 	};
 
-	// First pass: Process top-level divs
-	const processTopLevelDivs = () => {
-		const topDivs = Array.from(element.children).filter(
-			el => el.tagName.toLowerCase() === 'div'
+	// First pass: Process top-level wrapper elements
+	const processTopLevelElements = () => {
+		const topElements = Array.from(element.children).filter(
+			el => BLOCK_ELEMENTS.includes(el.tagName.toLowerCase())
 		);
 		
 		let modified = false;
-		topDivs.forEach(div => {
-			if (processDiv(div)) {
+		topElements.forEach(el => {
+			if (processElement(el)) {
 				modified = true;
 			}
 		});
 		return modified;
 	};
 
-	// Second pass: Process remaining divs from deepest to shallowest
-	const processRemainingDivs = () => {
-		const allDivs = Array.from(element.getElementsByTagName('div'))
+	// Second pass: Process remaining wrapper elements from deepest to shallowest
+	const processRemainingElements = () => {
+		// Get all wrapper elements
+		const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS.join(',')))
 			.sort((a, b) => {
 				// Count nesting depth
 				const getDepth = (el: Element): number => {
 					let depth = 0;
 					let parent = el.parentElement;
 					while (parent) {
-						if (parent.tagName.toLowerCase() === 'div') depth++;
+						const parentTag = parent.tagName.toLowerCase();
+						if (BLOCK_ELEMENTS.includes(parentTag)) depth++;
 						parent = parent.parentElement;
 					}
 					return depth;
@@ -927,31 +929,31 @@ function flattenDivs(element: Element, doc: Document): void {
 			});
 
 		let modified = false;
-		allDivs.forEach(div => {
-			if (processDiv(div)) {
+		allElements.forEach(el => {
+			if (processElement(el)) {
 				modified = true;
 			}
 		});
 		return modified;
 	};
 
-	// Final cleanup pass - aggressively flatten remaining divs
+	// Final cleanup pass - aggressively flatten remaining wrapper elements
 	const finalCleanup = () => {
-		const remainingDivs = Array.from(element.getElementsByTagName('div'));
+		const remainingElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS.join(',')));
 		let modified = false;
 		
-		remainingDivs.forEach(div => {
-			// Check if div only contains paragraphs
-			const children = Array.from(div.children);
+		remainingElements.forEach(el => {
+			// Check if element only contains paragraphs
+			const children = Array.from(el.children);
 			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
 			
-			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper div
-			if (onlyParagraphs || (!shouldPreserveElement(div) && isWrapperDiv(div))) {
+			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper element
+			if (onlyParagraphs || (!shouldPreserveElement(el) && isWrapperElement(el))) {
 				const fragment = doc.createDocumentFragment();
-				while (div.firstChild) {
-					fragment.appendChild(div.firstChild);
+				while (el.firstChild) {
+					fragment.appendChild(el.firstChild);
 				}
-				div.replaceWith(fragment);
+				el.replaceWith(fragment);
 				processedCount++;
 				modified = true;
 			}
@@ -962,13 +964,13 @@ function flattenDivs(element: Element, doc: Document): void {
 	// Execute all passes until no more changes
 	do {
 		keepProcessing = false;
-		if (processTopLevelDivs()) keepProcessing = true;
-		if (processRemainingDivs()) keepProcessing = true;
+		if (processTopLevelElements()) keepProcessing = true;
+		if (processRemainingElements()) keepProcessing = true;
 		if (finalCleanup()) keepProcessing = true;
 	} while (keepProcessing);
 
 	const endTime = Date.now();
-	logDebug('Flattened divs:', {
+	logDebug('Flattened wrapper elements:', {
 		count: processedCount,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
