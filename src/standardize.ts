@@ -14,7 +14,7 @@ import { codeBlockRules } from './elements/code';
 import { standardizeFootnotes } from './elements/footnotes';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, getComputedStyle, getWindow, logDebug } from './utils';
+import { isElement, getComputedStyle, logDebug } from './utils';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name

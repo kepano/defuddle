@@ -1,17 +1,50 @@
 import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS } from './constants';
 
 const contentIndicators = [
-	'content', 'article', 'post', 'entry', 'main', 'story'
+	'article',
+	'content',
+	'entry',
+	'main',
+	'post',
+	'story'
 ];
 
 // Text content to test against
 const navigationIndicators = [
-	'menu', 'nav', 'navigation', 'header', 'footer', 'sidebar', 'banner',
-	'subscribe', 'sign in', 'login', 'signup', 'sign up', 'register',
-	'follow us', 'follow me', 'social', 'share', 'related', 'popular',
-	'most read', 'trending', 'recommended', 'sponsored', 'advertisement',
-	'newsletter', 'subscribe', 'newsletter', 'cookie', 'privacy', 'terms',
-	'copyright', 'all rights reserved', 'homepage'
+	'advertisement',
+	'all rights reserved',
+	'banner',
+	'cookie',
+	'copyright',
+	'follow me',
+	'follow us',
+	'footer',
+	'header',
+	'homepage',
+	'login',
+	'menu',
+	'more like this',
+	'most read',
+	'nav',
+	'navigation',
+	'newsletter',
+	'newsletter',
+	'popular',
+	'privacy',
+	'recommended',
+	'register',
+	'related',
+	'share',
+	'sidebar',
+	'sign in',
+	'sign up',
+	'signup',
+	'social',
+	'sponsored',
+	'subscribe',
+	'subscribe',
+	'terms',
+	'trending'
 ];
 
 // Classes that indicate non-content these are elements are
@@ -271,16 +304,6 @@ export class ContentScorer {
 		const lists = element.getElementsByTagName('ul').length + element.getElementsByTagName('ol').length;
 		if (lists > 0 && links > lists * 3) {
 			score -= 10;
-		}
-
-		// Check for small text blocks (typical for navigation items)
-		const smallTextBlocks = Array.from(element.getElementsByTagName('*')).filter(el => {
-			const elText = el.textContent || '';
-			return elText.trim().length > 0 && elText.trim().length < 20;
-		}).length;
-
-		if (smallTextBlocks > links * 0.8) {
-			score -= 5;
 		}
 
 		// Check for specific class patterns that indicate non-content

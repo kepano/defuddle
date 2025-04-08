@@ -81,6 +81,7 @@ export const EXACT_SELECTORS = [
 	'[id^="ad-" i]',
 	'[id$="-ad" i]',
 	'[role="banner" i]',
+	'[alt*="advert" i]',
 	'.promo',
 	'.Promo',
 	'#barrier-page', // ft.com
@@ -260,6 +261,7 @@ export const PARTIAL_SELECTORS = [
 	'article-bottom-section',
 	'article-bottom',
 	'article-category',
+	'article-card',
 	'article-citation',
 	'article__copy',
 	'article_date',

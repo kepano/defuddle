@@ -82,9 +82,6 @@ export class Defuddle {
 			// Apply mobile style to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
-			// Remove non-content blocks by scoring
-			ContentScorer.scoreAndRemove(clone, this.debug);
-
 			// Find main content
 			const mainContent = this.findMainContent(clone);
 			if (!mainContent) {
@@ -102,6 +99,10 @@ export class Defuddle {
 
 			// Remove hidden elements
 			this.removeHiddenElements(clone);	
+
+			// Remove non-content blocks by scoring
+			// Tries to find lists, navigation based on text content and link density
+			ContentScorer.scoreAndRemove(clone, this.debug);
 
 			// Remove clutter using selectors
 			this.removeClutter(clone);
