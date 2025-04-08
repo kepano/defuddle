@@ -941,22 +941,19 @@ function flattenDivs(element: Element, doc: Document): void {
 		let modified = false;
 		
 		remainingDivs.forEach(div => {
-			// Only perform final cleanup/unwrap if the div is still connected,
-			// not preserved, and does not contain direct inline content.
-			if (div.isConnected && !shouldPreserveElement(div) && !hasDirectInlineContent(div)) {
-				const children = Array.from(div.children);
-				const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
-
-				// Unwrap if it only contains paragraphs OR is identified as a wrapper
-				if (onlyParagraphs || isWrapperDiv(div)) {
-					const fragment = doc.createDocumentFragment();
-					while (div.firstChild) {
-						fragment.appendChild(div.firstChild);
-					}
-					div.replaceWith(fragment);
-					processedCount++;
-					modified = true;
+			// Check if div only contains paragraphs
+			const children = Array.from(div.children);
+			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
+			
+			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper div
+			if (onlyParagraphs || (!shouldPreserveElement(div) && isWrapperDiv(div))) {
+				const fragment = doc.createDocumentFragment();
+				while (div.firstChild) {
+					fragment.appendChild(div.firstChild);
 				}
+				div.replaceWith(fragment);
+				processedCount++;
+				modified = true;
 			}
 		});
 		return modified;
