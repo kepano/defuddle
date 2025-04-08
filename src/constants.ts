@@ -49,7 +49,7 @@ export const PRESERVE_ELEMENTS = new Set([
 // Inline elements that should not be unwrapped
 export const INLINE_ELEMENTS = new Set([
 	'a', 'span', 'strong', 'em', 'i', 'b', 'u', 'code', 'br', 'small',
-	'sub', 'sup', 'mark', 'del', 'ins', 'q', 'abbr', 'cite', 'relative-time', 'time',
+	'sub', 'sup', 'mark', 'date', 'del', 'ins', 'q', 'abbr', 'cite', 'relative-time', 'time',
 	'font'
 ]);
 
@@ -144,6 +144,7 @@ export const EXACT_SELECTORS = [
 	'button',
 		// '[role="button"]', Medium images
 	'canvas',
+	'date',
 	'dialog',
 	'fieldset',
 	'form',
@@ -415,6 +416,7 @@ export const PARTIAL_SELECTORS = [
 	'fixheader',
 	'floating-vid',
 //	'follow',
+	'follower',
 	'footer',
 	'footnote-back',
 	'footnoteback',
@@ -509,7 +511,7 @@ export const PARTIAL_SELECTORS = [
 
 	'nav-',
 	'nav_',
-	'navbar',
+//	'navbar',
 //	'navigation',
 	'navigation-post',
 	'next-',
