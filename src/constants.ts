@@ -178,6 +178,7 @@ export const EXACT_SELECTORS = [
 	// newsletter
 	'#newsletter',
 	'#Newsletter',
+	'.subscribe',
 
 	// hidden for print
 	'.noprint',
@@ -740,6 +741,7 @@ export const PARTIAL_SELECTORS = [
 	'trending',
 	'trust-feat',
 	'trust-badge',
+	'trust-project',
 	'twitter',
 
 	'u-hide',
