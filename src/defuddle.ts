@@ -1,8 +1,7 @@
 import { MetadataExtractor } from './metadata';
 import { DefuddleOptions, DefuddleResponse } from './types';
 import { ExtractorRegistry } from './extractor-registry';
-import { 
-	HIDDEN_ELEMENT_SELECTORS,
+import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS,
 	EXACT_SELECTORS,
@@ -81,7 +80,7 @@ export class Defuddle {
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 			
-			// Apply mobile style to clone
+			// Apply mobile styles to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
 			// Find main content
@@ -99,7 +98,7 @@ export class Defuddle {
 			// Remove small images
 			this.removeSmallImages(clone, smallImages);
 
-			// Remove hidden elements
+			// Remove hidden elements using computed styles
 			this.removeHiddenElements(clone);	
 
 			// Remove non-content blocks by scoring
@@ -253,12 +252,7 @@ export class Defuddle {
 		let count = 0;
 		const elementsToRemove = new Set<Element>();
 
-		// First pass: Get all elements matching hidden selectors
-		const hiddenElements = doc.querySelectorAll(HIDDEN_ELEMENT_SELECTORS);
-		hiddenElements.forEach(el => elementsToRemove.add(el));
-		count += hiddenElements.length;
-
-		// Second pass: Get all elements and check their styles
+		// Get all elements and check their styles
 		const allElements = Array.from(doc.getElementsByTagName('*'));
 
 		// Process styles in batches to minimize layout thrashing
@@ -299,7 +293,7 @@ export class Defuddle {
 			});
 		}
 
-		// Final pass: Batch remove all hidden elements
+		// Batch remove all hidden elements
 		this._log('Removed hidden elements:', count);
 	}
 
@@ -382,21 +376,7 @@ export class Defuddle {
 		const elements = [
 			...Array.from(doc.getElementsByTagName('img')),
 			...Array.from(doc.getElementsByTagName('svg'))
-		].filter(element => {
-			// Skip lazy-loaded images that haven't been processed yet
-			// and math images which may be small
-			if (element.tagName.toLowerCase() === 'img') {
-				const ignoredImage = element.classList.contains('lazy') || 
-					element.classList.contains('lazyload') ||
-					element.classList.contains('latex') ||
-					element.hasAttribute('decoding') ||
-					element.hasAttribute('data-src') ||
-					element.hasAttribute('data-srcset') ||
-					element.hasAttribute('loading');
-				return !ignoredImage;
-			}
-			return true;
-		});
+		];
 
 		if (elements.length === 0) {
 			return smallImages;

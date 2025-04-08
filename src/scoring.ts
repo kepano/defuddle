@@ -293,14 +293,14 @@ export class ContentScorer {
 			}
 		}
 
-		// Check for high link density (typical for navigation)
+		// Check for high link density (navigation)
 		const links = element.getElementsByTagName('a').length;
 		const linkDensity = links / (words || 1);
 		if (linkDensity > 0.5) {
 			score -= 15;
 		}
 
-		// Check for list structure (common in navigation)
+		// Check for list structure (navigation)
 		const lists = element.getElementsByTagName('ul').length + element.getElementsByTagName('ol').length;
 		if (lists > 0 && links > lists * 3) {
 			score -= 10;
@@ -317,16 +317,16 @@ export class ContentScorer {
 		}
 
 		// Check for elements with many child elements but little text (typical for navigation)
-		const childElements = element.children.length;
-		if (childElements > 5 && words < childElements * 3) {
-			score -= 12;
-		}
+		// const childElements = element.children.length;
+		// if (childElements > 5 && words < childElements * 3) {
+		// 	score -= 12;
+		// }
 
 		// Check for elements with many divs but little text (typical for layout elements)
-		const divs = element.getElementsByTagName('div').length;
-		if (divs > 3 && words < divs * 2) {
-			score -= 10;
-		}
+		// const divs = element.getElementsByTagName('div').length;
+		// if (divs > 3 && words < divs * 2) {
+		// 	score -= 10;
+		// }
 
 		return score;
 	}

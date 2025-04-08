@@ -53,18 +53,6 @@ export const INLINE_ELEMENTS = new Set([
 	'font'
 ]);
 
-// Hidden elements that should be removed
-export const HIDDEN_ELEMENT_SELECTORS = [
-	'[hidden]',
- 	'[aria-hidden="true"]:not([class*="math"])',
-	'[style*="display: none"]:not([class*="math"])',
-	'[style*="display:none"]:not([class*="math"])',
-	'[style*="visibility: hidden"]',
-	'[style*="visibility:hidden"]',
-	'.hidden',
-	'.invisible'
-].join(',');
-
 // Selectors to be removed
 export const EXACT_SELECTORS = [
 	// scripts, styles
@@ -166,6 +154,16 @@ export const EXACT_SELECTORS = [
 	'textarea',
 	'time',
 	'relative-time',
+
+	// hidden
+	'[hidden]',
+	'[aria-hidden="true"]:not([class*="math"])',
+	'[style*="display: none"]:not([class*="math"])',
+	'[style*="display:none"]:not([class*="math"])',
+	'[style*="visibility: hidden"]',
+	'[style*="visibility:hidden"]',
+	'.hidden',
+	'.invisible',
 
 	// iframes
 	'instaread-player',
