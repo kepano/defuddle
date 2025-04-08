@@ -1,4 +1,4 @@
-import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS } from './constants';
+import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS, FOOTNOTE_LIST_SELECTORS } from './constants';
 
 const contentIndicators = [
 	'article',
@@ -150,6 +150,9 @@ export class ContentScorer {
 		const hasFootnotes = element.querySelector(FOOTNOTE_INLINE_REFERENCES);
 		if (hasFootnotes) score += 10;
 
+		const hasFootnotesList = element.querySelector(FOOTNOTE_LIST_SELECTORS);
+		if (hasFootnotesList) score += 10;
+
 		// Check for nested tables (penalize)
 		const nestedTables = element.getElementsByTagName('table').length;
 		score -= nestedTables * 5;
@@ -286,6 +289,11 @@ export class ContentScorer {
 	 * Returns a negative score if the element is likely not content, a positive score if it is.
 	 */
 	private static scoreNonContentBlock(element: Element): number {
+		// Skip footnote list elements
+		if (element.querySelector(FOOTNOTE_LIST_SELECTORS)) {
+			return 0;
+		}
+
 		let score = 0;
 
 		// Get text content

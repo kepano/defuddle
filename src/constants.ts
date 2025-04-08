@@ -250,6 +250,7 @@ export const PARTIAL_SELECTORS = [
 	'after_main_article',
 	'afterpost',
 	'allterms',
+	'-alert-',
 	'alert-box',
 	'appendix',
 	'around-the-web',
@@ -650,6 +651,7 @@ export const PARTIAL_SELECTORS = [
 	'_search',
 	'-search',
 	'section-nav',
+	'series-banner',
 //	'share',
 //	'-share', scitechdaily.com
 	'share-box',
