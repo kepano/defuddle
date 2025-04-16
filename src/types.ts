@@ -18,9 +18,32 @@ export interface DefuddleResponse extends DefuddleMetadata {
 }
 
 export interface DefuddleOptions {
+	/**
+	 * Enable debug logging
+	 */
 	debug?: boolean;
-	keepClasses?: boolean;
+
+	/**
+	 * URL of the page being parsed
+	 */
 	url?: string;
+
+	/**
+	 * Convert output to markdown
+	 */
+	markdown?: boolean;
+
+	/**
+	 * Whether to remove elements matching exact selectors like ads, social buttons, etc.
+	 * Defaults to true.
+	 */
+	removeExactSelectors?: boolean;
+
+	/**
+	 * Whether to remove elements matching partial selectors like ads, social buttons, etc.
+	 * Defaults to true.
+	 */
+	removePartialSelectors?: boolean;
 }
 
 export interface ExtractorVariables {

@@ -24,32 +24,86 @@ Defuddle can be used as a replacement for [Mozilla Readability](https://github.c
 npm install defuddle
 ```
 
+For Node.js usage, you'll also need to install JSDOM:
+
+```bash
+npm install jsdom
+```
+
 ## Usage
 
-```typescript
-import Defuddle from 'defuddle';
+### Browser
 
-const article = new Defuddle(document).parse();
+```javascript
+import { Defuddle } from 'defuddle';
 
-// Use the extracted content and metadata
-console.log(article.content);  // HTML string of the main content
-console.log(article.title);    // Title of the article
+// Parse the current document
+const defuddle = new Defuddle(document);
+const result = defuddle.parse();
+
+// Access the content and metadata
+console.log(result.content);
+console.log(result.title);
+console.log(result.author);
 ```
 
-### Bundles
+### Node.js
 
-Defuddle comes in two bundles:
+```javascript
+import { JSDOM } from 'jsdom';
+import { Defuddle } from 'defuddle/node';
 
-**Core bundle** (~50kB), no dependencies
-```js
-import Defuddle from 'defuddle';
+// Parse HTML from a string
+const html = '<html><body><article>...</article></body></html>';
+const result = await Defuddle(html);
+
+// Parse HTML from a URL
+const dom = await JSDOM.fromURL('https://example.com/article');
+const result = await Defuddle(dom);
+
+// With options
+const result = await Defuddle(dom, {
+  debug: true, // Enable debug mode for verbose logging
+  markdown: true, // Convert content to markdown
+  url: 'https://example.com/article' // Original URL of the page
+});
+
+// Access the content and metadata
+console.log(result.content);
+console.log(result.title);
+console.log(result.author);
 ```
-**Full bundle** (~432kB), includes advanced math conversion capabilities
-```js
-import Defuddle from 'defuddle/full';
-```
+
+## Response
+
+Defuddle returns an object with the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `content` | string | Cleaned up string of the extracted content |
+| `title` | string | Title of the article |
+| `description` | string | Description or summary of the article |
+| `domain` | string | Domain name of the website |
+| `favicon` | string | URL of the website's favicon |
+| `image` | string | URL of the article's main image |
+| `parseTime` | number | Time taken to parse the page in milliseconds |
+| `published` | string | Publication date of the article |
+| `author` | string | Author of the article |
+| `site` | string | Name of the website |
+| `schemaOrgData` | object | Raw schema.org data extracted from the page |
+| `wordCount` | number | Total number of words in the extracted content |
+
+## Bundles
+
+Defuddle is available in three different bundles:
+
+1. Core bundle (`defuddle`): The main bundle for browser usage. No dependencies.
+2. Full bundle (`defuddle/full`): Includes additional features for math equation parsing.
+3. Node.js bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Includes full capabilities for math and Markdown conversion.
 
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
+
+## Options
 
 ### Debug mode
 
@@ -64,43 +118,6 @@ const article = new Defuddle(document, { debug: true }).parse();
 - Retains all data-* attributes
 - Skips div flattening to preserve document structure
 
-### Server-side usage
-
-When using Defuddle in a Node.js environment, you can use JSDOM to create a DOM document:
-
-```typescript
-import Defuddle from 'defuddle';
-import { JSDOM } from 'jsdom';
-
-const html = '...'; // Your HTML string
-const dom = new JSDOM(html, {
-  url: "https://www.example.com/page-url" // Optional: helps resolve relative URLs
-});
-
-const article = new Defuddle(dom.window.document).parse();
-console.log(article.content);
-```
-
-Providing `url` in the JSDOM constructor helps convert relative URLs (images, links, etc.) to absolute URLs.
-
-## Response
-
-The `parse()` method returns an object with the following properties:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `content` | string | HTML string of the extracted main content |
-| `title` | string | Title of the article |
-| `description` | string | Description or summary of the article |
-| `domain` | string | Domain name of the website |
-| `favicon` | string | URL of the website's favicon |
-| `image` | string | URL of the article's main image |
-| `parseTime` | number | Time taken to parse the page in milliseconds |
-| `published` | string | Publication date of the article |
-| `author` | string | Author of the article |
-| `site` | string | Name of the website |
-| `schemaOrgData` | object | Raw schema.org data extracted from the page |
-| `wordCount` | number | Total number of words in the extracted content |
 
 ## HTML standardization
 
@@ -167,7 +184,3 @@ npm install
 # Clean and build
 npm run build
 ```
-
-This will generate:
-- `dist/index.js` - UMD build for both Node.js and browsers
-- `dist/index.d.ts` - TypeScript declaration file

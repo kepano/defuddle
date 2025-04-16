@@ -1,6 +1,6 @@
 {
 	"name": "defuddle",
-	"version": "0.4.0",
+	"version": "0.6.1",
 	"description": "Extract article content and metadata from web pages.",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -8,7 +8,8 @@
 	"typesVersions": {
 		"*": {
 			"*": ["dist/index.d.ts"],
-			"full": ["dist/index.full.d.ts"]
+			"full": ["dist/index.full.d.ts"],
+			"node": ["dist/node.d.ts"]
 		}
 	},
 	"exports": {
@@ -21,17 +22,23 @@
 			"import": "./dist/index.full.js",
 			"require": "./dist/index.full.js",
 			"types": "./dist/index.full.d.ts"
+		},
+		"./node": {
+			"import": "./dist/node.js",
+			"types": "./dist/node.d.ts"
 		}
 	},
 	"scripts": {
 		"clean": "rm -rf dist",
 		"build:types": "tsc --project tsconfig.declarations.json",
 		"build:js": "webpack",
-		"build": "npm run clean && npm run build:types && npm run build:js",
+		"build:node": "tsc --project tsconfig.node.json",
+		"build": "npm run clean && npm run build:types && npm run build:node && npm run build:js",
 		"prepublishOnly": "npm run build",
 		"dev:types": "tsc --project tsconfig.declarations.json --watch",
 		"dev:js": "webpack --watch --mode development",
-		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:js\"",
+		"dev:node": "tsc --project tsconfig.node.json --watch",
+		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
@@ -56,11 +63,18 @@
 	"homepage": "https://github.com/kepano/defuddle",
 	"optionalDependencies": {
 		"mathml-to-latex": "^1.4.3",
-		"temml": "^0.11.2"
+		"temml": "^0.11.2",
+		"turndown": "^7.2.0"
+	},
+	"peerDependencies": {
+		"jsdom": "^24.0.0"
 	},
 	"devDependencies": {
+		"@types/jsdom": "^21.1.6",
 		"@types/node": "^20.0.0",
+		"@types/turndown": "^5.0.5",
 		"concurrently": "^8.2.2",
+		"jsdom": "^24.0.0",
 		"terser-webpack-plugin": "^5.3.14",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",

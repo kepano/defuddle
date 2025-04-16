@@ -116,8 +116,11 @@ export class TwitterExtractor extends BaseExtractor {
 		
 		// Convert emoji images to text
 		tweetClone.querySelectorAll('img[src*="/emoji/"]').forEach(img => {
-			if (img instanceof HTMLImageElement && img.alt) {
-				img.replaceWith(img.alt);
+			if (img.tagName.toLowerCase() === 'img' && img.getAttribute('alt')) {
+				const altText = img.getAttribute('alt');
+				if (altText) {
+					img.replaceWith(altText);
+				}
 			}
 		});
 
@@ -198,9 +201,10 @@ export class TwitterExtractor extends BaseExtractor {
 					return;
 				}
 
-				if (img instanceof HTMLImageElement) {
-					const highQualitySrc = img.src.replace(/&name=\w+$/, '&name=large');
-					const cleanAlt = img.alt?.replace(/\s+/g, ' ').trim() || '';
+				// Check if element is an image by checking tag name and required properties
+				if (img.tagName.toLowerCase() === 'img' && img.getAttribute('alt')) {
+					const highQualitySrc = img.getAttribute('src')?.replace(/&name=\w+$/, '&name=large') || '';
+					const cleanAlt = img.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || '';
 					images.push(`<img src="${highQualitySrc}" alt="${cleanAlt}" />`);
 				}
 			});
