@@ -184,7 +184,7 @@ export const imageRules = [
 	
 	// Standardize complex image elements (figure, picture, source, figcaption)
 	{
-		selector: 'figure, p:has(> [class*="caption"])',
+		selector: 'figure, p:has([class*="caption"])',
 		element: 'figure',
 		transform: (el: Element, doc: Document): Element => {
 			try {
