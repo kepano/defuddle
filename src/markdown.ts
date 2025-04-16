@@ -586,9 +586,8 @@ export function createMarkdownContent(content: string, url: string) {
 					element.removeAttribute(attr.name);
 				}
 			});
-			
 			element.childNodes.forEach(child => {
-				if (child instanceof Element) {
+				if (isElement(child)) {
 					cleanElement(child);
 				}
 			});

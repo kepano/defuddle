@@ -119,6 +119,10 @@ const CODE_LANGUAGES = new Set([
 	'zig'
 ]);
 
+function isElement(node: Node): node is Element {
+	return node.nodeType === NODE_TYPE.ELEMENT_NODE;
+}
+
 // Convert code blocks with different syntax highlighters and line numbers
 // to a standard <pre> and <code> element with a language attribute
 export const codeBlockRules = [
@@ -243,7 +247,7 @@ export const codeBlockRules = [
 				}
 				
 				let text = '';
-				if (element instanceof HTMLElement) {
+				if (isElement(element)) {
 					// Handle explicit line breaks
 					if (element.tagName === 'BR') {
 						return '\n';
