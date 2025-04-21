@@ -14,6 +14,7 @@ export interface DefuddleMetadata {
 
 export interface DefuddleResponse extends DefuddleMetadata {
 	content: string;
+	contentMarkdown?: string;
 	extractorType?: string;
 }
 
@@ -32,6 +33,11 @@ export interface DefuddleOptions {
 	 * Convert output to markdown
 	 */
 	markdown?: boolean;
+
+	/**
+	 * Include markdown in the response
+	 */
+	includeMarkdown?: boolean;
 
 	/**
 	 * Whether to remove elements matching exact selectors like ads, social buttons, etc.

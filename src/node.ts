@@ -33,18 +33,21 @@ export async function Defuddle(
 		dom = htmlOrDom;
 	}
 
+	const pageUrl = url || dom.window.location.href;
+
 	// Create Defuddle instance with URL in options
 	const defuddle = new DefuddleClass(dom.window.document, {
 		...options,
-		url: url || dom.window.location.href
+		url: pageUrl
 	});
 
 	const result = defuddle.parse();
 
 	// Convert to markdown if requested
 	if (options?.markdown) {
-		const pageUrl = url || dom.window.location.href;
 		result.content = createMarkdownContent(result.content, pageUrl);
+	} else if (options?.includeMarkdown) {
+		result.contentMarkdown = createMarkdownContent(result.content, pageUrl);
 	}
 
 	return result;
