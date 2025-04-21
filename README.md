@@ -105,6 +105,15 @@ The core bundle is recommended for most use cases. It still handles math content
 
 ## Options
 
+| Option                   | Type    | Description                                                                     |
+|--------------------------|---------|---------------------------------------------------------------------------------|
+| `debug`                  | boolean | Enable debug logging                                                            |
+| `url`                    | string  | URL of the page being parsed                                                    |
+| `markdown`               | boolean | Convert output to markdown                                                      |
+| `includeMarkdown`        | boolean | Include markdown in the response                                                |
+| `removeExactSelectors`   | boolean | Whether to remove elements matching exact selectors like ads, social buttons, etc. Defaults to true. |
+| `removePartialSelectors` | boolean | Whether to remove elements matching partial selectors like ads, social buttons, etc. Defaults to true. |
+
 ### Debug mode
 
 You can enable debug mode by passing an options object when creating a new Defuddle instance:
