@@ -651,14 +651,14 @@ function extractUniqueCaptionContent(caption: Element): string {
 	const processedTexts = new Set<string>();
 	
 	// Helper function to process a node
-	const processNode = (node: Node) => {
-		if (node.nodeType === Node.TEXT_NODE) {
+	const processNode = (node: any) => {
+		if (node.nodeType === 3) { // 3 is TEXT_NODE
 			const text = node.textContent?.trim() || '';
 			if (text && !processedTexts.has(text)) {
 				textNodes.push(text);
 				processedTexts.add(text);
 			}
-		} else if (node.nodeType === Node.ELEMENT_NODE) {
+		} else if (node.nodeType === 1) { // 1 is ELEMENT_NODE
 			const element = node as Element;
 			// Process child nodes
 			const childNodes = element.childNodes;
