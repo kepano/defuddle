@@ -195,7 +195,7 @@ export const imageRules = [
 	
 	// Handle span elements containing images with captions
 	{
-		selector: 'span:has(img)',
+		selector: 'span:has(> img)',
 		element: 'span',
 		transform: (el: Element, doc: Document): Element => {
 			try {
