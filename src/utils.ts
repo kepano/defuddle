@@ -5,6 +5,10 @@ export function isElement(node: Node): node is Element {
 	return node.nodeType === NODE_TYPE.ELEMENT_NODE;
 }
 
+export function isTextNode(node: Node): node is Text {
+	return node.nodeType === NODE_TYPE.TEXT_NODE;
+}
+
 export function getComputedStyle(element: Element): CSSStyleDeclaration | null {
 	const win = getWindow(element.ownerDocument);
 	if (!win) return null;
