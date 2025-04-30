@@ -74,6 +74,8 @@ console.log(result.title);
 console.log(result.author);
 ```
 
+_Note: for `defuddle/node` to import properly, the module format in your `package.json` has to be set to `{ "type": "module" }`_
+
 ## Response
 
 Defuddle returns an object with the following properties:
