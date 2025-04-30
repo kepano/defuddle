@@ -2,6 +2,8 @@
  * Standardization rules for handling images
  */
 
+import { NODE_TYPE } from "../constants";
+
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
 const srcsetPattern = /\.(jpg|jpeg|png|webp)\s+\d/;
@@ -652,13 +654,13 @@ function extractUniqueCaptionContent(caption: Element): string {
 	
 	// Helper function to process a node
 	const processNode = (node: Node) => {
-		if (node.nodeType === Node.TEXT_NODE) {
+		if (node.nodeType === NODE_TYPE.TEXT_NODE) {
 			const text = node.textContent?.trim() || '';
 			if (text && !processedTexts.has(text)) {
 				textNodes.push(text);
 				processedTexts.add(text);
 			}
-		} else if (node.nodeType === Node.ELEMENT_NODE) {
+		} else if (node.nodeType === NODE_TYPE.ELEMENT_NODE) {
 			const element = node as Element;
 			// Process child nodes
 			const childNodes = element.childNodes;
