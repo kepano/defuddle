@@ -24,6 +24,17 @@ function getCalloutType(element: Element): string {
 		if (match && match[1]) return match[1];
 	}
 
+	if (className.includes('ghd-alert')) {
+		const match = className.match(/ghd-alert-(\w+)/);
+		// Find the type class that isn't 'accent' or 'default'
+		const typeClass = Array.from(element.classList).find(
+			c => c.startsWith('ghd-alert-') && c !== 'ghd-alert-accent' && c !== 'ghd-alert-default'
+		);
+		if (typeClass) {
+			return typeClass.replace('ghd-alert-', '');
+		}
+	}
+
 	return 'note'; // Default type
 }
 
@@ -75,6 +86,31 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 		Array.from(element.children).forEach(child => {
 			if (!child.classList.contains('markdown-alert-title')) {
 				// If child is a paragraph, append its children, otherwise clone the child
+				if (child.tagName.toLowerCase() === 'p') {
+					Array.from(child.childNodes).forEach(pChild => contentFragment.appendChild(pChild.cloneNode(true)));
+				} else {
+					contentFragment.appendChild(child.cloneNode(true));
+				}
+			}
+		});
+	}
+	// GitHub Docs Alert Format
+	else if (element.matches('div.ghd-alert')) {
+		const titleEl = element.querySelector('p.ghd-alert-title');
+		if (titleEl) {
+			title = titleEl.textContent?.replace(/<svg.*?>.*?<\/svg>/i, '').trim() || getTitleCase(type);
+			const svgEl = titleEl.querySelector('svg');
+			if (svgEl) {
+				iconSVG = svgEl.outerHTML;
+			}
+		} else {
+			title = getTitleCase(type);
+		}
+
+		Array.from(element.children).forEach(child => {
+			if (!child.classList.contains('ghd-alert-title')) {
+				// If the child is a paragraph, append its children (to unwrap the <p>)
+				// otherwise, append the child directly.
 				if (child.tagName.toLowerCase() === 'p') {
 					Array.from(child.childNodes).forEach(pChild => contentFragment.appendChild(pChild.cloneNode(true)));
 				} else {
@@ -199,7 +235,7 @@ export function standardizeCallout(element: Element, doc: Document): Element {
 
 export const calloutRules = [
 	{
-		selector: 'div.admonition, div.callout[data-callout], div.markdown-alert',
+		selector: 'div.admonition, div.callout[data-callout], div.markdown-alert, div.ghd-alert',
 		element: 'div', // Placeholder, as transform handles creation
 		transform: standardizeCallout,
 	}

@@ -262,7 +262,7 @@ export const PARTIAL_SELECTORS = [
 	'after_main_article',
 	'afterpost',
 	'allterms',
-	'-alert-',
+//	'-alert-', used in some callouts
 	'alert-box',
 	'appendix',
 	'_archive',
