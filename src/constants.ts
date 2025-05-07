@@ -54,6 +54,14 @@ export const INLINE_ELEMENTS = new Set([
 	'font'
 ]);
 
+export const CALLOUT_CLASSES = [
+	'callout',
+	'callout-title',
+	'callout-icon',
+	'callout-title-inner',
+	'callout-content'
+];
+
 // Selectors to be removed
 export const EXACT_SELECTORS = [
 	// scripts, styles

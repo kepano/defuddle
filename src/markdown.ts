@@ -536,29 +536,33 @@ export function createMarkdownContent(content: string, url: string) {
 			return (
 				node.nodeName.toLowerCase() === 'div' && 
 				isGenericElement(node) &&
-				node.classList?.contains('markdown-alert')
+				node.classList?.contains('callout') &&
+				node.hasAttribute('data-callout')
 			);
 		},
-		replacement: (content, node) => {
-			if (!isGenericElement(node)) return content;
+		replacement: (outerContent, node) => {
+			if (!isGenericElement(node)) return outerContent;
 			
-			// Get alert type from the class (e.g., markdown-alert-note -> NOTE)
-			const alertClasses = Array.from(node.classList ? Object.keys(node.classList) : []);
-			const typeClass = alertClasses.find(c => c.startsWith('markdown-alert-') && c !== 'markdown-alert');
-			const type = typeClass ? typeClass.replace('markdown-alert-', '').toUpperCase() : 'NOTE';
+			const type = node.getAttribute('data-callout')?.toUpperCase() || 'NOTE';
 
-			// Find the title element and content
-			const titleElement = node.querySelector('.markdown-alert-title');
-			const contentElement = node.querySelector('p:not(.markdown-alert-title)');
-			
-			// Extract content, removing the title from it if present
-			let alertContent = content;
-			if (titleElement && isGenericElement(titleElement) && titleElement.textContent) {
-				alertContent = contentElement && isGenericElement(contentElement) ? contentElement.textContent || '' : content.replace(titleElement.textContent, '');
+			const titleElement = node.querySelector('.callout-title-inner');
+			const title = titleElement && isGenericElement(titleElement) ? titleElement.textContent?.trim() : '';
+
+			const contentElement = node.querySelector('.callout-content');
+			let calloutBody = '';
+
+			if (contentElement && isGenericElement(contentElement)) {
+				calloutBody = turndownService.turndown(contentElement.innerHTML || '');
 			}
 
-			// Format as Obsidian callout
-			return `\n> [!${type}]\n> ${alertContent.trim().replace(/\n/g, '\n> ')}\n`;
+			let titleLine = `> [!${type}]`;
+			if (title) {
+				titleLine += ` ${title}`;
+			}
+
+			const bodyLines = calloutBody.trim().split('\n').map(line => `> ${line}`).join('\n');
+
+			return `\n${titleLine}\n${bodyLines}\n`;
 		}
 	});
 

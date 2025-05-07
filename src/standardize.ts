@@ -5,7 +5,8 @@ import {
 	ALLOWED_ATTRIBUTES,
 	ALLOWED_ATTRIBUTES_DEBUG,
 	ALLOWED_EMPTY_ELEMENTS,
-	NODE_TYPE
+	NODE_TYPE,
+	CALLOUT_CLASSES
 } from './constants';
 
 import { DefuddleMetadata } from './types';
@@ -14,6 +15,7 @@ import { codeBlockRules } from './elements/code';
 import { standardizeFootnotes } from './elements/footnotes';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
+import { calloutRules } from './elements/callouts';
 import { isElement, getComputedStyle, logDebug } from './utils';
 
 // Element standardization rules
@@ -29,6 +31,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	...codeBlockRules,
 	...headingRules,
 	...imageRules,
+	...calloutRules,
 
 	// Convert divs with paragraph role to actual paragraphs
 	{ 
@@ -359,10 +362,11 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 					attrValue.startsWith('fn:') || // Footnote content
 					attrValue === 'footnotes' // Footnotes container
 				)) ||
-				// Preserve code block language classes and footnote backref class
+				// Preserve code block language classes, footnote backref class, and callout classes
 				(attrName === 'class' && (
 					(tag === 'code' && attrValue.startsWith('language-')) ||
-					attrValue === 'footnote-backref'
+					attrValue === 'footnote-backref' ||
+					CALLOUT_CLASSES.includes(attrValue)
 				))
 			) {
 				return;
@@ -377,7 +381,7 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 					attributeCount++;
 				}
 			} else {
-				// In normal mode, only allow standard attributes
+				// In normal mode, only allow standard attributes unless specially handled above
 				if (!ALLOWED_ATTRIBUTES.has(attrName)) {
 					el.removeAttribute(attr.name);
 					attributeCount++;
@@ -702,10 +706,18 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return false;
 	}
 
+	const PRESERVATION_CLASSES_REGEX = /(?:article|main|content|footnote|reference|bibliography)/;
+
+	const hasPreservationClass = (className: string | null | undefined): boolean => {
+		if (typeof className !== 'string') return false;
+		const lowerClassName = className.toLowerCase();
+		return PRESERVATION_CLASSES_REGEX.test(lowerClassName) || CALLOUT_CLASSES.includes(lowerClassName);
+	};
+
 	const shouldPreserveElement = (el: Element): boolean => {
 		const tagName = el.tagName.toLowerCase();
 		
-		// Check if element should be preserved
+		// Check if element should be preserved by tag name
 		if (PRESERVE_ELEMENTS.has(tagName)) return true;
 		
 		// Check for semantic roles
@@ -714,21 +726,19 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			return true;
 		}
 		
-		// Check for semantic classes
-		const className = el.className;
-		if (typeof className === 'string' && className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)) {
+		// Check for specific classes that indicate preservation
+		if (hasPreservationClass(el.className)) {
 			return true;
 		}
 
-		// Check if element contains mixed content types that should be preserved
+		// Check if element contains child elements that should be preserved
 		const children = Array.from(el.children);
-		const hasPreservedElements = children.some(child => 
+		const hasPreservedChildElements = children.some(child => 
 			PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
 			child.getAttribute('role') === 'article' ||
-			(child.className && typeof child.className === 'string' && 
-				child.className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/))
+			hasPreservationClass(child.className)
 		);
-		if (hasPreservedElements) return true;
+		if (hasPreservedChildElements) return true;
 		
 		return false;
 	};
