@@ -49,7 +49,7 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 	let iconSVG: string | null = null;
 	const contentFragment = doc.createDocumentFragment();
 
-	// Obsidian Publish Format
+	// Obsidian format
 	if (element.matches('div.callout[data-callout]')) {
 		const titleEl = element.querySelector('.callout-title-inner');
 		title = titleEl?.textContent?.trim() || getTitleCase(type);
@@ -70,7 +70,7 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 			});
 		}
 	}
-	// GitHub Alert Format
+	// GitHub Alert
 	else if (element.matches('div.markdown-alert')) {
 		const titleEl = element.querySelector('.markdown-alert-title');
 		if (titleEl) {
@@ -94,7 +94,7 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 			}
 		});
 	}
-	// GitHub Docs Alert Format
+	// GitHub Docs format
 	else if (element.matches('div.ghd-alert')) {
 		const titleEl = element.querySelector('p.ghd-alert-title');
 		if (titleEl) {
@@ -119,7 +119,7 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 			}
 		});
 	}
-	// Generic Admonition Format
+	// Admonition
 	else if (element.matches('div.admonition')) {
 		const titleEl = element.querySelector('.admonition-title');
 		title = titleEl?.textContent?.trim() || getTitleCase(type);
@@ -130,7 +130,7 @@ function extractCalloutInfo(element: Element, doc: Document): CalloutInfo | null
 			}
 		});
 	} else {
-		return null; // Not a recognized callout format
+		return null;
 	}
 	
 	// If contentFragment is empty, but element has direct text children, use them.

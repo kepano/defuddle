@@ -871,6 +871,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'checked',
 	'colspan',
 	'controls',
+	'data-callout',
 	'data-latex',
 	'data-src',
 	'data-srcset',
