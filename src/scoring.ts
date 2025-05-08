@@ -1,6 +1,7 @@
 import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS, FOOTNOTE_LIST_SELECTORS } from './constants';
 
 const contentIndicators = [
+	'admonition',
 	'article',
 	'content',
 	'entry',

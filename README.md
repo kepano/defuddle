@@ -74,6 +74,8 @@ console.log(result.title);
 console.log(result.author);
 ```
 
+_Note: for `defuddle/node` to import properly, the module format in your `package.json` has to be set to `{ "type": "module" }`_
+
 ## Response
 
 Defuddle returns an object with the following properties:
@@ -104,6 +106,15 @@ Defuddle is available in three different bundles:
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
 
 ## Options
+
+| Option                   | Type    | Description                                                                     |
+|--------------------------|---------|---------------------------------------------------------------------------------|
+| `debug`                  | boolean | Enable debug logging                                                            |
+| `url`                    | string  | URL of the page being parsed                                                    |
+| `markdown`               | boolean | Convert `content` to Markdown                                                   |
+| `separateMarkdown`       | boolean | Keep `content` as HTML and return `contentMarkdown` as Markdown                 |
+| `removeExactSelectors`   | boolean | Whether to remove elements matching exact selectors like ads, social buttons, etc. Defaults to true. |
+| `removePartialSelectors` | boolean | Whether to remove elements matching partial selectors like ads, social buttons, etc. Defaults to true. |
 
 ### Debug mode
 

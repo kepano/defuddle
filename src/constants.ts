@@ -98,7 +98,7 @@ export const EXACT_SELECTORS = [
 	'.menu',
 	'#menu',
 	'#siteSub',
-	'.fixed',
+	// '.fixed', see issue #44
 	'.previous',
 
 	// metadata
@@ -419,6 +419,7 @@ export const PARTIAL_SELECTORS = [
 	'fancy-box',
 	'favorite',
 	'featured-content',
+	'feature_feed',
 	'feedback',
 	'feed-links',
 	'field-site-sections',
