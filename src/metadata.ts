@@ -88,8 +88,9 @@ export class MetadataExtractor {
 		const addDomAuthor = (value: string | null | undefined) => {
 			if (!value) return;
 			value.split(',').forEach(namePart => {
-				const cleanedName = namePart.trim().replace(/,$/, '').trim(); // Clean individual part
-				if (cleanedName) {
+				const cleanedName = namePart.trim().replace(/,$/, '').trim();
+				const lowerCleanedName = cleanedName.toLowerCase();
+				if (cleanedName && lowerCleanedName !== 'author' && lowerCleanedName !== 'authors') {
 					collectedAuthorsFromDOM.push(cleanedName);
 				}
 			});
