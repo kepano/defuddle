@@ -74,6 +74,17 @@ export class Defuddle {
 		const schemaOrgData = MetadataExtractor.extractSchemaOrgData(this.doc);
 		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData);
 
+		// Collect meta tags
+		const pageMetaTags: { name?: string | null; property?: string | null; content: string | null }[] = [];
+		this.doc.querySelectorAll('meta').forEach(meta => {
+			const name = meta.getAttribute('name');
+			const property = meta.getAttribute('property');
+			const content = meta.getAttribute('content');
+			if (content) { // Only include tags that have content
+				pageMetaTags.push({ name, property, content });
+			}
+		});
+
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
@@ -95,7 +106,8 @@ export class Defuddle {
 					schemaOrgData: metadata.schemaOrgData,
 					wordCount: this.countWords(extracted.contentHtml),
 					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase()
+					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+					metaTags: pageMetaTags
 				};
 			}
 
@@ -121,7 +133,8 @@ export class Defuddle {
 					content: this.doc.body.innerHTML,
 					...metadata,
 					wordCount: this.countWords(this.doc.body.innerHTML),
-					parseTime: Math.round(endTime - startTime)
+					parseTime: Math.round(endTime - startTime),
+					metaTags: pageMetaTags
 				};
 			}
 
@@ -150,7 +163,8 @@ export class Defuddle {
 				content,
 				...metadata,
 				wordCount: this.countWords(content),
-				parseTime: Math.round(endTime - startTime)
+				parseTime: Math.round(endTime - startTime),
+				metaTags: pageMetaTags
 			};
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
@@ -159,7 +173,8 @@ export class Defuddle {
 				content: this.doc.body.innerHTML,
 				...metadata,
 				wordCount: this.countWords(this.doc.body.innerHTML),
-				parseTime: Math.round(endTime - startTime)
+				parseTime: Math.round(endTime - startTime),
+				metaTags: pageMetaTags
 			};
 		}
 	}

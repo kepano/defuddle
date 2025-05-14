@@ -16,6 +16,7 @@ export interface DefuddleResponse extends DefuddleMetadata {
 	content: string;
 	contentMarkdown?: string;
 	extractorType?: string;
+	metaTags?: { name?: string | null; property?: string | null; content: string | null }[];
 }
 
 export interface DefuddleOptions {
