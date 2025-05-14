@@ -12,11 +12,17 @@ export interface DefuddleMetadata {
 	wordCount: number;
 }
 
+export interface MetaTagItem {
+	name?: string | null;
+	property?: string | null;
+	content: string | null;
+}
+
 export interface DefuddleResponse extends DefuddleMetadata {
 	content: string;
 	contentMarkdown?: string;
 	extractorType?: string;
-	metaTags?: { name?: string | null; property?: string | null; content: string | null }[];
+	metaTags?: MetaTagItem[];
 }
 
 export interface DefuddleOptions {

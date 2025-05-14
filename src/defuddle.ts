@@ -1,5 +1,5 @@
 import { MetadataExtractor } from './metadata';
-import { DefuddleOptions, DefuddleResponse } from './types';
+import { DefuddleOptions, DefuddleResponse, MetaTagItem } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import {
 	MOBILE_WIDTH,
@@ -70,20 +70,22 @@ export class Defuddle {
 			...overrideOptions 
 		};
 
-		// Extract metadata first since we'll need it in multiple places
-		const schemaOrgData = MetadataExtractor.extractSchemaOrgData(this.doc);
-		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData);
+		// Extract schema.org data
+		const schemaOrgData = this._extractSchemaOrgData(this.doc);
 
 		// Collect meta tags
-		const pageMetaTags: { name?: string | null; property?: string | null; content: string | null }[] = [];
+		const pageMetaTags: MetaTagItem[] = [];
 		this.doc.querySelectorAll('meta').forEach(meta => {
 			const name = meta.getAttribute('name');
 			const property = meta.getAttribute('property');
-			const content = meta.getAttribute('content');
+			let content = meta.getAttribute('content');
 			if (content) { // Only include tags that have content
-				pageMetaTags.push({ name, property, content });
+				pageMetaTags.push({ name, property, content: this._decodeHTMLEntities(content) });
 			}
 		});
+
+		// Extract metadata
+		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
 
 		try {
 			// Use site-specific extractor first, if there is one
@@ -676,5 +678,60 @@ export class Defuddle {
 
 	private getComputedStyle(element: Element): CSSStyleDeclaration | null {
 		return getComputedStyle(element);
+	}
+
+	private _extractSchemaOrgData(doc: Document): any {
+		const schemaScripts = doc.querySelectorAll('script[type="application/ld+json"]');
+		const rawSchemaItems: any[] = [];
+
+		schemaScripts.forEach(script => {
+			let jsonContent = script.textContent || '';
+			
+			try {
+				jsonContent = jsonContent
+					.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '')
+					.replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1')
+					.replace(/^\s*(\*\/|\/\*)\s*|\s*(\*\/|\/\*)\s*$/g, '')
+					.trim();
+					
+				const jsonData = JSON.parse(jsonContent);
+
+				if (jsonData['@graph'] && Array.isArray(jsonData['@graph'])) {
+					rawSchemaItems.push(...jsonData['@graph']);
+				} else {
+					rawSchemaItems.push(jsonData);
+				}
+			} catch (error) {
+				console.error('Defuddle: Error parsing schema.org data:', error);
+				if (this.debug) {
+					console.error('Defuddle: Problematic JSON content:', jsonContent);
+				}
+			}
+		});
+
+		const decodeStringsInObject = (item: any): any => {
+			if (typeof item === 'string') {
+				return this._decodeHTMLEntities(item);
+			} else if (Array.isArray(item)) {
+				return item.map(decodeStringsInObject);
+			} else if (typeof item === 'object' && item !== null) {
+				const newItem: { [key: string]: any } = {};
+				for (const key in item) {
+					if (Object.prototype.hasOwnProperty.call(item, key)) {
+						newItem[key] = decodeStringsInObject(item[key]);
+					}
+				}
+				return newItem;
+			}
+			return item;
+		};
+
+		return rawSchemaItems.map(decodeStringsInObject);
+	}
+
+	private _decodeHTMLEntities(text: string): string {
+		const textarea = this.doc.createElement('textarea');
+		textarea.innerHTML = text;
+		return textarea.value;
 	}
 } 
