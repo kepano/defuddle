@@ -56,54 +56,77 @@ export class MetadataExtractor {
 	}
 
 	private static getAuthor(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
-		let authors;
+		let authorsString: string | undefined;
 
-		// 1. Specific meta tags for author
-		authors = this.getMetaContent(metaTags, "name", "sailthru.author") ||
+		// Meta tags - typically expect a single string, possibly comma-separated
+		authorsString = this.getMetaContent(metaTags, "name", "sailthru.author") ||
 			this.getMetaContent(metaTags, "property", "author") ||
-			this.getMetaContent(metaTags, "name", "author") ||
+			this.getMetaContent(metaTags, "name", "author") || // More generic 'author' meta
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
-		if (authors) return authors;
+		if (authorsString) return authorsString; 
 
-		// 2. Schema.org data (getSchemaProperty handles arrays by joining with ', ')
-		authors = this.getSchemaProperty(schemaOrgData, 'author.name') ||
-			this.getSchemaProperty(schemaOrgData, 'author.[].name'); // Try explicit array path
-		if (authors) return authors;
-
-		// 3. Microdata: itemprop="author"
-		const nestedNameElements = doc.querySelectorAll('[itemprop="author"]');
-		if (nestedNameElements.length > 0) {
-			const names = Array.from(nestedNameElements)
-				.map(el => el.textContent?.trim().replace(/,$/, '').trim()) // Clean trailing comma from individual item
-				.filter(name => !!name) as string[];
-			if (names.length > 0) return names.join(', ');
-		}
+		// 2. Schema.org data - deduplicate if it's a list
+		let schemaAuthors = this.getSchemaProperty(schemaOrgData, 'author.name') ||
+			this.getSchemaProperty(schemaOrgData, 'author.[].name');
 		
-		// 4. Microdata: itemprop="author" and itemprop="name" on the same element
-		// e.g., <span itemprop="author" itemprop="name">Author Name</span>
-		const sameElementAuthorNames = doc.querySelectorAll('[itemprop="author"][itemprop="name"]');
-		if (sameElementAuthorNames.length > 0) {
-			const names = Array.from(sameElementAuthorNames)
-				.map(el => el.textContent?.trim().replace(/,$/, '').trim())
-				.filter(name => !!name) as string[];
-			if (names.length > 0) return names.join(', ');
+		if (schemaAuthors) {
+			const parts = schemaAuthors.split(',')
+				.map(part => part.trim().replace(/,$/, '').trim())
+				.filter(Boolean);
+			if (parts.length > 0) {
+				let uniqueSchemaAuthors = [...new Set(parts)];
+				if (uniqueSchemaAuthors.length > 10) {
+					uniqueSchemaAuthors = uniqueSchemaAuthors.slice(0, 10);
+				}
+				return uniqueSchemaAuthors.join(', ');
+			}
 		}
 
-		// 5. User-added generic class query (from their local modification)
-		authors = doc.querySelector('.author')?.textContent?.trim();
-		if (authors) return authors;
+		// 3. DOM elements
+		const collectedAuthorsFromDOM: string[] = [];
+		const addDomAuthor = (value: string | null | undefined) => {
+			if (!value) return;
+			value.split(',').forEach(namePart => {
+				const cleanedName = namePart.trim().replace(/,$/, '').trim(); // Clean individual part
+				if (cleanedName) {
+					collectedAuthorsFromDOM.push(cleanedName);
+				}
+			});
+		};
+
+		const domAuthorSelectors = [
+			'[itemprop="author"]',
+			'.author',
+			'[href*="author"]',
+		];
+
+		domAuthorSelectors.forEach(selector => {
+			doc.querySelectorAll(selector).forEach(el => {
+				addDomAuthor(el.textContent);
+			});
+		});
+
+		if (collectedAuthorsFromDOM.length > 0) {
+			let uniqueAuthors = [...new Set(collectedAuthorsFromDOM.map(name => name.trim()).filter(Boolean))];
+			if (uniqueAuthors.length > 0) {
+				if (uniqueAuthors.length > 10) {
+					uniqueAuthors = uniqueAuthors.slice(0, 10);
+				}
+				return uniqueAuthors.join(', ');
+			}
+		}
 		
-		// 6. Other meta tags and schema properties as fallbacks (less direct for author names)
-		authors = this.getMetaContent(metaTags, "name", "copyright") ||
+		// 4. Fallback meta tags and schema properties (less direct for author names)
+		authorsString = this.getMetaContent(metaTags, "name", "copyright") ||
 			this.getSchemaProperty(schemaOrgData, 'copyrightHolder.name') ||
 			this.getMetaContent(metaTags, "property", "og:site_name") ||
 			this.getSchemaProperty(schemaOrgData, 'publisher.name') ||
 			this.getSchemaProperty(schemaOrgData, 'sourceOrganization.name') ||
 			this.getSchemaProperty(schemaOrgData, 'isPartOf.name') ||
-			this.getMetaContent(metaTags, "name", "twitter:creator") || // often a single user handle
+			this.getMetaContent(metaTags, "name", "twitter:creator") || 
 			this.getMetaContent(metaTags, "name", "application-name");
-		if (authors) return authors;
+		if (authorsString) return authorsString;
 
 		return '';
 	}
@@ -226,13 +249,7 @@ export class MetadataExtractor {
 		const selector = `time`;
 		const element = Array.from(doc.querySelectorAll(selector))[0];
 		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
-		return this.decodeHTMLEntities(content, doc);
-	}
-
-	private static decodeHTMLEntities(text: string, doc: Document): string {
-		const textarea = doc.createElement('textarea');
-		textarea.innerHTML = text;
-		return textarea.value;
+		return content;
 	}
 
 	private static getSchemaProperty(schemaOrgData: any, property: string, defaultValue: string = ''): string {
