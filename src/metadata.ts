@@ -100,6 +100,7 @@ export class MetadataExtractor {
 			'[itemprop="author"]',
 			'.author',
 			'[href*="author"]',
+			'.authors a',
 		];
 
 		domAuthorSelectors.forEach(selector => {
