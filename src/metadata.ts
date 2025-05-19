@@ -61,7 +61,7 @@ export class MetadataExtractor {
 		// Meta tags - typically expect a single string, possibly comma-separated
 		authorsString = this.getMetaContent(metaTags, "name", "sailthru.author") ||
 			this.getMetaContent(metaTags, "property", "author") ||
-			this.getMetaContent(metaTags, "name", "author") || // More generic 'author' meta
+			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
 		if (authorsString) return authorsString; 
