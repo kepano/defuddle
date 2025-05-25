@@ -35,7 +35,7 @@ npm install jsdom
 ### Browser
 
 ```javascript
-import { Defuddle } from 'defuddle';
+import Defuddle from 'defuddle';
 
 // Parse the current document
 const defuddle = new Defuddle(document);
