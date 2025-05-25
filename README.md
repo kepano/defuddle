@@ -62,10 +62,10 @@ const dom = await JSDOM.fromURL('https://example.com/article');
 const result = await Defuddle(dom);
 
 // With options
-const result = await Defuddle(dom, {
+const url = 'https://example.com/article'; // Original URL of the page
+const result = await Defuddle(dom, url, {
   debug: true, // Enable debug mode for verbose logging
-  markdown: true, // Convert content to markdown
-  url: 'https://example.com/article' // Original URL of the page
+  markdown: true // Convert content to markdown
 });
 
 // Access the content and metadata
