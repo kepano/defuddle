@@ -84,7 +84,7 @@ export class TwitterExtractor extends BaseExtractor {
 		if (!text) return '';
 
 		// Create a temporary div to parse and clean the HTML
-		const tempDiv = document.createElement('div');
+		const tempDiv = this.document.createElement('div');
 		tempDiv.innerHTML = text;
 
 		// Convert links to plain text with @ handles
