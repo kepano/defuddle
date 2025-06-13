@@ -205,7 +205,9 @@ export const EXACT_SELECTORS = [
 	'table.infobox',
 	'.pencraft:not(.pc-display-contents)', // Substack
 	'[data-optimizely="related-articles-section" i]', // The Economist
-	'[data-orientation="vertical"]'
+	'[data-orientation="vertical"]',
+	'.gh-header-sticky', // GitHub
+	'[data-testid="issue-metadata-sticky"]', // GitHub
 ];
 
 // Attributes to test against for partial matches
