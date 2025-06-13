@@ -191,7 +191,6 @@ export const EXACT_SELECTORS = [
 	// skip links
 	'[data-link-name*="skip" i]',
 	'[aria-label*="skip" i]',
-	'#skip-link',
 
 	// other
 	'.copyright',
@@ -451,6 +450,7 @@ export const PARTIAL_SELECTORS = [
 
 	'jumplink',
 	'jump-to-',
+	'js-skip-to-content',
 
 	'keepreading',
 	'keep-reading',
@@ -678,10 +678,9 @@ export const PARTIAL_SELECTORS = [
 	'site-name',
 	'site-wordpress',
 //	'skip-',
-//	'skip-link', TechCrunch
 	'skip-content',
 	'skip-to-content',
-//	'skip-link',
+	'skip-link',
 	'c-skip-link',
 	'_skip-link',
 	'-slider',
