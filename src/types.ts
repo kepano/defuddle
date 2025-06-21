@@ -57,6 +57,12 @@ export interface DefuddleOptions {
 	 * Defaults to true.
 	 */
 	removePartialSelectors?: boolean;
+
+	/**
+	 * Whether to remove images from the page
+	 * Defaults to false.
+	 */
+	removeImages?: boolean
 }
 
 export interface ExtractorVariables {

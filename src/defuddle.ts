@@ -87,6 +87,10 @@ export class Defuddle {
 		// Extract metadata
 		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
 
+		if (options.removeImages) {
+			this.removeImages(this.doc);
+		}
+
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
@@ -295,6 +299,13 @@ export class Defuddle {
 			}
 		});
 
+	}
+
+	private removeImages(doc: Document) {
+		const images = doc.getElementsByTagName('img');
+		Array.from(images).forEach(image => {
+			image.remove();
+		});
 	}
 
 	private removeHiddenElements(doc: Document) {
