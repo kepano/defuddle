@@ -9,6 +9,7 @@ import { ChatGPTExtractor } from './extractors/chatgpt';
 import { ClaudeExtractor } from './extractors/claude';
 import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
+import { GitHubExtractor } from './extractors/github';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
 
@@ -84,6 +85,14 @@ export class ExtractorRegistry {
 				/^https?:\/\/gemini\.google\.com\/app\/.*/
 			],
 			extractor: GeminiExtractor
+		});
+
+		this.register({
+			patterns: [
+				'github.com',
+				/^https?:\/\/github\.com\/.*/
+			],
+			extractor: GitHubExtractor
 		});
 	}
 

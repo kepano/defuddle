@@ -39,6 +39,7 @@
 		"dev:js": "webpack --watch --mode development",
 		"dev:node": "tsc --project tsconfig.node.json --watch",
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
+		"test": "vitest run",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
@@ -79,6 +80,7 @@
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
 		"undici-types": "^5.0.0",
+		"vitest": "^3.2.4",
 		"webpack": "^5.90.3",
 		"webpack-cli": "^5.1.4"
 	},
