@@ -7,15 +7,19 @@ import { Defuddle, DefuddleResponse } from '../src/node';
  * Fixtures-based testing for Defuddle extractors
  * 
  * This test suite automatically discovers HTML fixtures in the tests/fixtures directory
- * and runs comprehensive tests against them. It saves expected results as JSON files
- * in tests/expected/ for easy comparison and review. It also saves the markdown content
- * as separate .md files for easier viewing.
+ * and runs comprehensive tests against them. It saves expected results as markdown files
+ * in tests/expected/ with JSON metadata as a preamble for easy comparison and review.
  * 
  * How it works:
  * 1. Processes all .html files in tests/fixtures/ with Defuddle
  * 2. Compares against saved expected results in tests/expected/
  * 3. If no expected result exists, creates a baseline
  * 4. If results differ, fails the test
+ * 
+ * Output format:
+ * Each expected result is saved as a single .md file with:
+ * - JSON metadata (excluding content) as a code block preamble
+ * - Followed by the markdown content
  * 
  * To add new fixtures:
  * 1. Add .html files to tests/fixtures/
@@ -42,57 +46,37 @@ function getFixtures(): Array<{ name: string; path: string }> {
 }
 
 // Helper function to save/load expected results
-function getExpectedResultPath(fixtureName: string): string {
-  return join(__dirname, 'expected', `${fixtureName}.json`);
-}
-
 function getExpectedMarkdownPath(fixtureName: string): string {
   return join(__dirname, 'expected', `${fixtureName}.md`);
 }
 
-function saveExpectedResult(fixtureName: string, result: any, markdown?: string): void {
+function saveExpectedResult(fixtureName: string, result: string): void {
   const expectedDir = join(__dirname, 'expected');
   if (!existsSync(expectedDir)) {
     require('fs').mkdirSync(expectedDir, { recursive: true });
   }
-  
-  const expectedPath = getExpectedResultPath(fixtureName);
-  writeFileSync(expectedPath, JSON.stringify(result, null, 2), 'utf-8');
-  
-  // Also save the markdown content as a separate .md file for easier viewing
-  if (markdown) {
-    const markdownPath = getExpectedMarkdownPath(fixtureName);
-    writeFileSync(markdownPath, markdown, 'utf-8');
-  }
+
+  writeFileSync(getExpectedMarkdownPath(fixtureName), result, 'utf-8');
 }
 
-function loadExpectedResult(fixtureName: string): any | null {
-  const expectedPath = getExpectedResultPath(fixtureName);
+function loadExpectedResult(fixtureName: string): string | null {
+  const expectedPath = getExpectedMarkdownPath(fixtureName);
   if (!existsSync(expectedPath)) {
     return null;
   }
   
-  try {
-    return JSON.parse(readFileSync(expectedPath, 'utf-8'));
-  } catch (error) {
-    console.warn(`Failed to load expected result for ${fixtureName}:`, error);
-    return null;
-  }
+  return readFileSync(expectedPath, 'utf-8');
 }
 
-function createComparableResult(response: DefuddleResponse) {
-  return {
-    metadata: {
-      title: response.title,
-      author: response.author,
-      site: response.site,
-      published: response.published,
-    },
-    content: {
-      html: response.content,
-      markdown: response.contentMarkdown,
-    },
+function createComparableResult(response: DefuddleResponse): string {
+  const metadataOnly = {
+    title: response.title,
+    author: response.author,
+    site: response.site,
+    published: response.published,
   };
+  const jsonPreamble = '```json\n' + JSON.stringify(metadataOnly, null, 2) + '\n```\n\n';
+  return jsonPreamble + response.contentMarkdown;
 }
 
 describe('Fixtures Tests', () => {
@@ -107,7 +91,7 @@ describe('Fixtures Tests', () => {
     const html = readFileSync(path, 'utf-8');
     
     // Process with Defuddle
-    const response = await Defuddle(html, undefined, { separateMarkdown: true });
+    const response = await Defuddle(html, `https://${basename(path)}`, { separateMarkdown: true });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);
     
@@ -118,24 +102,11 @@ describe('Fixtures Tests', () => {
     if (!expected) {
       // No expected result exists, save this as the baseline
       console.log(`Creating baseline expected result for ${name}`);
-      saveExpectedResult(name, result, response.contentMarkdown);
+      saveExpectedResult(name, result);
     }
 
     if (expected) {
-      try {
-        expect(result).toEqual(expected);
-      } catch (error) {
-        // If the test fails, update the expected result and markdown file
-        console.log(`Updating expected result for ${name} due to changes`);
-        saveExpectedResult(name, result, response.contentMarkdown);
-        throw error;
-      }
-    }
-    
-    // Always save/update the markdown file for easier viewing, even if JSON matches
-    if (expected && response.contentMarkdown) {
-      const markdownPath = getExpectedMarkdownPath(name);
-      writeFileSync(markdownPath, response.contentMarkdown, 'utf-8');
+      expect(result).toEqual(expected);
     }
   });
 });
