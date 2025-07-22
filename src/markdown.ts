@@ -187,7 +187,18 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!img || !isGenericElement(img)) return content;
 
 			const alt = img.getAttribute('alt') || '';
-			const src = img.getAttribute('src') || '';
+			let src = img.getAttribute('src') || '';
+
+			// Check if the src is a relative URL and convert it to an absolute URL if needed
+			if (src && !src.startsWith("http")) {
+				try {
+					const baseUrl = new URL(url);
+					src = new URL(src, baseUrl).href;
+				} catch (e) {
+					console.error("Invalid base URL:", url);
+				}
+			}
+			
 			let caption = '';
 
 			if (figcaption && isGenericElement(figcaption)) {
