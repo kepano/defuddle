@@ -295,6 +295,15 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isGenericElement(node)) return content;
 			const href = node.getAttribute('href');
 			const title = node.getAttribute('title');
+
+			if (href && !href.startsWith("http")) {
+			      try {
+      					  const baseUrl = new URL(url); // 确保 'url' 是基准 URL
+  					      href = new URL(href, baseUrl).href;
+ 				   } catch (e) {
+		      			  console.error("Invalid base URL:", url);
+		    	   }
+		 	}
 			
 			// Extract the heading
 			const headingNode = node.querySelector('h1, h2, h3, h4, h5, h6');
