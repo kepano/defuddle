@@ -353,6 +353,8 @@ export class Defuddle {
 			});
 		}
 
+		elementsToRemove.forEach(el => el.remove());
+
 		// Batch remove all hidden elements
 		this._log('Removed hidden elements:', count);
 	}
