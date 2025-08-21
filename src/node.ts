@@ -1,7 +1,6 @@
 import { JSDOM, VirtualConsole } from 'jsdom';
 import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
-import { createMarkdownContent } from './markdown';
 
 /**
  * Parse HTML content using JSDOM
@@ -41,16 +40,7 @@ export async function Defuddle(
 		url: pageUrl
 	});
 
-	const result = defuddle.parse();
-
-	// Convert to markdown if requested
-	if (options?.markdown) {
-		result.content = createMarkdownContent(result.content, pageUrl);
-	} else if (options?.separateMarkdown) {
-		result.contentMarkdown = createMarkdownContent(result.content, pageUrl);
-	}
-
-	return result;
+	return defuddle.parse();
 }
 
 export { DefuddleClass, DefuddleOptions, DefuddleResponse }; 

@@ -12,6 +12,7 @@ import {
 import { standardizeContent } from './standardize';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle } from './utils';
+import { createMarkdownContent } from './markdown';
 
 interface StyleChange {
 	selector: string;
@@ -39,7 +40,7 @@ export class Defuddle {
 	 */
 	parse(): DefuddleResponse {
 		// Try first with default settings
-		const result = this.parseInternal();
+		let result = this.parseInternal();
 
 		// If result has very little content, try again without clutter removal
 		if (result.wordCount < 200) {
@@ -51,9 +52,13 @@ export class Defuddle {
 			// Return the result with more content
 			if (retryResult.wordCount > result.wordCount) {
 				this._log('Retry produced more content');
-				return retryResult;
+				result = retryResult;
 			}
 		}
+
+    if (this.options.markdown || this.options.separateMarkdown) {
+      this.createMarkdownInResponse(result, this.options.url || this.doc.URL, this.options.separateMarkdown);
+    }
 
 		return result;
 	}
@@ -184,6 +189,23 @@ export class Defuddle {
 			};
 		}
 	}
+
+  // Changes the response's content or contentMarkdown property to markdown string
+  // Prioritize separating markdown from content if specified.
+  private createMarkdownInResponse(response: DefuddleResponse, pageUrl: string, separateMarkdown: boolean = false) {
+    try {
+      // In that case we will have both markdown and html in the response
+      if (separateMarkdown) {
+        response.contentMarkdown = createMarkdownContent(response.content, pageUrl);
+      } else {
+        response.content = createMarkdownContent(response.content, pageUrl);
+      }
+    } catch (e) {
+      if (this.debug) {
+        console.warn('Defuddle: Markdown conversion failed', e);
+      }
+    }
+  }
 
 	private countWords(content: string): number {
 		// Create a temporary div to parse HTML content
