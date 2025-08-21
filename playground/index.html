@@ -223,11 +223,15 @@
 				<div class="output-container">
 					<div class="output-tabs">
 						<button class="tab active" data-tab="content">Content</button>
+						<button class="tab" data-tab="markdown">Markdown</button>
 						<button class="tab" data-tab="metadata">Metadata</button>
 						<button class="tab" data-tab="debug">Debug</button>
 					</div>
 					<div class="tab-content active" id="content">
 						<div id="output" class="output-content"></div>
+					</div>
+					<div class="tab-content" id="markdown">
+						<pre id="markdownOutput" class="output-content"></pre>
 					</div>
 					<div class="tab-content" id="metadata">
 						<pre id="metadataOutput" class="output-content"></pre>
@@ -249,6 +253,7 @@
 		const urlInput = document.getElementById('url');
 		const output = document.getElementById('output');
 		const metadataOutput = document.getElementById('metadataOutput');
+		const markdownOutput = document.getElementById('markdownOutput');
 		const debugOutput = document.getElementById('debugOutput');
 		const clearInputBtn = document.getElementById('clearInput');
 		const parseBtn = document.getElementById('parse');
@@ -265,6 +270,7 @@
 		clearOutputBtn.addEventListener('click', () => {
 			output.innerHTML = '';
 			metadataOutput.textContent = '';
+			markdownOutput.textContent = '';
 			debugOutput.textContent = '';
 			hideError();
 		});
@@ -275,7 +281,8 @@
 				const doc = parser.parseFromString(input.value, 'text/html');
 				
 				const defuddle = new Defuddle(doc, {
-					url: urlInput.value
+					url: urlInput.value,
+					separateMarkdown: true
 				});
 				const result = defuddle.parse();
 				
@@ -284,6 +291,8 @@
 				
 				// Display content
 				output.innerHTML = result.content;
+				// Display raw markdown in separate tab
+				markdownOutput.textContent = result.contentMarkdown || '';
 				
 				// Display metadata - show all fields except content
 				const { content, ...metadata } = result;
