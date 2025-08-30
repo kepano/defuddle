@@ -531,8 +531,19 @@ function removeEmptyLines(element: Element, doc: Document): void {
 				node.parentNode?.removeChild(node);
 				removedCount++;
 			} else {
+				
+				let newText = text;
+
+				if (node.parentElement){
+					const styles = node.parentElement.style;
+					if (!styles.whiteSpace || styles.whiteSpace == "normal" ) {
+						// replace newlines with spaces as per the white-space property
+						newText = newText.replace(/\n/g, ' ')
+					}
+				}
+
 				// Clean up the text content while preserving important spaces
-				const newText = text
+				newText = newText
 					.replace(/\n{3,}/g, '\n\n') // More than 2 newlines -> 2 newlines
 					.replace(/^[\n\r\t]+/, '') // Remove leading newlines/tabs (preserve spaces)
 					.replace(/[\n\r\t]+$/, '') // Remove trailing newlines/tabs (preserve spaces)
