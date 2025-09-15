@@ -102,7 +102,7 @@ export class Defuddle {
 				return {
 					content: extracted.contentHtml,
 					title: extracted.variables?.title || metadata.title,
-					description: metadata.description,
+					description: extracted.variables?.description || metadata.description,
 					domain: metadata.domain,
 					favicon: metadata.favicon,
 					image: metadata.image,
