@@ -108,7 +108,7 @@ export class TwitterExtractor extends BaseExtractor {
 		return paragraphs.map(p => `<p>${p}</p>`).join('\n');
 	}
 
-	private extractTweet(tweet: Element | null): string {
+	public extractTweet(tweet: Element | null): string {
 		if (!tweet) return '';
 
 		// Clone the tweet element to modify it
@@ -169,6 +169,18 @@ export class TwitterExtractor extends BaseExtractor {
 		if (!fullName || !handle) {
 			fullName = nameElement.querySelector('span[style*="color: rgb(15, 20, 25)"] span')?.textContent?.trim() || '';
 			handle = nameElement.querySelector('span[style*="color: rgb(83, 100, 113)"]')?.textContent?.trim() || '';
+		}
+
+		if (!fullName || !handle) {
+			// For embedded tweets in articles
+			fullName =
+				nameElement
+					.querySelector('span:first-of-type')
+					?.textContent?.trim() || '';
+			handle =
+				nameElement
+					.querySelector('div[style*="color: rgb(139, 152, 165)"]')
+					?.textContent?.trim() || '';
 		}
 
 		const timestamp = tweet.querySelector('time');

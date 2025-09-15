@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { TwitterExtractor } from './twitter';
 
 export class xArticleExtractor extends BaseExtractor {
 	private article: Element | null = null;
@@ -46,6 +47,27 @@ export class xArticleExtractor extends BaseExtractor {
 	}
 
 	private cleanArticleContent(article: Element): Element {
+		// Extract and clean embedded tweets
+		let tweetSelector = '[data-testid="simpleTweet"]';
+		const embeddedTweets = article.querySelectorAll(tweetSelector);
+
+		const twitterExtractor = new TwitterExtractor(this.document, this.url);
+		embeddedTweets.forEach(tweet => {
+			const extractedTweet = twitterExtractor.extractTweet(tweet);
+
+			// Replace the tweet element with formatted content
+			if (extractedTweet) {
+				const tweetDiv = article.ownerDocument.createElement('div');
+				tweetDiv.className = 'embedded-tweet';
+				tweetDiv.innerHTML = `
+					<blockquote>
+						${extractedTweet}
+					</blockquote>
+				`;
+				tweet.parentNode?.replaceChild(tweetDiv, tweet);
+			}
+		});
+
 		return article;
 	}
 
