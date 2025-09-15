@@ -88,7 +88,7 @@ export class xArticleExtractor extends BaseExtractor {
 	}
 
 	private getArticleAuthor(): string {
-		const authorElement = this.article?.querySelector('[itemprop="author"]');
+		const authorElement = this.document?.querySelector('[itemprop="author"]');
 
 		if (!authorElement) {
 			console.debug('Author element not found in article. Falling back to URL parsing.');
@@ -108,7 +108,7 @@ export class xArticleExtractor extends BaseExtractor {
 	}
 
 	private getArticleTitle(): string {
-		const titleElement = this.article?.querySelector('[data-testid="twitter-article-title"]');
+		const titleElement = this.document?.querySelector('[data-testid="twitter-article-title"]');
 		return titleElement?.textContent?.trim() || '';
 	}
 }
