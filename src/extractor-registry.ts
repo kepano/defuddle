@@ -10,6 +10,7 @@ import { ClaudeExtractor } from './extractors/claude';
 import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
+import { xArticleExtractor } from './extractors/x-article';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
 
@@ -25,11 +26,14 @@ export class ExtractorRegistry {
 	static initialize() {
 		// Register all extractors with their URL patterns
 		this.register({
-			patterns: [
-				'twitter.com',
-				/\/x\.com\/.*/,
-			],
-			extractor: TwitterExtractor
+			patterns: [/\/x\.com\/.*\/article\/\d+/],
+			extractor: xArticleExtractor,
+		});
+
+		// Regular tweets and Twitter content
+		this.register({
+			patterns: ['twitter.com', /\/x\.com\/(?!.*\/article\/)/],
+			extractor: TwitterExtractor,
 		});
 
 		this.register({
