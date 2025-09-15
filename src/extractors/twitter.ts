@@ -1,13 +1,24 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { xArticleExtractor } from './x-article';
 
 export class TwitterExtractor extends BaseExtractor {
 	private mainTweet: Element | null = null;
 	private threadTweets: Element[] = [];
+	private articleExtractor: xArticleExtractor | null = null;
 
 	constructor(document: Document, url: string) {
 		super(document, url);
-		
+
+		// Identify if the page contains a tweet or article
+		if (document.querySelector('[data-testid="twitterArticleRichTextView"]')) {
+			try {
+				this.articleExtractor = new xArticleExtractor(document, url);
+			} catch (error) {
+				// If article extraction fails, fall back to tweet extraction
+				console.warn('Failed to initialize article extractor:', error);
+			}
+		}
 		// Get all tweets from the timeline
 		const timeline = document.querySelector('[aria-label="Timeline: Conversation"]');
 		if (!timeline) {
@@ -39,10 +50,16 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	canExtract(): boolean {
-		return !!this.mainTweet;
+		return !!this.mainTweet || (!!this.articleExtractor && this.articleExtractor.canExtract());
 	}
 
 	extract(): ExtractorResult {
+		// If we have an article extractor, use it instead of tweet extraction
+		if (this.articleExtractor && this.articleExtractor.canExtract()) {
+			return this.articleExtractor.extract();
+		}
+
+		// Otherwise, proceed with tweet extraction
 		const mainContent = this.extractTweet(this.mainTweet);
 		const threadContent = this.threadTweets.map(tweet => this.extractTweet(tweet)).join('\n<hr>\n');
 
