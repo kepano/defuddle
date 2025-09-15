@@ -103,7 +103,7 @@ export class TwitterExtractor extends BaseExtractor {
 		return paragraphs.map(p => `<p>${p}</p>`).join('\n');
 	}
 
-	public extractTweet(tweet: Element | null): string {
+	public extractTweet(tweet: Element | null, extractQuotedTweet: boolean = true): string {
 		if (!tweet) return '';
 
 		// Clone the tweet element to modify it
@@ -126,9 +126,12 @@ export class TwitterExtractor extends BaseExtractor {
 		// Get author info and date
 		const userInfo = this.extractUserInfo(tweet);
 
-		// Extract quoted tweet if present
-		const quotedTweet = tweet.querySelector('[aria-labelledby*="id__"]')?.querySelector('[data-testid="User-Name"]')?.closest('[aria-labelledby*="id__"]');
-		const quotedContent = quotedTweet ? this.extractTweet(quotedTweet) : '';
+		// Extract quoted tweet if present and allowed
+		let quotedContent = '';
+		if (extractQuotedTweet) {
+			const quotedTweet = tweet.querySelector('[aria-labelledby*="id__"]')?.querySelector('[data-testid="User-Name"]')?.closest('[aria-labelledby*="id__"]');
+			quotedContent = quotedTweet ? this.extractTweet(quotedTweet, false) : '';
+		}
 
 		const parts = [
 			`<div class="tweet">`,

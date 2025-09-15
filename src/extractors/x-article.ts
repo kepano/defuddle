@@ -53,7 +53,7 @@ export class xArticleExtractor extends BaseExtractor {
 
 		const twitterExtractor = new TwitterExtractor(this.document, this.url);
 		embeddedTweets.forEach(tweet => {
-			const extractedTweet = twitterExtractor.extractTweet(tweet);
+			const extractedTweet = twitterExtractor.extractTweet(tweet, false);
 
 			// Replace the tweet element with formatted content
 			if (extractedTweet) {
