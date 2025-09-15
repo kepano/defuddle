@@ -46,6 +46,73 @@ export class xArticleExtractor extends BaseExtractor {
 		};
 	}
 
+	/**
+	 * Recursively cleans HTML content by removing redundant wrapper elements while preserving semantic markup.
+	 *
+	 * This method is designed to clean content from X articles where content is often wrapped in multiple
+	 *  div/span elements for styling purposes, while preserving meaningful markup.
+	 *
+	 * Please only use this method as the last step in your content cleaning process.
+	 *
+	 * PRESERVES:
+	 * - Semantic text formatting: <strong>, <b>, <em>, <i>, <code>
+	 * - Links with href attributes: <a href="...">
+	 * - Text content and whitespace
+	 *
+	 * REMOVES:
+	 * - Wrapper divs and spans (but keeps their content)
+	 * - All other HTML elements (converts to text content)
+	 * - All attributes except href on links
+	 * - CSS classes, data attributes, and styling
+	 *
+	 * AVOID USING WHEN:
+	 * - You need to preserve complex HTML structures (tables, forms, etc.)
+	 * - Layout or visual markup has semantic meaning
+	 * - You need to preserve CSS classes or data attributes
+	 * - Content contains interactive elements that should be preserved
+	 * - The original markup structure is semantically important
+	 *
+	 * @param element - The DOM element to clean recursively
+	 * @returns Cleaned HTML string with redundant wrappers removed and semantic markup preserved
+	 *
+	 * @example
+	 * // Input: <div><span><strong>Bold text</strong></span><span> and normal text</span></div>
+	 * // Output: "<strong>Bold text</strong> and normal text"
+	 *
+	 * @example
+	 * // Input: <div class="wrapper"><a href="/link">Link</a><span> text</span></div>
+	 * // Output: '<a href="/link">Link</a> text'
+	 */
+	private cleanContentRecursively(element: Element): string {
+		let result = '';
+		element.childNodes.forEach(node => {
+			if (node.nodeType === Node.TEXT_NODE) {
+				result += node.textContent || '';
+			} else if (node.nodeType === Node.ELEMENT_NODE) {
+				const el = node as Element;
+
+				// Preserve important markup tags
+				if (['STRONG', 'B', 'EM', 'I', 'A', 'CODE'].includes(el.tagName)) {
+					const tag = el.tagName.toLowerCase();
+					let attributes = '';
+					if (tag === 'a' && el.getAttribute('href')) {
+						attributes = ` href="${el.getAttribute('href')}"`;
+					}
+					result += `<${tag}${attributes}>${this.cleanContentRecursively(el)}</${tag}>`;
+				}
+				// Remove redundant div/span wrappers but preserve their content
+				else if (['DIV', 'SPAN'].includes(el.tagName)) {
+					result += this.cleanContentRecursively(el);
+				}
+				// For other elements, just extract text content
+				else {
+					result += el.textContent || '';
+				}
+			}
+		});
+		return result;
+	}
+
 	private cleanArticleContent(article: Element): Element {
 		// Extract and clean embedded tweets
 		let tweetSelector = '[data-testid="simpleTweet"]';
