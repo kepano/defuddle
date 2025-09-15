@@ -112,7 +112,7 @@ export class Defuddle {
 					schemaOrgData: metadata.schemaOrgData,
 					wordCount: this.countWords(extracted.contentHtml),
 					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+					extractorType: extracted.extractorType || extractor.constructor.name.replace('Extractor', '').toLowerCase(),
 					metaTags: pageMetaTags
 				};
 			}

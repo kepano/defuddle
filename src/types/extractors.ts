@@ -43,4 +43,5 @@ export interface ExtractorResult {
 	variables?: {
 		[key: string]: string;
 	};
+	extractorType?: string;
 } 

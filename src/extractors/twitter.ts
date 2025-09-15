@@ -56,7 +56,10 @@ export class TwitterExtractor extends BaseExtractor {
 	extract(): ExtractorResult {
 		// If we have an article extractor, use it instead of tweet extraction
 		if (this.articleExtractor && this.articleExtractor.canExtract()) {
-			return this.articleExtractor.extract();
+			const result = this.articleExtractor.extract();
+			// Override extractorType to reflect the actual extractor used
+			result.extractorType = 'xarticle';
+			return result;
 		}
 
 		// Otherwise, proceed with tweet extraction
