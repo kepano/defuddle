@@ -45,20 +45,15 @@ export class TwitterExtractor extends BaseExtractor {
 	extract(): ExtractorResult {
 		const mainContent = this.extractTweet(this.mainTweet);
 		const threadContent = this.threadTweets.map(tweet => this.extractTweet(tweet)).join('\n<hr>\n');
-		
-		const contentHtml = `
-			<div class="tweet-thread">
-				<div class="main-tweet">
-					${mainContent}
-				</div>
-				${threadContent ? `
-					<hr>
-					<div class="thread-tweets">
-						${threadContent}
-					</div>
-				` : ''}
-			</div>
-		`.trim();
+
+		const contentParts = [
+			`<div class="tweet-thread">`,
+			`<div class="main-tweet">${mainContent}</div>`,
+			...(threadContent ? [`<hr><div class="thread-tweets">${threadContent}</div>`] : []),
+			`</div>`,
+		];
+
+		const contentHtml = contentParts.join('');
 
 		const tweetId = this.getTweetId();
 		const tweetAuthor = this.getTweetAuthor();
@@ -130,30 +125,24 @@ export class TwitterExtractor extends BaseExtractor {
 		
 		// Get author info and date
 		const userInfo = this.extractUserInfo(tweet);
-		
+
 		// Extract quoted tweet if present
 		const quotedTweet = tweet.querySelector('[aria-labelledby*="id__"]')?.querySelector('[data-testid="User-Name"]')?.closest('[aria-labelledby*="id__"]');
 		const quotedContent = quotedTweet ? this.extractTweet(quotedTweet) : '';
 
-		return `
-			<div class="tweet">
-				<div class="tweet-header">
-					<span class="tweet-author"><strong>${userInfo.fullName}</strong> <span class="tweet-handle">${userInfo.handle}</span></span>
-					${userInfo.date ? `<a href="${userInfo.permalink}" class="tweet-date">${userInfo.date}</a>` : ''}
-				</div>
-				${formattedText ? `<div class="tweet-text">${formattedText}</div>` : ''}
-				${images.length ? `
-					<div class="tweet-media">
-						${images.join('\n')}
-					</div>
-				` : ''}
-				${quotedContent ? `
-					<blockquote class="quoted-tweet">
-						${quotedContent}
-					</blockquote>
-				` : ''}
-			</div>
-		`.trim();
+		const parts = [
+			`<div class="tweet">`,
+			`<div class="tweet-header">`,
+			`<span class="tweet-author"><strong>${userInfo.fullName}</strong> <span class="tweet-handle">${userInfo.handle}</span></span>`,
+			...(userInfo.date ? [`<a href="${userInfo.permalink}" class="tweet-date">${userInfo.date}</a>`] : []),
+			`</div>`,
+			...(formattedText ? [`<div class="tweet-text">${formattedText}</div>`] : []),
+			...(images.length ? [`<div class="tweet-media">${images.join('')}</div>`] : []),
+			...(quotedContent ? [`<blockquote class="quoted-tweet">${quotedContent}</blockquote>`] : []),
+			`</div>`,
+		];
+
+		return parts.join('');
 	}
 
 	private extractUserInfo(tweet: Element) {
