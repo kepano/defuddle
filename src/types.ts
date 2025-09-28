@@ -1,3 +1,5 @@
+import { BaseExtractor } from "./extractors/_base";
+
 export interface DefuddleMetadata {
 	title: string;
 	description: string;
@@ -66,6 +68,15 @@ export interface DefuddleOptions {
 	 * Defaults to false
 	 */
 	removeImages?: boolean
+
+	/**
+	 * Custom extractors to use with their URL patterns
+	 * Defaults to empty array
+	 */
+	extractors?: {
+		patterns: (string | RegExp)[];
+		extractor: BaseExtractor;
+	}[];
 }
 
 export interface ExtractorVariables {

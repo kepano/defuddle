@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Blog Post - Tech Blog</title>
+    <meta name="description" content="A sample blog post for testing custom extractors">
+    <meta name="author" content="Jane Doe">
+    <meta name="published" content="2024-01-15T10:30:00Z">
+    <meta property="og:title" content="Custom Blog Post - Tech Blog">
+    <meta property="og:description" content="A sample blog post for testing custom extractors">
+    <meta property="og:image" content="https://example.com/image.jpg">
+    <meta property="og:site_name" content="Custom Blog">
+</head>
+<body>
+    <header class="site-header">
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/blog">Blog</a></li>
+                <li><a href="/about">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <aside class="sidebar">
+        <h3>Recent Posts</h3>
+        <ul>
+            <li><a href="/post1">Post 1</a></li>
+            <li><a href="/post2">Post 2</a></li>
+        </ul>
+        <div class="ads">
+            <p>Advertisement content here</p>
+        </div>
+    </aside>
+
+    <main class="content">
+        <article class="blog-post" data-post-id="123" data-category="technology">
+            <header class="post-header">
+                <h1 class="post-title">Understanding Custom Content Extraction</h1>
+                <div class="post-meta">
+                    <span class="author">By <strong>Jane Doe</strong></span>
+                    <time class="published" datetime="2024-01-15T10:30:00Z">January 15, 2024</time>
+                    <span class="category">Technology</span>
+                    <span class="reading-time">5 min read</span>
+                </div>
+            </header>
+
+            <div class="post-content">
+                <p class="lead">This is a sample blog post designed to test custom content extraction capabilities. It contains various HTML elements and structures that a custom extractor should be able to handle.</p>
+
+                <h2>Introduction</h2>
+                <p>Content extraction is a crucial part of web scraping and data processing. When dealing with specific website structures, custom extractors can provide more accurate and targeted results than generic extraction methods.</p>
+
+                <h3>Key Benefits</h3>
+                <ul>
+                    <li><strong>Precision:</strong> Extract exactly what you need</li>
+                    <li><strong>Consistency:</strong> Handle site-specific quirks</li>
+                    <li><strong>Performance:</strong> Skip unnecessary processing</li>
+                </ul>
+
+                <blockquote class="highlight">
+                    <p>"Custom extractors allow you to leverage domain knowledge about specific website structures to achieve better extraction results."</p>
+                    <cite>— Web Scraping Best Practices</cite>
+                </blockquote>
+
+                <h2>Implementation Details</h2>
+                <p>When implementing a custom extractor, consider the following:</p>
+
+                <ol>
+                    <li>Identify unique selectors for your target content</li>
+                    <li>Handle edge cases and variations in the HTML structure</li>
+                    <li>Extract metadata along with the main content</li>
+                    <li>Provide fallback mechanisms for unexpected formats</li>
+                </ol>
+
+                <div class="code-example">
+                    <h4>Example Code</h4>
+                    <pre><code>class CustomExtractor extends BaseExtractor {
+    canExtract() {
+        return this.document.querySelector('.blog-post') !== null;
+    }
+    
+    extract() {
+        const title = this.document.querySelector('.post-title')?.textContent;
+        const content = this.document.querySelector('.post-content')?.innerHTML;
+        return { title, content };
+    }
+}</code></pre>
+                </div>
+
+                <h2>Testing Considerations</h2>
+                <p>Thorough testing is essential for custom extractors. Consider testing with:</p>
+                <ul>
+                    <li>Various page layouts and structures</li>
+                    <li>Missing or optional elements</li>
+                    <li>Different content lengths and formats</li>
+                    <li>Edge cases and malformed HTML</li>
+                </ul>
+
+                <div class="post-tags">
+                    <span class="tag">web-scraping</span>
+                    <span class="tag">custom-extractors</span>
+                    <span class="tag">content-extraction</span>
+                    <span class="tag">testing</span>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <footer class="site-footer">
+        <p>&copy; 2024 Tech Blog. All rights reserved.</p>
+        <div class="social-links">
+            <a href="https://twitter.com/techblog">Twitter</a>
+            <a href="https://github.com/techblog">GitHub</a>
+        </div>
+    </footer>
+
+    <!-- Analytics and tracking scripts -->
+    <script>
+        // Analytics code would go here
+        console.log('Page loaded');
+    </script>
+</body>
+</html>
