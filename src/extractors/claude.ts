@@ -7,7 +7,7 @@ export class ClaudeExtractor extends ConversationExtractor {
 	constructor(document: Document, url: string) {
 		super(document, url);
 		// Find all message blocks - both user and assistant messages
-		this.articles = document.querySelectorAll('div[data-testid="user-message"], div[data-testid="assistant-message"], div.font-claude-message');
+		this.articles = document.querySelectorAll('div[data-testid="user-message"], div[data-testid="assistant-message"], div.font-claude-response');
 	}
 
 	canExtract(): boolean {
@@ -33,16 +33,19 @@ export class ClaudeExtractor extends ConversationExtractor {
 				else {
 					return;
 				}
-			} else if (article.classList.contains('font-claude-message')) {
+			} else if (article.classList.contains('font-claude-response')) {
 				// Handle Claude messages
 				role = 'assistant';
-				content = article.innerHTML;
+				const assistantBody = (article.querySelector('.standard-markdown') as HTMLElement) || (article as HTMLElement);
+				content = assistantBody.innerHTML;
 			} else {
 				// Skip unknown elements
 				return;
 			}
 
 			if (content) {
+				// Normalize content similar to ChatGPT extractor
+				content = content.replace(/\u200B/g, '').replace(/<p[^>]*>\s*<\/p>/g, '');
 				messages.push({
 					author: role === 'you' ? 'You' : 'Claude',
 					content: content.trim(),
