@@ -68,6 +68,7 @@ export class ExtractorRegistry {
 
 		this.register({
 			patterns: [
+				'claude.ai',
 				/^https?:\/\/claude\.ai\/(chat|share)\/.*/
 			],
 			extractor: ClaudeExtractor
