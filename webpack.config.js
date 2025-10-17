@@ -51,8 +51,7 @@ module.exports = (env, argv) => {
 		entry: './src/index.ts',
 		externals: {
 			'mathml-to-latex': 'mathml-to-latex',
-			'temml': 'temml',
-			'turndown': 'turndown'
+			'temml': 'temml'
 		},
 		output: {
 			path: path.resolve(__dirname, 'dist'),
