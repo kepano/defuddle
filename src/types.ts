@@ -65,7 +65,13 @@ export interface DefuddleOptions {
 	 * Remove images
 	 * Defaults to false
 	 */
-	removeImages?: boolean
+	removeImages?: boolean;
+
+	/**
+	 * Markdown conversion function
+	 * Used when markdown or separateMarkdown options are enabled
+	 */
+	markdownProcessor?: (content: string, url: string) => string;
 }
 
 export interface ExtractorVariables {

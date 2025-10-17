@@ -12,7 +12,6 @@ import {
 import { standardizeContent } from './standardize';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle } from './utils';
-import { createMarkdownContent } from './markdown';
 
 interface StyleChange {
 	selector: string;
@@ -23,6 +22,7 @@ export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
+	private markdownProcessor?: (content: string, url: string) => string;
 
 	/**
 	 * Create a new Defuddle instance
@@ -33,6 +33,7 @@ export class Defuddle {
 		this.doc = doc;
 		this.options = options;
 		this.debug = options.debug || false;
+		this.markdownProcessor = options.markdownProcessor;
 	}
 
 	/**
@@ -193,12 +194,19 @@ export class Defuddle {
   // Changes the response's content or contentMarkdown property to markdown string
   // Prioritize separating markdown from content if specified.
   private createMarkdownInResponse(response: DefuddleResponse, pageUrl: string, separateMarkdown: boolean = false) {
+    if (!this.markdownProcessor) {
+      if (this.debug) {
+        console.warn('Defuddle: Markdown processor not available');
+      }
+      return;
+    }
+
     try {
       // In that case we will have both markdown and html in the response
       if (separateMarkdown) {
-        response.contentMarkdown = createMarkdownContent(response.content, pageUrl);
+        response.contentMarkdown = this.markdownProcessor(response.content, pageUrl);
       } else {
-        response.content = createMarkdownContent(response.content, pageUrl);
+        response.content = this.markdownProcessor(response.content, pageUrl);
       }
     } catch (e) {
       if (this.debug) {

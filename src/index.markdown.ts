@@ -1,5 +1,6 @@
 import { Defuddle } from './defuddle';
 import { DefuddleOptions, DefuddleResponse } from './types';
+import { createMarkdownContent } from './markdown';
 
 /**
  * Defuddle with markdown support enabled by default
@@ -10,7 +11,8 @@ export default class DefuddleWithMarkdown extends Defuddle {
 		// Enable separateMarkdown by default if not explicitly set
 		const markdownOptions: DefuddleOptions = {
 			separateMarkdown: true,
-			...options
+			...options,
+			markdownProcessor: createMarkdownContent
 		};
 		super(doc, markdownOptions);
 	}
