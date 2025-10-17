@@ -44,7 +44,7 @@ export class Defuddle {
 
 		// If result has very little content, try again without clutter removal
 		if (result.wordCount < 200) {
-			console.log('Initial parse returned very little content, trying again');
+			this._log('Initial parse returned very little content, trying again');
 			const retryResult = this.parseInternal({ 
 				removePartialSelectors: false 
 			});
