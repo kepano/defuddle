@@ -15,6 +15,7 @@
 	"exclude": ["node_modules", "dist"],
 	"files": [
 		"src/index.ts",
-		"src/index.full.ts"
+		"src/index.full.ts",
+		"src/index.markdown.ts"
 	]
 } 

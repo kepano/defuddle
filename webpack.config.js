@@ -51,7 +51,8 @@ module.exports = (env, argv) => {
 		entry: './src/index.ts',
 		externals: {
 			'mathml-to-latex': 'mathml-to-latex',
-			'temml': 'temml'
+			'temml': 'temml',
+			'turndown': 'turndown'
 		},
 		output: {
 			path: path.resolve(__dirname, 'dist'),
@@ -98,5 +99,30 @@ module.exports = (env, argv) => {
 		}
 	};
 
-	return [coreConfig, fullConfig];
+	// Markdown bundle configuration
+	const markdownConfig = {
+		...commonConfig,
+		name: 'markdown',
+		entry: './src/index.markdown.ts',
+		output: {
+			path: path.resolve(__dirname, 'dist'),
+			filename: 'index.markdown.js',
+			library: {
+				name: 'Defuddle',
+				type: 'umd',
+				export: 'default'
+			},
+			globalObject: 'typeof self !== "undefined" ? self : this'
+		},
+		target: 'web',
+		resolve: {
+			...commonConfig.resolve,
+			alias: {
+				// Alias the math module to use core version
+				'./elements/math': path.resolve(__dirname, 'src/elements/math.core.ts')
+			}
+		}
+	};
+
+	return [coreConfig, fullConfig, markdownConfig];
 }; 

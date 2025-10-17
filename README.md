@@ -103,6 +103,7 @@ Defuddle is available in three different bundles:
 1. Core bundle (`defuddle`): The main bundle for browser usage. No dependencies.
 2. Full bundle (`defuddle/full`): Includes additional features for math equation parsing.
 3. Node.js bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Includes full capabilities for math and Markdown conversion.
+4. Core bundle + Markdown (`defuddle/markdown`): The main bundle for browser usage with Markdown included and turned on by default.
 
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
 

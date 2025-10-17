@@ -9,6 +9,7 @@
 		"*": {
 			"*": ["dist/index.d.ts"],
 			"full": ["dist/index.full.d.ts"],
+			"markdown": ["dist/index.markdown.d.ts"],
 			"node": ["dist/node.d.ts"]
 		}
 	},
@@ -22,6 +23,11 @@
 			"import": "./dist/index.full.js",
 			"require": "./dist/index.full.js",
 			"types": "./dist/index.full.d.ts"
+		},
+		"./markdown": {
+			"import": "./dist/index.markdown.js",
+			"require": "./dist/index.markdown.js",
+			"types": "./dist/index.markdown.d.ts"
 		},
 		"./node": {
 			"import": "./dist/node.js",
