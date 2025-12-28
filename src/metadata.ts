@@ -64,7 +64,24 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString) return authorsString; 
+		if (authorsString) return authorsString;
+
+		// Conventions for research paper meta tags
+		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author");
+		if (authorsStrings.length === 0) {
+			authorsStrings = this.getMetaContents(metaTags, "property", "dc.creator");
+		}
+		if (authorsStrings.length > 0) {
+			authorsString = authorsStrings.map(s => {
+				if (!s.includes(',')) return s.trim();
+				const parts = /(.*),\s(.*)/.exec(s);
+				if (parts && parts.length === 3) {
+					return `${parts[2]} ${parts[1]}`;
+				}
+				return s.trim();
+			}).join(', ');
+			return authorsString;
+		}
 
 		// 2. Schema.org data - deduplicate if it's a list
 		let schemaAuthors = this.getSchemaProperty(schemaOrgData, 'author.name') ||
@@ -240,11 +257,14 @@ export class MetadataExtractor {
 	}
 
 	private static getMetaContent(metaTags: MetaTagItem[], attr: string, value: string): string {
-		const foundTag = metaTags.find(tag => {
+		return this.getMetaContents(metaTags, attr, value)[0] ?? "";
+	}
+
+	private static getMetaContents(metaTags: MetaTagItem[], attr: string, value: string): string[] {
+		return metaTags.filter(tag => {
 			const attributeValue = attr === 'name' ? tag.name : tag.property;
 			return attributeValue?.toLowerCase() === value.toLowerCase();
-		});
-		return foundTag ? foundTag.content?.trim() ?? "" : "";
+		}).map(tag => tag.content?.trim() ?? "");
 	}
 
 	private static getTimeElement(doc: Document): string {
