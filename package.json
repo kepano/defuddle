@@ -39,7 +39,7 @@
 		"dev:js": "webpack --watch --mode development",
 		"dev:node": "tsc --project tsconfig.node.json --watch",
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
-		"test": "vitest run",
+		"test": "TZ=UTC vitest run",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
