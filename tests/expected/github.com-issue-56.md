@@ -44,7 +44,7 @@ Defuddle Error processing document: TypeError: e3.getComputedStyle is not a func
 
 If you feel like there's nothing to do, or supporting Workers is out-of-scope for the project, feel free to close the issue
 
-**jmorrell** commented on 5/26/2025
+**jmorrell** commented on 5/25/2025
 
 For my use-case, I'm already running a headless [browser rendering worker](https://developers.cloudflare.com/browser-rendering/) to load the page anyway. Instead of downloading the HTML content from the browser and then trying to process it in the worker, I can load defuddle in the browser itself with the page loaded and execute it there. This is a little more awkward but seems to work pretty well!
 
