@@ -20,7 +20,7 @@ interface StyleChange {
 
 export class Defuddle {
 	private readonly doc: Document;
-	private options: DefuddleOptions;
+	protected readonly options: DefuddleOptions;
 	private debug: boolean;
 
 	/**

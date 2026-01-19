@@ -6,22 +6,19 @@ import { DefuddleOptions, DefuddleResponse } from './types';
 export type { DefuddleOptions, DefuddleResponse };
 
 export class Defuddle extends BaseDefuddle {
-	private readonly markdownOptions: DefuddleOptions;
-
 	constructor(document: Document, options: DefuddleOptions = {}) {
 		super(document, options);
-		this.markdownOptions = options;
 	}
 
 	parse(): DefuddleResponse {
 		const result = super.parse();
 
-		if (this.markdownOptions.markdown) {
-			result.content = createMarkdownContent(result.content, this.markdownOptions.url ?? '');
-		} else if (this.markdownOptions.separateMarkdown) {
+		if (this.options.markdown) {
+			result.content = createMarkdownContent(result.content, this.options.url ?? '');
+		} else if (this.options.separateMarkdown) {
 			result.contentMarkdown = createMarkdownContent(
 				result.content,
-				this.markdownOptions.url ?? ''
+				this.options.url ?? ''
 			);
 		}
 
