@@ -116,14 +116,23 @@ export class ExtractorRegistry {
 	static findExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
 		try {
 			const domain = new URL(url).hostname;
-			
-			// Check cache first
+
+			// Check cache first - but verify the cached extractor can handle this content
 			if (this.domainCache.has(domain)) {
 				const cachedExtractor = this.domainCache.get(domain);
-				return cachedExtractor ? new cachedExtractor(document, url, schemaOrgData) : null;
+				if (cachedExtractor) {
+					const instance = new cachedExtractor(document, url, schemaOrgData);
+					if (instance.canExtract()) {
+						return instance;
+					}
+					// cached extractor can't handle this page - clear cache and search
+					this.domainCache.delete(domain);
+				} else {
+					return null;
+				}
 			}
 
-			// Find matching extractor
+			// Find matching extractor that can actually extract this content
 			for (const { patterns, extractor } of this.mappings) {
 				const matches = patterns.some(pattern => {
 					if (pattern instanceof RegExp) {
@@ -133,14 +142,17 @@ export class ExtractorRegistry {
 				});
 
 				if (matches) {
-					// Cache the result
-					this.domainCache.set(domain, extractor);
-					return new extractor(document, url, schemaOrgData);
+					const instance = new extractor(document, url, schemaOrgData);
+					// only use if extractor can handle this specific content
+					if (instance.canExtract()) {
+						this.domainCache.set(domain, extractor);
+						return instance;
+					}
+					// URL matched but content doesn't - try next extractor
 				}
 			}
 
-			// Cache the negative result
-			this.domainCache.set(domain, null);
+			// no extractor found - don't cache null since other page types may have extractors
 			return null;
 
 		} catch (error) {
