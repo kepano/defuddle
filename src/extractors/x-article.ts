@@ -96,8 +96,9 @@ export class XArticleExtractor extends BaseExtractor {
 		this.convertHeaders(container, ownerDoc);
 		this.unwrapLinkedImages(container, ownerDoc);
 		this.upgradeImageQuality(container);
-		this.convertDraftParagraphs(container, ownerDoc);
+		// convert bold spans BEFORE paragraphs so formatting is preserved
 		this.convertBoldSpans(container, ownerDoc);
+		this.convertDraftParagraphs(container, ownerDoc);
 		this.removeDraftAttributes(container);
 	}
 
@@ -222,9 +223,42 @@ export class XArticleExtractor extends BaseExtractor {
 	}
 
 	private convertDraftParagraphs(container: HTMLElement, ownerDoc: Document): void {
+		// node type constants (avoid using Node global which isn't available in all environments)
+		const TEXT_NODE = 3;
+		const ELEMENT_NODE = 1;
+
 		container.querySelectorAll(SELECTORS.DRAFT_PARAGRAPHS).forEach(div => {
 			const p = ownerDoc.createElement('p');
-			p.textContent = div.textContent || '';
+
+			// preserve formatting (strong, links, code) by processing children
+			const processNode = (node: Node): void => {
+				if (node.nodeType === TEXT_NODE) {
+					p.appendChild(ownerDoc.createTextNode(node.textContent || ''));
+				} else if (node.nodeType === ELEMENT_NODE) {
+					const el = node as Element;
+					const tag = el.tagName.toLowerCase();
+
+					if (tag === 'strong') {
+						const strong = ownerDoc.createElement('strong');
+						strong.textContent = el.textContent || '';
+						p.appendChild(strong);
+					} else if (tag === 'a') {
+						const link = ownerDoc.createElement('a');
+						link.setAttribute('href', el.getAttribute('href') || '');
+						link.textContent = el.textContent || '';
+						p.appendChild(link);
+					} else if (tag === 'code') {
+						const code = ownerDoc.createElement('code');
+						code.textContent = el.textContent || '';
+						p.appendChild(code);
+					} else {
+						// recurse into other elements (spans, divs, etc.)
+						el.childNodes.forEach(child => processNode(child));
+					}
+				}
+			};
+
+			div.childNodes.forEach(child => processNode(child));
 			div.replaceWith(p);
 		});
 	}
