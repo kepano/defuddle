@@ -94,7 +94,7 @@ export class XArticleExtractor extends BaseExtractor {
 		this.convertEmbeddedTweets(container, ownerDoc);
 		this.convertCodeBlocks(container, ownerDoc);
 		this.convertHeaders(container, ownerDoc);
-		this.unwrapLinkedImages(container);
+		this.unwrapLinkedImages(container, ownerDoc);
 		this.upgradeImageQuality(container);
 		this.convertDraftParagraphs(container, ownerDoc);
 		this.convertBoldSpans(container, ownerDoc);
@@ -177,13 +177,32 @@ export class XArticleExtractor extends BaseExtractor {
 		});
 	}
 
-	private unwrapLinkedImages(container: HTMLElement): void {
-		// find images wrapped in anchor tags and unwrap them
-		container.querySelectorAll('a > img').forEach(img => {
-			const anchor = img.parentElement;
-			if (anchor?.tagName.toLowerCase() === 'a') {
-				anchor.replaceWith(img);
+	private unwrapLinkedImages(container: HTMLElement, ownerDoc: Document): void {
+		// find all tweetPhoto images and extract them from any ancestor anchors
+		container.querySelectorAll(SELECTORS.IMAGES).forEach(img => {
+			// find closest anchor ancestor
+			const anchor = img.closest('a');
+			if (!anchor || !container.contains(anchor)) return;
+
+			// create clean img tag with upgraded quality (like TwitterExtractor does)
+			let src = img.getAttribute('src') || '';
+			const alt = img.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || 'Image';
+
+			// upgrade image quality
+			if (src.includes('&name=')) {
+				src = src.replace(/&name=\w+/, '&name=large');
+			} else if (src.includes('?')) {
+				src = `${src}&name=large`;
+			} else {
+				src = `${src}?name=large`;
 			}
+
+			const cleanImg = ownerDoc.createElement('img');
+			cleanImg.setAttribute('src', src);
+			cleanImg.setAttribute('alt', alt);
+
+			// replace anchor with clean image
+			anchor.replaceWith(cleanImg);
 		});
 	}
 
