@@ -135,7 +135,6 @@ export class XArticleExtractor extends BaseExtractor {
 	}
 
 	private convertCodeBlocks(container: HTMLElement, ownerDoc: Document): void {
-		// handle wrapped code blocks with testid
 		container.querySelectorAll(SELECTORS.CODE_BLOCK).forEach(block => {
 			const pre = block.querySelector('pre');
 			const code = block.querySelector('code');
@@ -156,7 +155,6 @@ export class XArticleExtractor extends BaseExtractor {
 			const newPre = ownerDoc.createElement('pre');
 			const newCode = ownerDoc.createElement('code');
 			if (language) {
-				newCode.setAttribute('data-lang', language);
 				newCode.className = `language-${language}`;
 			}
 			newCode.textContent = code.textContent || '';
@@ -164,15 +162,6 @@ export class XArticleExtractor extends BaseExtractor {
 
 			// replace the entire block container
 			block.replaceWith(newPre);
-		});
-
-		// handle raw pre>code elements that have language class but no data-lang
-		container.querySelectorAll('pre > code[class*="language-"]').forEach(code => {
-			if (code.getAttribute('data-lang')) return; // already has data-lang
-			const langClass = code.className.match(/language-(\w+)/);
-			if (langClass) {
-				code.setAttribute('data-lang', langClass[1]);
-			}
 		});
 	}
 
