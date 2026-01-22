@@ -30,9 +30,7 @@ export class ExtractorRegistry {
 		this.register({
 			patterns: [
 				/x\.com.*article/,  // matches real URLs and test fixture names
-				/x\.com\/[^/]+\/status\/\d+/,  // matches /status/ URLs
 				/twitter\.com.*article/,
-				/twitter\.com\/[^/]+\/status\/\d+/,
 			],
 			extractor: XArticleExtractor
 		});
@@ -117,7 +115,7 @@ export class ExtractorRegistry {
 		try {
 			const domain = new URL(url).hostname;
 
-			// Check cache first - but verify the cached extractor can handle this content
+			// Check cache first
 			if (this.domainCache.has(domain)) {
 				const cachedExtractor = this.domainCache.get(domain);
 				if (cachedExtractor) {
