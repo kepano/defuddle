@@ -11,6 +11,11 @@ const SELECTORS = {
 	DRAFT_PARAGRAPHS: '.longform-unstyled, .public-DraftStyleDefault-block',
 	BOLD_SPANS: 'span[style*="font-weight: bold"]',
 	DRAFT_ATTRIBUTES: '[data-offset-key]',
+	EMBEDDED_TWEET: '[data-testid="simpleTweet"]',
+	TWEET_TEXT: '[data-testid="tweetText"]',
+	USER_NAME: '[data-testid="User-Name"]',
+	CODE_BLOCK: '[data-testid="markdown-code-block"]',
+	HEADER_BLOCK: '[data-testid="longform-header"]',
 } as const;
 
 export class XArticleExtractor extends BaseExtractor {
@@ -85,10 +90,101 @@ export class XArticleExtractor extends BaseExtractor {
 	private cleanContent(container: HTMLElement): void {
 		const ownerDoc = container.ownerDocument || this.document;
 
+		// convert complex elements first (before other transformations)
+		this.convertEmbeddedTweets(container, ownerDoc);
+		this.convertCodeBlocks(container, ownerDoc);
+		this.convertHeaders(container, ownerDoc);
+		this.unwrapLinkedImages(container);
 		this.upgradeImageQuality(container);
 		this.convertDraftParagraphs(container, ownerDoc);
 		this.convertBoldSpans(container, ownerDoc);
 		this.removeDraftAttributes(container);
+	}
+
+	private convertEmbeddedTweets(container: HTMLElement, ownerDoc: Document): void {
+		container.querySelectorAll(SELECTORS.EMBEDDED_TWEET).forEach(tweet => {
+			const blockquote = ownerDoc.createElement('blockquote');
+			blockquote.className = 'embedded-tweet';
+
+			// extract author info
+			const userNameEl = tweet.querySelector(SELECTORS.USER_NAME);
+			const authorLinks = userNameEl?.querySelectorAll('a');
+			const fullName = authorLinks?.[0]?.textContent?.trim() || '';
+			const handle = authorLinks?.[1]?.textContent?.trim() || '';
+
+			// extract tweet text
+			const tweetTextEl = tweet.querySelector(SELECTORS.TWEET_TEXT);
+			const tweetText = tweetTextEl?.textContent?.trim() || '';
+
+			// build clean blockquote content
+			if (fullName || handle) {
+				const cite = ownerDoc.createElement('cite');
+				cite.textContent = handle ? `${fullName} ${handle}` : fullName;
+				blockquote.appendChild(cite);
+			}
+
+			if (tweetText) {
+				const p = ownerDoc.createElement('p');
+				p.textContent = tweetText;
+				blockquote.appendChild(p);
+			}
+
+			tweet.replaceWith(blockquote);
+		});
+	}
+
+	private convertCodeBlocks(container: HTMLElement, ownerDoc: Document): void {
+		container.querySelectorAll(SELECTORS.CODE_BLOCK).forEach(block => {
+			const pre = block.querySelector('pre');
+			const code = block.querySelector('code');
+			if (!pre || !code) return;
+
+			// extract language from class (e.g., "language-bash") or from span
+			let language = '';
+			const langClass = code.className.match(/language-(\w+)/);
+			if (langClass) {
+				language = langClass[1];
+			} else {
+				// fallback: look for language label in the block header
+				const langSpan = block.querySelector('span');
+				language = langSpan?.textContent?.trim() || '';
+			}
+
+			// create clean pre/code structure
+			const newPre = ownerDoc.createElement('pre');
+			const newCode = ownerDoc.createElement('code');
+			if (language) {
+				newCode.className = `language-${language}`;
+			}
+			newCode.textContent = code.textContent || '';
+			newPre.appendChild(newCode);
+
+			// replace the entire block container
+			block.replaceWith(newPre);
+		});
+	}
+
+	private convertHeaders(container: HTMLElement, ownerDoc: Document): void {
+		// X articles use h2/h3 elements but content may be nested in spans/divs
+		container.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(header => {
+			const level = header.tagName.toLowerCase();
+			const text = header.textContent?.trim() || '';
+			if (!text) return;
+
+			const newHeader = ownerDoc.createElement(level);
+			newHeader.textContent = text;
+			header.replaceWith(newHeader);
+		});
+	}
+
+	private unwrapLinkedImages(container: HTMLElement): void {
+		// find images wrapped in anchor tags and unwrap them
+		container.querySelectorAll('a > img').forEach(img => {
+			const anchor = img.parentElement;
+			if (anchor?.tagName.toLowerCase() === 'a') {
+				anchor.replaceWith(img);
+			}
+		});
 	}
 
 	private upgradeImageQuality(container: HTMLElement): void {
