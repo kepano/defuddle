@@ -25,11 +25,14 @@ export class ExtractorRegistry {
 
 	static initialize() {
 		// Register all extractors with their URL patterns
-		// X Article extractor must be registered BEFORE Twitter to take priority for article URLs
+		// X Article extractor must be registered BEFORE Twitter to take priority
+		// DOM-based canExtract() determines if page has article content
 		this.register({
 			patterns: [
-				/x\.com.*article/,  // matches both real URLs and test fixture names
+				/x\.com.*article/,  // matches real URLs and test fixture names
+				/x\.com\/[^/]+\/status\/\d+/,  // matches /status/ URLs
 				/twitter\.com.*article/,
+				/twitter\.com\/[^/]+\/status\/\d+/,
 			],
 			extractor: XArticleExtractor
 		});
