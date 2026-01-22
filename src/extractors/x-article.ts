@@ -16,6 +16,7 @@ const SELECTORS = {
 	USER_NAME: '[data-testid="User-Name"]',
 	CODE_BLOCK: '[data-testid="markdown-code-block"]',
 	HEADER_BLOCK: '[data-testid="longform-header"]',
+	IMAGE_CAPTION: '.twitter-article-media-caption-id',
 } as const;
 
 export class XArticleExtractor extends BaseExtractor {
@@ -202,7 +203,31 @@ export class XArticleExtractor extends BaseExtractor {
 			cleanImg.setAttribute('src', src);
 			cleanImg.setAttribute('alt', alt);
 
-			// replace anchor with clean image
+			// check for image caption (aria-describedby points to caption element)
+			const captionId = anchor.getAttribute('aria-describedby');
+			if (captionId) {
+				const captionContainer = container.querySelector(`#${captionId}`);
+				const captionEl = captionContainer?.querySelector(SELECTORS.IMAGE_CAPTION);
+				if (captionEl) {
+					const captionText = captionEl.textContent?.trim();
+					if (captionText) {
+						// create figure with img and figcaption
+						const figure = ownerDoc.createElement('figure');
+						figure.appendChild(cleanImg);
+
+						const figcaption = ownerDoc.createElement('figcaption');
+						figcaption.textContent = captionText;
+						figure.appendChild(figcaption);
+
+						// remove the caption container and replace anchor with figure
+						captionContainer?.remove();
+						anchor.replaceWith(figure);
+						return;
+					}
+				}
+			}
+
+			// no caption - just replace anchor with clean image
 			anchor.replaceWith(cleanImg);
 		});
 	}
