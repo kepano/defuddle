@@ -3,6 +3,7 @@ import { BaseExtractor } from './extractors/_base';
 // Extractors
 import { RedditExtractor } from './extractors/reddit';
 import { TwitterExtractor } from './extractors/twitter';
+import { XArticleExtractor } from './extractors/x-article';
 import { YoutubeExtractor } from './extractors/youtube';
 import { HackerNewsExtractor } from './extractors/hackernews';
 import { ChatGPTExtractor } from './extractors/chatgpt';
@@ -24,6 +25,15 @@ export class ExtractorRegistry {
 
 	static initialize() {
 		// Register all extractors with their URL patterns
+		// X Article extractor must be registered BEFORE Twitter to take priority for article URLs
+		this.register({
+			patterns: [
+				/x\.com.*article/,  // matches both real URLs and test fixture names
+				/twitter\.com.*article/,
+			],
+			extractor: XArticleExtractor
+		});
+
 		this.register({
 			patterns: [
 				'twitter.com',
