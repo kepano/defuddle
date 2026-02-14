@@ -16,7 +16,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 		const rawContentHtml = this.createContentHtml(messages, footnotes);
 
 		// Create a temporary document to run Defuddle on our content
-		const tempDoc = document.implementation.createHTMLDocument();
+		const tempDoc = this.document.implementation.createHTMLDocument();
 		const container = tempDoc.createElement('article');
 		container.innerHTML = rawContentHtml;
 		tempDoc.body.appendChild(container);
