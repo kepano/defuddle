@@ -432,7 +432,9 @@ export function createMarkdownContent(content: string, url: string) {
 			const codeElement = node.querySelector('code');
 			if (!codeElement || !isGenericElement(codeElement)) return content;
 			
-			const language = codeElement.getAttribute('data-lang') || '';
+			const language = codeElement.getAttribute('data-lang')
+				|| codeElement.getAttribute('class')?.match(/language-(\w+)/)?.[1]
+				|| '';
 			const code = codeElement.textContent || '';
 			
 			// Clean up the content and escape backticks

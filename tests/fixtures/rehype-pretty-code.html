@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>A Social Filesystem</title>
+<meta name="description" content="Test for rehype-pretty-code data-line spans">
+<meta name="author" content="Dan Abramov">
+</head>
+<body>
+<article>
+<h1>A Social Filesystem</h1>
+<p>Some intro text here to make the article long enough for defuddle to pick it up as content. This is a test article with enough words to pass the word count threshold. We need to make sure defuddle picks this up properly so we can test the code block behavior with rehype-pretty-code output.</p>
+<p>Rehype-pretty-code uses Shiki for syntax highlighting and outputs span elements with data-line attributes to represent each line of code. The display grid style on the code element creates a visual line-by-line layout.</p>
+<figure data-rehype-pretty-code-figure=""><pre class="-mx-4 overflow-y-auto p-4 text-sm" tabindex="0" data-language="fish" data-theme="Overnight" style="background-color: var(--code-bg); color: rgb(214, 217, 224);"><code data-language="fish" data-theme="Overnight" style="display: grid;"><span data-line=""><span style="color: rgb(142, 172, 227);">posts</span><span style="color: rgb(206, 210, 214);">/</span></span>
+<span data-line=""><span style="color: rgb(206, 210, 214);">├── 1221499500000000-c5.json</span></span>
+<span data-line=""><span style="color: rgb(206, 210, 214);">├── 1221499500000000-k3.json   </span><span style="color: rgb(99, 119, 119);"># clock id helps avoid global collisions</span></span>
+<span data-line=""><span style="color: rgb(206, 210, 214);">└── 1221499500000001-k3.json   </span><span style="color: rgb(99, 119, 119);"># artificial +1 avoids local collisions</span></span></code></pre></figure>
+<p>Each post is a small JSON file named with a timestamp and a short random clock ID.</p>
+</article>
+</body>
+</html>

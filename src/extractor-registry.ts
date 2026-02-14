@@ -21,7 +21,6 @@ interface ExtractorMapping {
 
 export class ExtractorRegistry {
 	private static mappings: ExtractorMapping[] = [];
-	private static domainCache: Map<string, ExtractorConstructor | null> = new Map();
 
 	static initialize() {
 		// Register all extractors with their URL patterns
@@ -29,8 +28,8 @@ export class ExtractorRegistry {
 		// DOM-based canExtract() determines if page has article content
 		this.register({
 			patterns: [
-				/x\.com.*article/,  // matches real URLs and test fixture names
-				/twitter\.com.*article/,
+				'x.com',
+				'twitter.com',
 			],
 			extractor: XArticleExtractor
 		});
@@ -116,22 +115,8 @@ export class ExtractorRegistry {
 		try {
 			const domain = new URL(url).hostname;
 
-			// Check cache first
-			if (this.domainCache.has(domain)) {
-				const cachedExtractor = this.domainCache.get(domain);
-				if (cachedExtractor) {
-					const instance = new cachedExtractor(document, url, schemaOrgData);
-					if (instance.canExtract()) {
-						return instance;
-					}
-					// cached extractor can't handle this page - clear cache and search
-					this.domainCache.delete(domain);
-				} else {
-					return null;
-				}
-			}
-
 			// Find matching extractor that can actually extract this content
+			// Extractors are tried in registration order, first match wins
 			for (const { patterns, extractor } of this.mappings) {
 				const matches = patterns.some(pattern => {
 					if (pattern instanceof RegExp) {
@@ -142,26 +127,18 @@ export class ExtractorRegistry {
 
 				if (matches) {
 					const instance = new extractor(document, url, schemaOrgData);
-					// only use if extractor can handle this specific content
 					if (instance.canExtract()) {
-						this.domainCache.set(domain, extractor);
 						return instance;
 					}
-					// URL matched but content doesn't - try next extractor
 				}
 			}
 
-			// no extractor found - don't cache null since other page types may have extractors
 			return null;
 
 		} catch (error) {
 			console.error('Error in findExtractor:', error);
 			return null;
 		}
-	}
-
-	static clearCache() {
-		this.domainCache.clear();
 	}
 }
 
