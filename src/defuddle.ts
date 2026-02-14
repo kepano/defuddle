@@ -354,6 +354,7 @@ export class Defuddle {
 		}
 
 		// Batch remove all hidden elements
+		elementsToRemove.forEach(el => el.remove());
 		this._log('Removed hidden elements:', count);
 	}
 
