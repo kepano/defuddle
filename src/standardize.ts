@@ -540,8 +540,8 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					.replace(/[ \t]{3,}/g, ' ') // 3+ spaces -> 1 space
 					.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
 					.replace(/\s+([,.!?:;])/g, '$1') // Remove spaces before punctuation
-					// Clean up zero-width characters and multiple non-breaking spaces
-					.replace(/[\u200C\u200B\u200D\u200E\u200F\uFEFF]+/g, '')
+					// Clean up zero-width characters (except ZWNJ \u200C used in Farsi) and multiple non-breaking spaces
+					.replace(/[\u200B\u200D\u200E\u200F\uFEFF]+/g, '')
 					.replace(/(?:\xA0){2,}/g, '\xA0'); // Multiple &nbsp; -> single &nbsp;
 
 				if (newText !== text) {
