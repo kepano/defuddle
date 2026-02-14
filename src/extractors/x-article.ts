@@ -155,6 +155,7 @@ export class XArticleExtractor extends BaseExtractor {
 			const newPre = ownerDoc.createElement('pre');
 			const newCode = ownerDoc.createElement('code');
 			if (language) {
+				newCode.setAttribute('data-lang', language);
 				newCode.className = `language-${language}`;
 			}
 			newCode.textContent = code.textContent || '';
