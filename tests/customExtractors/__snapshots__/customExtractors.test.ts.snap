@@ -1,0 +1,63 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Custom Extractors > Snapshot Testing for Consistency > should produce consistent extraction results across runs 1`] = `
+{
+  "author": "Jane Doe",
+  "contentLength": 2907,
+  "contentPreview": "
+                <p class="lead">This is a sample blog post designed to test custom content extraction capabilities. It contains various HTML elements and structures that a custom extractor should be ",
+  "description": "A sample blog post for testing custom extractors",
+  "extractorType": "blogpost",
+  "markdownLength": 1747,
+  "markdownPreview": "This is a sample blog post designed to test custom content extraction capabilities. It contains various HTML elements and structures that a custom extractor should be able to handle.
+
+## Introduction
+",
+  "published": "2024-01-15T10:30:00Z",
+  "site": "Custom Blog",
+  "title": "Understanding Custom Content Extraction",
+  "wordCount": 204,
+}
+`;
+
+exports[`Custom Extractors > Snapshot Testing for Consistency > should produce consistent fallback behavior when no extractor matches 1`] = `
+{
+  "author": "Jane Doe",
+  "contentPreview": "<div><p>This is a sample blog post designed to test custom content extraction capabilities. It contains various HTML elements and structures that a custom extractor should be able to handle.</p><h2>In",
+  "description": "A sample blog post for testing custom extractors",
+  "extractorType": undefined,
+  "site": "Custom Blog",
+  "title": "Custom Blog Post - Tech Blog",
+  "wordCount": 200,
+}
+`;
+
+exports[`Custom Extractors > Snapshot Testing for Consistency > should produce consistent results across different matching URLs 1`] = `
+{
+  "author": "Jane Doe",
+  "extractorType": "blogpost",
+  "title": "Understanding Custom Content Extraction",
+  "url": "https://example.com/blog/post/1",
+  "wordCount": 204,
+}
+`;
+
+exports[`Custom Extractors > Snapshot Testing for Consistency > should produce consistent results across different matching URLs 2`] = `
+{
+  "author": "Jane Doe",
+  "extractorType": "blogpost",
+  "title": "Understanding Custom Content Extraction",
+  "url": "https://blog.example.com/articles/test",
+  "wordCount": 204,
+}
+`;
+
+exports[`Custom Extractors > Snapshot Testing for Consistency > should produce consistent results across different matching URLs 3`] = `
+{
+  "author": "Jane Doe",
+  "extractorType": "blogpost",
+  "title": "Understanding Custom Content Extraction",
+  "url": "https://example.com/posts/understanding-extraction",
+  "wordCount": 204,
+}
+`;

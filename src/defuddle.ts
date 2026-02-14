@@ -94,7 +94,7 @@ export class Defuddle {
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
-			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
+			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, options.extractors);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
 				const endTime = Date.now();

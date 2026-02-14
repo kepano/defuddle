@@ -100,17 +100,34 @@ export class ExtractorRegistry {
 		this.mappings.push(mapping);
 	}
 
-	static findExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
+	static findExtractor(document: Document, url: string, schemaOrgData?: any, customExtractors?: { patterns: (string | RegExp)[]; extractor: BaseExtractor }[]): BaseExtractor | null {
 		try {
 			const domain = new URL(url).hostname;
 			
-			// Check cache first
+			// Check custom extractors first (they take priority over built-in ones)
+			if (customExtractors && customExtractors.length > 0) {
+				for (const { patterns, extractor } of customExtractors) {
+					const matches = patterns.some(pattern => {
+						if (pattern instanceof RegExp) {
+							return pattern.test(url);
+						}
+						return domain.includes(pattern);
+					});
+
+					if (matches) {
+						// For custom extractors, we already have an instance
+						return extractor;
+					}
+				}
+			}
+			
+			// Check cache first for built-in extractors
 			if (this.domainCache.has(domain)) {
 				const cachedExtractor = this.domainCache.get(domain);
 				return cachedExtractor ? new cachedExtractor(document, url, schemaOrgData) : null;
 			}
 
-			// Find matching extractor
+			// Find matching built-in extractor
 			for (const { patterns, extractor } of this.mappings) {
 				const matches = patterns.some(pattern => {
 					if (pattern instanceof RegExp) {

@@ -117,6 +117,44 @@ The core bundle is recommended for most use cases. It still handles math content
 | `removeExactSelectors`   | boolean | true    | Remove elements matching exact selectors like ads, social buttons, etc.   |
 | `removePartialSelectors` | boolean | true    | Remove elements matching partial selectors like ads, social buttons, etc. |
 | `removeImages`           | boolean | false   | Remove images.                                                            |
+| `extractors`             | array   | []      | Custom extractors with URL patterns for site-specific content extraction |
+
+### Custom Extractors
+
+Defuddle supports custom extractors for site-specific content extraction. Custom extractors take priority over built-in extractors and allow you to handle specialized content structures.
+
+```typescript
+import { BaseExtractor } from 'defuddle/extractors/_base';
+
+class MyCustomExtractor extends BaseExtractor {
+  canExtract() {
+    return this.document.querySelector('.my-content') !== null;
+  }
+
+  extract() {
+    const content = this.document.querySelector('.my-content');
+    return {
+      content: content?.textContent || '',
+      contentHtml: content?.innerHTML || '',
+      variables: {
+        title: this.document.title,
+        site: 'My Site'
+      }
+    };
+  }
+}
+
+// Use with Defuddle
+const extractor = new MyCustomExtractor(document, url);
+const result = new Defuddle(document, {
+  extractors: [
+    {
+      patterns: ['example.com', /^https?:\/\/example\.com\/.*/],
+      extractor: extractor
+    }
+  ]
+}).parse();
+```
 
 ### Debug mode
 
