@@ -1,5 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
+import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
 type GenericElement = {
@@ -639,5 +640,17 @@ export function createMarkdownContent(content: string, url: string) {
 		console.error('Error converting HTML to Markdown:', error);
 		console.log('Problematic content:', content.substring(0, 1000) + '...');
 		return `Partial conversion completed with errors. Original HTML:\n\n${content}`;
+	}
+}
+
+export function toMarkdown(
+	result: DefuddleResponse,
+	options: DefuddleOptions,
+	url: string
+): void {
+	if (options.markdown) {
+		result.content = createMarkdownContent(result.content, url);
+	} else if (options.separateMarkdown) {
+		result.contentMarkdown = createMarkdownContent(result.content, url);
 	}
 }
