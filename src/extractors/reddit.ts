@@ -86,7 +86,7 @@ export class RedditExtractor extends BaseExtractor {
 	private createDescription(postContent: string): string {
 		if (!postContent) return '';
 
-		const tempDiv = document.createElement('div');
+		const tempDiv = this.document.createElement('div');
 		tempDiv.innerHTML = postContent;
 		return tempDiv.textContent?.trim()
 			.slice(0, 140)

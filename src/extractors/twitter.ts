@@ -20,17 +20,17 @@ export class TwitterExtractor extends BaseExtractor {
 		}
 
 		// Get all tweets before any section with "Discover more" or similar headings
-		const allTweets = Array.from(timeline.querySelectorAll('article[data-testid="tweet"]'));
+		let allTweets = Array.from(timeline.querySelectorAll('article[data-testid="tweet"]'));
 		const firstSection = timeline.querySelector('section, h2')?.parentElement;
-		
+
 		if (firstSection) {
 			// Filter out tweets that appear after the first section
-			allTweets.forEach((tweet, index) => {
-				if (firstSection.compareDocumentPosition(tweet) & Node.DOCUMENT_POSITION_FOLLOWING) {
-					allTweets.splice(index);
-					return false;
-				}
-			});
+			const cutoffIndex = allTweets.findIndex(tweet =>
+				firstSection.compareDocumentPosition(tweet) & Node.DOCUMENT_POSITION_FOLLOWING
+			);
+			if (cutoffIndex !== -1) {
+				allTweets = allTweets.slice(0, cutoffIndex);
+			}
 		}
 
 		// Set main tweet and thread tweets
