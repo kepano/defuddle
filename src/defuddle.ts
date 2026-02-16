@@ -592,7 +592,7 @@ export class Defuddle {
 
 	private findMainContent(doc: Document): Element | null {
 		// Find all potential content containers
-		const candidates: { element: Element; score: number }[] = [];
+		const candidates: { element: Element; score: number; selectorIndex: number }[] = [];
 
 		ENTRY_POINT_ELEMENTS.forEach((selector, index) => {
 			const elements = doc.querySelectorAll(selector);
@@ -602,8 +602,8 @@ export class Defuddle {
 
 				// Add score based on content analysis
 				score += ContentScorer.scoreElement(element);
-				
-				candidates.push({ element, score });
+
+				candidates.push({ element, score, selectorIndex: index });
 			});
 		});
 
@@ -614,7 +614,7 @@ export class Defuddle {
 
 		// Sort by score descending
 		candidates.sort((a, b) => b.score - a.score);
-		
+
 		if (this.debug) {
 			this._log('Content candidates:', candidates.map(c => ({
 				element: c.element.tagName,
@@ -631,7 +631,23 @@ export class Defuddle {
 			}
 		}
 
-		return candidates[0].element;
+		// If the top candidate contains a child candidate that matched a
+		// higher-priority selector, prefer the most specific (deepest) child.
+		// This prevents e.g. <main> from winning over a contained <article>
+		// just because sibling noise inflates the parent's content score.
+		const top = candidates[0];
+		let best = top;
+		for (let i = 1; i < candidates.length; i++) {
+			const child = candidates[i];
+			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element)) {
+				best = child;
+			}
+		}
+		if (best !== top) {
+			return best.element;
+		}
+
+		return top.element;
 	}
 
 	private findTableBasedContent(doc: Document): Element | null {
