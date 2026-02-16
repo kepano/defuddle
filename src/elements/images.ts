@@ -174,6 +174,12 @@ export const imageRules = [
 					continue; // Skip these attributes
 				}
 
+				// Skip JSON-like values (e.g., Substack's data-attrs containing image metadata)
+				const firstChar = attr.value.charAt(0);
+				if (firstChar === '{' || firstChar === '[') {
+					continue;
+				}
+
 				// Check if attribute contains an image URL
 				if (srcsetPattern.test(attr.value)) {
 					// This looks like a srcset value
@@ -881,37 +887,46 @@ function processSourceElement(element: Element, doc: Document): Element {
 }
 
 /**
- * Extract the first URL from a srcset attribute
+ * Extract the first URL from a srcset attribute.
+ * Handles URLs that contain commas (e.g., Substack CDN URLs like
+ * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
+ * by parsing based on width/density descriptors rather than splitting on commas.
  */
 function extractFirstUrlFromSrcset(srcset: string): string | null {
-	// Split the srcset by commas
-	const parts = srcset.split(','); // Split by comma only
-	if (parts.length === 0) {
-		return null;
-	}
+	if (!srcset || !srcset.trim()) return null;
 
-	// Get the first part and trim whitespace
-	const firstPart = parts[0].trim();
+	const trimmed = srcset.trim();
 
-	// Extract the URL (everything before the first space)
-	const urlMatch = firstPart.match(urlPattern);
-	if (urlMatch && urlMatch[1]) {
-		const url = urlMatch[1];
+	// Match srcset entries by finding URL + descriptor pairs.
+	// Each entry ends with a width descriptor (e.g., "424w") or density descriptor (e.g., "2x").
+	// The URL is everything before the whitespace that precedes the descriptor.
+	// This handles URLs containing commas (which would break a simple comma-split).
+	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
+	let match;
+	let lastIndex = 0;
 
-		// Skip SVG data URLs
-		if (isSvgDataUrl(url)) {
-			// Try to find a better URL in the srcset
-			for (let i = 1; i < parts.length; i++) {
-				const part = parts[i].trim(); // Trim each part
-				const match = part.match(urlPattern);
-				if (match && match[1] && !isSvgDataUrl(match[1])) {
-					return match[1];
-				}
-			}
-			return null;
+	while ((match = entryPattern.exec(trimmed)) !== null) {
+		// Extract URL from this entry, trimming any leading comma+whitespace from previous entry
+		let url = match[1].trim();
+		if (lastIndex > 0) {
+			// Remove leading comma separator from previous entry
+			url = url.replace(/^,\s*/, '');
 		}
 
+		lastIndex = entryPattern.lastIndex;
+
+		if (!url) continue;
+
+		// Skip SVG data URLs
+		if (isSvgDataUrl(url)) continue;
+
 		return url;
+	}
+
+	// Fallback: try extracting URL before first whitespace (for srcset with single entry and no descriptor)
+	const urlMatch = trimmed.match(urlPattern);
+	if (urlMatch && urlMatch[1] && !isSvgDataUrl(urlMatch[1])) {
+		return urlMatch[1];
 	}
 
 	return null;
