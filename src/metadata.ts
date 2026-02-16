@@ -135,22 +135,47 @@ export class MetadataExtractor {
 				return uniqueAuthors.join(', ');
 			}
 		}
-		
-		// 4. Fallback meta tags and schema properties (less direct for author names)
-		authorsString = this.getMetaContent(metaTags, "name", "copyright") ||
-			this.getSchemaProperty(schemaOrgData, 'copyrightHolder.name') ||
-			this.getMetaContent(metaTags, "property", "og:site_name") ||
-			this.getSchemaProperty(schemaOrgData, 'publisher.name') ||
-			this.getSchemaProperty(schemaOrgData, 'sourceOrganization.name') ||
-			this.getSchemaProperty(schemaOrgData, 'isPartOf.name') ||
-			this.getMetaContent(metaTags, "name", "twitter:creator") || 
-			this.getMetaContent(metaTags, "name", "application-name");
-		if (authorsString) return authorsString;
 
-		return '';
+		// 4. Author near article heading (byline patterns and date-adjacent names)
+		const h1 = doc.querySelector('h1');
+		if (h1) {
+			// Check siblings of h1 for date-adjacent author names
+			let sibling = h1.nextElementSibling;
+			for (let i = 0; i < 3 && sibling; i++) {
+				const siblingText = sibling.textContent?.trim() || '';
+				if (this.parseDateText(siblingText)) {
+					const links = sibling.querySelectorAll('a');
+					for (const link of links) {
+						const linkText = (link.textContent?.trim() || '').replace(/\u00a0/g, ' ');
+						if (linkText.length > 0 && linkText.length < 100 && !this.parseDateText(linkText)) {
+							return linkText;
+						}
+					}
+				}
+				sibling = sibling.nextElementSibling;
+			}
+
+			// Search ancestor containers of h1 for "By ..." bylines
+			let ancestor: Element | null = h1.parentElement;
+			for (let depth = 0; depth < 3 && ancestor && ancestor !== doc.documentElement; depth++) {
+				for (const el of ancestor.querySelectorAll('p, span, address')) {
+					const text = (el.textContent?.trim() || '').replace(/\u00a0/g, ' ');
+					if (text.length > 0 && text.length < 50) {
+						const bylineMatch = text.match(/^By\s+(.+)$/i);
+						if (bylineMatch) {
+							return bylineMatch[1].trim();
+						}
+					}
+				}
+				ancestor = ancestor.parentElement;
+			}
+		}
+
+		// 5. Fall back to site name
+		return this.getSiteName(schemaOrgData, metaTags);
 	}
 
-	private static getSite(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getSiteName(schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return (
 			this.getSchemaProperty(schemaOrgData, 'publisher.name') ||
 			this.getMetaContent(metaTags, "property", "og:site_name") ||
@@ -160,6 +185,13 @@ export class MetadataExtractor {
 			this.getSchemaProperty(schemaOrgData, 'copyrightHolder.name') ||
 			this.getSchemaProperty(schemaOrgData, 'isPartOf.name') ||
 			this.getMetaContent(metaTags, "name", "application-name") ||
+			''
+		);
+	}
+
+	private static getSite(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+		return (
+			this.getSiteName(schemaOrgData, metaTags) ||
 			this.getAuthor(doc, schemaOrgData, metaTags) ||
 			''
 		);
@@ -232,12 +264,12 @@ export class MetadataExtractor {
 		const shortcutLink = doc.querySelector("link[rel='shortcut icon']")?.getAttribute("href");
 		if (shortcutLink) return shortcutLink;
 
-		// Only try to construct favicon URL if we have a valid base URL
-		if (baseUrl) {
+		// Only try to construct favicon URL if we have a valid HTTP base URL
+		if (baseUrl && /^https?:\/\//.test(baseUrl)) {
 			try {
 				return new URL("/favicon.ico", baseUrl).href;
 			} catch (e) {
-				console.warn('Failed to construct favicon URL:', e);
+				// Silently fail for invalid URLs
 			}
 		}
 
@@ -245,15 +277,27 @@ export class MetadataExtractor {
 	}
 
 	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
-		return (
+		const result =
 			this.getSchemaProperty(schemaOrgData, 'datePublished') ||
 			this.getMetaContent(metaTags, "name", "publishDate") ||
 			this.getMetaContent(metaTags, "property", "article:published_time") ||
-			(doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() || 
+			(doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() ||
 			this.getTimeElement(doc) ||
-			this.getMetaContent(metaTags, "name", "sailthru.date") ||
-			''
-		);
+			this.getMetaContent(metaTags, "name", "sailthru.date");
+		if (result) return result;
+
+		// Look for date text near the article heading
+		const h1 = doc.querySelector('h1');
+		if (h1) {
+			let sibling = h1.nextElementSibling;
+			for (let i = 0; i < 3 && sibling; i++) {
+				const parsed = this.parseDateText(sibling.textContent?.trim() || '');
+				if (parsed) return parsed;
+				sibling = sibling.nextElementSibling;
+			}
+		}
+
+		return '';
 	}
 
 	private static getMetaContent(metaTags: MetaTagItem[], attr: string, value: string): string {
@@ -272,6 +316,32 @@ export class MetadataExtractor {
 		const element = Array.from(doc.querySelectorAll(selector))[0];
 		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
 		return content;
+	}
+
+	private static readonly MONTH_MAP: Record<string, string> = {
+		'january': '01', 'february': '02', 'march': '03', 'april': '04',
+		'may': '05', 'june': '06', 'july': '07', 'august': '08',
+		'september': '09', 'october': '10', 'november': '11', 'december': '12'
+	};
+
+	private static parseDateText(text: string): string {
+		// "26 February 2025" or "Wednesday, 26 February 2025"
+		let match = text.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
+		if (match) {
+			const day = match[1].padStart(2, '0');
+			const month = this.MONTH_MAP[match[2].toLowerCase()];
+			return `${match[3]}-${month}-${day}T00:00:00+00:00`;
+		}
+
+		// "February 26, 2025" or "June 5, 2023"
+		match = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i);
+		if (match) {
+			const month = this.MONTH_MAP[match[1].toLowerCase()];
+			const day = match[2].padStart(2, '0');
+			return `${match[3]}-${month}-${day}T00:00:00+00:00`;
+		}
+
+		return '';
 	}
 
 	private static getSchemaProperty(schemaOrgData: any, property: string, defaultValue: string = ''): string {

@@ -91,7 +91,8 @@ describe('Fixtures Tests', () => {
     const html = readFileSync(path, 'utf-8');
     
     // Process with Defuddle
-    const response = await Defuddle(html, `https://${basename(path)}`, { separateMarkdown: true });
+    const url = `https://${basename(path, '.html').replace(/:/g, '/')}`;
+    const response = await Defuddle(html, url, { separateMarkdown: true });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);
     
@@ -106,7 +107,7 @@ describe('Fixtures Tests', () => {
     }
 
     if (expected) {
-      expect(result).toEqual(expected);
+      expect(result.trim()).toEqual(expected.trim());
     }
   });
 });

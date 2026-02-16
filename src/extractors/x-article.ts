@@ -70,7 +70,14 @@ export class XArticleExtractor extends BaseExtractor {
 	private getAuthorFromUrl(): string {
 		// match username before /article/, excluding system paths like /i/
 		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/article\/\d+/);
-		return match ? `@${match[1]}` : 'Unknown';
+		return match ? `@${match[1]}` : this.getAuthorFromOgTitle();
+	}
+
+	private getAuthorFromOgTitle(): string {
+		const ogTitle = this.document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+		// Match patterns like "(4) Heinrich on X: ..." or "Heinrich on X: ..."
+		const match = ogTitle.match(/^(?:\(\d+\)\s+)?(.+?)\s+on\s+X\s*:/);
+		return match ? match[1].trim() : 'Unknown';
 	}
 
 	private getArticleId(): string {

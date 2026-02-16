@@ -1,0 +1,395 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+<title>How to verify Obsidian Sync's end-to-end encryption - Obsidian</title>
+<meta name="description" content="How can you be sure that your data is end-to-end encrypted? In this guide, we provide step-by-step instructions to trustlessly verify the end-to-end encryption of your data using Obsidian Sync.">
+<meta name="copyright" content="Obsidian">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="stylesheet" href="/tailwind.css?hash=37">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<link rel="alternate" type="application/atom+xml" href="/feed.xml" title="Obsidian Blog">
+<link rel="alternate" type="application/feed+json" href="/feed.json" title="Obsidian Blog">
+<link rel="alternate" type="application/atom+xml" href="/changelog.xml" title="Obsidian Changelog">
+<link rel="alternate" type="application/feed+json" href="/changelog.json" title="Obsidian Changelog">
+
+<meta property="og:site_name" content="Obsidian">
+<meta property="og:title" content="How to verify Obsidian Sync's end-to-end encryption">
+<meta property="og:description" content="How can you be sure that your data is end-to-end encrypted? In this guide, we provide step-by-step instructions to trustlessly verify the end-to-end encryption of your data using Obsidian Sync.">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://obsidian.md/images/banner.png">
+
+<meta name="twitter:title" content="How to verify Obsidian Sync's end-to-end encryption">
+<meta name="twitter:description" content="How can you be sure that your data is end-to-end encrypted? In this guide, we provide step-by-step instructions to trustlessly verify the end-to-end encryption of your data using Obsidian Sync.">
+<meta name="twitter:site" content="@obsdmd">
+<meta name="twitter:domain" content="obsidian.md">
+<meta name="twitter:creator" content="@obsdmd">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://obsidian.md/images/banner.png">
+
+	</head>
+	<body>
+		<div class="header-height"></div>
+<header class="header">
+	<div class="container flex items-center">
+		<div class="flex items-center">
+			<a class="header-logo mr-4 flex items-center gap-x-2 transition-colors -mt-[3px]" href="/" aria-label="Go to the Obsidian home page">
+				<svg alt="Obsidian" height="22" viewBox="0 0 143 25" width="126" xmlns="http://www.w3.org/2000/svg"><path fill="#A88BFA" d="m6.91927 14.5955c.64053-.1907 1.67255-.4839 2.85923-.5565-.71191-1.7968-.88376-3.3691-.74554-4.76905.15962-1.61678.72977-2.9662 1.28554-4.11442.1186-.24501.2326-.47313.3419-.69198.1549-.30984.3004-.60109.4365-.8953.2266-.48978.3948-.92231.4798-1.32416.0836-.39515.0841-.74806-.0148-1.08657-.099-.338982-.3093-.703864-.7093-1.1038132-.5222-.1353116-1.1017-.0165173-1.53613.3742922l-5.15591 4.638241c-.28758.25871-.47636.60929-.53406.99179l-.44455 2.94723c.69903.6179 2.42435 2.41414 3.47374 4.90644.09364.2224.1819.4505.26358.6838z"/><path fill="#A88BFA" d="m2.97347 10.3512c-.02431.1037-.05852.205-.10221.3024l-2.724986 6.0735c-.279882.6238-.15095061 1.3552.325357 1.8457l4.288349 4.4163c2.1899-3.2306 1.87062-6.2699.87032-8.6457-.75846-1.8013-1.90801-3.2112-2.65683-3.9922z"/><path fill="#A88BFA" d="m5.7507 23.5094c.07515.012.15135.0192.2281.0215.81383.0244 2.18251.0952 3.29249.2997.90551.1669 2.70051.6687 4.17761 1.1005 1.1271.3294 2.2886-.5707 2.4522-1.7336.1192-.8481.343-1.8075.7553-2.6869l-.0095.0033c-.6982-1.9471-1.5865-3.2044-2.5178-4.0073-.9284-.8004-1.928-1.1738-2.8932-1.3095-1.60474-.2257-3.07497.1961-4.00103.4682.55465 2.3107.38396 5.0295-1.48417 7.8441z"/><path fill="#A88BFA" d="m17.3708 19.3102c.9267-1.3985 1.5868-2.4862 1.9352-3.0758.1742-.295.1427-.6648-.0638-.9383-.5377-.7126-1.5666-2.1607-2.1272-3.5015-.5764-1.3785-.6624-3.51876-.6673-4.56119-.0019-.39626-.1275-.78328-.3726-1.09465l-3.3311-4.23183c-.0117.19075-.0392.37998-.0788.56747-.1109.52394-.32 1.04552-.5585 1.56101-.1398.30214-.3014.62583-.4646.95284-.1086.21764-.218.4368-.3222.652-.5385 1.11265-1.0397 2.32011-1.1797 3.73901-.1299 1.31514.0478 2.84484.8484 4.67094.1333.0113.2675.0262.4023.0452 1.1488.1615 2.3546.6115 3.4647 1.5685.9541.8226 1.8163 2.0012 2.5152 3.6463z"/><path fill="currentColor" d="m39.752 4.5038c-5.952 0-10.248 3.744-10.248 8.88s4.296 8.88 10.248 8.88c5.928 0 10.224-3.744 10.224-8.88s-4.296-8.88-10.224-8.88zm0 3.47999c3.576 0 6.144 2.13601 6.144 5.40001s-2.568 5.4-6.144 5.4c-3.6 0-6.168-2.136-6.168-5.4s2.568-5.40001 6.168-5.40001z"/><path fill="currentColor" d="m55.4847 20.5598c.864.936 2.472 1.704 4.584 1.704 4.32 0 6.8401-2.976 6.8401-6.576 0-3.624-2.5201-6.60001-6.8401-6.60001-2.112 0-3.72.79201-4.584 1.70401v-6.02401h-3.84v17.23201h3.84zm-.12-4.944c0-1.992 1.704-3.432 3.912-3.432 2.112 0 3.888 1.248 3.888 3.504s-1.776 3.48-3.888 3.48c-2.208 0-3.912-1.416-3.912-3.408z"/><path fill="currentColor" d="m67.3181 19.9118c1.464 1.488 4.272 2.352 7.2 2.352 3.96 0 6.936-1.44 6.936-4.392 0-2.88-2.832-3.432-6.072-3.816-2.736-.312-3.576-.384-3.576-1.08 0-.648.864-1.056 2.496-1.056 1.968 0 3.672.6 4.824 1.656l1.992-2.304c-1.272-1.224-3.648-2.18401-6.624-2.18401-4.008 0-6.48 1.72801-6.48 4.32001 0 2.712 2.52 3.312 5.544 3.696 2.832.336 4.032.336 4.032 1.176 0 .792-1.056 1.128-2.784 1.128-2.16 0-4.152-.672-5.664-2.064z"/><path fill="currentColor" d="m82.8395 8.05579h3.912v-3.288h-3.912zm3.864 1.29601h-3.84v12.648h3.84z"/><path fill="currentColor" d="m99.8264 20.5598v1.44h3.8396v-17.23201h-3.8396v6.02401c-.864-.912-2.472-1.70401-4.584-1.70401-4.32 0-6.84 2.97601-6.84 6.60001 0 3.6 2.52 6.576 6.84 6.576 2.112 0 3.72-.768 4.584-1.704zm.12-4.944v.144c0 1.992-1.704 3.408-3.912 3.408-2.112 0-3.888-1.224-3.888-3.48s1.776-3.504 3.888-3.504c2.208 0 3.912 1.44 3.912 3.432z"/><path fill="currentColor" d="m105.996 8.05579h3.912v-3.288h-3.912zm3.864 1.29601h-3.84v12.648h3.84z"/><path fill="currentColor" d="m116.863 22.2638c2.232 0 4.056-.648 5.208-1.656.648 1.2 2.184 1.92 4.992 1.392v-2.832c-1.344.288-1.632-.024-1.632-.696v-4.608c0-3.168-2.376-4.77601-6.408-4.77601-3.48 0-6.264 1.51201-7.056 3.79201l3.456.936c.384-.984 1.704-1.704 3.432-1.704 2.04 0 2.856.768 2.856 1.728v.072l-5.04.456c-2.976.288-5.16 1.512-5.16 3.984 0 2.496 2.232 3.912 5.352 3.912zm4.848-5.112c0 1.464-2.184 2.304-4.152 2.304-1.488 0-2.328-.432-2.328-1.248 0-.84.672-1.152 1.992-1.272l4.488-.456z"/><path fill="currentColor" d="m128.379 21.9998h3.84v-6.048c0-2.184 1.2-3.456 3.288-3.456 1.968 0 3 1.296 3 3.432v6.072h3.84v-7.2c0-3.504-2.232-5.71201-5.52-5.71201-2.04 0-3.624.76801-4.608 1.80001v-1.536h-3.84z"/></svg>
+			</a>
+
+		</div>
+		<div class="group w-full">
+			<ul class="text-sm hidden md:flex">
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/download">Download</a></li>
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/pricing">Pricing</a></li>  
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/sync">Sync</a></li>
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/publish">Publish</a></li>  
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white text-muted hover:bg-gray-800" href="/enterprise">Enterprise</a></li>
+				<div class="flex-grow"></div>
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/community">Community</a></li>
+				<li><a class="px-3 py-2 rounded-lg font-medium text-muted hover:text-white hover:bg-gray-800" href="/account">Account</a></li>
+			</ul>
+		</div>
+		<div class="ml-auto md:hidden z-10 text-gray-200 hover:text-gray-100">
+			<a class="header-mobile-nav" href="#" aria-label="Open the navigation menu">
+				<div class="header-mobile-nav-button">
+					<div class="header-mobile-nav-button-inner"></div>
+				</div>
+			</a>
+		</div>
+	</div>
+</header>
+
+<div class="header-mobile-nav-menu fixed top-0 right-0 bottom-0 left-0 overflow-scroll overscroll-contain block md:hidden">
+	<div class="container py-4">
+		<ul class="text-xl font-medium grid sm:grid-cols-2 pb-4 border-b border-gray-800">
+			<li><a class="flex py-1 items-center gap-2" href="/download">
+				Download</a></li>
+			<li><a class="flex py-1 items-center gap-2" href="/account">
+				Account</a></li>
+			<li><a class="flex py-1 items-center gap-3" href="/sync">
+				Sync</a></li>
+			<li><a class="flex py-1 items-center gap-3" href="/publish">
+				Publish</a></li>
+			<li><a class="flex py-1 items-center gap-3" href="/pricing">
+				Pricing</a></li>
+			<li><a class="flex py-1 items-center gap-3" href="/plugins">
+				Plugins</a></li>
+			<li><a class="flex py-1 items-center gap-2" href="/enterprise">
+				Enterprise</a></li>
+			<li><a class="flex py-1 items-center gap-2" href="/clipper">
+				Web Clipper</a></li>
+		</ul>
+		<div class="text-muted mt-6">Learn more</div>
+		<ul class="font-medium grid grid-cols-2 my-2 pb8">
+			<li><a class="block py-1" href="https://help.obsidian.md" target="_blank">Help</a></li>
+			<li><a class="block py-1" href="/about">About</a></li>
+
+			<li><a class="block py-1" href="/blog">Blog</a></li>
+			<li><a class="block py-1" href="https://discord.gg/obsidianmd" rel="noopener noreferrer" target="_blank">Discord</a></li>
+
+			<li><a class="block py-1" href="/changelog">Changelog</a></li>
+			<li><a class="block py-1" href="/community">Community</a></li>
+
+			<li><a class="block py-1" href="/roadmap">Roadmap</a></li>
+			<li><a class="block py-1" href="/security">Security</a></li>
+
+			<li><a class="block py-1" href="/softwear">Merch store</a></li>
+			<li><a class="block py-1" href="/privacy">Privacy</a></li>
+		</ul>
+	</div>
+</div>
+
+		<div class="">
+			<div class="container">
+	<div class="mx-auto max-w-2xl py-24">
+		<div class="">
+			<div class="pb-4 text-accent text-xl font-medium">
+				<a href="/blog" class="hover:text-accent-300">Obsidian Blog</a>
+			</div>
+			<h1 class="text-4xl font-medium">How to verify Obsidian Sync's end-to-end<span class="widont">&nbsp;</span>encryption</h1>
+			<div class="flex items-center mt-6 sm:text-lg">
+				
+					
+					<a href="https://github.com/lishid" class="flex items-center gap-2 text-normal font-medium" target="_blank">
+						<img alt="Licat" src="/images/team/licat-alt.png" class="rounded-full" height="30" width="30">Licat
+					</a>
+				
+				<span class="text-muted">&nbsp;on June  5, 2023</span>
+			</div>
+		</div>
+		<article class="typeset mt-16">
+			<div><p>On our <a href="https://obsidian.md">About page</a>, we describe the guiding principles that have shaped Obsidian since the start. Privacy is one of these principles, and we go to great lengths to make sure we can uphold this<span class="widont">&nbsp;</span>statement:</p>
+<blockquote>
+<p>We believe that your thoughts and ideas belong to you and deserve complete privacy. That&#8217;s why your data is stored on your device, inaccessible to us. When you use our online services, your data is protected with end-to-end encryption for maximum<span class="widont">&nbsp;</span>security.</p>
+</blockquote>
+<p>When you use <a href="https://obsidian.md/sync">Obsidian Sync</a>, your data is end-to-end encrypted. But how can you be sure that is<span class="widont">&nbsp;</span>true?</p>
+<p>In this guide, we provide step-by-step instructions so that you can trustlessly verify the end-to-end encryption of your data when it is sent and received via our Sync<span class="widont">&nbsp;</span>servers.</p>
+<h3>How Obsidian Sync<span class="widont">&nbsp;</span>works</h3>
+<p>Let&#8217;s review how Obsidian Sync encryption<span class="widont">&nbsp;</span>works:</p>
+<ol>
+<li>You provide a vault password, or let our managed server generate one for you. This password is separate from your account password and is only used for establishing a remote<span class="widont">&nbsp;</span>vault.</li>
+<li>The Obsidian app generates a unique <a href="https://en.wikipedia.org/wiki/Salt_(cryptography)">salt</a> for each vault. A salt is random data used to protect your password by mixing it with your password before<span class="widont">&nbsp;</span>hashing.</li>
+<li>Your base key is derived from your password + salt using an algorithm called <a href="https://en.wikipedia.org/wiki/Scrypt">scrypt</a>.</li>
+<li>Your encryption key is derived from the base key using an algorithm called <a href="https://en.wikipedia.org/wiki/HKDF"><span class="caps">HKDF</span></a>. If your vault was created using the <a href="https://help.obsidian.md/sync/migrate">older encryption version</a>, the encryption key uses the base key<span class="widont">&nbsp;</span>directly.</li>
+<li>This encryption key is used to encrypt/decrypt data with <a href="https://en.wikipedia.org/wiki/Advanced_Encryption_Standard"><span class="caps">AES</span>-256</a> using <a href="https://en.wikipedia.org/wiki/Galois/Counter_Mode">Galois/Counter<span class="widont">&nbsp;</span>Mode</a>.</li>
+</ol>
+<p>In the next few steps, you&#8217;ll learn how to get your vault&#8217;s salt, and test the encryption of your<span class="widont">&nbsp;</span>data.</p>
+<h3>Getting your vault&#8217;s salt and encryption<span class="widont">&nbsp;</span>version</h3>
+<p>First, get the salt used to derive your encryption key by following these<span class="widont">&nbsp;</span>steps:</p>
+<ol>
+<li>Make sure that Obsidian Sync is turned<span class="widont">&nbsp;</span>on.</li>
+<li>Open Developer Tools in the Obsidian app using the hotkey <kbd>Cmd+Opt+I</kbd> on macOS or <kbd>Ctrl+Shift+I</kbd> on Windows.</li>
+<li>Go to the Console and run the following code, by copy/pasting it and pressing the Return<span class="widont">&nbsp;</span>key:</li>
+</ol>
+<pre><code class="language-js">let data = await (await fetch('https://api.obsidian.md/vault/list', {method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({token: JSON.parse(localStorage.getItem('obsidian-account')).token})})).json();
+let vaults = [].concat(data.shared, data.vaults);
+let vault = vaults.find(v =&gt; v.id === app.internalPlugins.getEnabledPluginById('sync').vaultId);
+console.log(`The salt of your vault ${vault.name} is: &quot;${vault.salt}&quot; with encryptionVersion ${vault.encryption_version}`);
+</code></pre>
+<p>You should see a message containing your salt and encryption<span class="widont">&nbsp;</span>version:</p>
+<pre><code>The salt of your vault Notes is: &quot;8II2%?YeNpddlbd@4Z)c&quot; with encryptionVersion 0
+</code></pre>
+<h3>Decrypting data</h3>
+<p>Next, find an example of a sync event and decrypt it. Here we will use the Network tab of Developers Tools. This is where all sync events are logged, so you can see data that is being sent and received by the Obsidian app, and confirm that it is using your encryption<span class="widont">&nbsp;</span>key.</p>
+<ol>
+<li>Go to the Network tab of the Developer Tools, and filter by &quot;Socket&quot; types (for <a href="https://en.wikipedia.org/wiki/WebSocket">WebSocket</a>).</li>
+<li>Find the WebSocket connection to Obsidian Sync. It will look like <code>sync-xx.obsidian.md</code> — you may need to reload Obsidian to see<span class="widont">&nbsp;</span>it.</li>
+<li>In the WebSocket data stream, go to the Message tab. There you will see binary messages of uploads and downloads. If you aren&#8217;t seeing them, you can easily trigger one by modifying any synced note in your<span class="widont">&nbsp;</span>vault.</li>
+<li>Right click on one of them and choose <code>Copy message &gt; Copy as Base64</code>.</li>
+<li>Using the following code, enter your password, your salt, and base64 binary data, and change the encryption version if necessary. Then, run the decryption routine in the Console (alternatively you can run it in a NodeJS prompt or<span class="widont">&nbsp;</span>script).</li>
+</ol>
+<pre><code class="language-js">// Use the standard crypto package from NodeJS
+let crypto = require('crypto');
+
+// Enter your password, salt, and base64 binary data
+let password = '8VbM0dCTdyX4QzO(@)Y7';
+let salt = '8zUqk?w*rnU7LneIzJR&amp;';
+let data = Buffer.from('sAsic1PU9IpdteFDoff+dSVHTL1KnOWaGE5PJnYf51L8qPJFslqHWcqZAdrYaUMdXqirdlw4rDhtvWb9Lg==', 'base64');
+
+// Enter the encryption protocol version (0 or 3)
+let encryptionVersion = 3;
+
+// Derive the encryption/decryption key from your password and salt
+let key = crypto.scryptSync(Buffer.from(password.normalize('NFKC'), 'utf8'), Buffer.from(salt.normalize('NFKC'), 'utf8'),
+	32, {N: 32768, r: 8, p: 1, maxmem: 128 * 32768 * 8 * 2});
+let aesKey = key;
+if (encryptionVersion === 3) {
+	aesKey = crypto.hkdfSync('sha256', key, '', 'ObsidianAesGcm', 32);
+}
+
+// Split up the data blob into the 12-bytes IV, the encrypted data, and the 16-bytes auth tag.
+let iv = data.subarray(0, 12);
+let encryptedData = data.subarray(12, data.length - 16);
+let authTag = data.subarray(data.length - 16);
+
+// Decrypt the data
+let decipher = crypto.createDecipheriv('aes-256-gcm', aesKey, iv);
+decipher.setAuthTag(authTag);
+let decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+
+// Print it to a string
+console.log(decrypted.toString('utf8'));
+</code></pre>
+<p>The data that is returned should be a revision of a file that was sent or received via the Obsidian Sync&#8217;s servers. That&#8217;s it! If it properly decrypts, you&#8217;ll know your encryption key is<span class="widont">&nbsp;</span>working.</p>
+<hr>
+<p><strong>2025-09-05 edit:</strong> Updated instructions to support <a href="https://obsidian.md/changelog/2025-08-22-sync/">new Sync<span class="widont">&nbsp;</span>version</a>.</p>
+</div>
+		</article>
+		<div class="py-16 border-b border-gray-800 text-muted">
+			<p class="space-x-2 flex items-center">
+				<span class="mr-1">Share this post</span>
+				<a
+				href="http://x.com/intent/tweet?text=How+to+verify+Obsidian+Sync's+end-to-end+encryption&url=https%3A%2F%2Fobsidian.md/blog%2Fverify-obsidian-sync-encryption%2F"
+				class=" twitter flex items-center font-medium hover:text-[#1B9DF0]" 
+				title="Share this on Twitter"
+				target="_blank"
+				>
+				<svg
+					version="1.1"
+					id="Layer_1"
+					xmlns="http://www.w3.org/2000/svg"
+					xmlns:xlink="http://www.w3.org/1999/xlink"
+					x="0px"
+					y="0px"
+					viewBox="0 0 234.9 191"
+					style="enable-background:new 0 0 234.9 191;"
+					xml:space="preserve"
+					fill="currentColor"
+					class="w-[1.4em] h-[1.4em] inline-block"
+				>
+					<g>
+						<path
+						d="M73.7,191c88.7,0,137.2-73.5,137.2-137.2c0-2.1,0-4.2-0.1-6.2c9.4-6.8,17.6-15.3,24.1-25 c-8.6,3.8-17.9,6.4-27.7,7.6c10-6,17.6-15.4,21.2-26.7c-9.3,5.5-19.6,9.5-30.6,11.7C189,5.8,176.5,0,162.6,0 c-26.6,0-48.2,21.6-48.2,48.2c0,3.8,0.4,7.5,1.3,11C75.6,57.2,40.1,38,16.3,8.8C12.2,15.9,9.8,24.2,9.8,33 c0,16.7,8.5,31.5,21.5,40.1c-7.9-0.2-15.3-2.4-21.8-6c0,0.2,0,0.4,0,0.6c0,23.4,16.6,42.8,38.7,47.3c-4,1.1-8.3,1.7-12.7,1.7 c-3.1,0-6.1-0.3-9.1-0.9c6.1,19.2,23.9,33.1,45,33.5c-16.5,12.9-37.3,20.6-59.9,20.6c-3.9,0-7.7-0.2-11.5-0.7 C21.1,183,46.5,191,73.7,191" />
+					</g>
+				</svg>
+				</a>
+
+				
+				<a
+				href="http://www.reddit.com/submit?url=https%3A%2F%2Fobsidian.md/blog%2Fverify-obsidian-sync-encryption%2F&title=How+to+verify+Obsidian+Sync's+end-to-end+encryption"
+				class="flex items-center font-medium hover:text-[#FF4500]"
+				title="Share this on Reddit"
+				target="_blank"
+				>
+				<svg
+					version="1.1"
+					id="Layer_1"
+					xmlns="http://www.w3.org/2000/svg"
+					xmlns:xlink="http://www.w3.org/1999/xlink"
+					x="0px"
+					y="0px"
+					viewBox="0 0 113.8 101.6"
+					fill="currentColor"
+					style="enable-background:new 0 0 113.8 101.6;"
+					xml:space="preserve"
+					class="w-[1.5em] h-[1.5em] inline-block mr-1"
+				>
+					<path
+					d="M113.8,51.7c0-6.9-5.6-12.5-12.5-12.5c-3.4,0-6.4,1.3-8.6,3.5c-8.5-6.1-20.3-10.1-33.3-10.6l5.7-26.7l18.5,3.9
+						c0.2,4.7,4.1,8.5,8.9,8.5c4.9,0,8.9-4,8.9-8.9S97.4,0,92.5,0C89,0,86,2,84.6,5L63.9,0.6c-0.6-0.1-1.2,0-1.7,0.3s-0.8,0.8-1,1.4
+						l-6.3,29.8c-13.3,0.4-25.2,4.3-33.8,10.6c-2.2-2.1-5.3-3.5-8.6-3.5C5.6,39.2,0,44.8,0,51.7c0,5.1,3,9.4,7.4,11.4
+						c-0.2,1.2-0.3,2.5-0.3,3.8c0,19.2,22.3,34.7,49.9,34.7s49.9-15.5,49.9-34.7c0-1.3-0.1-2.5-0.3-3.7C110.7,61.2,113.8,56.8,113.8,51.7
+						z M28.3,60.6c0-4.9,4-8.9,8.9-8.9s8.9,4,8.9,8.9s-4,8.9-8.9,8.9S28.3,65.5,28.3,60.6z M78,84.1c-6.1,6.1-17.7,6.5-21.1,6.5
+						s-15.1-0.5-21.1-6.5c-0.9-0.9-0.9-2.4,0-3.3s2.4-0.9,3.3,0c3.8,3.8,12,5.2,17.9,5.2s14-1.4,17.9-5.2c0.9-0.9,2.4-0.9,3.3,0
+						C78.9,81.8,78.9,83.2,78,84.1z M76.4,69.5c-4.9,0-8.9-4-8.9-8.9s4-8.9,8.9-8.9s8.9,4,8.9,8.9S81.3,69.5,76.4,69.5z"
+					/>
+				</svg>
+				</a>
+				<a
+				href="https://www.linkedin.com/shareArticle?mini=true&url=https%3A%2F%2Fobsidian.md/blog%2Fverify-obsidian-sync-encryption%2F&title=&summary=&source="
+				class="linkedin flex items-center font-medium hover:text-[#0077b5]"
+				title="Share this on LinkedIn"
+				target="_blank"
+				>
+				<svg
+					fill="currentColor"
+					class="w-[1.2em] h-[1.2em] inline-block mr-1"
+					x="0px"
+					y="0px"
+					viewBox="0 0 64.8 64.8"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+					d=" M55.2,55.2h-9.6v-15c0-3.6-0.1-8.2-5-8.2c-5,0-5.8,3.9-5.8,7.9v15.3h-9.6V24.3h9.2v4.2h0.1
+				c1.9-3.2,5.4-5.1,9.1-5c9.7,0,11.5,6.4,11.5,14.7L55.2,55.2z M14.4,20.1c-3.1,0-5.6-2.5-5.6-5.6s2.5-5.6,5.6-5.6 c3.1,0,5.6,2.5,5.6,5.6S17.5,20.1,14.4,20.1L14.4,20.1 M19.2,55.2H9.6V24.3h9.6V55.2z M60,0H4.8C2.2,0,0,2.1,0,4.7v55.4 c0,2.6,2.2,4.7,4.8,4.7H60c2.6,0,4.8-2.1,4.8-4.7V4.7C64.8,2.1,62.6,0,60,0"/>
+				</svg>
+				</a>
+				<a href="/cdn-cgi/l/email-protection#85baf6f0e7efe0e6f1b8cdeaf2aef1eaaef3e0f7ece3fcaecae7f6ece1ece4ebaed6fcebe6a2f6aee0ebe1a8f1eaa8e0ebe1aee0ebe6f7fcf5f1eceaeba3e7eae1fcb8edf1f1f5f6a0b6c4a0b7c3a0b7c3eae7f6ece1ece4ebabe8e1aae7e9eae2a0b7c3f3e0f7ece3fca8eae7f6ece1ece4eba8f6fcebe6a8e0ebe6f7fcf5f1eceaeba0b7c3" class="mail flex items-center font-medium hover:text-white" title="Share this via email">
+					<i icon-name="mail" class="icon-lg inline-block"></i>
+				</a>
+			</p>
+		</div>
+		<div class="py-16">
+			<div class="text-2xl">Follow the latest Obsidian news</div>
+			<div class="pt-4 text-base sm:text-lg font-medium flex gap-4 gap-y-2 flex-col md:flex-row">
+				<a href="/feed.xml" target="_blank" class="flex items-center gap-1 text-accent-400 hover:text-accent-300">
+					<i icon-name="rss" class="inline align-text-top"></i> <span>RSS</span>
+				</a>
+				<a href="https://discord.gg/obsidianmd" target="_blank" class="flex items-center gap-1 text-accent-400 hover:text-accent-300">
+					<i icon-name="messages-square" class="inline align-text-top"></i>
+					Discord
+				</a>
+				<a href="https://x.com/obsdmd" target="_blank" class="flex items-center gap-1 text-accent-400 hover:text-accent-300">
+					<i icon-name="twitter" class="align-text-top"></i>
+					Twitter
+				</a>
+				<a href="https://bsky.app/profile/obsidian.md" target="_blank" class="flex items-center gap-1 text-accent-400 hover:text-accent-300">
+					<i icon-name="radio" class="align-text-top"></i>
+					Bluesky
+				</a>
+				<a href="https://mas.to/@obsidian" target="_blank" class="flex items-center gap-1 text-accent-400 hover:text-accent-300">
+					<i icon-name="radio" class="align-text-top"></i>
+					Mastodon
+				</a>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/prism.js"></script>
+
+		</div>
+		<footer class="container flex flex-row-reverse flex-wrap pt-24 pb-12 sm:pt-24 md:pb-32">
+	<div class="grid grid-cols-2 gap-3 gap-y-6 md:grid-cols-3 justify-between w-full mb-24 ml-auto md:w-3/5 lg:w-1/2 md:mb-0 leading-loose md:leading-relaxed md:pl-6">
+
+		<div>
+			<ul class="">
+				<li class="text-faint mb-3">Get started</li>
+				<li><a class="font-medium" href="/download">Download</a></li>
+				<li><a class="font-medium" href="/pricing">Pricing</a></li>
+				<li><a class="font-medium" href="/enterprise">Enterprise</a></li>
+				<li><a class="font-medium" href="/account">Account</a></li>
+			</ul>
+			<ul class="mt-8">
+				<li class="text-faint mb-3">Obsidian</li>
+				<li><a class="font-medium" href="/">Overview</a></li>
+				<li><a class="font-medium" href="/sync">Sync</a></li>
+				<li><a class="font-medium" href="/publish">Publish</a></li>
+				<li><a class="font-medium" href="/canvas">Canvas</a></li>
+				<li><a class="font-medium" href="/mobile">Mobile</a></li>
+				<li><a class="font-medium" href="/clipper">Web Clipper</a></li>
+				<li><a class="font-medium" href="/plugins">Plugins</a></li>
+			</ul>
+		</div>
+
+		<div>
+			<ul class="">
+				<li class="text-faint mb-3">Learn</li>
+				<li><a class="font-medium" href="https://help.obsidian.md/" target="_blank">Help</a></li>
+				<li><a class="font-medium" href="https://docs.obsidian.md/" target="_blank">Developers</a></li>
+				<li><a class="font-medium" href="/changelog">Changelog</a></li>
+				<li><a class="font-medium" href="/about">About</a></li>
+				<li><a class="font-medium" href="/roadmap">Roadmap</a></li>
+				<li><a class="font-medium" href="/blog">Blog</a></li>
+			</ul>
+			<ul class="mt-8">
+				<li class="text-faint mb-3">Resources</li>
+				<li><a class="font-medium" href="https://status.obsidian.md" rel="noopener noreferrer">System status</a></li>
+				<li><a class="font-medium" href="/license">License overview</a></li>
+				<li><a class="font-medium" href="/terms">Terms of service</a></li>
+				<li><a class="font-medium" href="/privacy">Privacy policy</a></li>
+				<li><a class="font-medium" href="/security">Security</a></li>
+			</ul>
+		</div>
+
+		<div>
+			<ul class="">
+				<li class="text-faint mb-3">Community</li>
+				<li><a class="font-medium" href="/community">Join the community</a></li>
+				<li><a class="font-medium" href="https://discord.gg/obsidianmd" rel="noopener noreferrer" target="_blank">Discord</a></li>
+				<li><a class="font-medium" href="https://forum.obsidian.md" target="_blank">Forum</a> <span class="text-gray-600">/</span> <a class="font-medium" href="https://forum-zh.obsidian.md" target="_blank">中文论坛</a></li>
+				<li><a class="font-medium" href="/softwear">Merch store</a></li>
+				<li><a class="font-medium" href="/brand">Brand guidelines</a></li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="mr-auto w-full sm:w-auto">
+		<a class="header-logo mr-4 flex items-center gap-x-2 transition-colors" href="/" aria-label="Go to the Obsidian home page">
+			<svg alt="Obsidian" height="22" viewBox="0 0 143 25" width="126" xmlns="http://www.w3.org/2000/svg"><path fill="#A88BFA" d="m6.91927 14.5955c.64053-.1907 1.67255-.4839 2.85923-.5565-.71191-1.7968-.88376-3.3691-.74554-4.76905.15962-1.61678.72977-2.9662 1.28554-4.11442.1186-.24501.2326-.47313.3419-.69198.1549-.30984.3004-.60109.4365-.8953.2266-.48978.3948-.92231.4798-1.32416.0836-.39515.0841-.74806-.0148-1.08657-.099-.338982-.3093-.703864-.7093-1.1038132-.5222-.1353116-1.1017-.0165173-1.53613.3742922l-5.15591 4.638241c-.28758.25871-.47636.60929-.53406.99179l-.44455 2.94723c.69903.6179 2.42435 2.41414 3.47374 4.90644.09364.2224.1819.4505.26358.6838z"/><path fill="#A88BFA" d="m2.97347 10.3512c-.02431.1037-.05852.205-.10221.3024l-2.724986 6.0735c-.279882.6238-.15095061 1.3552.325357 1.8457l4.288349 4.4163c2.1899-3.2306 1.87062-6.2699.87032-8.6457-.75846-1.8013-1.90801-3.2112-2.65683-3.9922z"/><path fill="#A88BFA" d="m5.7507 23.5094c.07515.012.15135.0192.2281.0215.81383.0244 2.18251.0952 3.29249.2997.90551.1669 2.70051.6687 4.17761 1.1005 1.1271.3294 2.2886-.5707 2.4522-1.7336.1192-.8481.343-1.8075.7553-2.6869l-.0095.0033c-.6982-1.9471-1.5865-3.2044-2.5178-4.0073-.9284-.8004-1.928-1.1738-2.8932-1.3095-1.60474-.2257-3.07497.1961-4.00103.4682.55465 2.3107.38396 5.0295-1.48417 7.8441z"/><path fill="#A88BFA" d="m17.3708 19.3102c.9267-1.3985 1.5868-2.4862 1.9352-3.0758.1742-.295.1427-.6648-.0638-.9383-.5377-.7126-1.5666-2.1607-2.1272-3.5015-.5764-1.3785-.6624-3.51876-.6673-4.56119-.0019-.39626-.1275-.78328-.3726-1.09465l-3.3311-4.23183c-.0117.19075-.0392.37998-.0788.56747-.1109.52394-.32 1.04552-.5585 1.56101-.1398.30214-.3014.62583-.4646.95284-.1086.21764-.218.4368-.3222.652-.5385 1.11265-1.0397 2.32011-1.1797 3.73901-.1299 1.31514.0478 2.84484.8484 4.67094.1333.0113.2675.0262.4023.0452 1.1488.1615 2.3546.6115 3.4647 1.5685.9541.8226 1.8163 2.0012 2.5152 3.6463z"/><path fill="currentColor" d="m39.752 4.5038c-5.952 0-10.248 3.744-10.248 8.88s4.296 8.88 10.248 8.88c5.928 0 10.224-3.744 10.224-8.88s-4.296-8.88-10.224-8.88zm0 3.47999c3.576 0 6.144 2.13601 6.144 5.40001s-2.568 5.4-6.144 5.4c-3.6 0-6.168-2.136-6.168-5.4s2.568-5.40001 6.168-5.40001z"/><path fill="currentColor" d="m55.4847 20.5598c.864.936 2.472 1.704 4.584 1.704 4.32 0 6.8401-2.976 6.8401-6.576 0-3.624-2.5201-6.60001-6.8401-6.60001-2.112 0-3.72.79201-4.584 1.70401v-6.02401h-3.84v17.23201h3.84zm-.12-4.944c0-1.992 1.704-3.432 3.912-3.432 2.112 0 3.888 1.248 3.888 3.504s-1.776 3.48-3.888 3.48c-2.208 0-3.912-1.416-3.912-3.408z"/><path fill="currentColor" d="m67.3181 19.9118c1.464 1.488 4.272 2.352 7.2 2.352 3.96 0 6.936-1.44 6.936-4.392 0-2.88-2.832-3.432-6.072-3.816-2.736-.312-3.576-.384-3.576-1.08 0-.648.864-1.056 2.496-1.056 1.968 0 3.672.6 4.824 1.656l1.992-2.304c-1.272-1.224-3.648-2.18401-6.624-2.18401-4.008 0-6.48 1.72801-6.48 4.32001 0 2.712 2.52 3.312 5.544 3.696 2.832.336 4.032.336 4.032 1.176 0 .792-1.056 1.128-2.784 1.128-2.16 0-4.152-.672-5.664-2.064z"/><path fill="currentColor" d="m82.8395 8.05579h3.912v-3.288h-3.912zm3.864 1.29601h-3.84v12.648h3.84z"/><path fill="currentColor" d="m99.8264 20.5598v1.44h3.8396v-17.23201h-3.8396v6.02401c-.864-.912-2.472-1.70401-4.584-1.70401-4.32 0-6.84 2.97601-6.84 6.60001 0 3.6 2.52 6.576 6.84 6.576 2.112 0 3.72-.768 4.584-1.704zm.12-4.944v.144c0 1.992-1.704 3.408-3.912 3.408-2.112 0-3.888-1.224-3.888-3.48s1.776-3.504 3.888-3.504c2.208 0 3.912 1.44 3.912 3.432z"/><path fill="currentColor" d="m105.996 8.05579h3.912v-3.288h-3.912zm3.864 1.29601h-3.84v12.648h3.84z"/><path fill="currentColor" d="m116.863 22.2638c2.232 0 4.056-.648 5.208-1.656.648 1.2 2.184 1.92 4.992 1.392v-2.832c-1.344.288-1.632-.024-1.632-.696v-4.608c0-3.168-2.376-4.77601-6.408-4.77601-3.48 0-6.264 1.51201-7.056 3.79201l3.456.936c.384-.984 1.704-1.704 3.432-1.704 2.04 0 2.856.768 2.856 1.728v.072l-5.04.456c-2.976.288-5.16 1.512-5.16 3.984 0 2.496 2.232 3.912 5.352 3.912zm4.848-5.112c0 1.464-2.184 2.304-4.152 2.304-1.488 0-2.328-.432-2.328-1.248 0-.84.672-1.152 1.992-1.272l4.488-.456z"/><path fill="currentColor" d="m128.379 21.9998h3.84v-6.048c0-2.184 1.2-3.456 3.288-3.456 1.968 0 3 1.296 3 3.432v6.072h3.84v-7.2c0-3.504-2.232-5.71201-5.52-5.71201-2.04 0-3.624.76801-4.608 1.80001v-1.536h-3.84z"/></svg>
+		</a>
+		<div class="mt-6 text-base md:text-sm text-faint mb-3 md:mb-2">Follow us</div>
+		<div class="text-base md:text-sm grid gap-y-2 grid-cols-2 gap-x-4 md:gap-y-1 mb-4">
+			<a class="font-medium" href="https://discord.com/invite/obsidianmd" rel="noopener noreferrer" target="_blank">Discord</a>
+			<a class="font-medium" href="https://x.com/obsdmd" rel="noopener noreferrer" target="_blank">Twitter</a>
+			<a class="font-medium" href="https://bsky.app/profile/obsidian.md" rel="me noopener noreferrer" target="_blank">Bluesky</a>
+			<a class="font-medium" href="https://www.threads.net/@obsdmd" rel="me noopener noreferrer" target="_blank">Threads</a>
+			<a class="font-medium" href="https://mas.to/@obsidian" rel="me noopener noreferrer" target="_blank">Mastodon</a>
+			<a class="font-medium" href="https://www.youtube.com/@obsdmd" rel="noopener noreferrer" target="_blank">YouTube</a>
+			<a class="font-medium" href="https://github.com/obsidianmd" rel="noopener noreferrer" target="_blank">GitHub</a>
+		</div>
+		<div class="text-sm text-faint">© 2025 Obsidian</div>
+	</div>
+</footer>
+
+
+		<script src="/static.js"></script>
+	</body>
+</html>
