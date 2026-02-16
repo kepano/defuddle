@@ -29,6 +29,26 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	...headingRules,
 	...imageRules,
 
+	// Convert callout asides to blockquotes with data-callout attribute
+	{
+		selector: 'aside[class*="callout"]',
+		element: 'blockquote',
+		transform: (el: Element, doc: Document): Element => {
+			const blockquote = doc.createElement('blockquote');
+
+			// Extract callout type from class (e.g., "callout-tip" → "tip")
+			const typeClass = Array.from(el.classList).find(c => c.startsWith('callout-'));
+			const type = typeClass ? typeClass.replace('callout-', '') : 'note';
+			blockquote.setAttribute('data-callout', type);
+
+			// Get content from .callout-content div, or fall back to whole aside
+			const contentEl = el.querySelector('.callout-content');
+			blockquote.innerHTML = contentEl ? contentEl.innerHTML : el.innerHTML;
+
+			return blockquote;
+		}
+	},
+
 	// Convert divs with paragraph role to actual paragraphs
 	{ 
 		selector: 'div[data-testid^="paragraph"], div[role="paragraph"]', 

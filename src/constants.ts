@@ -9,6 +9,7 @@ export const ENTRY_POINT_ELEMENTS = [
 	'.article-wrapper',
 	'.entry-content',
 	'.content-article',
+	'.instapaper_body',
 	'.post',
 	'.markdown-body',
 	'article',
@@ -127,7 +128,7 @@ export const EXACT_SELECTORS = [
 
 	// inputs, forms, elements
 	'.aside',
-	'aside',
+	'aside:not([class*="callout"])',
 	'button',
 		// '[role="button"]', Medium images
 	'canvas',
@@ -851,6 +852,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'data-latex',
 	'data-src',
 	'data-srcset',
+	'data-callout',
 	'data-lang',
 	'dir',
 	'display',

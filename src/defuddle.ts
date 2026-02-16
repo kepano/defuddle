@@ -127,7 +127,7 @@ export class Defuddle {
 			
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
-			
+
 			// Apply mobile styles to clone
 			this.applyMobileStyles(clone, mobileStyles);
 

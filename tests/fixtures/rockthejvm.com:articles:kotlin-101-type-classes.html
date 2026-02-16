@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","author":[{"@type":"Person","name":"Riccardo Cardin","url":"https://rockthejvm.com//authors/riccardo-cardin"}],"publisher":{"@type":"Organization","name":"Rock the JVM","url":"https://rockthejvm.com/"},"datePublished":"2024-02-06T00:00:00.000Z","headline":"Kotlin 101: Type Classes Quickly Explained"}</script>
+<meta charset="utf-8">
+<title>Kotlin 101: Type Classes Quickly Explained | Rock the JVM</title>
+<meta name="description" content="Discover type classes in Kotlin: a powerful pattern to organize your code for improved readability, maintainability, and flexibility">
+<meta property="article:author" content="Riccardo Cardin">
+<meta property="article:published_time" content="2024-02-06T00:00:00.000Z">
+<meta property="og:site_name" content="Rock the JVM">
+<meta property="og:title" content="Kotlin 101: Type Classes Quickly Explained">
+<meta property="og:type" content="article">
+</head>
+<body>
+<nav><a href="/">Rock the JVM</a><a href="/articles">Articles</a></nav>
+<main>
+<article>
+<h1>Kotlin 101: Type Classes Quickly Explained</h1>
+<p>In this article, we explore the concept of <em>type classes</em> in Kotlin, a powerful tool that allows developers to abstract logic for different data types. We'll take data validation as an example to show how type classes can be used to write generic and reusable code. Our implementation will be based on the <a href="https://arrow-kt.io/">Arrow Kt</a> library, which will exploit Kotlin's context receivers. So, without further ado, let's get the party started.</p>
+<aside class="callout callout-tip"><div class="callout-indicator"><span class="callout-title">Tip</span></div><div class="callout-content"><p>Type classes are tough. If you need to become proficient in Kotlin <strong>quickly</strong> and with thousands of lines of code and a project under your belt, you'll love <a href="/courses/kotlin-essentials">Kotlin Essentials</a>. It's a jam-packed course on <strong>everything</strong> you'll ever need to work with Kotlin for any platform.</p></div></aside>
+<h2>Setting the Stage</h2>
+<p>We'll use version 1.9.22 of Kotlin and version 1.2.1 of the Arrow library. We'll also use Kotlin's context receivers, which are still an experimental feature. We need to modify the Gradle configuration:</p>
+<div class="expressive-code"><figure class="frame"><figcaption class="header"></figcaption><pre data-language="kotlin"><code><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">1</div></div><div class="code"><span style="--0:#E6EDF3">tasks.</span><span style="--0:#D2A8FF">withType</span><span style="--0:#E6EDF3">&lt;</span><span style="--0:#FFA657">KotlinCompile</span><span style="--0:#E6EDF3">&gt;().</span><span style="--0:#D2A8FF">configureEach</span><span style="--0:#E6EDF3"> {</span></div></div><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">2</div></div><div class="code"><span class="indent">    </span><span style="--0:#D2A8FF">kotlinOptions</span><span style="--0:#E6EDF3"> {</span></div></div><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">3</div></div><div class="code"><span class="indent"><span style="--0:#E6EDF3">        </span></span><span style="--0:#E6EDF3">freeCompilerArgs </span><span style="--0:#FF7B72">=</span><span style="--0:#E6EDF3"> freeCompilerArgs </span><span style="--0:#FF7B72">+</span><span style="--0:#E6EDF3"> </span><span style="--0:#A5D6FF">&quot;-Xcontext-receivers&quot;</span></div></div><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">4</div></div><div class="code"><span class="indent"><span style="--0:#E6EDF3">    </span></span><span style="--0:#E6EDF3">}</span></div></div><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">5</div></div><div class="code"><span style="--0:#E6EDF3">}</span></div></div></code></pre></figure></div>
+<h2>The Problem</h2>
+<p>In this article, we'll simulate a system for validating user portfolios in a fintech startup. Data validation is crucial in software development, especially in financial data transactions. Ensuring data conforms to expected formats and rules is vital for maintaining the system's integrity.</p>
+<p>So, first, let's define the data we want to validate. The first DTO represents the creation of a new portfolio:</p>
+<div class="expressive-code"><figure class="frame"><figcaption class="header"></figcaption><pre data-language="kotlin"><code><div class="ec-line"><div class="gutter"><div class="ln" aria-hidden="true">1</div></div><div class="code"><span style="--0:#FF7B72">data</span><span style="--0:#E6EDF3"> </span><span style="--0:#FF7B72">class</span><span style="--0:#E6EDF3"> </span><span style="--0:#FFA657">CreatePortfolioDTO</span><span style="--0:#E6EDF3">(</span><span style="--0:#FF7B72">val</span><span style="--0:#E6EDF3"> userId: </span><span style="--0:#FFA657">String</span><span style="--0:#E6EDF3">, </span><span style="--0:#FF7B72">val</span><span style="--0:#E6EDF3"> amount: </span><span style="--0:#FFA657">Double</span><span style="--0:#E6EDF3">)</span></div></div></code></pre></figure></div>
+<p>The above code could be more optimal and maintainable. We can abstract the validation process in a dedicated function using type classes, which is a common pattern in functional programming.</p>
+</article>
+</main>
+<footer><p>Copyright 2024 Rock the JVM</p></footer>
+</body>
+</html>

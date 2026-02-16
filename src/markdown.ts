@@ -432,7 +432,9 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!codeElement || !isGenericElement(codeElement)) return content;
 			
 			const language = codeElement.getAttribute('data-lang')
+				|| codeElement.getAttribute('data-language')
 				|| codeElement.getAttribute('class')?.match(/language-(\w+)/)?.[1]
+				|| node.getAttribute('data-language')
 				|| '';
 			const code = codeElement.textContent || '';
 			
@@ -531,14 +533,14 @@ export function createMarkdownContent(content: string, url: string) {
 	turndownService.addRule('callout', {
 		filter: (node) => {
 			return (
-				node.nodeName.toLowerCase() === 'div' && 
+				node.nodeName.toLowerCase() === 'div' &&
 				isGenericElement(node) &&
 				node.classList?.contains('markdown-alert')
 			);
 		},
 		replacement: (content, node) => {
 			if (!isGenericElement(node)) return content;
-			
+
 			// Get alert type from the class (e.g., markdown-alert-note -> NOTE)
 			const alertClasses = Array.from(node.classList ? Object.keys(node.classList) : []);
 			const typeClass = alertClasses.find(c => c.startsWith('markdown-alert-') && c !== 'markdown-alert');
@@ -547,7 +549,7 @@ export function createMarkdownContent(content: string, url: string) {
 			// Find the title element and content
 			const titleElement = node.querySelector('.markdown-alert-title');
 			const contentElement = node.querySelector('p:not(.markdown-alert-title)');
-			
+
 			// Extract content, removing the title from it if present
 			let alertContent = content;
 			if (titleElement && isGenericElement(titleElement) && titleElement.textContent) {
@@ -556,6 +558,27 @@ export function createMarkdownContent(content: string, url: string) {
 
 			// Format as Obsidian callout
 			return `\n> [!${type}]\n> ${alertContent.trim().replace(/\n/g, '\n> ')}\n`;
+		}
+	});
+
+	// Callout asides (standardized to blockquote with data-callout attribute)
+	turndownService.addRule('calloutAside', {
+		filter: (node) => {
+			return (
+				node.nodeName === 'BLOCKQUOTE' &&
+				isGenericElement(node) &&
+				!!node.getAttribute('data-callout')
+			);
+		},
+		replacement: (content, node) => {
+			if (!isGenericElement(node)) return content;
+			const type = node.getAttribute('data-callout') || 'note';
+			const title = type.charAt(0).toUpperCase() + type.slice(1);
+
+			const lines = content.trim().split('\n');
+			const quotedContent = lines.map(line => `> ${line}`).join('\n');
+
+			return `\n> [!${type}] ${title}\n${quotedContent}\n`;
 		}
 	});
 
