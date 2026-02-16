@@ -264,15 +264,15 @@ function removeTrailingHeadings(element: Element): void {
 	const headings = Array.from(element.querySelectorAll('h1, h2, h3, h4, h5, h6'))
 		.reverse();
 
-	headings.forEach(heading => {
+	for (const heading of headings) {
 		if (!hasContentAfter(heading)) {
 			heading.remove();
 			removedCount++;
 		} else {
 			// Stop processing once we find a heading with content after it
-			return;
+			break;
 		}
-	});
+	}
 
 	if (removedCount > 0) {
 		logDebug('Removed trailing headings:', removedCount);
