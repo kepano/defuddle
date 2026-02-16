@@ -763,6 +763,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'sup[id^="fnr"]',
 	'span[id^="fnr"]',
 	'span[class*="footnote_ref"]',
+	'span[class*="footnote-ref"]',
 	'span.footnote-link',
 	'a.citation',
 	'a[id^="ref-link"]',

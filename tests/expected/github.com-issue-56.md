@@ -54,7 +54,7 @@ For anyone who might be going down the same path I've created a minimal example 
 
 it would be great to replace the dom calls to cheerio. I've done something similar porting readability to cheerio here: [https://jsr.io/@paoramen/cheer-reader](https://jsr.io/@paoramen/cheer-reader). [@kepano](https://github.com/kepano) would you be interested on merging this or should I just maintain my own fork if I do?
 
-**nbbaier** commented on 6/8/2025
+**nbbaier** commented on 6/7/2025
 
 Thanks for this [@jmorrell](https://github.com/jmorrell). I'm also trying to use linkedom and was running into the same issues. Hope workers can be supported!
 
