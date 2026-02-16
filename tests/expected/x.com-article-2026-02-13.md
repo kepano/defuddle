@@ -1,7 +1,7 @@
 ```json
 {
   "title": "obsidian + claude code 101",
-  "author": "Unknown",
+  "author": "Heinrich",
   "site": "X (formerly Twitter)",
   "published": "2026-01-19T00:28:01.000Z"
 }
