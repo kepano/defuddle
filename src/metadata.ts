@@ -288,7 +288,7 @@ export class MetadataExtractor {
 
 			if (Array.isArray(data)) {
 				const currentProp = props[0];
-				if (/^\\[\\d+\\]$/.test(currentProp)) {
+				if (/^\[\d+\]$/.test(currentProp)) {
 					const index = parseInt(currentProp.slice(1, -1));
 					if (data[index]) {
 						return searchSchema(data[index], props.slice(1), fullPath, isExactMatch);
