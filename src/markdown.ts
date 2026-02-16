@@ -38,9 +38,8 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
-const footnotes: { [key: string]: string } = {};
-
 export function createMarkdownContent(content: string, url: string) {
+	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
 		headingStyle: 'atx',
 		hr: '---',
@@ -634,9 +633,6 @@ export function createMarkdownContent(content: string, url: string) {
 			}
 		}
 		
-		// Clear the footnotes object for the next conversion
-		Object.keys(footnotes).forEach(key => delete footnotes[key]);
-
 		return markdown.trim();
 	} catch (error) {
 		console.error('Error converting HTML to Markdown:', error);
