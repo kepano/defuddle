@@ -176,12 +176,12 @@ class FootnoteHandler {
 
 		// Standardize inline footnotes using the collected IDs
 		const footnoteInlineReferences = element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES);
-		
+
 		// Group references by their parent sup element
 		const supGroups = new Map();
-		
+
 		footnoteInlineReferences.forEach((el: any) => {
-			if (!el) return;
+			if (!el || !el.isConnected) return;
 
 			let footnoteId = '';
 			let footnoteContent = '';
@@ -236,6 +236,10 @@ class FootnoteHandler {
 				footnoteId = el.id.replace('fnr', '').toLowerCase();
 			} else if (el.matches('span.footnote-reference')) {
 				footnoteId = el.getAttribute('data-footnote-id') || '';
+				// LessWrong uses id="fnrefXXX" on the span
+				if (!footnoteId && el.id?.startsWith('fnref')) {
+					footnoteId = el.id.replace('fnref', '').toLowerCase();
+				}
 			} else if (el.matches('span.footnote-link')) {
 				footnoteId = el.getAttribute('data-footnote-id') || '';
 				footnoteContent = el.getAttribute('data-footnote-content') || '';

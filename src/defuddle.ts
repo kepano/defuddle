@@ -148,7 +148,7 @@ export class Defuddle {
 			this.removeSmallImages(clone, smallImages);
 
 			// Remove hidden elements using computed styles
-			this.removeHiddenElements(clone);	
+			this.removeHiddenElements(clone);
 
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
@@ -156,7 +156,7 @@ export class Defuddle {
 
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
-				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors);
+				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent);
 			}
 
 			// Normalize the main content
@@ -358,7 +358,7 @@ export class Defuddle {
 		this._log('Removed hidden elements:', count);
 	}
 
-	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true) {
+	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null) {
 		const startTime = Date.now();
 		let exactSelectorCount = 0;
 		let partialSelectorCount = 0;
@@ -418,7 +418,13 @@ export class Defuddle {
 		}
 
 		// Remove all collected elements in a single pass
-		elementsToRemove.forEach(el => el.remove());
+		// Skip elements that are ancestors of mainContent to avoid disconnecting it
+		elementsToRemove.forEach(el => {
+			if (mainContent && el.contains(mainContent)) {
+				return;
+			}
+			el.remove();
+		});
 
 		const endTime = Date.now();
 		this._log('Removed clutter elements:', {
