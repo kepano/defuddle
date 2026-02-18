@@ -11,6 +11,7 @@ import { ClaudeExtractor } from './extractors/claude';
 import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
+import { WeiboExtractor } from './extractors/weibo';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
 
@@ -104,6 +105,14 @@ export class ExtractorRegistry {
 				/^https?:\/\/github\.com\/.*/
 			],
 			extractor: GitHubExtractor
+		});
+
+		this.register({
+			patterns: [
+				'weibo.com',
+				/^https?:\/\/weibo\.com\/\d+\/[A-Za-z0-9]+$/
+			],
+			extractor: WeiboExtractor
 		});
 	}
 
