@@ -54,8 +54,8 @@ export class GitHubExtractor extends BaseExtractor {
 				// Add the main issue
 				content += `<div class="issue-author"><strong>${issueAuthor}</strong>`;
 				if (issueTimestamp) {
-					const date = new Date(issueTimestamp);
-					content += ` opened this issue on ${date.toLocaleDateString()}`;
+					const date = new Date(issueTimestamp).toISOString().split('T')[0];
+					content += ` opened this issue on ${date}`;
 				}
 				content += `</div>\n\n`;
 				content += `<div class="issue-body">${bodyContent}</div>\n\n`;
@@ -92,8 +92,8 @@ export class GitHubExtractor extends BaseExtractor {
 					content += `<div class="comment">\n`;
 					content += `<div class="comment-header"><strong>${author}</strong>`;
 					if (timestamp) {
-						const date = new Date(timestamp);
-						content += ` commented on ${date.toLocaleDateString()}`;
+						const date = new Date(timestamp).toISOString().split('T')[0];
+						content += ` commented on ${date}`;
 					}
 					content += `</div>\n`;
 					content += `<div class="comment-body">${bodyContent}</div>\n`;
