@@ -102,7 +102,7 @@ another is for work, which tracks projects and clients with completely different
 same underlying pattern, different rules. the pattern is:
 
 1. markdown files with links that any ai can read
-2. a [CLAUDE.md](//CLAUDE.md) file that teaches the agent your specific system
+2. a [CLAUDE.md](https://claude.md/) file that teaches the agent your specific system
 3. structure that lets the agent orient quickly
 4. conventions written as instructions so the ai stays consistent
 

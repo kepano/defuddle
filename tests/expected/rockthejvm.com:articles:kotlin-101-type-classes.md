@@ -10,7 +10,7 @@
 In this article, we explore the concept of *type classes* in Kotlin, a powerful tool that allows developers to abstract logic for different data types. We'll take data validation as an example to show how type classes can be used to write generic and reusable code. Our implementation will be based on the [Arrow Kt](https://arrow-kt.io/) library, which will exploit Kotlin's context receivers. So, without further ado, let's get the party started.
 
 > [!tip] Tip
-> Type classes are tough. If you need to become proficient in Kotlin **quickly** and with thousands of lines of code and a project under your belt, you'll love [Kotlin Essentials](/courses/kotlin-essentials). It's a jam-packed course on **everything** you'll ever need to work with Kotlin for any platform.
+> Type classes are tough. If you need to become proficient in Kotlin **quickly** and with thousands of lines of code and a project under your belt, you'll love [Kotlin Essentials](https://rockthejvm.com/courses/kotlin-essentials). It's a jam-packed course on **everything** you'll ever need to work with Kotlin for any platform.
 
 ## Setting the Stage
 
