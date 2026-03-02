@@ -3,13 +3,22 @@
 	"version": "0.7.0",
 	"description": "Extract article content and metadata from web pages.",
 	"main": "dist/index.js",
+	"bin": {
+		"defuddle": "dist/cli.js"
+	},
 	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"typesVersions": {
 		"*": {
-			"*": ["dist/index.d.ts"],
-			"full": ["dist/index.full.d.ts"],
-			"node": ["dist/node.d.ts"]
+			"*": [
+				"dist/index.d.ts"
+			],
+			"full": [
+				"dist/index.full.d.ts"
+			],
+			"node": [
+				"dist/node.d.ts"
+			]
 		}
 	},
 	"exports": {
@@ -62,6 +71,9 @@
 		"url": "https://github.com/kepano/defuddle/issues"
 	},
 	"homepage": "https://github.com/kepano/defuddle",
+	"dependencies": {
+		"commander": "^12.1.0"
+	},
 	"optionalDependencies": {
 		"mathml-to-latex": "^1.4.3",
 		"temml": "^0.11.2",
