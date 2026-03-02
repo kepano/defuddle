@@ -18,56 +18,6 @@ Defuddle can be used as a replacement for [Mozilla Readability](https://github.c
 - Uses a page's mobile styles to guess at unnecessary elements.
 - Extracts more metadata from the page, including schema.org data.
 
-## CLI
-
-Defuddle includes a command-line interface for parsing web pages directly from the terminal.
-
-```bash
-# Parse a local HTML file
-defuddle parse page.html
-
-# Parse a URL
-defuddle parse https://example.com/article
-
-# Output as markdown
-defuddle parse page.html --markdown
-
-# Output as JSON with metadata
-defuddle parse page.html --json
-
-# Extract a specific property
-defuddle parse page.html --property title
-
-# Save output to a file
-defuddle parse page.html --output result.html
-
-# Enable debug mode
-defuddle parse page.html --debug
-```
-
-### CLI Options
-
-| Option | Alias | Description |
-|--------|-------|-------------|
-| `--output <file>` | `-o` | Write output to a file instead of stdout |
-| `--markdown` | `-m` | Convert content to markdown format |
-| `--md` | | Alias for `--markdown` |
-| `--json` | `-j` | Output as JSON with metadata and content |
-| `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
-| `--debug` | | Enable debug mode |
-
-## Installation
-
-```bash
-npm install defuddle
-```
-
-For Node.js usage, you'll also need to install JSDOM:
-
-```bash
-npm install jsdom
-```
-
 ## Usage
 
 ### Browser
@@ -113,6 +63,56 @@ console.log(result.author);
 ```
 
 _Note: for `defuddle/node` to import properly, the module format in your `package.json` has to be set to `{ "type": "module" }`_
+
+### CLI
+
+Defuddle includes a command-line interface for parsing web pages directly from the terminal.
+
+```bash
+# Parse a local HTML file
+defuddle parse page.html
+
+# Parse a URL
+defuddle parse https://example.com/article
+
+# Output as markdown
+defuddle parse page.html --markdown
+
+# Output as JSON with metadata
+defuddle parse page.html --json
+
+# Extract a specific property
+defuddle parse page.html --property title
+
+# Save output to a file
+defuddle parse page.html --output result.html
+
+# Enable debug mode
+defuddle parse page.html --debug
+```
+
+#### CLI Options
+
+| Option | Alias | Description |
+|--------|-------|-------------|
+| `--output <file>` | `-o` | Write output to a file instead of stdout |
+| `--markdown` | `-m` | Convert content to markdown format |
+| `--md` | | Alias for `--markdown` |
+| `--json` | `-j` | Output as JSON with metadata and content |
+| `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
+| `--debug` | | Enable debug mode |
+
+## Installation
+
+```bash
+npm install defuddle
+```
+
+For Node.js usage, you'll also need to install JSDOM:
+
+```bash
+npm install jsdom
+```
 
 ## Response
 
