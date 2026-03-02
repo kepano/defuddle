@@ -15,4 +15,4 @@
 	},
 	"include": ["src/node.ts", "src/cli.ts"],
 	"exclude": ["node_modules", "dist"]
-} 
+}
