@@ -12,7 +12,7 @@
 		"lib": ["dom", "es2019", "dom.iterable"]
 	},
 	"include": ["src/**/*"],
-	"exclude": ["node_modules", "dist"],
+	"exclude": ["node_modules", "dist", "src/cli.ts"],
 	"files": [
 		"src/index.ts",
 		"src/index.full.ts"
