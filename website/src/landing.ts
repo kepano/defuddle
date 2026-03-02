@@ -14,7 +14,7 @@ export function getLandingPage(): string {
 		}
 		body {
 			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-			background: #1C1B1A;
+			background: #100F0F;
 			color: #B7B5AC;
 			min-height: 100vh;
 			display: flex;
@@ -48,7 +48,7 @@ export function getLandingPage(): string {
 			font-size: 1rem;
 			border: 1px solid #343331;
 			border-radius: 8px;
-			background: #282726;
+			background: #1C1B1A;
 			color: #F2F0E5;
 			outline: none;
 			transition: border-color 0.2s;
@@ -91,7 +91,7 @@ export function getLandingPage(): string {
 		.api-note {
 			margin-top: 3rem;
 			padding: 1.5rem;
-			background: #282726;
+			background: #1C1B1A;
 			border-radius: 8px;
 			text-align: left;
 			font-size: 0.9rem;
@@ -143,7 +143,9 @@ export function getLandingPage(): string {
 			Returns markdown with YAML frontmatter. Append any URL path to convert it.
 		</div>
 		<div class="footer">
-			Powered by <a href="https://github.com/kepano/defuddle">defuddle</a>
+			<a href="https://github.com/kepano/defuddle">GitHub</a>
+			&middot; <a href="/docs">Docs</a>
+			&middot; <a href="/playground">Playground</a>
 		</div>
 	</div>
 	<script>

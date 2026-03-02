@@ -1,5 +1,7 @@
 import './polyfill';
 import { getLandingPage } from './landing';
+import { getPlaygroundPage } from './playground';
+import { getDocsPage } from './docs';
 import { convertToMarkdown, formatResponse } from './convert';
 
 const BLOCKED_HOSTS = ['defuddle.dev', 'localhost'];
@@ -32,6 +34,24 @@ export default {
 		// favicon
 		if (path === '/favicon.ico') {
 			return new Response(null, { status: 204 });
+		}
+
+		// Playground
+		if (path === '/playground') {
+			return new Response(getPlaygroundPage(), {
+				headers: {
+					'Content-Type': 'text/html; charset=utf-8',
+				},
+			});
+		}
+
+		// Docs
+		if (path === '/docs') {
+			return new Response(getDocsPage(), {
+				headers: {
+					'Content-Type': 'text/html; charset=utf-8',
+				},
+			});
 		}
 
 		// Parse target URL from path
