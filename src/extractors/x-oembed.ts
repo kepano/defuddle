@@ -1,0 +1,363 @@
+import { BaseExtractor } from './_base';
+import { ExtractorResult } from '../types/extractors';
+
+interface OembedResponse {
+	html: string;
+	author_name: string;
+	author_url: string;
+	provider_name: string;
+}
+
+interface FxTwitterResponse {
+	code: number;
+	tweet: {
+		author: {
+			name: string;
+			screen_name: string;
+		};
+		article?: {
+			title: string;
+			preview_text: string;
+			cover_media?: {
+				media_info?: {
+					original_img_url?: string;
+				};
+			};
+			content: {
+				blocks: DraftBlock[];
+				entityMap: DraftEntityMapEntry[];
+			};
+		};
+	};
+}
+
+interface DraftBlock {
+	key: string;
+	text: string;
+	type: string;
+	inlineStyleRanges: { offset: number; length: number; style: string }[];
+	entityRanges: { key: number; offset: number; length: number }[];
+	data: {
+		mentions?: { fromIndex: number; toIndex: number; text: string }[];
+		urls?: { fromIndex: number; toIndex: number; text: string }[];
+	};
+}
+
+interface DraftEntityMapEntry {
+	key: string;
+	value: {
+		type: string;
+		mutability: string;
+		data: {
+			url?: string;
+			caption?: string;
+			markdown?: string;
+			mediaItems?: { mediaId: string }[];
+		};
+	};
+}
+
+export class XOembedExtractor extends BaseExtractor {
+	canExtract(): boolean {
+		return false;
+	}
+
+	extract(): ExtractorResult {
+		return {
+			content: '',
+			contentHtml: '',
+		};
+	}
+
+	canExtractAsync(): boolean {
+		return /\/(status|article)\/\d+/.test(this.url);
+	}
+
+	async extractAsync(): Promise<ExtractorResult> {
+		// Try FxTwitter first — handles both /article/ and /status/ URLs that are articles
+		const articleResult = await this.tryExtractArticle();
+		if (articleResult) {
+			return articleResult;
+		}
+
+		// Fall back to oEmbed for normal tweets (also the fallback if FxTwitter is unavailable)
+		const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(this.url)}&omit_script=true`;
+		const response = await fetch(oembedUrl);
+
+		if (!response.ok) {
+			throw new Error(`oEmbed request failed: ${response.status}`);
+		}
+
+		const data: OembedResponse = await response.json();
+
+		// Parse the oEmbed HTML to extract tweet text
+		const div = this.document.createElement('div');
+		div.innerHTML = data.html;
+
+		// The oEmbed HTML contains a <blockquote> with <p> tags for text
+		// and an <a> tag for the date
+		const blockquote = div.querySelector('blockquote');
+		const paragraphs = blockquote?.querySelectorAll('p') || [];
+		const tweetText = Array.from(paragraphs)
+			.map(p => `<p>${p.innerHTML}</p>`)
+			.join('\n');
+
+		const handle = data.author_url
+			? `@${data.author_url.split('/').pop()}`
+			: '';
+
+		const dateLink = blockquote?.querySelector('a:last-child');
+		const dateText = dateLink?.textContent?.trim() || '';
+		const permalink = dateLink?.getAttribute('href') || this.url;
+
+		const escapedAuthorName = this.escapeHtml(data.author_name);
+		const escapedHandle = this.escapeHtml(handle);
+		const escapedDateText = this.escapeHtml(dateText);
+		const escapedPermalink = this.escapeHtml(permalink);
+
+		const contentHtml = `
+			<div class="tweet-thread">
+				<div class="main-tweet">
+					<div class="tweet">
+						<div class="tweet-header">
+							<span class="tweet-author"><strong>${escapedAuthorName}</strong> <span class="tweet-handle">${escapedHandle}</span></span>
+							${dateText ? `<a href="${escapedPermalink}" class="tweet-date">${escapedDateText}</a>` : ''}
+						</div>
+						${tweetText ? `<div class="tweet-text">${tweetText}</div>` : ''}
+					</div>
+				</div>
+			</div>
+		`.trim();
+
+		return {
+			content: contentHtml,
+			contentHtml: contentHtml,
+			variables: {
+				title: `Post by ${handle || data.author_name}`,
+				author: handle || data.author_name,
+				site: 'X (Twitter)',
+			}
+		};
+	}
+
+	private async tryExtractArticle(): Promise<ExtractorResult | null> {
+		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/(status|article)\/(\d+)/);
+		if (!match) return null;
+
+		try {
+			const data = await this.fetchFxTwitter(match[1], match[3]);
+			if (!data.tweet?.article) return null;
+			return this.buildArticleResult(data);
+		} catch {
+			return null;
+		}
+	}
+
+	private async fetchFxTwitter(username: string, id: string): Promise<FxTwitterResponse> {
+		const apiUrl = `https://api.fxtwitter.com/${username}/status/${id}`;
+		const response = await fetch(apiUrl, {
+			headers: {
+				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
+			},
+		});
+
+		if (!response.ok) {
+			throw new Error(`FxTwitter API request failed: ${response.status}`);
+		}
+
+		return response.json();
+	}
+
+	private buildArticleResult(data: FxTwitterResponse): ExtractorResult {
+		const article = data.tweet.article!;
+		const { blocks, entityMap } = article.content;
+		const contentHtml = this.renderArticle(blocks, entityMap, article.cover_media);
+		const handle = `@${data.tweet.author.screen_name}`;
+
+		return {
+			content: contentHtml,
+			contentHtml,
+			variables: {
+				title: article.title,
+				author: handle,
+				site: 'X (Twitter)',
+				description: article.preview_text,
+			}
+		};
+	}
+
+	private renderArticle(
+		blocks: DraftBlock[],
+		entityMap: DraftEntityMapEntry[],
+		coverMedia?: { media_info?: { original_img_url?: string } }
+	): string {
+		const parts: string[] = [];
+
+		// Add cover image if available
+		if (coverMedia?.media_info?.original_img_url) {
+			parts.push(`<img src="${this.escapeHtml(coverMedia.media_info.original_img_url)}" alt="Cover image">`);
+		}
+
+		let i = 0;
+		while (i < blocks.length) {
+			const block = blocks[i];
+
+			if (block.type === 'unordered-list-item') {
+				// Group consecutive list items into a <ul>
+				const items: string[] = [];
+				while (i < blocks.length && blocks[i].type === 'unordered-list-item') {
+					items.push(`<li>${this.renderInlineContent(blocks[i], entityMap)}</li>`);
+					i++;
+				}
+				parts.push(`<ul>${items.join('')}</ul>`);
+				continue;
+			}
+
+			const html = this.renderBlock(block, entityMap);
+			if (html) {
+				parts.push(html);
+			}
+			i++;
+		}
+
+		return `<article class="x-article">${parts.join('')}</article>`;
+	}
+
+	private renderBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[]): string {
+		switch (block.type) {
+			case 'unstyled': {
+				if (!block.text.trim()) return '';
+				return `<p>${this.renderInlineContent(block, entityMap)}</p>`;
+			}
+			case 'header-two':
+				return `<h2>${this.renderInlineContent(block, entityMap)}</h2>`;
+			case 'header-three':
+				return `<h3>${this.renderInlineContent(block, entityMap)}</h3>`;
+			case 'atomic':
+				return this.renderAtomicBlock(block, entityMap);
+			default: {
+				if (!block.text.trim()) return '';
+				return `<p>${this.renderInlineContent(block, entityMap)}</p>`;
+			}
+		}
+	}
+
+	private renderAtomicBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[]): string {
+		if (block.entityRanges.length === 0) return '';
+
+		const entityEntry = entityMap.find(e => e.key === String(block.entityRanges[0].key));
+		if (!entityEntry) return '';
+
+		const entity = entityEntry.value;
+
+		switch (entity.type) {
+			case 'MEDIA': {
+				const caption = entity.data.caption;
+				if (caption) {
+					return `<figure><figcaption>${this.escapeHtml(caption)}</figcaption></figure>`;
+				}
+				return '';
+			}
+			case 'MARKDOWN': {
+				const markdown = entity.data.markdown || '';
+				// Strip the wrapping ```...``` fences
+				const codeMatch = markdown.match(/^```(\w*)\n([\s\S]*?)\n?```$/);
+				if (codeMatch) {
+					const lang = codeMatch[1];
+					const code = codeMatch[2];
+					const langAttr = lang ? ` class="language-${this.escapeHtml(lang)}" data-lang="${this.escapeHtml(lang)}"` : '';
+					return `<pre><code${langAttr}>${this.escapeHtml(code)}</code></pre>`;
+				}
+				return `<pre><code>${this.escapeHtml(markdown)}</code></pre>`;
+			}
+			default:
+				return '';
+		}
+	}
+
+	private renderInlineContent(block: DraftBlock, entityMap: DraftEntityMapEntry[]): string {
+		const text = block.text;
+		if (!text) return '';
+
+		// Build a list of markers for opens/closes of styled and entity ranges
+		interface Marker {
+			offset: number;
+			type: 'open' | 'close';
+			tag: string;
+		}
+
+		const markers: Marker[] = [];
+
+		// Bold styles
+		for (const range of block.inlineStyleRanges) {
+			if (range.style === 'Bold') {
+				markers.push({ offset: range.offset, type: 'open', tag: '<strong>' });
+				markers.push({ offset: range.offset + range.length, type: 'close', tag: '</strong>' });
+			}
+		}
+
+		// Entity ranges (LINK)
+		for (const range of block.entityRanges) {
+			const entityEntry = entityMap.find(e => e.key === String(range.key));
+			if (entityEntry?.value.type === 'LINK' && entityEntry.value.data.url) {
+				const url = this.escapeHtml(entityEntry.value.data.url);
+				markers.push({ offset: range.offset, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: range.offset + range.length, type: 'close', tag: '</a>' });
+			}
+		}
+
+		// Mentions from block data
+		if (block.data?.mentions) {
+			for (const mention of block.data.mentions) {
+				const url = `https://x.com/${this.escapeHtml(mention.text)}`;
+				markers.push({ offset: mention.fromIndex, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: mention.toIndex, type: 'close', tag: '</a>' });
+			}
+		}
+
+		// URLs from block data
+		if (block.data?.urls) {
+			for (const urlData of block.data.urls) {
+				const url = this.escapeHtml(urlData.text);
+				markers.push({ offset: urlData.fromIndex, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: urlData.toIndex, type: 'close', tag: '</a>' });
+			}
+		}
+
+		// Sort: by offset, then closes before opens at the same offset
+		markers.sort((a, b) => {
+			if (a.offset !== b.offset) return a.offset - b.offset;
+			// Close tags before open tags at same offset
+			if (a.type === 'close' && b.type === 'open') return -1;
+			if (a.type === 'open' && b.type === 'close') return 1;
+			return 0;
+		});
+
+		// Walk through text, inserting tags at marker positions
+		let result = '';
+		let pos = 0;
+
+		for (const marker of markers) {
+			if (marker.offset > pos) {
+				result += this.escapeHtml(text.slice(pos, marker.offset));
+			}
+			result += marker.tag;
+			pos = marker.offset;
+		}
+
+		// Remaining text
+		if (pos < text.length) {
+			result += this.escapeHtml(text.slice(pos));
+		}
+
+		return result;
+	}
+
+	private escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;');
+	}
+}

@@ -19,6 +19,12 @@ class Defuddle {
 		toMarkdown(result, this.options, this.options.url ?? '');
 		return result;
 	}
+
+	async parseAsync(): Promise<DefuddleResponse> {
+		const result = await this.defuddle.parseAsync();
+		toMarkdown(result, this.options, this.options.url ?? '');
+		return result;
+	}
 }
 
 // Export Defuddle as default

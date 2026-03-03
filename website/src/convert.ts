@@ -55,7 +55,7 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 		url: targetUrl,
 	});
 
-	const result = defuddle.parse();
+	const result = await defuddle.parseAsync();
 
 	// Convert to markdown
 	toMarkdown(result, { markdown: true }, targetUrl);

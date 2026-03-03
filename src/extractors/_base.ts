@@ -13,4 +13,12 @@ export abstract class BaseExtractor {
 
 	abstract canExtract(): boolean;
 	abstract extract(): ExtractorResult;
+
+	canExtractAsync(): boolean {
+		return false;
+	}
+
+	async extractAsync(): Promise<ExtractorResult> {
+		return this.extract();
+	}
 } 

@@ -41,7 +41,7 @@ export async function Defuddle(
 		url: pageUrl
 	});
 
-	const result = defuddle.parse();
+	const result = await defuddle.parseAsync();
 
 	// Convert to markdown if requested
 	toMarkdown(result, options ?? {}, pageUrl);

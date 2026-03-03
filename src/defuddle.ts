@@ -59,6 +59,64 @@ export class Defuddle {
 	}
 
 	/**
+	 * Parse the document, falling back to async extractors if sync parse yields no content
+	 */
+	async parseAsync(): Promise<DefuddleResponse> {
+		const result = this.parse();
+
+		if (result.wordCount > 0) {
+			return result;
+		}
+
+		try {
+			const url = this.options.url || this.doc.URL;
+			const schemaOrgData = this._extractSchemaOrgData(this.doc);
+			const extractor = ExtractorRegistry.findAsyncExtractor(this.doc, url, schemaOrgData);
+
+			if (extractor) {
+				const startTime = Date.now();
+				const extracted = await extractor.extractAsync();
+				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
+
+				// Collect meta tags
+				const pageMetaTags: MetaTagItem[] = [];
+				this.doc.querySelectorAll('meta').forEach(meta => {
+					const name = meta.getAttribute('name');
+					const property = meta.getAttribute('property');
+					let content = meta.getAttribute('content');
+					if (content) {
+						pageMetaTags.push({ name, property, content: this._decodeHTMLEntities(content) });
+					}
+				});
+
+				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+				const endTime = Date.now();
+
+				return {
+					content: contentHtml,
+					title: extracted.variables?.title || metadata.title,
+					description: metadata.description,
+					domain: metadata.domain,
+					favicon: metadata.favicon,
+					image: metadata.image,
+					published: extracted.variables?.published || metadata.published,
+					author: extracted.variables?.author || metadata.author,
+					site: extracted.variables?.site || metadata.site,
+					schemaOrgData: metadata.schemaOrgData,
+					wordCount: this.countWords(extracted.contentHtml),
+					parseTime: Math.round(endTime - startTime),
+					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+					metaTags: pageMetaTags
+				};
+			}
+		} catch (error) {
+			console.error('Defuddle', 'Error in async extraction:', error);
+		}
+
+		return result;
+	}
+
+	/**
 	 * Internal parse method that does the actual work
 	 */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {

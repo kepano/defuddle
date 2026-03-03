@@ -11,6 +11,7 @@ import { ClaudeExtractor } from './extractors/claude';
 import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
+import { XOembedExtractor } from './extractors/x-oembed';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
 
@@ -40,6 +41,14 @@ export class ExtractorRegistry {
 				/\/x\.com\/.*/,
 			],
 			extractor: TwitterExtractor
+		});
+
+		this.register({
+			patterns: [
+				'x.com',
+				'twitter.com',
+			],
+			extractor: XOembedExtractor
 		});
 
 		this.register({
@@ -137,6 +146,34 @@ export class ExtractorRegistry {
 
 		} catch (error) {
 			console.error('Error in findExtractor:', error);
+			return null;
+		}
+	}
+
+	static findAsyncExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
+		try {
+			const domain = new URL(url).hostname;
+
+			for (const { patterns, extractor } of this.mappings) {
+				const matches = patterns.some(pattern => {
+					if (pattern instanceof RegExp) {
+						return pattern.test(url);
+					}
+					return domain.includes(pattern);
+				});
+
+				if (matches) {
+					const instance = new extractor(document, url, schemaOrgData);
+					if (instance.canExtractAsync()) {
+						return instance;
+					}
+				}
+			}
+
+			return null;
+
+		} catch (error) {
+			console.error('Error in findAsyncExtractor:', error);
 			return null;
 		}
 	}
