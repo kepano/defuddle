@@ -184,14 +184,14 @@ export function getLandingPage(): string {
 					autocomplete="off"
 					autofocus
 				/>
-				<button type="submit">Defuddle it</button>
+				<button type="submit">Get markdown</button>
 			</form>
 			<form id="formHtml" class="form-html" style="display:none">
 				<textarea
 					id="htmlInput"
 					placeholder="Paste HTML here..."
 				></textarea>
-				<button type="submit">Defuddle it</button>
+				<button type="submit">Get markdown</button>
 			</form>
 		</div>
 	</div>
