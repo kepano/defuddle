@@ -180,18 +180,18 @@ export function getLandingPage(): string {
 				<input
 					type="text"
 					id="urlInput"
-					placeholder="Enter a URL, e.g. stephango.com"
+					placeholder="Enter a URL"
 					autocomplete="off"
 					autofocus
 				/>
-				<button type="submit">Convert</button>
+				<button type="submit">Defuddle it</button>
 			</form>
 			<form id="formHtml" class="form-html" style="display:none">
 				<textarea
 					id="htmlInput"
 					placeholder="Paste HTML here..."
 				></textarea>
-				<button type="submit">Parse</button>
+				<button type="submit">Defuddle it</button>
 			</form>
 		</div>
 	</div>
