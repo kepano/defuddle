@@ -16,16 +16,28 @@ export function getLandingPage(): string {
 			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 			background: #100F0F;
 			color: #B7B5AC;
-			min-height: 100vh;
+		}
+		.hero {
+			min-height: 70vh;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 		}
-		.container {
+		.hero-inner {
 			max-width: 600px;
 			width: 100%;
 			padding: 2rem;
 			text-align: center;
+		}
+		.divider {
+			border: none;
+			border-top: 1px solid #343331;
+		}
+		.bottom {
+			max-width: 600px;
+			width: 100%;
+			margin: 0 auto;
+			padding: 3rem 2rem;
 		}
 		h1 {
 			font-size: 2rem;
@@ -126,7 +138,6 @@ export function getLandingPage(): string {
 			background: #B7B5AC;
 		}
 		.api-note {
-			margin-top: 3rem;
 			padding: 1.5rem;
 			background: #1C1B1A;
 			border-radius: 8px;
@@ -142,7 +153,7 @@ export function getLandingPage(): string {
 			color: #B7B5AC;
 		}
 		.footer {
-			margin-top: 3rem;
+			margin-top: 2rem;
 			font-size: 0.85rem;
 			color: #575653;
 		}
@@ -156,30 +167,35 @@ export function getLandingPage(): string {
 	</style>
 </head>
 <body>
-	<div class="container">
-		<h1>Defuddle</h1>
-		<p class="subtitle">Convert any web page to markdown.</p>
-		<div class="mode-toggle">
-			<button id="modeUrl" class="active">URL</button>
-			<button id="modeHtml">HTML</button>
+	<div class="hero">
+		<div class="hero-inner">
+			<h1>Defuddle</h1>
+			<p class="subtitle">Convert any web page to markdown.</p>
+			<div class="mode-toggle">
+				<button id="modeUrl" class="active">URL</button>
+				<button id="modeHtml">HTML</button>
+			</div>
+			<form id="formUrl" class="form-url">
+				<input
+					type="text"
+					id="urlInput"
+					placeholder="Enter a URL, e.g. stephango.com"
+					autocomplete="off"
+					autofocus
+				/>
+				<button type="submit">Convert</button>
+			</form>
+			<form id="formHtml" class="form-html" style="display:none">
+				<textarea
+					id="htmlInput"
+					placeholder="Paste HTML here..."
+				></textarea>
+				<button type="submit">Parse</button>
+			</form>
 		</div>
-		<form id="formUrl" class="form-url">
-			<input
-				type="text"
-				id="urlInput"
-				placeholder="Enter a URL, e.g. stephango.com"
-				autocomplete="off"
-				autofocus
-			/>
-			<button type="submit">Convert</button>
-		</form>
-		<form id="formHtml" class="form-html" style="display:none">
-			<textarea
-				id="htmlInput"
-				placeholder="Paste HTML here..."
-			></textarea>
-			<button type="submit">Parse</button>
-		</form>
+	</div>
+	<hr class="divider">
+	<div class="bottom">
 		<div class="api-note">
 			<strong>API usage</strong><br><br>
 			<code>curl defuddle.md/stephango.com</code><br><br>
