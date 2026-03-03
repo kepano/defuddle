@@ -216,6 +216,7 @@ export function getLandingPage(): string {
 			&middot; <a href="https://www.npmjs.com/package/defuddle">NPM</a>
 			&middot; <a href="/docs">Docs</a>
 			&middot; <a href="/playground">Playground</a>
+			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
 		</div>
 	</div>
 	<script>
