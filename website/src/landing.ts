@@ -124,6 +124,7 @@ export function getLandingPage(): string {
 			color: #575653;
 		}
 		button[type="submit"] {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 			padding: 0.75rem 1.5rem;
 			font-size: 1rem;
 			border: none;
