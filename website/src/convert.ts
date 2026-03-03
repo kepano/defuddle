@@ -9,7 +9,7 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 	// Fetch the page
 	const response = await fetch(targetUrl, {
 		headers: {
-			'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.dev)',
+			'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
 			'Accept': 'text/html,application/xhtml+xml',
 		},
 		redirect: 'follow',

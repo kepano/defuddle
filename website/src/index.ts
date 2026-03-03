@@ -4,12 +4,20 @@ import { getPlaygroundPage } from './playground';
 import { getDocsPage } from './docs';
 import { convertToMarkdown, formatResponse } from './convert';
 
-const BLOCKED_HOSTS = ['defuddle.dev', 'localhost'];
+const PRIMARY_HOST = 'defuddle.md';
+const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
 export default {
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		const path = url.pathname;
+
+		// Redirect defuddle.dev to defuddle.md
+		if (url.hostname.includes('defuddle.dev')) {
+			const redirectUrl = new URL(request.url);
+			redirectUrl.hostname = PRIMARY_HOST;
+			return Response.redirect(redirectUrl.toString(), 301);
+		}
 
 		// Landing page
 		if (path === '/' || path === '') {
@@ -38,7 +46,14 @@ export default {
 
 		// Playground
 		if (path === '/playground') {
-			return new Response(getPlaygroundPage(), {
+			let prefillHtml = '';
+			if (request.method === 'POST') {
+				try {
+					const formData = await request.formData();
+					prefillHtml = formData.get('html')?.toString() || '';
+				} catch {}
+			}
+			return new Response(getPlaygroundPage(prefillHtml), {
 				headers: {
 					'Content-Type': 'text/html; charset=utf-8',
 				},

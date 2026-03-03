@@ -1,4 +1,11 @@
-export function getPlaygroundPage(): string {
+export function getPlaygroundPage(prefillHtml: string = ''): string {
+	const escapedHtml = prefillHtml
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/`/g, '\\`')
+		.replace(/\$/g, '\\$');
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -263,7 +270,7 @@ export function getPlaygroundPage(): string {
 				<div class="url-input">
 					<input type="text" id="url" placeholder="URL...">
 				</div>
-				<textarea id="input" placeholder="Paste your HTML here..."></textarea>
+				<textarea id="input" placeholder="Paste your HTML here...">${escapedHtml}</textarea>
 			</div>
 
 			<div class="output-section">
@@ -383,6 +390,10 @@ export function getPlaygroundPage(): string {
 
 		function hideError() {
 			errorContainer.classList.remove('show');
+		}
+
+		if (input.value.trim()) {
+			parseBtn.click();
 		}
 	</script>
 </body>
