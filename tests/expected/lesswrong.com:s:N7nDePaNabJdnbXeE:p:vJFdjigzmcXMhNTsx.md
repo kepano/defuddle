@@ -340,7 +340,7 @@ You can probably predict my proposed answer. The natural thing to do with a pred
 
 Thankfully, I didn’t need to make up a word, or even look too far afield. Simulators have been spoken of before in the context of AI futurism; the ability to simulate with arbitrary fidelity is one of the modalities ascribed to hypothetical superintelligence. I’ve even often spotted the word “simulation” used in colloquial accounts of LLM behavior: GPT-3/LaMDA/etc described as simulating [people](https://lesswrong.com/posts/oBPPFrMJ2aBK6a6sD/simulated-elon-musk-lives-in-a-simulation), scenarios, websites, and so on. But these are the first (indirect) discussions I’ve encountered of simulators as a type creatable by prosaic machine learning, or the notion of a powerful AI which is purely and fundamentally a simulator, as opposed to merely one which *can* simulate.
 
-**Edit:**[Social Simulacra](https://arxiv.org/abs/2208.04024) is the first published work I’ve seen that discusses GPT in the simulator ontology.
+**Edit:** [Social Simulacra](https://arxiv.org/abs/2208.04024) is the first published work I’ve seen that discusses GPT in the simulator ontology.
 
 A fun way to test whether a name you’ve come up with is effective at evoking its intended signification is to see if GPT, a model of how humans are conditioned by words, infers its correct definition in context.
 
@@ -494,7 +494,7 @@ In my model, these updates dramatically alter the landscape of potential futures
 
 The next couple of posts (if I finish them before the end of the world) will present abstractions and frames for conceptualizing the odd kind of simulation language models do: inductively learned, partially observed / undetermined / lazily rendered, language-conditioned, etc. After that, I’ll shift to writing more specifically about the implications and questions posed by simulators for the alignment problem. I’ll list a few important general categories here:
 
-- **Novel methods of process/agent specification.**Simulators like GPT give us methods of instantiating intelligent processes, including goal-directed agents, with methods other than optimizing against a reward function.
+- **Novel methods of process/agent specification.** Simulators like GPT give us methods of instantiating intelligent processes, including goal-directed agents, with methods other than optimizing against a reward function.
 	- **Conditioning.** GPT can be controlled to an impressive extent by prompt programming. Conditioning preserves distributional properties in potentially desirable but also potentially undesirable ways, and it’s not clear how out-of-distribution conditions will be interpreted by powerful simulators.
 		- Several posts have been made about this recently:
 			- [Conditioning Generative Models](https://lesswrong.com/posts/nXeLPcT9uhfG3TMPS/conditioning-generative-models).) and [Conditioning Generative Models with Restrictions](https://lesswrong.com/posts/adiszfnFgPEnRsGSr/conditioning-generative-models-with-restrictions) by Adam Jermyn

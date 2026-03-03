@@ -219,18 +219,8 @@ function standardizeSpaces(element: Element): void {
 		// Process text nodes
 		if (isTextNode(node)) {
 			const text = node.textContent || '';
-			// Replace &nbsp; with regular spaces, except when it's a single &nbsp; between words
-			const newText = text.replace(/\xA0+/g, (match) => {
-				// If it's a single &nbsp; between word characters, preserve it
-				if (match.length === 1) {
-					const prev = node.previousSibling?.textContent?.slice(-1);
-					const next = node.nextSibling?.textContent?.charAt(0);
-					if (prev?.match(/\w/) && next?.match(/\w/)) {
-						return '\xA0';
-					}
-				}
-				return ' '.repeat(match.length);
-			});
+			// Replace &nbsp; with regular spaces, preserving them between words
+			const newText = text.replace(/\xA0/g, ' ');
 			
 			if (newText !== text) {
 				node.textContent = newText;
@@ -546,8 +536,9 @@ function removeEmptyLines(element: Element, doc: Document): void {
 		// Then handle this node
 		if (isTextNode(node)) {
 			const text = node.textContent || '';
-			// If it's completely empty or just special characters/whitespace, remove it
-			if (!text || text.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF\xA0\s]*$/)) {
+			// If it's completely empty or just zero-width/invisible characters, remove it
+			// Preserve nodes with regular spaces or &nbsp; as they may separate words
+			if (!text || text.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/)) {
 				node.parentNode?.removeChild(node);
 				removedCount++;
 			} else {
