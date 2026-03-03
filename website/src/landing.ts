@@ -22,7 +22,8 @@ export function getLandingPage(): string {
 			display: flex;
 			align-items: flex-start;
 			justify-content: center;
-			padding-top: 25vh;
+			padding-top: 22.5vh;
+    		padding-bottom: 7.5vh;
 		}
 		.hero-inner {
 			max-width: 600px;
