@@ -65,7 +65,14 @@ export interface DefuddleOptions {
 	 * Remove images
 	 * Defaults to false
 	 */
-	removeImages?: boolean
+	removeImages?: boolean;
+
+	/**
+	 * Allow async extractors to fetch content from third-party APIs
+	 * when no content can be extracted from the local HTML.
+	 * Defaults to true
+	 */
+	useAsync?: boolean;
 }
 
 export interface ExtractorVariables {

@@ -155,6 +155,7 @@ The core bundle is recommended for most use cases. It still handles math content
 | `removeExactSelectors`   | boolean | true    | Remove elements matching exact selectors like ads, social buttons, etc.   |
 | `removePartialSelectors` | boolean | true    | Remove elements matching partial selectors like ads, social buttons, etc. |
 | `removeImages`           | boolean | false   | Remove images.                                                            |
+| `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
 
 ### Debug mode
 
@@ -235,3 +236,9 @@ npm install
 # Clean and build
 npm run build
 ```
+
+## Third-party services
+
+When using `parseAsync()`, if no content can be extracted from the local HTML, Defuddle may fetch content from third-party APIs as a fallback. This only happens when the page HTML contains no usable content (e.g. client-side rendered SPAs). You can disable this by setting `useAsync: false` in options.
+
+- [FxTwitter API](https://github.com/FixTweet/FxTwitter) — Used to extract X (Twitter) article content, which is not available in server-rendered HTML.

@@ -64,7 +64,7 @@ export class Defuddle {
 	async parseAsync(): Promise<DefuddleResponse> {
 		const result = this.parse();
 
-		if (result.wordCount > 0) {
+		if (result.wordCount > 0 || this.options.useAsync === false) {
 			return result;
 		}
 
