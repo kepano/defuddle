@@ -7,7 +7,7 @@
 }
 ```
 
-On our [About page](https://obsidian.md), we describe the guiding principles that have shaped Obsidian since the start. Privacy is one of these principles, and we go to great lengths to make sure we can uphold thisstatement:
+On our [About page](https://obsidian.md/), we describe the guiding principles that have shaped Obsidian since the start. Privacy is one of these principles, and we go to great lengths to make sure we can uphold thisstatement:
 
 > We believe that your thoughts and ideas belong to you and deserve complete privacy. That’s why your data is stored on your device, inaccessible to us. When you use our online services, your data is protected with end-to-end encryption for maximumsecurity.
 

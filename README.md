@@ -5,7 +5,7 @@
 
 Defuddle extracts the main content from web pages. It cleans up web pages by removing clutter like comments, sidebars, headers, footers, and other non-essential elements, leaving only the primary content.
 
-[Try the Defuddle Playground →](https://kepano.github.io/defuddle/)
+[Try the Defuddle Playground →](https://defuddle.md/playground)
 
 ## Features
 

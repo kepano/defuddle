@@ -27,7 +27,7 @@ This is due to linkedom not implementing `doc.styleSheets`:
 
 [defuddle/src/defuddle.ts](https://github.com/kepano/defuddle/blob/cb4291db0f24cac0d0674d9e35fc0089338da2da/src/defuddle.ts#L213)
 
-Line 213 in [cb4291d](/kepano/defuddle/commit/cb4291db0f24cac0d0674d9e35fc0089338da2da)
+Line 213 in [cb4291d](https://github.com-issue-56/kepano/defuddle/commit/cb4291db0f24cac0d0674d9e35fc0089338da2da)
 
 |  | const sheets \= Array.from(doc.styleSheets).filter(sheet \=> { |
 | --- | --- |

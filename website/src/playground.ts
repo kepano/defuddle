@@ -1,19 +1,18 @@
-<!DOCTYPE html>
-<html>
+export function getPlaygroundPage(prefillHtml: string = ''): string {
+	const escapedHtml = prefillHtml
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/`/g, '\\`')
+		.replace(/\$/g, '\\$');
+	return `<!DOCTYPE html>
+<html lang="en">
 <head>
-	<title>Defuddle Playground</title>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Defuddle Playground</title>
 	<style>
-		:root {
-			--ax: rgb(16, 15, 15);
-			--re: rgb(175, 48, 41);
-			--gr: rgb(102, 128, 11);
-			--bg: rgb(255, 252, 240);
-			--bg-2: rgb(255, 252, 240);
-			--ui: rgb(230, 228, 217);
-			--tx: rgb(16, 15, 15);
-		}
-
 		* {
 			margin: 0;
 			padding: 0;
@@ -28,8 +27,8 @@
 		body {
 			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 			line-height: 1.5;
-			color: var(--tx);
-			background: var(--bg-2);
+			color: #B7B5AC;
+			background: #100F0F;
 		}
 
 		.container {
@@ -44,11 +43,33 @@
 		header {
 			margin-bottom: 2rem;
 			flex-shrink: 0;
+			display: flex;
+			align-items: baseline;
+			gap: 0.5rem;
 		}
 
-		header h1 {
-			font-size: 2.5rem;
-			margin-bottom: 0.5rem;
+		.logo {
+			font-size: 2rem;
+			font-weight: 700;
+			color: #F2F0E5;
+			text-decoration: none;
+			transition: color 0.2s;
+		}
+
+		.logo:hover {
+			color: #B7B5AC;
+		}
+
+		.page-title {
+			font-size: 2rem;
+			font-weight: 700;
+			color: #878580;
+		}
+
+		h2 {
+			color: #F2F0E5;
+			font-size: 1rem;
+			font-weight: 600;
 		}
 
 		.playground-container {
@@ -76,10 +97,11 @@
 		.url-input input {
 			flex: 1;
 			padding: 1rem;
-			background: var(--bg);
-			border: 1px solid var(--ui);
-			border-radius: 0.375rem;
+			background: #1C1B1A;
+			border: 1px solid #343331;
+			border-radius: 8px;
 			font-size: 0.875rem;
+			color: #F2F0E5;
 		}
 
 		.controls {
@@ -90,54 +112,68 @@
 
 		.btn {
 			padding: 0.5rem 1rem;
-			border: 1px solid var(--ui);
-			border-radius: 0.375rem;
-			background: var(--bg);
+			border: 1px solid #343331;
+			border-radius: 8px;
+			background: #1C1B1A;
+			color: #B7B5AC;
 			cursor: pointer;
 			font-size: 0.875rem;
 			transition: all 0.2s;
 		}
 
 		.btn:hover {
-			background: var(--bg-2);
+			background: #343331;
+			color: #F2F0E5;
 		}
 
 		.btn.primary {
-			background: var(--ax);
-			color: var(--bg);
-			border-color: var(--ax);
+			background: #F2F0E5;
+			color: #1C1B1A;
+			border-color: #F2F0E5;
+			font-weight: 600;
 		}
 
 		.btn.primary:hover {
-			opacity: 0.9;
+			background: #B7B5AC;
 		}
 
 		textarea {
 			flex: 1;
 			padding: 1rem;
-			background: var(--bg);
-			border: 1px solid var(--ui);
-			border-radius: 0.375rem;
+			background: #1C1B1A;
+			border: 1px solid #343331;
+			border-radius: 8px;
 			font-family: monospace;
 			font-size: 0.875rem;
+			color: #F2F0E5;
 			resize: none;
 			min-height: 0;
+			outline: none;
+			transition: border-color 0.2s;
+		}
+
+		textarea:focus {
+			border-color: #575653;
+		}
+
+		textarea::placeholder {
+			color: #575653;
 		}
 
 		.output-container {
 			flex: 1;
 			display: flex;
 			flex-direction: column;
-			border: 1px solid var(--ui);
-			border-radius: 0.375rem;
+			border: 1px solid #343331;
+			border-radius: 8px;
 			overflow: hidden;
 			min-height: 0;
 		}
 
 		.output-tabs {
 			display: flex;
-			border-bottom: 1px solid var(--ui);
-			background: var(--bg);
+			border-bottom: 1px solid #343331;
+			background: #1C1B1A;
 			flex-shrink: 0;
 		}
 
@@ -147,20 +183,25 @@
 			background: none;
 			cursor: pointer;
 			font-size: 0.875rem;
-			color: var(--tx);
+			color: #878580;
 			border-bottom: 2px solid transparent;
+			transition: color 0.2s;
+		}
+
+		.tab:hover {
+			color: #B7B5AC;
 		}
 
 		.tab.active {
-			color: var(--ax);
-			border-bottom-color: var(--ax);
+			color: #F2F0E5;
+			border-bottom-color: #F2F0E5;
 		}
 
 		.tab-content {
 			display: none;
 			flex: 1;
 			overflow: auto;
-			background: var(--bg);
+			background: #100F0F;
 			min-height: 0;
 		}
 
@@ -176,6 +217,7 @@
 			padding: 1rem;
 			height: 100%;
 			overflow: auto;
+			color: #B7B5AC;
 		}
 
 		.error-container {
@@ -184,9 +226,9 @@
 			right: 1rem;
 			max-width: 400px;
 			padding: 1rem;
-			background: var(--re);
-			color: var(--bg);
-			border-radius: 0.375rem;
+			background: #AF3029;
+			color: #F2F0E5;
+			border-radius: 8px;
 			display: none;
 			z-index: 1000;
 		}
@@ -194,12 +236,29 @@
 		.error-container.show {
 			display: block;
 		}
+
+		@media (max-width: 768px) {
+			.playground-container {
+				grid-template-columns: 1fr;
+			}
+			.container {
+				height: auto;
+				min-height: 100vh;
+			}
+			html, body {
+				overflow: auto;
+			}
+			.input-section, .output-section {
+				min-height: 400px;
+			}
+		}
 	</style>
 </head>
 <body>
 	<div class="container">
 		<header>
-			<h1>Defuddle Playground</h1>
+			<a href="/" class="logo">Defuddle</a>
+			<span class="page-title">Playground</span>
 		</header>
 
 		<div class="playground-container">
@@ -209,9 +268,9 @@
 					<button id="clearInput" class="btn">Clear</button>
 				</div>
 				<div class="url-input">
-					<input type="text" id="url" class="padding-0" placeholder="URL...">
+					<input type="text" id="url" placeholder="URL...">
 				</div>
-				<textarea id="input" placeholder="Paste your HTML here..."></textarea>
+				<textarea id="input" placeholder="Paste your HTML here...">${escapedHtml}</textarea>
 			</div>
 
 			<div class="output-section">
@@ -242,54 +301,50 @@
 		<div class="error-container" id="errorContainer"></div>
 	</div>
 
-	<script src="../dist/index.js"></script>
+	<script src="https://unpkg.com/defuddle@0.8.0/dist/index.js"></script>
 	<script>
-		// DOM Elements
-		const input = document.getElementById('input');
-		const urlInput = document.getElementById('url');
-		const output = document.getElementById('output');
-		const metadataOutput = document.getElementById('metadataOutput');
-		const debugOutput = document.getElementById('debugOutput');
-		const clearInputBtn = document.getElementById('clearInput');
-		const parseBtn = document.getElementById('parse');
-		const clearOutputBtn = document.getElementById('clearOutput');
-		const errorContainer = document.getElementById('errorContainer');
-		const tabs = document.querySelectorAll('.tab');
-		const tabContents = document.querySelectorAll('.tab-content');
+		var input = document.getElementById('input');
+		var urlInput = document.getElementById('url');
+		var output = document.getElementById('output');
+		var metadataOutput = document.getElementById('metadataOutput');
+		var debugOutput = document.getElementById('debugOutput');
+		var clearInputBtn = document.getElementById('clearInput');
+		var parseBtn = document.getElementById('parse');
+		var clearOutputBtn = document.getElementById('clearOutput');
+		var errorContainer = document.getElementById('errorContainer');
+		var tabs = document.querySelectorAll('.tab');
+		var tabContents = document.querySelectorAll('.tab-content');
 
-		// Event Listeners
-		clearInputBtn.addEventListener('click', () => {
+		clearInputBtn.addEventListener('click', function() {
 			input.value = '';
 		});
 
-		clearOutputBtn.addEventListener('click', () => {
+		clearOutputBtn.addEventListener('click', function() {
 			output.innerHTML = '';
 			metadataOutput.textContent = '';
 			debugOutput.textContent = '';
 			hideError();
 		});
 
-		parseBtn.addEventListener('click', () => {
+		parseBtn.addEventListener('click', function() {
 			try {
-				const parser = new DOMParser();
-				const doc = parser.parseFromString(input.value, 'text/html');
-				
-				const defuddle = new Defuddle(doc, {
+				var parser = new DOMParser();
+				var doc = parser.parseFromString(input.value, 'text/html');
+
+				var defuddle = new Defuddle(doc, {
 					url: urlInput.value
 				});
-				const result = defuddle.parse();
-				
-				// Log the full result for debugging
+				var result = defuddle.parse();
+
 				console.log('Defuddle Result:', result);
-				
-				// Display content
+
 				output.innerHTML = result.content;
-				
-				// Display metadata - show all fields except content
-				const { content, ...metadata } = result;
+
+				var content = result.content;
+				var metadata = Object.assign({}, result);
+				delete metadata.content;
 				metadataOutput.textContent = JSON.stringify(metadata, null, 2);
-				
-				// Display debug info with actual properties
+
 				debugOutput.textContent = JSON.stringify({
 					title: result.title || null,
 					description: result.description || null,
@@ -303,7 +358,7 @@
 					wordCount: result.wordCount || null,
 					content: result.content ? 'Content present' : 'No content'
 				}, null, 2);
-				
+
 				hideError();
 			} catch (error) {
 				console.error('Defuddle Error:', error);
@@ -312,26 +367,22 @@
 			}
 		});
 
-		// Tab switching
-		tabs.forEach(tab => {
-			tab.addEventListener('click', () => {
-				const targetTab = tab.dataset.tab;
-				
-				// Update active tab
-				tabs.forEach(t => t.classList.remove('active'));
+		tabs.forEach(function(tab) {
+			tab.addEventListener('click', function() {
+				var targetTab = tab.dataset.tab;
+
+				tabs.forEach(function(t) { t.classList.remove('active'); });
 				tab.classList.add('active');
-				
-				// Update active content
-				tabContents.forEach(content => {
-					content.classList.remove('active');
-					if (content.id === targetTab) {
-						content.classList.add('active');
+
+				tabContents.forEach(function(c) {
+					c.classList.remove('active');
+					if (c.id === targetTab) {
+						c.classList.add('active');
 					}
 				});
 			});
 		});
 
-		// Error handling
 		function showError(message) {
 			errorContainer.textContent = message;
 			errorContainer.classList.add('show');
@@ -340,6 +391,11 @@
 		function hideError() {
 			errorContainer.classList.remove('show');
 		}
+
+		if (input.value.trim()) {
+			parseBtn.click();
+		}
 	</script>
 </body>
-</html>
+</html>`;
+}

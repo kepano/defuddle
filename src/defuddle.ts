@@ -97,10 +97,11 @@ export class Defuddle {
 			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
+				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
 				const endTime = Date.now();
 				// console.log('Using extractor:', extractor.constructor.name.replace('Extractor', ''));
 				return {
-					content: extracted.contentHtml,
+					content: contentHtml,
 					title: extracted.variables?.title || metadata.title,
 					description: metadata.description,
 					domain: metadata.domain,
@@ -134,11 +135,12 @@ export class Defuddle {
 			// Find main content
 			const mainContent = this.findMainContent(clone);
 			if (!mainContent) {
+				const fallbackContent = this.resolveContentUrls(this.doc.body.innerHTML);
 				const endTime = Date.now();
 				return {
-					content: this.doc.body.innerHTML,
+					content: fallbackContent,
 					...metadata,
-					wordCount: this.countWords(this.doc.body.innerHTML),
+					wordCount: this.countWords(fallbackContent),
 					parseTime: Math.round(endTime - startTime),
 					metaTags: pageMetaTags
 				};
@@ -162,6 +164,9 @@ export class Defuddle {
 			// Normalize the main content
 			standardizeContent(mainContent, metadata, this.doc, this.debug);
 
+			// Resolve relative URLs to absolute
+			this.resolveRelativeUrls(mainContent);
+
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();
 
@@ -174,11 +179,12 @@ export class Defuddle {
 			};
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
+			const errorContent = this.resolveContentUrls(this.doc.body.innerHTML);
 			const endTime = Date.now();
 			return {
-				content: this.doc.body.innerHTML,
+				content: errorContent,
 				...metadata,
-				wordCount: this.countWords(this.doc.body.innerHTML),
+				wordCount: this.countWords(errorContent),
 				parseTime: Math.round(endTime - startTime),
 				metaTags: pageMetaTags
 			};
@@ -712,6 +718,62 @@ export class Defuddle {
 
 	private getComputedStyle(element: Element): CSSStyleDeclaration | null {
 		return getComputedStyle(element);
+	}
+
+	/**
+	 * Resolve relative URLs to absolute within a DOM element
+	 */
+	private resolveRelativeUrls(element: Element): void {
+		const baseUrl = this.options.url || this.doc.URL;
+		if (!baseUrl) return;
+
+		const resolve = (url: string): string => {
+			try {
+				return new URL(url, baseUrl).href;
+			} catch {
+				return url;
+			}
+		};
+
+		element.querySelectorAll('[href]').forEach(el => {
+			const href = el.getAttribute('href');
+			if (href) el.setAttribute('href', resolve(href));
+		});
+
+		element.querySelectorAll('[src]').forEach(el => {
+			const src = el.getAttribute('src');
+			if (src) el.setAttribute('src', resolve(src));
+		});
+
+		element.querySelectorAll('[srcset]').forEach(el => {
+			const srcset = el.getAttribute('srcset');
+			if (srcset) {
+				const resolved = srcset.split(',').map(entry => {
+					const parts = entry.trim().split(/\s+/);
+					if (parts[0]) parts[0] = resolve(parts[0]);
+					return parts.join(' ');
+				}).join(', ');
+				el.setAttribute('srcset', resolved);
+			}
+		});
+
+		element.querySelectorAll('[poster]').forEach(el => {
+			const poster = el.getAttribute('poster');
+			if (poster) el.setAttribute('poster', resolve(poster));
+		});
+	}
+
+	/**
+	 * Resolve relative URLs in an HTML string
+	 */
+	private resolveContentUrls(html: string): string {
+		const baseUrl = this.options.url || this.doc.URL;
+		if (!baseUrl) return html;
+
+		const container = this.doc.createElement('div');
+		container.innerHTML = html;
+		this.resolveRelativeUrls(container);
+		return container.innerHTML;
 	}
 
 	private _extractSchemaOrgData(doc: Document): any {
