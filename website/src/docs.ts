@@ -274,9 +274,9 @@ export function getDocsPage(): string {
 		<nav class="toc">
 			<ul>
 				<li><a href="#installation">Installation</a></li>
-				<li><a href="#browser">Browser usage</a></li>
-				<li><a href="#node">Node.js usage</a></li>
-				<li><a href="#cli">CLI usage</a></li>
+				<li><a href="#browser">Browser use</a></li>
+				<li><a href="#node">Node.js use</a></li>
+				<li><a href="#cli">CLI use</a></li>
 				<li><a href="#options">Options</a></li>
 				<li><a href="#response">Response</a></li>
 				<li><a href="#bundles">Bundles</a></li>
@@ -288,11 +288,11 @@ export function getDocsPage(): string {
 
 		<pre><code class="language-bash">npm install defuddle</code></pre>
 
-		<p>For Node.js usage, you also need JSDOM:</p>
+		<p>For Node.js use, you also need JSDOM:</p>
 
 		<pre><code class="language-bash">npm install defuddle jsdom</code></pre>
 
-		<h2 id="browser">Browser usage</h2>
+		<h2 id="browser">Browser use</h2>
 
 		<p>In the browser, create a Defuddle instance with a <code>Document</code> object and call <code>parse()</code>.</p>
 
@@ -317,7 +317,7 @@ const result = new Defuddle(doc).parse();</code></pre>
   debug: true
 }).parse();</code></pre>
 
-		<h2 id="node">Node.js usage</h2>
+		<h2 id="node">Node.js use</h2>
 
 		<p>The Node.js API accepts an HTML string or a JSDOM instance and returns a promise.</p>
 
@@ -341,7 +341,7 @@ const result = await Defuddle(dom, 'https://example.com/article', {
 			<strong>Note:</strong> For <code>defuddle/node</code> to import properly, your <code>package.json</code> must have <code>"type": "module"</code>.
 		</div>
 
-		<h2 id="cli">CLI usage</h2>
+		<h2 id="cli">CLI use</h2>
 
 		<p>Defuddle includes a CLI for parsing web pages from the terminal.</p>
 

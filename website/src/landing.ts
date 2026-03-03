@@ -198,7 +198,7 @@ export function getLandingPage(): string {
 	<hr class="divider">
 	<div class="bottom">
 		<div class="api-note">
-			<strong>API usage</strong><br><br>
+			<strong>API</strong><br><br>
 			<code>curl defuddle.md/stephango.com</code><br><br>
 			Returns markdown with YAML frontmatter. Append any URL path to convert it.
 		</div>
