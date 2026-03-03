@@ -7,7 +7,8 @@ import {
 	EXACT_SELECTORS,
 	PARTIAL_SELECTORS,
 	ENTRY_POINT_ELEMENTS,
-	TEST_ATTRIBUTES
+	TEST_ATTRIBUTES,
+	FOOTNOTE_LIST_SELECTORS
 } from './constants';
 import { standardizeContent } from './standardize';
 import { ContentScorer, ContentScore } from './scoring';
@@ -483,10 +484,21 @@ export class Defuddle {
 
 		// Remove all collected elements in a single pass
 		// Skip elements that are ancestors of mainContent to avoid disconnecting it
+		// Skip footnote list containers, their parents, and immediate children
 		elementsToRemove.forEach(el => {
 			if (mainContent && el.contains(mainContent)) {
 				return;
 			}
+			try {
+				if (el.matches(FOOTNOTE_LIST_SELECTORS) || el.querySelector(FOOTNOTE_LIST_SELECTORS)) {
+					return;
+				}
+				// Protect immediate children of footnote containers (e.g. wikidot div.footnote-footer)
+				const parent = el.parentElement;
+				if (parent && parent.matches(FOOTNOTE_LIST_SELECTORS)) {
+					return;
+				}
+			} catch (e) {}
 			el.remove();
 		});
 
@@ -726,11 +738,11 @@ export class Defuddle {
 		const hasTableLayout = tables.some(table => {
 			const width = parseInt(table.getAttribute('width') || '0');
 			const style = this.getComputedStyle(table);
-			return width > 400 || 
-				(style?.width.includes('px') && parseInt(style.width) > 400) ||
+			return width > 400 ||
+				(style?.width?.includes('px') && parseInt(style.width) > 400) ||
 				table.getAttribute('align') === 'center' ||
-				table.className.toLowerCase().includes('content') ||
-				table.className.toLowerCase().includes('article');
+				(table.className || '').toLowerCase().includes('content') ||
+				(table.className || '').toLowerCase().includes('article');
 		});
 
 		if (!hasTableLayout) {

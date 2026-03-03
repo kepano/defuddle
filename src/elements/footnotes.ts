@@ -76,6 +76,38 @@ class FootnoteHandler {
 		// Collect all footnotes and their IDs from footnote lists
 		const footnoteLists = element.querySelectorAll(FOOTNOTE_LIST_SELECTORS);
 		footnoteLists.forEach((list: any) => {
+			// Wikidot uses div.footnotes-footer containing div.footnote-footer children
+			if (list.matches('div.footnotes-footer')) {
+				const footnoteDivs = list.querySelectorAll('div.footnote-footer');
+				footnoteDivs.forEach((div: any) => {
+					const divId = div.id || '';
+					const match = divId.match(/^footnote-(\d+)$/);
+					if (match) {
+						const id = match[1];
+						if (!processedIds.has(id)) {
+							// Clone the div to avoid modifying the original DOM
+							const clone = div.cloneNode(true);
+							// Remove the back-link anchor
+							const backLink = clone.querySelector('a');
+							if (backLink) backLink.remove();
+							// Get remaining text and strip leading ". "
+							let text = clone.innerHTML || '';
+							text = text.replace(/^\s*\.\s*/, '');
+							const contentDiv = element.ownerDocument.createElement('div');
+							contentDiv.innerHTML = text.trim();
+							footnotes[footnoteCount] = {
+								content: contentDiv,
+								originalId: id,
+								refs: []
+							};
+							processedIds.add(id);
+							footnoteCount++;
+						}
+					}
+				});
+				return;
+			}
+
 			// Substack has individual footnote divs with no parent
 			if (list.matches('div.footnote[data-component-name="FootnoteToDOM"]')) {
 				const anchor = list.querySelector('a.footnote-number');
@@ -181,14 +213,24 @@ class FootnoteHandler {
 		const supGroups = new Map();
 
 		footnoteInlineReferences.forEach((el: any) => {
-			if (!el || !el.isConnected) return;
+			if (!el || !el.parentNode) return;
 
 			let footnoteId = '';
 			let footnoteContent = '';
 
 			// Extract footnote ID based on element type
+			// Wikidot: <sup class="footnoteref"><a id="footnoteref-N" href="javascript:;">N</a></sup>
+			if (el.matches('sup.footnoteref')) {
+				const link = el.querySelector('a[id^="footnoteref-"]');
+				if (link) {
+					const linkId = link.id || '';
+					const match = linkId.match(/^footnoteref-(\d+)$/);
+					if (match) {
+						footnoteId = match[1];
+					}
+				}
 			// Nature.com
-			if (el.matches('a[id^="ref-link"]')) {
+			} else if (el.matches('a[id^="ref-link"]')) {
 				footnoteId = el.textContent?.trim() || '';
 			// Science.org
 			} else if (el.matches('a[role="doc-biblioref"]')) {

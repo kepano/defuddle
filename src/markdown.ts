@@ -72,8 +72,27 @@ export function createMarkdownContent(content: string, url: string) {
 			}
 
 			// Process simple tables as before
-			const rows = Array.from(node.rows || []).map(row => {
-				const cells = Array.from(row.cells || []).map(cell => {
+			// Use node.rows/row.cells when available (browser/JSDOM), fall back to
+			// querySelectorAll for environments like linkedom that lack these properties
+			const tableEl = node as any;
+			const rowElements: any[] = tableEl.rows && tableEl.rows.length > 0
+				? Array.from(tableEl.rows)
+				: Array.from(node.querySelectorAll('tr')).filter((tr: any) => {
+					// Exclude rows from nested tables
+					let parent = tr.parentNode;
+					while (parent && parent !== node) {
+						if (parent.nodeName === 'TABLE') return false;
+						parent = parent.parentNode;
+					}
+					return parent === node;
+				});
+			const rows = rowElements.map((row: any) => {
+				const cellElements: any[] = row.cells && row.cells.length > 0
+					? Array.from(row.cells)
+					: Array.from(row.querySelectorAll('td, th')).filter(
+						(cell: any) => cell.parentNode === row
+					);
+				const cellContents = cellElements.map((cell: any) => {
 					// Remove newlines and trim the content
 					let cellContent = turndownService.turndown(cell.innerHTML || '')
 						.replace(/\n/g, ' ')
@@ -82,7 +101,7 @@ export function createMarkdownContent(content: string, url: string) {
 					cellContent = cellContent.replace(/\|/g, '\\|');
 					return cellContent;
 				});
-				return `| ${cells.join(' | ')} |`;
+				return `| ${cellContents.join(' | ')} |`;
 			});
 
 			if (!rows.length) return content;

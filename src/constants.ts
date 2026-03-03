@@ -187,6 +187,7 @@ export const EXACT_SELECTORS = [
 	'.Sidebar',
 	'#sidebar',
 	'#Sidebar',
+	'#side-bar',
 	'#sitesub',
 
 	// skip links
@@ -196,6 +197,8 @@ export const EXACT_SELECTORS = [
 	// other
 	'.copyright',
 	'#copyright',
+	'.licensebox',
+	'#page-info',
 	'#rss',
 	'#feed',
 	'.gutter',
@@ -780,6 +783,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'a[role="doc-biblioref"]', // Science.org
 	'a[id^="fnref"]',
 	'a[id^="ref-link"]', // Nature.com
+	'sup.footnoteref', // Wikidot
 ].join(',');
 
 export const FOOTNOTE_LIST_SELECTORS = [
@@ -797,7 +801,8 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'section[role="doc-bibliography"]',
 	'ul.footnotes-list',
 	'ul.ltx_biblist',
-	'div.footnote[data-component-name="FootnoteToDOM"]' // Substack
+	'div.footnote[data-component-name="FootnoteToDOM"]', // Substack
+	'div.footnotes-footer' // Wikidot
 ].join(',');
 
 // Elements that are allowed to be empty

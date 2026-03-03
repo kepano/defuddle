@@ -300,10 +300,14 @@ export class ContentScorer {
 	 * Returns a negative score if the element is likely not content, a positive score if it is.
 	 */
 	private static scoreNonContentBlock(element: Element): number {
-		// Skip footnote list elements
-		if (element.querySelector(FOOTNOTE_LIST_SELECTORS)) {
-			return 0;
-		}
+		// Skip footnote list elements and their descendants
+		try {
+			if (element.matches(FOOTNOTE_LIST_SELECTORS) ||
+				element.querySelector(FOOTNOTE_LIST_SELECTORS) ||
+				element.closest(FOOTNOTE_LIST_SELECTORS)) {
+				return 0;
+			}
+		} catch (e) {}
 
 		let score = 0;
 
