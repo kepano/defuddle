@@ -102,6 +102,7 @@ export function getDocsPage(): string {
 			color: #F2F0E5;
 			text-decoration: none;
 			transition: color 0.2s;
+			border-bottom: none;
 		}
 		.logo:hover {
 			color: #B7B5AC;

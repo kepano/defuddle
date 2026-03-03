@@ -54,6 +54,7 @@ export function getPlaygroundPage(prefillHtml: string = ''): string {
 			color: #F2F0E5;
 			text-decoration: none;
 			transition: color 0.2s;
+			border-bottom: none;
 		}
 
 		.logo:hover {

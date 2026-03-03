@@ -4,8 +4,8 @@ export function getLandingPage(): string {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Defuddle — Convert any web page to clean markdown</title>
-	<meta name="description" content="Convert any web page to clean, readable markdown. Just add the URL.">
+	<title>Defuddle — Get the main content of any page as markdown.</title>
+	<meta name="description" content="Get the main content of any page as clean, readable markdown.">
 	<style>
 		* {
 			margin: 0;
@@ -170,7 +170,7 @@ export function getLandingPage(): string {
 	<div class="hero">
 		<div class="hero-inner">
 			<h1>Defuddle</h1>
-			<p class="subtitle">Convert any web page to markdown.</p>
+			<p class="subtitle">Get the main content of any page as markdown.</p>
 			<div class="mode-toggle">
 				<button id="modeUrl" class="active">URL</button>
 				<button id="modeHtml">HTML</button>
