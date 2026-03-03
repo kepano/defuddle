@@ -20,14 +20,14 @@ export function getLandingPage(): string {
 		.hero {
 			min-height: 70vh;
 			display: flex;
-			align-items: center;
+			align-items: flex-start;
 			justify-content: center;
+			padding-top: 25vh;
 		}
 		.hero-inner {
 			max-width: 600px;
 			width: 100%;
 			padding: 2rem;
-			text-align: center;
 		}
 		.divider {
 			border: none;
