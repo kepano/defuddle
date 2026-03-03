@@ -143,6 +143,9 @@ export function getLandingPage(): string {
 			.button-full {
 				display: none;
 			}
+			textarea {
+				font-size: 16px;
+			}
 		}
 		.api-note {
 			padding: 1.5rem;
