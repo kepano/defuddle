@@ -4,8 +4,8 @@ export function getLandingPage(): string {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Defuddle — Get the main content of any page as markdown.</title>
-	<meta name="description" content="Get the main content of any page as clean, readable markdown.">
+	<title>Defuddle — Get the main content of any page as Markdown.</title>
+	<meta name="description" content="Get the main content of any page as clean, readable Markdown.">
 	<style>
 		* {
 			margin: 0;
@@ -172,7 +172,7 @@ export function getLandingPage(): string {
 	<div class="hero">
 		<div class="hero-inner">
 			<h1>Defuddle</h1>
-			<p class="subtitle">Get the main content of any page as markdown.</p>
+			<p class="subtitle">Get the main content of any page as Markdown.</p>
 			<div class="mode-toggle">
 				<button id="modeUrl" class="active">URL</button>
 				<button id="modeHtml">HTML</button>
@@ -185,14 +185,14 @@ export function getLandingPage(): string {
 					autocomplete="off"
 					autofocus
 				/>
-				<button type="submit">Get markdown</button>
+				<button type="submit">Get Markdown</button>
 			</form>
 			<form id="formHtml" class="form-html" style="display:none">
 				<textarea
 					id="htmlInput"
 					placeholder="Paste HTML here..."
 				></textarea>
-				<button type="submit">Get markdown</button>
+				<button type="submit">Get Markdown</button>
 			</form>
 		</div>
 	</div>
@@ -201,7 +201,7 @@ export function getLandingPage(): string {
 		<div class="api-note">
 			<strong>API</strong><br><br>
 			<code>curl defuddle.md/stephango.com</code><br><br>
-			Returns markdown with YAML frontmatter. Append any URL path to convert it.
+			Returns Markdown with YAML frontmatter. Append any URL path to convert it.
 		</div>
 		<div class="footer">
 			<a href="https://github.com/kepano/defuddle">GitHub</a>
