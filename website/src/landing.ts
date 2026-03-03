@@ -139,6 +139,11 @@ export function getLandingPage(): string {
 		button[type="submit"]:hover {
 			background: #B7B5AC;
 		}
+		@media (max-width: 480px) {
+			.button-full {
+				display: none;
+			}
+		}
 		.api-note {
 			padding: 1.5rem;
 			background: #1C1B1A;
@@ -185,14 +190,14 @@ export function getLandingPage(): string {
 					autocomplete="off"
 					autofocus
 				/>
-				<button type="submit">Get Markdown</button>
+				<button type="submit">Get<span class="button-full"> Markdown</span></button>
 			</form>
 			<form id="formHtml" class="form-html" style="display:none">
 				<textarea
 					id="htmlInput"
 					placeholder="Paste HTML here..."
 				></textarea>
-				<button type="submit">Get Markdown</button>
+				<button type="submit">Get<span class="button-full"> Markdown</span></button>
 			</form>
 		</div>
 	</div>
