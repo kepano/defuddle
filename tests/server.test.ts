@@ -53,7 +53,7 @@ describe('Server integration tests', () => {
 		expect(text.trim()).toEqual(expected.trim());
 	});
 
-	serverTest('reddit post extracts content', async () => {
+serverTest('reddit post extracts content', async () => {
 		const res = await fetch(`${SERVER_URL}/www.reddit.com/r/ObsidianMD/comments/1nvmgpp/obsidian_october_2025/`);
 		const text = await res.text();
 		const expected = loadExpected('reddit-obsidian-october-2025.md');

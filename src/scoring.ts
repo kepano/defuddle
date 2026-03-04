@@ -58,6 +58,9 @@ const navigationIndicators = [
 	'trending'
 ];
 
+// Social media profile URL pattern — used to detect author bios
+const socialProfilePattern = /\b(linkedin\.com\/(in|company)\/|twitter\.com\/(?!intent\b)\w|x\.com\/(?!intent\b)\w|facebook\.com\/(?!share\b)\w|instagram\.com\/\w|threads\.net\/\w|mastodon\.\w)/i;
+
 // Classes that indicate non-content these are elements are
 // not removed, but lower the score
 const nonContentPatterns = [
@@ -265,18 +268,44 @@ export class ContentScorer {
 		// Check if the element has a class or id that indicates content
 		const className = element.className.toLowerCase();
 		const id = element.id.toLowerCase();
-		
+
 		for (const indicator of contentIndicators) {
 			if (className.includes(indicator) || id.includes(indicator)) {
 				return true;
 			}
 		}
 
-		// Check if the element has a high text density
 		const text = element.textContent || '';
 		const words = text.split(/\s+/).length;
+
+		// Check for headings that signal non-content sections (e.g. "Related articles")
+		// even if the element has enough text/paragraphs to otherwise look like content.
+		if (words < 200) {
+			const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
+			for (let i = 0; i < headings.length; i++) {
+				const headingText = (headings[i].textContent || '').toLowerCase().trim();
+				for (const indicator of navigationIndicators) {
+					if (headingText.includes(indicator)) {
+						return false;
+					}
+				}
+			}
+		}
+
+		// Small elements containing social media profile links are likely
+		// author bios or social widgets, not article content.
+		if (words < 80) {
+			const links = element.getElementsByTagName('a');
+			for (let i = 0; i < links.length; i++) {
+				const href = (links[i].getAttribute('href') || '').toLowerCase();
+				if (socialProfilePattern.test(href)) {
+					return false;
+				}
+			}
+		}
+
 		const paragraphs = element.getElementsByTagName('p').length;
-		
+
 		// If the element has a significant amount of text and paragraphs, it's likely content
 		if (words > 50 && paragraphs > 1) {
 			return true;
@@ -337,6 +366,18 @@ export class ContentScorer {
 		const lists = element.getElementsByTagName('ul').length + element.getElementsByTagName('ol').length;
 		if (lists > 0 && links > lists * 3) {
 			score -= 10;
+		}
+
+		// Check for social media profile links (author bios, social widgets)
+		if (words < 80) {
+			const elLinks = element.getElementsByTagName('a');
+			for (let i = 0; i < elLinks.length; i++) {
+				const href = (elLinks[i].getAttribute('href') || '').toLowerCase();
+				if (socialProfilePattern.test(href)) {
+					score -= 15;
+					break;
+				}
+			}
 		}
 
 		// Check for specific class patterns that indicate non-content

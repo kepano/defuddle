@@ -870,11 +870,14 @@ export class Defuddle {
 		// higher-priority selector, prefer the most specific (deepest) child.
 		// This prevents e.g. <main> from winning over a contained <article>
 		// just because sibling noise inflates the parent's content score.
+		// Only prefer the child if it has meaningful content (>50 words),
+		// otherwise it may be an empty card element (e.g. related article cards).
 		const top = candidates[0];
 		let best = top;
 		for (let i = 1; i < candidates.length; i++) {
 			const child = candidates[i];
-			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element)) {
+			const childWords = (child.element.textContent || '').split(/\s+/).length;
+			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element) && childWords > 50) {
 				best = child;
 			}
 		}
