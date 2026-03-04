@@ -1,15 +1,16 @@
 import { parseHTML } from 'linkedom';
 import { Defuddle } from '../../src/defuddle';
-import { toMarkdown } from '../../src/markdown';
+import { toMarkdown, isMarkdownContent, cleanMarkdownContent } from '../../src/markdown';
 import type { DefuddleResponse } from '../../src/types';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';
+const BOT_UA = DEFAULT_UA + ' bot';
 
-export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
-	// Fetch the page
+async function fetchPage(targetUrl: string, userAgent: string): Promise<string> {
 	const response = await fetch(targetUrl, {
 		headers: {
-			'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
+			'User-Agent': userAgent,
 			'Accept': 'text/html,application/xhtml+xml',
 		},
 		redirect: 'follow',
@@ -19,13 +20,11 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 		throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
 	}
 
-	// Verify content type is HTML
 	const contentType = response.headers.get('content-type') || '';
 	if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
 		throw new Error(`Not an HTML page (content-type: ${contentType})`);
 	}
 
-	// Check content length if available
 	const contentLength = response.headers.get('content-length');
 	if (contentLength && parseInt(contentLength) > MAX_SIZE) {
 		throw new Error(`Page too large (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB, max 5MB)`);
@@ -37,7 +36,10 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 		throw new Error(`Page too large (${Math.round(html.length / 1024 / 1024)}MB, max 5MB)`);
 	}
 
-	// Parse with linkedom
+	return html;
+}
+
+function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
 	const { document } = parseHTML(html);
 
 	// linkedom doesn't implement styleSheets or getComputedStyle.
@@ -50,14 +52,38 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 		doc.defaultView.getComputedStyle = () => ({ display: '' });
 	}
 
-	// Run defuddle
 	const defuddle = new Defuddle(document as unknown as Document, {
 		url: targetUrl,
 	});
 
-	const result = await defuddle.parseAsync();
+	return defuddle.parse();
+}
 
-	// Convert to markdown
+export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
+	const html = await fetchPage(targetUrl, DEFAULT_UA);
+	let result = defuddleHtml(html, targetUrl);
+
+	// If no content was extracted, the page may be JS-rendered.
+	// Retry with a bot UA — some sites serve pre-rendered content to bots.
+	if (result.wordCount === 0) {
+		try {
+			const botHtml = await fetchPage(targetUrl, BOT_UA);
+			const botResult = defuddleHtml(botHtml, targetUrl);
+			if (botResult.wordCount > 0) {
+				// Some sites serve raw markdown to bots — detect and clean it
+				// instead of running through Turndown which would escape it
+				if (isMarkdownContent(botResult.content)) {
+					botResult.content = cleanMarkdownContent(botResult.content);
+				} else {
+					toMarkdown(botResult, { markdown: true }, targetUrl);
+				}
+				return botResult;
+			}
+		} catch (e) {
+			// Bot UA may be blocked — fall through to original result
+		}
+	}
+
 	toMarkdown(result, { markdown: true }, targetUrl);
 
 	return result;
