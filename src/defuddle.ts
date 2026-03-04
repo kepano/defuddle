@@ -40,23 +40,176 @@ export class Defuddle {
 	 */
 	parse(): DefuddleResponse {
 		// Try first with default settings
-		const result = this.parseInternal();
+		let result = this.parseInternal();
 
 		// If result has very little content, try again without clutter removal
 		if (result.wordCount < 200) {
 			this._log('Initial parse returned very little content, trying again');
-			const retryResult = this.parseInternal({ 
-				removePartialSelectors: false 
+			const retryResult = this.parseInternal({
+				removePartialSelectors: false
 			});
-			
+
 			// Return the result with more content
 			if (retryResult.wordCount > result.wordCount) {
 				this._log('Retry produced more content');
-				return retryResult;
+				result = retryResult;
+			}
+		}
+
+		// If schema.org has a SocialMediaPosting with text content that is
+		// longer than what we extracted, the scorer likely picked the wrong
+		// element from a feed. Find the correct element in the DOM.
+		const schemaText = this._getSchemaText(result.schemaOrgData);
+		if (schemaText && this.countWords(schemaText) > result.wordCount) {
+			const contentHtml = this._findContentBySchemaText(schemaText);
+			if (contentHtml) {
+				this._log('Found DOM content matching schema.org text');
+				result.content = contentHtml;
+				result.wordCount = this.countWords(contentHtml);
+			} else {
+				this._log('Using schema.org text as content (DOM element not found)');
+				result.content = schemaText;
+				result.wordCount = this.countWords(schemaText);
 			}
 		}
 
 		return result;
+	}
+
+	/**
+	 * Extract text content from schema.org data (e.g. SocialMediaPosting, Article)
+	 */
+	private _getSchemaText(schemaOrgData: any): string {
+		if (!schemaOrgData) return '';
+
+		const items = Array.isArray(schemaOrgData) ? schemaOrgData : [schemaOrgData];
+		for (const item of items) {
+			if (item?.text) {
+				return item.text;
+			}
+			if (item?.articleBody) {
+				return item.articleBody;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Find a DOM element whose text matches the schema.org text content.
+	 * Used when the content scorer picked the wrong element from a feed page.
+	 * Returns the element's innerHTML including sibling media (images, etc.)
+	 */
+	private _findContentBySchemaText(schemaText: string): string {
+		const body = this.doc.body;
+		if (!body) return '';
+
+		// Use the first paragraph as the search phrase.
+		// DOM textContent concatenates <p> elements without separators,
+		// so we can't cross paragraph boundaries when matching.
+		const firstPara = schemaText.split(/\n\s*\n/)[0]?.trim() || '';
+		const searchPhrase = firstPara.substring(0, 100).trim();
+		if (!searchPhrase) return '';
+
+		const schemaWordCount = this.countWords(schemaText);
+
+		// Find the smallest element whose text contains the search phrase
+		// and whose word count is close to the schema text's word count
+		let bestMatch: Element | null = null;
+		let bestSize = Infinity;
+
+		const allElements = body.querySelectorAll('*');
+		for (const el of allElements) {
+			const elText = (el.textContent || '');
+			if (!elText.includes(searchPhrase)) continue;
+
+			const elWords = elText.trim().split(/\s+/).length;
+			// Element should contain roughly the same amount of text
+			// (allow some slack for surrounding whitespace / minor extras)
+			if (elWords >= schemaWordCount * 0.8 && elWords < bestSize) {
+				bestSize = elWords;
+				bestMatch = el;
+			}
+		}
+
+		if (!bestMatch) return '';
+
+		// Read the largest sibling image src BEFORE resolveRelativeUrls
+		// can mangle comma-containing CDN URLs in srcset attributes
+		let imageSrc = '';
+		let imageAlt = '';
+		const parent = bestMatch.parentElement;
+		if (parent && parent !== body) {
+			const images = parent.querySelectorAll('img');
+			let largestImg: Element | null = null;
+			let largestArea = 0;
+			for (const img of images) {
+				if (bestMatch.contains(img)) continue;
+				const w = parseInt(img.getAttribute('width') || '0', 10);
+				const h = parseInt(img.getAttribute('height') || '0', 10);
+				const area = w * h;
+				if (area > largestArea) {
+					largestArea = area;
+					largestImg = img;
+				}
+			}
+			if (largestImg) {
+				imageSrc = this._getLargestImageSrc(largestImg);
+				imageAlt = largestImg.getAttribute('alt') || '';
+				try {
+					const baseUrl = this.options.url || this.doc.URL;
+					if (baseUrl) imageSrc = new URL(imageSrc, baseUrl).href;
+				} catch {}
+			}
+		}
+
+		// Now resolve URLs in the text content
+		this.resolveRelativeUrls(bestMatch);
+		let html = bestMatch.innerHTML;
+
+		if (imageSrc) {
+			html += `<img src="${imageSrc}" alt="${imageAlt}">`;
+		}
+
+		return html;
+	}
+
+	/**
+	 * Get the largest available src from an img element,
+	 * checking srcset for higher-resolution versions.
+	 */
+	private _getLargestImageSrc(img: Element): string {
+		const srcset = img.getAttribute('srcset') || '';
+		if (!srcset) return img.getAttribute('src') || '';
+
+		// Parse srcset entries: each ends with a width descriptor (e.g. "424w")
+		// URLs may contain commas (e.g. Substack CDN), so split on width descriptors
+		const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?)w/g;
+		let bestUrl = '';
+		let bestWidth = 0;
+		let match;
+		let lastIndex = 0;
+
+		while ((match = entryPattern.exec(srcset)) !== null) {
+			let url = match[1].trim();
+			if (lastIndex > 0) {
+				url = url.replace(/^,\s*/, '');
+			}
+			lastIndex = entryPattern.lastIndex;
+
+			const width = parseFloat(match[2]);
+			if (url && width > bestWidth) {
+				bestWidth = width;
+				bestUrl = url;
+			}
+		}
+
+		let url = bestUrl || img.getAttribute('src') || '';
+
+		// Strip CDN width/crop constraints to get the full resolution image
+		// (e.g. Cloudinary-style params: ,w_852,c_limit → removed)
+		url = url.replace(/,w_\d+/g, '').replace(/,c_\w+/g, '');
+
+		return url;
 	}
 
 	/**
@@ -818,12 +971,33 @@ export class Defuddle {
 		element.querySelectorAll('[srcset]').forEach(el => {
 			const srcset = el.getAttribute('srcset');
 			if (srcset) {
-				const resolved = srcset.split(',').map(entry => {
-					const parts = entry.trim().split(/\s+/);
-					if (parts[0]) parts[0] = resolve(parts[0]);
-					return parts.join(' ');
-				}).join(', ');
-				el.setAttribute('srcset', resolved);
+				// Parse srcset using width/density descriptors as delimiters,
+				// not commas — URLs may contain commas (e.g. CDN transform params)
+				const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
+				const entries: string[] = [];
+				let match;
+				let lastIdx = 0;
+
+				while ((match = entryPattern.exec(srcset)) !== null) {
+					let url = match[1].trim();
+					if (lastIdx > 0) {
+						url = url.replace(/^,\s*/, '');
+					}
+					lastIdx = entryPattern.lastIndex;
+					entries.push(`${resolve(url)} ${match[2]}`);
+				}
+
+				if (entries.length > 0) {
+					el.setAttribute('srcset', entries.join(', '));
+				} else {
+					// Fallback: simple comma split for srcsets without descriptors
+					const resolved = srcset.split(',').map(entry => {
+						const parts = entry.trim().split(/\s+/);
+						if (parts[0]) parts[0] = resolve(parts[0]);
+						return parts.join(' ');
+					}).join(', ');
+					el.setAttribute('srcset', resolved);
+				}
 			}
 		});
 
