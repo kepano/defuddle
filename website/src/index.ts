@@ -2,7 +2,7 @@ import './polyfill';
 import { getLandingPage } from './landing';
 import { getPlaygroundPage } from './playground';
 import { getDocsPage } from './docs';
-import { convertToMarkdown, formatResponse } from './convert';
+import { convertToMarkdown, formatResponse, parseHtml } from './convert';
 
 const PRIMARY_HOST = 'defuddle.md';
 const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
@@ -33,7 +33,7 @@ export default {
 			return new Response(null, {
 				headers: {
 					'Access-Control-Allow-Origin': '*',
-					'Access-Control-Allow-Methods': 'GET, OPTIONS',
+					'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 					'Access-Control-Allow-Headers': 'Content-Type',
 				},
 			});
@@ -58,6 +58,26 @@ export default {
 					'Content-Type': 'text/html; charset=utf-8',
 				},
 			});
+		}
+
+		// API: parse HTML to markdown
+		if (path === '/api/parse' && request.method === 'POST') {
+			try {
+				const body = await request.json() as { html: string; url?: string };
+				if (!body.html) {
+					return errorResponse('Missing "html" field in request body.', 400);
+				}
+				const result = parseHtml(body.html, body.url || '');
+				return new Response(JSON.stringify(result), {
+					headers: {
+						'Content-Type': 'application/json; charset=utf-8',
+						'Access-Control-Allow-Origin': '*',
+					},
+				});
+			} catch (err) {
+				const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+				return errorResponse(message, 500);
+			}
 		}
 
 		// Docs

@@ -282,18 +282,18 @@ export function getPlaygroundPage(prefillHtml: string = ''): string {
 				</div>
 				<div class="output-container">
 					<div class="output-tabs">
-						<button class="tab active" data-tab="content">Content</button>
+						<button class="tab active" data-tab="markdown">Markdown</button>
+						<button class="tab" data-tab="html">HTML</button>
 						<button class="tab" data-tab="metadata">Metadata</button>
-						<button class="tab" data-tab="debug">Debug</button>
 					</div>
-					<div class="tab-content active" id="content">
-						<div id="output" class="output-content"></div>
+					<div class="tab-content active" id="markdown">
+						<div id="markdownOutput" class="output-content"></div>
+					</div>
+					<div class="tab-content" id="html">
+						<div id="htmlOutput" class="output-content"></div>
 					</div>
 					<div class="tab-content" id="metadata">
 						<pre id="metadataOutput" class="output-content"></pre>
-					</div>
-					<div class="tab-content" id="debug">
-						<pre id="debugOutput" class="output-content"></pre>
 					</div>
 				</div>
 			</div>
@@ -302,13 +302,12 @@ export function getPlaygroundPage(prefillHtml: string = ''): string {
 		<div class="error-container" id="errorContainer"></div>
 	</div>
 
-	<script src="https://unpkg.com/defuddle@0.8.0/dist/index.js"></script>
 	<script>
 		var input = document.getElementById('input');
 		var urlInput = document.getElementById('url');
-		var output = document.getElementById('output');
+		var markdownOutput = document.getElementById('markdownOutput');
+		var htmlOutput = document.getElementById('htmlOutput');
 		var metadataOutput = document.getElementById('metadataOutput');
-		var debugOutput = document.getElementById('debugOutput');
 		var clearInputBtn = document.getElementById('clearInput');
 		var parseBtn = document.getElementById('parse');
 		var clearOutputBtn = document.getElementById('clearOutput');
@@ -321,50 +320,49 @@ export function getPlaygroundPage(prefillHtml: string = ''): string {
 		});
 
 		clearOutputBtn.addEventListener('click', function() {
-			output.innerHTML = '';
+			markdownOutput.textContent = '';
+			htmlOutput.textContent = '';
 			metadataOutput.textContent = '';
-			debugOutput.textContent = '';
 			hideError();
 		});
 
-		parseBtn.addEventListener('click', function() {
+		parseBtn.addEventListener('click', async function() {
 			try {
-				var parser = new DOMParser();
-				var doc = parser.parseFromString(input.value, 'text/html');
+				parseBtn.disabled = true;
+				parseBtn.textContent = 'Parsing...';
 
-				var defuddle = new Defuddle(doc, {
-					url: urlInput.value
+				var response = await fetch('/api/parse', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						html: input.value,
+						url: urlInput.value || undefined
+					})
 				});
-				var result = defuddle.parse();
+
+				if (!response.ok) {
+					throw new Error(await response.text());
+				}
+
+				var result = await response.json();
 
 				console.log('Defuddle Result:', result);
 
-				output.innerHTML = result.content;
+				markdownOutput.textContent = result.content;
+				htmlOutput.textContent = result.contentHtml;
 
-				var content = result.content;
 				var metadata = Object.assign({}, result);
 				delete metadata.content;
+				delete metadata.contentHtml;
 				metadataOutput.textContent = JSON.stringify(metadata, null, 2);
-
-				debugOutput.textContent = JSON.stringify({
-					title: result.title || null,
-					description: result.description || null,
-					domain: result.domain || null,
-					favicon: result.favicon || null,
-					image: result.image || null,
-					parseTime: result.parseTime || null,
-					published: result.published || null,
-					schemaOrgData: result.schemaOrgData || null,
-					site: result.site || null,
-					wordCount: result.wordCount || null,
-					content: result.content ? 'Content present' : 'No content'
-				}, null, 2);
 
 				hideError();
 			} catch (error) {
 				console.error('Defuddle Error:', error);
-				console.error('Error Stack:', error.stack);
 				showError(error.message);
+			} finally {
+				parseBtn.disabled = false;
+				parseBtn.textContent = 'Parse HTML';
 			}
 		});
 

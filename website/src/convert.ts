@@ -59,6 +59,13 @@ function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
 	return defuddle.parse();
 }
 
+export function parseHtml(html: string, url: string): DefuddleResponse & { contentHtml?: string } {
+	const result = defuddleHtml(html, url);
+	const contentHtml = result.content;
+	toMarkdown(result, { markdown: true }, url);
+	return { ...result, contentHtml };
+}
+
 export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
 	const html = await fetchPage(targetUrl, DEFAULT_UA);
 	let result = defuddleHtml(html, targetUrl);
