@@ -206,7 +206,6 @@ export const EXACT_SELECTORS = [
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
 	'[data-testid="photoviewer-children-figure"] > span', // New York Times
 	'table.infobox',
-	'.pencraft:not(.pc-display-contents)', // Substack
 	'[data-optimizely="related-articles-section" i]', // The Economist
 	'[data-orientation="vertical"]',
 	'.gh-header-sticky', // GitHub
