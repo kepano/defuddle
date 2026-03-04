@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+    <head>
+        <meta data-rh="true" charset="utf-8" />
+        <title data-rh="true">
+            Node.js and CPU profiling on production (in real-time without downtime)
+        </title>
+        <meta data-rh="true" name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1" />
+        <meta data-rh="true" name="theme-color" content="#000000" />
+        <meta data-rh="true" property="og:site_name" content="Medium" />
+        <meta data-rh="true" property="og:type" content="article" />
+        <meta data-rh="true" property="article:published_time" content="2019-10-18T17:23:34.816Z" />
+        <meta data-rh="true" name="title" content="Node.js and CPU profiling on production (in real-time without downtime)" />
+        <meta data-rh="true" property="og:title" content="Node.js and CPU profiling on production (in real-time without downtime)" />
+        <meta data-rh="true" name="description" content="How to run a CPU profiling with Node.js on your production in real-time and without interruption of service." />
+        <meta data-rh="true" property="og:description" content="Why CPU monitoring is important?" />
+        <meta data-rh="true" property="og:url" content="https://medium.com/voodoo-engineering/node-js-and-cpu-profiling-on-production-in-real-time-without-downtime-d6e62af173e2" />
+        <meta data-rh="true" property="og:image" content="https://miro.medium.com/max/1200/1*EO-pr4RolgcAOj_Uk1rpDA.png" />
+        <meta data-rh="true" property="article:author" content="https://medium.com/@vincentvallet" />
+        <meta data-rh="true" name="author" content="Vincent Vallet" />
+        <meta data-rh="true" name="robots" content="index,follow" />
+        <link data-rh="true" rel="author" href="https://medium.com/@vincentvallet" />
+        <link data-rh="true" rel="canonical" href="https://medium.com/voodoo-engineering/node-js-and-cpu-profiling-on-production-in-real-time-without-downtime-d6e62af173e2" />
+        <script data-rh="true" type="application/ld+json">
+        {"@context":"http://schema.org","@type":"NewsArticle","headline":"Node.js and CPU profiling on production (in real-time without downtime)","author":{"@type":"Person","name":"Vincent Vallet"},"publisher":{"@type":"Organization","name":"Voodoo Engineering"},"datePublished":"2019-10-18T17:23:34.816Z"}
+        </script>
+        <style type="text/css" data-fela-rehydration="539" data-fela-type="STATIC">
+        /*<![CDATA[*/
+        html{box-sizing:border-box}*, *:before, *:after{box-sizing:inherit}body{margin:0;padding:0;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;color:rgba(0,0,0,0.8);position:relative;min-height:100vh}h1, h2, h3, h4, h5, h6, dl, dd, ol, ul, menu, figure, blockquote, p, pre, form{margin:0}menu, ol, ul{padding:0;list-style:none;list-style-image:none}main{display:block}a{color:inherit;text-decoration:none}img, svg{vertical-align:middle}
+        /*]]>*/
+        </style>
+        <style type="text/css" data-fela-rehydration="539" data-fela-type="RULE">
+        .r{display:block}.s{position:absolute}.t{top:0}.u{left:0}.ai{width:100%}.hw{opacity:0}.hx{transition:opacity 100ms 400ms}.hy{height:100%}.by{overflow:hidden}.ie{filter:blur(20px)}.if{transform:scale(1.1)}.ig{visibility:visible}.ih{background:rgba(255, 255, 255, 1)}.ic{background-color:rgba(0, 0, 0, 0.05)}.hu{position:relative}
+        </style>
+    </head>
+    <body>
+        <div id="root">
+            <div class="a b c">
+                <nav class="r s t u c">
+                    <div>
+                        <div class="r c">
+                            <div>
+                                <div>
+                                    <div>
+                                        <a aria-label="Homepage" rel="noopener" href="/?source=post_page-----d6e62af173e2----------------------"><svg width="35" height="35" viewbox="5 5 35 35" class="q">
+                                        <path d="M5 40V5h35v35H5zm8.56-12.63c0 .56-.03.69-.32 1.03L10.8 31.4v.4h6.97v-.4L15.3 28.4c-.29-.34-.34-.5-.34-1.03v-8.95l6.13 13.36h.71l5.26-13.36v10.64c0 .3 0 .35-.19.53l-1.85 1.8v.4h9.2v-.4l-1.83-1.8c-.18-.18-.2-.24-.2-.53V15.94c0-.3.02-.35.2-.53l1.82-1.8v-.4h-6.47l-4.62 11.55-5.2-11.54h-6.8v.4l2.15 2.63c.24.3.29.37.29.77v10.35z"></path></svg></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+                <article>
+                    <section class="cn co cp cq ai cr cs"></section>
+                    <div>
+                        <section class="cy cz">
+                            <div>
+                                <div class="dd ah ai">
+                                    <div>
+                                        <div>
+                                            <h1 class="dh b dg">
+                                                Node.js and CPU profiling on production (in real-time without downtime)
+                                            </h1>
+                                        </div>
+                                        <div>
+                                            <div>
+                                                <div>
+                                                    <div>
+                                                        <a rel="noopener" href="/@vincentvallet?source=post_page-----d6e62af173e2----------------------"><img alt="Vincent Vallet" class="r ed ee ef" src="https://miro.medium.com/fit/c/96/96/1*vFTVh_mYyf0p6m7f77A3vw.jpeg" width="48" height="48" /></a>
+                                                    </div>
+                                                    <div class="ai r">
+                                                        <div>
+                                                            <span class="ax b ay dg"><span class="ax ej ek dg"><a class="eq fo" rel="noopener" href="/@vincentvallet?source=post_page-----d6e62af173e2----------------------">Vincent Vallet</a></span></span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="ax b ay bc">Oct 18, 2019 <!-- -->·<!-- --> <!-- -->8<!-- --> min read</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <h1 id="0231" class="gc gd dg ay ax ge">
+                                        Why CPU monitoring is important?
+                                    </h1>
+                                    <p id="d2c1" class="go gp dg ay gq b">
+                                        I work at <a href="http://voodoo.io/" class="eq fo hc hd he hf" target="_blank" rel="noopener nofollow">Voodoo</a>, a French company that creates mobile video games. We have a lot of challenges with performance, availability, and scalability because of the insane amount of traffic our infrastructure supports (billions of events/requests per day). In this setting, every metric is important and gives us a lot of information about the state of our system.
+                                    </p>
+                                    <p id="0e89" class="go gp dg ay gq b">
+                                        When working with Node.js one of the most critical resources to monitor is the CPU. Most of the time, when working on a low traffic API or project we don't realize how many simple lines of code can have a huge impact on CPU. On the other hand, when traffic increases, a simple mistake can cost dearly.
+                                    </p>
+                                    <p id="dce9" class="go gp dg ay gq b">
+                                        For memory, constant monitoring is the best practice to track the worst developer nightmare a.k.a memory leak.
+                                    </p>
+                                    <figure class="hm hn ho hp hq hr cp cq paragraph-image">
+                                        <div class="hs ht hu hv ai">
+                                            <div class="cp cq hl">
+                                                <div class="ib r hu ic">
+                                                    <div class="id r">
+                                                        <div class="hw hx s t u hy ai by hz ia">
+                                                            <img class="s t u hy ai ie if ig" src="https://miro.medium.com/max/60/1*5o3M5niyi911waUrKWVZ0Q.png?q=20" width="1894" height="970" role="presentation" />
+                                                        </div><img class="hw hx s t u hy ai ih" width="1894" height="970" role="presentation" /><noscript><img class="s t u hy ai" src="https://miro.medium.com/max/3788/1*5o3M5niyi911waUrKWVZ0Q.png" width="1894" height="970" role="presentation" /></noscript>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <figcaption class="bc ek ii ij ik cr cp cq ax ej">
+                                            Memory leak in action
+                                        </figcaption>
+                                    </figure>
+                                    <blockquote class="in">
+                                        <div id="6f9a" class="dh b">
+                                            <p class="dh b bc">
+                                                Stay focused on the CPU!
+                                            </p>
+                                        </div>
+                                    </blockquote>
+                                    <figure class="hm hn ho hp hq hr cp cq paragraph-image">
+                                        <div class="hs ht hu hv ai">
+                                            <div class="cp cq je">
+                                                <div class="ib r hu ic">
+                                                    <div class="jf r">
+                                                        <div class="hw hx s t u hy ai by hz ia">
+                                                            <img class="s t u hy ai ie if ig" src="https://miro.medium.com/max/60/1*8uOdeOfnUzTaFIY1r7oAMg.png?q=20" width="997" height="230" role="presentation" />
+                                                        </div><img class="hw hx s t u hy ai ih" width="997" height="230" role="presentation" /><noscript><img class="s t u hy ai" src="https://miro.medium.com/max/1994/1*8uOdeOfnUzTaFIY1r7oAMg.png" width="997" height="230" role="presentation" /></noscript>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <figcaption class="bc ek ii ij ik cr cp cq ax ej">
+                                            Basic CPU monitoring
+                                        </figcaption>
+                                    </figure>
+                                    <h1 id="8d00" class="gc gd dg ay ax ge">
+                                        CPU profiling: what's the difference with CPU monitoring?
+                                    </h1>
+                                    <p id="3e11" class="go gp dg ay gq b">
+                                        Basically, for Node.js, CPU profiling is nothing more than collecting data about functions which are CPU consuming.
+                                    </p>
+                                    <h2 id="dd40" class="jl gd dg ay ax ge">
+                                        Add arguments to Node.js
+                                    </h2>
+                                    <p id="0306" class="go gp dg ay gq b">
+                                        Node.js provides a way to collect data about CPU with two command lines.
+                                    </p>
+                                    <pre class="hm hn ho hp hq jx jy cf"><span id="16bd" class="jl gd dg ay jz b ek r kc">node --prof app.js</span></pre>
+                                    <figure class="hm hn ho hp hq hr cp cq paragraph-image">
+                                        <div class="hs ht hu hv ai">
+                                            <div class="cp cq kd">
+                                                <div class="ib r hu ic">
+                                                    <div class="ke r">
+                                                        <div class="hw hx s t u hy ai by hz ia">
+                                                            <img class="s t u hy ai ie if ig" src="https://miro.medium.com/max/60/1*e7gjTlzi55udTXbbPeEs2A.png?q=20" width="849" height="534" role="presentation" />
+                                                        </div><img class="hw hx s t u hy ai ih" width="849" height="534" role="presentation" /><noscript><img class="s t u hy ai" src="https://miro.medium.com/max/1698/1*e7gjTlzi55udTXbbPeEs2A.png" width="849" height="534" role="presentation" /></noscript>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <figcaption class="bc ek ii ij ik cr cp cq ax ej">
+                                            Output of — prof
+                                        </figcaption>
+                                    </figure>
+                                    <ul class="">
+                                        <li id="a293" class="go gp dg ay gq b kk kl km">
+                                            <p>It needs to restart the application to launch a CPU profiling</p>
+                                        </li>
+                                        <li id="9da1" class="go gp dg ay gq b kk kl km">
+                                            <p>It is NOT suited for a production environment</p>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+                        <div class="hr">
+                            <div>
+                                <div class="dd ah ai">
+                                    <figure class="hm hn ho hp hq hr paragraph-image">
+                                        <div class="hs ht hu hv ai">
+                                            <div class="cp cq ag">
+                                                <div class="ib r hu ic">
+                                                    <div class="lj r">
+                                                        <div class="hw hx s t u hy ai by hz ia">
+                                                            <img alt="CPU profiling before optimization" class="s t u hy ai ie if ig" src="https://miro.medium.com/max/60/1*CANkRN_yzl9tfrGd2F41wQ.png?q=20" width="1144" height="708" />
+                                                        </div><img alt="CPU profiling before optimization" class="hw hx s t u hy ai ih" width="1144" height="708" /><noscript><img alt="CPU profiling before optimization" class="s t u hy ai" src="https://miro.medium.com/max/2288/1*CANkRN_yzl9tfrGd2F41wQ.png" width="1144" height="708" /></noscript>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <figcaption class="bc ek ii ij ik cr cp cq ax ej">
+                                            CPU profiling before optimization
+                                        </figcaption>
+                                    </figure>
+                                </div>
+                            </div>
+                        </div>
+                        <section class="cy cz">
+                            <div>
+                                <div class="dd ah ai">
+                                    <p id="2cda" class="go gp dg ay gq b">
+                                        <strong class="gq kj">How can we identify an issue?</strong>
+                                    </p>
+                                    <p id="e0d2" class="go gp dg ay gq b">
+                                        A CPU profiling should be read like this: The wider is the block the more it consumes CPU. So we are looking for the widest blocks.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+                        <div class="hr">
+                            <div>
+                                <div class="dd ah ai">
+                                    <figure class="hm hn ho hp hq hr paragraph-image">
+                                        <div class="hs ht hu hv ai">
+                                            <div class="cp cq ag">
+                                                <div class="ib r hu ic">
+                                                    <div class="ln r">
+                                                        <div class="hw hx s t u hy ai by hz ia">
+                                                            <img alt="CPU profiling after optimization" class="s t u hy ai ie if ig" src="https://miro.medium.com/max/60/1*EO-pr4RolgcAOj_Uk1rpDA.png?q=20" width="1844" height="576" />
+                                                        </div><img alt="CPU profiling after optimization" class="hw hx s t u hy ai ih" width="1844" height="576" /><noscript><img alt="CPU profiling after optimization" class="s t u hy ai" src="https://miro.medium.com/max/3688/1*EO-pr4RolgcAOj_Uk1rpDA.png" width="1844" height="576" /></noscript>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <figcaption class="bc ek ii ij ik cr cp cq ax ej">
+                                            CPU profiling after optimization
+                                        </figcaption>
+                                    </figure>
+                                </div>
+                            </div>
+                        </div>
+                        <section class="cy cz">
+                            <div>
+                                <div class="dd ah ai">
+                                    <p id="6a3f" class="go gp dg ay gq b">
+                                        What do we observe? Blocks are a lot smaller! It means that functions consume less CPU individually.
+                                    </p>
+                                    <h1 id="5205" class="gc gd dg ay ax ge">
+                                        Conclusion
+                                    </h1>
+                                    <p id="9b9f" class="go gp dg ay gq b">
+                                        CPU profiling is a must-have for every Node.js application running on production.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </body>
+</html>

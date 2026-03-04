@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>JavaScript Links Test</title>
+</head>
+<body>
+    <article>
+        <h1>JavaScript Links Test</h1>
+
+        <p>This has a <a href="javascript:void(0)">simple js link</a> in a sentence.</p>
+
+        <p>Here is a <a href="javascript:void(0);" onclick="doSomething()">link with onclick</a> and
+        a <a href="javascript:alert('hi')">link with alert</a> that should both be unwrapped.</p>
+
+        <p>A <a href="javascript:void(0)"><strong>bold js link</strong></a> should keep its inner HTML.</p>
+
+        <p>Normal links like <a href="https://example.com">Example</a> and
+        <a href="https://example.com/page">another page</a> should stay as links.</p>
+
+        <p>Mixed: <a href="https://example.com">real link</a>, then
+        <a href="javascript:void(0)">js link</a>, then
+        <a href="https://example.com/other">another real link</a>.</p>
+    </article>
+</body>
+</html>
