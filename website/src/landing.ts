@@ -154,6 +154,10 @@ export function getLandingPage(): string {
 			text-align: left;
 			font-size: 0.9rem;
 			color: #878580;
+			line-height: 1.5;
+		}
+		.api-note p + p {
+			margin-top: 0.75rem;
 		}
 		.api-note code {
 			background: #343331;
@@ -207,9 +211,13 @@ export function getLandingPage(): string {
 	<hr class="divider">
 	<div class="bottom">
 		<div class="api-note">
-			<strong>API</strong><br><br>
-			<code>curl defuddle.md/stephango.com</code><br><br>
-			Returns Markdown with YAML frontmatter. Append any URL path to convert it.
+			<p><strong>API</strong></p>
+			<p><code>curl defuddle.md/stephango.com</code></p>
+			<p>Returns Markdown with YAML frontmatter. Append any URL path to convert it.</p>
+		</div>
+		<div class="api-note" style="margin-top: 1rem;">
+			<p><strong>Browser extension</strong></p>
+			<p>Defuddle was created for <a href="https://obsidian.md/clipper" style="color: #B7B5AC; text-decoration: underline;">Obsidian Web Clipper</a>. It runs locally and works with any site you have access to, like private content or JavaScript-rendered pages.</p>
 		</div>
 		<div class="footer">
 			<a href="https://github.com/kepano/defuddle">GitHub</a>
@@ -217,6 +225,7 @@ export function getLandingPage(): string {
 			&middot; <a href="/docs">Docs</a>
 			&middot; <a href="/playground">Playground</a>
 			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
+			&middot; by <a href="https://stephango.com">@kepano</a>
 		</div>
 	</div>
 	<script>
