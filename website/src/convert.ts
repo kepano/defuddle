@@ -39,7 +39,7 @@ async function fetchPage(targetUrl: string, userAgent: string): Promise<string> 
 	return html;
 }
 
-function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
+function createDefuddle(html: string, targetUrl: string) {
 	const { document } = parseHTML(html);
 
 	// linkedom doesn't implement styleSheets or getComputedStyle.
@@ -52,11 +52,17 @@ function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
 		doc.defaultView.getComputedStyle = () => ({ display: '' });
 	}
 
-	const defuddle = new Defuddle(document as unknown as Document, {
+	return new Defuddle(document as unknown as Document, {
 		url: targetUrl,
 	});
+}
 
-	return defuddle.parse();
+function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
+	return createDefuddle(html, targetUrl).parse();
+}
+
+async function defuddleHtmlAsync(html: string, targetUrl: string): Promise<DefuddleResponse> {
+	return createDefuddle(html, targetUrl).parseAsync();
 }
 
 export function parseHtml(html: string, url: string): DefuddleResponse & { contentHtml?: string } {
@@ -68,14 +74,14 @@ export function parseHtml(html: string, url: string): DefuddleResponse & { conte
 
 export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
 	const html = await fetchPage(targetUrl, DEFAULT_UA);
-	let result = defuddleHtml(html, targetUrl);
+	let result = await defuddleHtmlAsync(html, targetUrl);
 
 	// If no content was extracted, the page may be JS-rendered.
 	// Retry with a bot UA — some sites serve pre-rendered content to bots.
 	if (result.wordCount === 0) {
 		try {
 			const botHtml = await fetchPage(targetUrl, BOT_UA);
-			const botResult = defuddleHtml(botHtml, targetUrl);
+			const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
 			if (botResult.wordCount > 0) {
 				// Some sites serve raw markdown to bots — detect and clean it
 				// instead of running through Turndown which would escape it
