@@ -8,12 +8,40 @@ interface OembedResponse {
 	provider_name: string;
 }
 
+interface FxTwitterMediaItem {
+	type: string;
+	id: string;
+	url: string;
+	width: number;
+	height: number;
+}
+
+interface FxTwitterFacet {
+	type: string;
+	indices: [number, number];
+	id?: string;
+	display?: string;
+	original?: string;
+	replacement?: string;
+	text?: string;
+}
+
 interface FxTwitterResponse {
 	code: number;
 	tweet: {
+		text: string;
+		raw_text?: {
+			text: string;
+			facets: FxTwitterFacet[];
+		};
 		author: {
 			name: string;
 			screen_name: string;
+		};
+		created_at?: string;
+		media?: {
+			all?: FxTwitterMediaItem[];
+			photos?: FxTwitterMediaItem[];
 		};
 		article?: {
 			title: string;
@@ -74,13 +102,17 @@ export class XOembedExtractor extends BaseExtractor {
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
-		// Try FxTwitter first — handles both /article/ and /status/ URLs that are articles
-		const articleResult = await this.tryExtractArticle();
-		if (articleResult) {
-			return articleResult;
+		// Try FxTwitter first — it has full tweet text and media
+		const fxResult = await this.tryExtractFxTwitter();
+		if (fxResult) {
+			return fxResult;
 		}
 
-		// Fall back to oEmbed for normal tweets (also the fallback if FxTwitter is unavailable)
+		// Fall back to oEmbed (truncates long tweets but always available)
+		return this.extractOembed();
+	}
+
+	private async extractOembed(): Promise<ExtractorResult> {
 		const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(this.url)}&omit_script=true`;
 		const response = await fetch(oembedUrl);
 
@@ -140,14 +172,21 @@ export class XOembedExtractor extends BaseExtractor {
 		};
 	}
 
-	private async tryExtractArticle(): Promise<ExtractorResult | null> {
+	private async tryExtractFxTwitter(): Promise<ExtractorResult | null> {
 		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/(status|article)\/(\d+)/);
 		if (!match) return null;
 
 		try {
 			const data = await this.fetchFxTwitter(match[1], match[3]);
-			if (!data.tweet?.article) return null;
-			return this.buildArticleResult(data);
+			// If it's an article, use the rich article renderer
+			if (data.tweet?.article) {
+				return this.buildArticleResult(data);
+			}
+			// Otherwise use the full tweet text from FxTwitter
+			if (data.tweet?.text) {
+				return this.buildTweetResult(data);
+			}
+			return null;
 		} catch {
 			return null;
 		}
@@ -184,6 +223,133 @@ export class XOembedExtractor extends BaseExtractor {
 				description: article.preview_text,
 			}
 		};
+	}
+
+	private buildTweetResult(data: FxTwitterResponse): ExtractorResult {
+		const tweet = data.tweet;
+		const handle = `@${tweet.author.screen_name}`;
+		const contentHtml = this.renderTweet(tweet);
+
+		return {
+			content: contentHtml,
+			contentHtml,
+			variables: {
+				title: `Post by ${handle}`,
+				author: handle,
+				site: 'X (Twitter)',
+			}
+		};
+	}
+
+	private renderTweet(tweet: FxTwitterResponse['tweet']): string {
+		const text = tweet.raw_text?.text || tweet.text;
+		// Filter out media facets — FxTwitter already strips pic.twitter.com
+		// links from the text, so media facet indices are stale
+		const facets = (tweet.raw_text?.facets || []).filter(f => f.type !== 'media');
+
+		// Split text into paragraphs on double newlines
+		const paragraphs = text.split(/\n\n+/);
+		let offset = 0;
+		const htmlParts: string[] = [];
+
+		for (const para of paragraphs) {
+			const paraStart = text.indexOf(para, offset);
+			const paraEnd = paraStart + para.length;
+			offset = paraEnd;
+
+			// Check if this paragraph is a blockquote (starts with >)
+			const isBlockquote = para.trimStart().startsWith('>');
+			let paraText = isBlockquote ? para.trimStart().slice(1).trimStart() : para;
+			const paraTextStart = isBlockquote
+				? paraStart + (para.length - para.trimStart().length) + 1 + (para.trimStart().slice(1).length - para.trimStart().slice(1).trimStart().length)
+				: paraStart;
+
+			// Apply facets within this paragraph
+			const rendered = this.applyFacets(paraText, paraTextStart, paraEnd, facets);
+
+			// Handle line breaks within paragraph
+			const withBreaks = rendered.replace(/\n/g, '<br>');
+
+			if (isBlockquote) {
+				htmlParts.push(`<blockquote><p>${withBreaks}</p></blockquote>`);
+			} else if (withBreaks.trim()) {
+				htmlParts.push(`<p>${withBreaks}</p>`);
+			}
+		}
+
+		// Append media images
+		if (tweet.media?.photos) {
+			for (const photo of tweet.media.photos) {
+				htmlParts.push(`<img src="${this.escapeHtml(photo.url)}" alt="">`);
+			}
+		}
+
+		const handle = this.escapeHtml(`@${tweet.author.screen_name}`);
+		const authorName = this.escapeHtml(tweet.author.name);
+
+		return `<div class="tweet-thread"><div class="main-tweet"><div class="tweet">` +
+			`<div class="tweet-header"><span class="tweet-author"><strong>${authorName}</strong> <span class="tweet-handle">${handle}</span></span></div>` +
+			`<div class="tweet-text">${htmlParts.join('\n')}</div>` +
+			`</div></div></div>`;
+	}
+
+	private applyFacets(text: string, textStart: number, textEnd: number, facets: FxTwitterFacet[]): string {
+		// Collect facets that overlap with this text range
+		interface Marker {
+			offset: number;
+			type: 'open' | 'close';
+			tag: string;
+		}
+
+		const markers: Marker[] = [];
+
+		for (const facet of facets) {
+			const [fStart, fEnd] = facet.indices;
+			if (fEnd <= textStart || fStart >= textEnd) continue;
+
+			// Clamp to text boundaries
+			const relStart = Math.max(0, fStart - textStart);
+			const relEnd = Math.min(text.length, fEnd - textStart);
+
+			if (facet.type === 'italic') {
+				markers.push({ offset: relStart, type: 'open', tag: '<em>' });
+				markers.push({ offset: relEnd, type: 'close', tag: '</em>' });
+			} else if (facet.type === 'mention' && facet.text) {
+				const url = `https://x.com/${this.escapeHtml(facet.text)}`;
+				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
+			} else if (facet.type === 'url' && facet.original) {
+				const url = this.escapeHtml(facet.original);
+				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
+			}
+		}
+
+		if (markers.length === 0) {
+			return this.escapeHtml(text);
+		}
+
+		// Sort: by offset, closes before opens at same offset
+		markers.sort((a, b) => {
+			if (a.offset !== b.offset) return a.offset - b.offset;
+			if (a.type === 'close' && b.type === 'open') return -1;
+			if (a.type === 'open' && b.type === 'close') return 1;
+			return 0;
+		});
+
+		let result = '';
+		let pos = 0;
+		for (const marker of markers) {
+			if (marker.offset > pos) {
+				result += this.escapeHtml(text.slice(pos, marker.offset));
+			}
+			result += marker.tag;
+			pos = marker.offset;
+		}
+		if (pos < text.length) {
+			result += this.escapeHtml(text.slice(pos));
+		}
+		return result;
 	}
 
 	private renderArticle(
