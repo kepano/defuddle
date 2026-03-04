@@ -14,7 +14,3 @@ For such users, a browser extension for translation is a must-have tool. And I w
 ## Features
 
 Linguist supports full page translation, selected text translation, and translation of text in input fields.
-
----
-
-Tags: ,

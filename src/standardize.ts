@@ -183,6 +183,18 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		// Strip unwanted attributes
 		stripUnwantedAttributes(element, debug);
 
+		// Unwrap javascript: links — keep text, remove the link
+		const jsLinks = Array.from(element.querySelectorAll('a[href^="javascript:"]'));
+		jsLinks.forEach(link => {
+			while (link.firstChild) {
+				link.parentNode?.insertBefore(link.firstChild, link);
+			}
+			link.remove();
+		});
+
+		// Remove obsolete plugin elements
+		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());
+
 		// Remove empty elements
 		removeEmptyElements(element);
 

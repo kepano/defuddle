@@ -118,8 +118,8 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// Fallback to alt text or text content
-	return el.getAttribute('alt') || el.textContent?.trim() || null;
+	// Fallback to alt text only — textContent of math containers is not LaTeX
+	return el.getAttribute('alt') || null;
 };
 
 export const isBlockDisplay = (el: Element): boolean => {

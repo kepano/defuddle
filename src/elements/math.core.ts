@@ -50,15 +50,9 @@ export const mathRules = [
 			// Clean up any associated math scripts after we've extracted their content
 			if (el.parentElement) {
 				// Remove all math-related scripts and previews
-				const mathElements = el.parentElement.querySelectorAll(`
-					/* MathJax scripts and previews */
-					script[type^="math/"],
-					.MathJax_Preview,
-
-					/* External math library scripts */
-					script[type="text/javascript"][src*="mathjax"],
-					script[type="text/javascript"][src*="katex"]
-				`);
+				const mathElements = el.parentElement.querySelectorAll(
+					'script[type^="math/"], .MathJax_Preview, script[type="text/javascript"][src*="mathjax"], script[type="text/javascript"][src*="katex"]'
+				);
 				mathElements.forEach(el => el.remove());
 			}
 

@@ -1,6 +1,6 @@
 // This file serves as an entry point for math functionality
-// Webpack's alias configuration will determine whether this imports from math.core or math.full
+// Defaults to math.core (no heavy dependencies).
+// Webpack's alias configuration overrides this for the full bundle.
+// The Node.js entry point imports math.full directly.
 export type { MathData } from './math.base';
 export { mathRules, createCleanMathEl } from './math.core';
-// The actual implementation exports are handled by webpack's alias configuration
-// which will point to either math.core.ts or math.full.ts 

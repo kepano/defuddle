@@ -317,7 +317,7 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isGenericElement(node)) return false;
 			const src = node.getAttribute('src');
 			return !!src && (
-				!!src.match(/(?:youtube\.com|youtu\.be)/) ||
+				!!src.match(/(?:youtube\.com|youtube-nocookie\.com|youtu\.be)/) ||
 				!!src.match(/(?:twitter\.com|x\.com)/)
 			);
 		},
@@ -325,13 +325,19 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isGenericElement(node)) return content;
 			const src = node.getAttribute('src');
 			if (src) {
-				const youtubeMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/);
+				const youtubeMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/);
 				if (youtubeMatch && youtubeMatch[1]) {
-					return `\n![[${youtubeMatch[1]}]]\n`;
+					return `\n![](https://www.youtube.com/watch?v=${youtubeMatch[1]})\n`;
 				}
-				const tweetMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([^/]+)\/status\/([0-9]+)/);
-				if (tweetMatch && tweetMatch[2]) {
-					return `\n![[${tweetMatch[2]}]]\n`;
+				// Direct URL: /user/status/id
+				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([^/]+)\/status\/([0-9]+)/);
+				if (tweetDirectMatch) {
+					return `\n![](https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]})\n`;
+				}
+				// Platform embed: ?id=
+				const tweetEmbedMatch = src.match(/(?:https?:\/\/)?(?:platform\.)?twitter\.com\/embed\/Tweet\.html\?.*?id=([0-9]+)/);
+				if (tweetEmbedMatch) {
+					return `\n![](https://x.com/i/status/${tweetEmbedMatch[1]})\n`;
 				}
 			}
 			return content;
