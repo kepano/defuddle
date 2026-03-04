@@ -189,6 +189,9 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		// Remove trailing headings
 		removeTrailingHeadings(element);
 
+		// Remove orphaned leading/trailing <hr> elements
+		removeOrphanedDividers(element);
+
 		// Final pass of div flattening after cleanup operations
 		flattenWrapperElements(element, doc);
 
@@ -286,6 +289,34 @@ function removeTrailingHeadings(element: Element): void {
 
 	if (removedCount > 0) {
 		logDebug('Removed trailing headings:', removedCount);
+	}
+}
+
+function removeOrphanedDividers(element: Element): void {
+	// Remove leading <hr> elements (skipping whitespace text nodes)
+	while (true) {
+		let node = element.firstChild;
+		while (node && isTextNode(node) && !(node.textContent || '').trim()) {
+			node = node.nextSibling;
+		}
+		if (node && isElement(node) && (node as Element).tagName.toLowerCase() === 'hr') {
+			(node as Element).remove();
+		} else {
+			break;
+		}
+	}
+
+	// Remove trailing <hr> elements (skipping whitespace text nodes)
+	while (true) {
+		let node = element.lastChild;
+		while (node && isTextNode(node) && !(node.textContent || '').trim()) {
+			node = node.previousSibling;
+		}
+		if (node && isElement(node) && (node as Element).tagName.toLowerCase() === 'hr') {
+			(node as Element).remove();
+		} else {
+			break;
+		}
 	}
 }
 
@@ -656,7 +687,14 @@ function standardizeElements(element: Element, doc: Document): void {
 
 	// Convert elements based on standardization rules
 	ELEMENT_STANDARDIZATION_RULES.forEach(rule => {
-		const elements = element.querySelectorAll(rule.selector);
+		let elements: NodeListOf<Element>;
+		try {
+			elements = element.querySelectorAll(rule.selector);
+		} catch (e) {
+			// Some selectors use :has() which isn't supported by jsdom/nwsapi.
+			// Skip the rule gracefully in those environments.
+			return;
+		}
 		elements.forEach(el => {
 			if (rule.transform) {
 				// If there's a transform function, use it to create the new element

@@ -75,13 +75,13 @@ export const EXACT_SELECTORS = [
 	'nav',
 	'.navigation',
 	'#navigation',
-	'.hero',
+	// '.hero', // see issue #132
 	'[role="navigation" i]',
 	'[role="dialog" i]',
 	'[role*="complementary" i]',
 	'[class*="pagination" i]',
 	'.menu',
-	'#menu',
+	// '#menu', // see issue #106
 	'#siteSub',
 	// '.fixed', see issue #44
 	'.previous',
@@ -107,8 +107,8 @@ export const EXACT_SELECTORS = [
 	'#title',
 	'#Title',
 	'#articleTag',
-	'[href*="/category"]',
-	'[href*="/categories"]',
+	// '[href*="/category"]', // see issue #131
+	// '[href*="/categories"]', // see issue #131
 	'[href*="/tag/"]',
 	'[href*="/tags/"]',
 	'[href*="/topics"]',
@@ -141,8 +141,8 @@ export const EXACT_SELECTORS = [
 	'option',
 	'select',
 	'textarea',
-	'time',
-	'relative-time',
+	// 'time', // see issue #136
+	// 'relative-time', // see issue #136
 
 	// hidden
 	'[hidden]',
