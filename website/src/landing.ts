@@ -219,6 +219,11 @@ export function getLandingPage(): string {
 			<p><strong>Browser extension</strong></p>
 			<p>Defuddle was created for <a href="https://obsidian.md/clipper" style="color: #B7B5AC; text-decoration: underline;">Obsidian Web Clipper</a>. It runs locally and works with any site you have access to, like private content or JavaScript-rendered pages.</p>
 		</div>
+		<div class="api-note" style="margin-top: 1rem;">
+			<p><strong>Bookmarklets</strong></p>
+			<p>Drag these to your bookmarks bar, then click them on any page to convert it to Markdown.</p>
+			<p style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;"><a href="javascript:void(location.href='https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,''))" style="display: inline-block; padding: 0.4rem 0.8rem; background: #343331; color: #F2F0E5; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.85rem; cursor: grab;">Defuddle</a><a href="javascript:void(fetch('https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,'')).then(r=>r.text()).then(t=>{navigator.clipboard.writeText(t);document.title='\\u2705 '+document.title;setTimeout(()=>{document.title=document.title.slice(2)},2000)}).catch(()=>{window.open('https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,''))}))" style="display: inline-block; padding: 0.4rem 0.8rem; background: #343331; color: #F2F0E5; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.85rem; cursor: grab;">Copy as md</a></p>
+		</div>
 		<div class="footer">
 			<a href="https://github.com/kepano/defuddle">GitHub</a>
 			&middot; <a href="https://www.npmjs.com/package/defuddle">NPM</a>
