@@ -317,9 +317,11 @@ export class ContentScorer {
 		}
 
 		const paragraphs = element.getElementsByTagName('p').length;
+		const listItems = element.getElementsByTagName('li').length;
+		const contentBlocks = paragraphs + listItems;
 
-		// If the element has a significant amount of text and paragraphs, it's likely content
-		if (words > 50 && paragraphs > 1) {
+		// If the element has a significant amount of text and paragraphs/list items, it's likely content
+		if (words > 50 && contentBlocks > 1) {
 			return true;
 		}
 
@@ -328,8 +330,8 @@ export class ContentScorer {
 			return true;
 		}
 
-		// Check for elements with text content and some paragraphs
-		if (words > 30 && paragraphs > 0) {
+		// Check for elements with text content and some paragraphs/list items
+		if (words > 30 && contentBlocks > 0) {
 			return true;
 		}
 
