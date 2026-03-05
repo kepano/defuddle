@@ -168,6 +168,9 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	// Handle H1 elements - remove first one and convert others to H2
 	standardizeHeadings(element, metadata.title, doc);
 
+	// Wrap code elements with white-space: pre in <pre> before attribute stripping
+	wrapPreformattedCode(element, doc);
+
 	// Convert embedded content to standard formats
 	standardizeElements(element, doc);
 
@@ -228,6 +231,27 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		removeTrailingHeadings(element);
 		stripExtraBrElements(element);
 		logDebug('Debug mode: Skipping div flattening to preserve structure');
+	}
+}
+
+/**
+ * Wrap <code> elements that have white-space: pre (via inline style)
+ * in a <pre> element, so they get treated as code blocks.
+ */
+function wrapPreformattedCode(element: Element, doc: Document): void {
+	const codeElements = Array.from(element.querySelectorAll('code'));
+	for (const code of codeElements) {
+		// Skip if already inside a <pre>
+		if (code.closest('pre')) continue;
+
+		// Check inline style for white-space: pre
+		const style = code.getAttribute('style') || '';
+		if (!/white-space\s*:\s*pre/.test(style)) continue;
+
+		// Wrap in <pre>
+		const pre = doc.createElement('pre');
+		code.parentNode?.insertBefore(pre, code);
+		pre.appendChild(code);
 	}
 }
 
@@ -650,12 +674,11 @@ function removeEmptyLines(element: Element, doc: Document): void {
 				removedCount++;
 			} else {
 				// Clean up the text content while preserving important spaces
+				// Collapse newlines to spaces (CSS white-space: normal behavior)
 				const newText = text
-					.replace(/\n{3,}/g, '\n\n') // More than 2 newlines -> 2 newlines
-					.replace(/^[\n\r\t]+/, '') // Remove leading newlines/tabs (preserve spaces)
-					.replace(/[\n\r\t]+$/, '') // Remove trailing newlines/tabs (preserve spaces)
-					.replace(/[ \t]*\n[ \t]*/g, '\n') // Remove spaces around newlines
-					.replace(/[ \t]{2,}/g, ' ') // 2+ spaces -> 1 space
+					.replace(/[\n\r]+/g, ' ') // Newlines -> spaces
+					.replace(/\t+/g, ' ') // Tabs -> spaces
+					.replace(/ {2,}/g, ' ') // 2+ spaces -> 1 space
 					.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
 					.replace(/\s+([,.!?:;])/g, '$1') // Remove spaces before punctuation
 					// Clean up zero-width characters (except ZWNJ \u200C used in Farsi) and multiple non-breaking spaces

@@ -79,7 +79,7 @@ One of the original UI mockups for a Xanadoc with visible links between text blo
 
 This proposed solution relies on two other patterns – *parallel documents* and *transpointing windows* (covered below) – but the underlying principle was simply that links made their destinations clear.
 
-In lieu of Xanadoc links, the modern web has landed on some fairly decent solutions to this issue:**hover previews and unfurls**.
+In lieu of Xanadoc links, the modern web has landed on some fairly decent solutions to this issue: **hover previews and unfurls**.
 
 **Hover previews** are when you can see a preview of the page you’re headed to when you hover over a link. It’s usually an excerpt that gives you the page title, the first few lines of text, and sometimes an image. Wikipedia was one of the first major sites to [add these](https://blog.wikimedia.org/2018/04/18/how-we-designed-page-previews-for-wikipedia/) in 2018 <sub>8ya</sub> .
 

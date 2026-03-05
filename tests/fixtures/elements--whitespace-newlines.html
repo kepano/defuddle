@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Whitespace and newline handling</title>
+</head>
+<body>
+<article>
+<h2>Newlines in paragraphs</h2>
+<p>This is a paragraph with
+newlines between sentences.
+Browsers collapse these to spaces.</p>
+<p>This paragraph has
+
+
+multiple blank lines that should also collapse to spaces.</p>
+<h2>Whitespace-preserving code</h2>
+<div style="display: flex"><code style="white-space: pre">
+/ip address
+add address=192.168.88.1/24 interface=bridge1
+add address=172.16.0.1/24 interface=ether1
+</code></div>
+<p>The code above uses white-space: pre on a code element without a pre wrapper.</p>
+<pre><code>This is a normal pre+code block.
+It should be preserved as-is.
+  Including indentation.</code></pre>
+</article>
+</body>
+</html>
