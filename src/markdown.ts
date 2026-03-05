@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { parseHTML } from './utils/dom';
+import { parseHTML, serializeHTML } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -13,14 +13,12 @@ type GenericElement = {
 	querySelector: (selector: string) => Element | null;
 	querySelectorAll: (selector: string) => NodeListOf<Element>;
 	rows?: ArrayLike<{
-		cells?: ArrayLike<{
-			innerHTML?: string;
-		}>;
+		cells?: ArrayLike<{}>;
 	}>;
 	parentNode?: GenericElement | null;
 	nextSibling?: GenericElement | null;
 	nodeName: string;
-	innerHTML?: string;
+	innerHTML: string;
 	children?: ArrayLike<GenericElement>;
 	cloneNode: (deep?: boolean) => Node;
 	textContent?: string | null;
@@ -95,7 +93,7 @@ export function createMarkdownContent(content: string, url: string) {
 					);
 				const cellContents = cellElements.map((cell: any) => {
 					// Remove newlines and trim the content
-					let cellContent = turndownService.turndown(cell.innerHTML || '')
+					let cellContent = turndownService.turndown(serializeHTML(cell))
 						.replace(/\n/g, ' ')
 						.trim();
 					// Escape pipe characters
@@ -219,7 +217,7 @@ export function createMarkdownContent(content: string, url: string) {
 				const tagText = tagSpan && isGenericElement(tagSpan) ? tagSpan.textContent?.trim() : '';
 				
 				// Process the caption content, including math elements
-				let captionContent = figcaption.innerHTML || '';
+				let captionContent = serializeHTML(figcaption);
 				const ownerDoc = (node as any).ownerDocument;
 				captionContent = captionContent.replace(/<math.*?>(.*?)<\/math>/g, (match, mathContent, offset, string) => {
 					let latex = '';
@@ -322,7 +320,7 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			// Extract the heading
 			const headingNode = node.querySelector('h1, h2, h3, h4, h5, h6');
-			const headingContent = headingNode ? turndownService.turndown(headingNode.innerHTML || '') : '';
+			const headingContent = headingNode ? turndownService.turndown(serializeHTML(headingNode)) : '';
 			
 			// Remove the heading from the content
 			if (headingNode) {
@@ -330,7 +328,7 @@ export function createMarkdownContent(content: string, url: string) {
 			}
 			
 			// Convert the remaining content
-			const remainingContent = turndownService.turndown(node.innerHTML || '');
+			const remainingContent = turndownService.turndown(serializeHTML(node));
 			
 			// Construct the new markdown
 			let markdown = `${headingContent}\n\n${remainingContent}\n\n`;
@@ -354,7 +352,7 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			const items = Array.from(node.children || []).map((item, index) => {
 				if (isGenericElement(item)) {
-					const itemContent = item.innerHTML?.replace(/^<span class="ltx_tag ltx_tag_item">\d+\.<\/span>\s*/, '') || '';
+					const itemContent = (serializeHTML(item) || '').replace(/^<span class="ltx_tag ltx_tag_item">\d+\.<\/span>\s*/, '');
 					return `${index + 1}. ${turndownService.turndown(itemContent)}`;
 				}
 				return '';
@@ -420,7 +418,7 @@ export function createMarkdownContent(content: string, url: string) {
 						supElement.remove();
 					}
 					
-					const referenceContent = turndownService.turndown(li.innerHTML || '');
+					const referenceContent = turndownService.turndown(serializeHTML(li));
 					// Remove the backlink from the footnote content
 					const cleanedContent = referenceContent.replace(/\s*↩︎$/, '').trim();
 					return `[^${id?.toLowerCase()}]: ${cleanedContent}`;

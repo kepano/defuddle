@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 interface OembedResponse {
 	html: string;
@@ -138,7 +138,7 @@ export class XOembedExtractor extends BaseExtractor {
 		const blockquote = div.querySelector('blockquote');
 		const paragraphs = blockquote?.querySelectorAll('p') || [];
 		const tweetText = Array.from(paragraphs)
-			.map(p => `<p>${p.innerHTML}</p>`)
+			.map(p => `<p>${serializeHTML(p)}</p>`)
 			.join('\n');
 
 		const handle = data.author_url

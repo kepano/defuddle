@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { serializeHTML } from '../utils/dom';
 
 export class HackerNewsExtractor extends BaseExtractor {
 	private mainPost: Element | null;
@@ -78,7 +79,8 @@ export class HackerNewsExtractor extends BaseExtractor {
 		// If this is a comment page, use the comment as the main content
 		if (this.isCommentPage && this.mainComment) {
 			const author = this.mainComment.querySelector('.hnuser')?.textContent || '[deleted]';
-			const commentText = this.mainComment.querySelector('.commtext')?.innerHTML || '';
+			const commtext = this.mainComment.querySelector('.commtext');
+			const commentText = commtext ? serializeHTML(commtext) : '';
 			const timeElement = this.mainComment.querySelector('.age');
 			const timestamp = timeElement?.getAttribute('title') || '';
 			const date = timestamp.split('T')[0] || '';
@@ -110,7 +112,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 		const text = this.mainPost.querySelector('.toptext');
 		if (text) {
-			content += `<div class="post-text">${text.innerHTML}</div>`;
+			content += `<div class="post-text">${serializeHTML(text)}</div>`;
 		}
 
 		return content;
@@ -181,7 +183,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 		<a href="${commentUrl}" class="comment-link">${date}</a>
 		${points ? ` • <span class="comment-points">${points}</span>` : ''}
 	</div>
-	<div class="comment-content">${commentText.innerHTML}</div>
+	<div class="comment-content">${serializeHTML(commentText)}</div>
 </div>`;
 
 			currentDepth = depth;

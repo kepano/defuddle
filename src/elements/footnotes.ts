@@ -1,5 +1,5 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES } from '../constants';
-import { transferContent, parseHTML } from '../utils/dom';
+import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
 
 // Use the global DOM types
 interface FootnoteData {
@@ -95,7 +95,7 @@ class FootnoteHandler {
 							const backLink = clone.querySelector('a');
 							if (backLink) backLink.remove();
 							// Get remaining text and strip leading ". "
-							let text = clone.innerHTML || '';
+							let text = serializeHTML(clone);
 							text = text.replace(/^\s*\.\s*/, '');
 							const contentDiv = element.ownerDocument.createElement('div');
 							contentDiv.appendChild(parseHTML(element.ownerDocument, text.trim()));

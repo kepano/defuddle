@@ -1,5 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
+import { serializeHTML } from '../utils/dom';
 
 export class GrokExtractor extends ConversationExtractor {
 	// Note: This selector relies heavily on CSS utility classes and may break if Grok's UI changes.
@@ -57,7 +58,7 @@ export class GrokExtractor extends ConversationExtractor {
 				clonedBubble.querySelector('.relative.border.border-border-l1.bg-surface-base')?.remove();
 				// Add selectors here for any other known elements to remove (e.g., buttons, toolbars within the bubble)
 
-				content = clonedBubble.innerHTML;
+				content = serializeHTML(clonedBubble);
 
 				// Process footnotes/links in the cleaned content
 				content = this.processFootnotes(content);

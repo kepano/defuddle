@@ -1,5 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata } from '../types/extractors';
+import { serializeHTML } from '../utils/dom';
 
 export class ClaudeExtractor extends ConversationExtractor {
 	private articles: NodeListOf<Element> | null;
@@ -27,7 +28,7 @@ export class ClaudeExtractor extends ConversationExtractor {
 				// Handle user messages
 				if (article.getAttribute('data-testid') === 'user-message') {
 					role = 'you';
-					content = article.innerHTML;
+					content = serializeHTML(article);
 				}
 				// Skip non-message elements
 				else {
@@ -37,7 +38,7 @@ export class ClaudeExtractor extends ConversationExtractor {
 				// Handle Claude messages
 				role = 'assistant';
 				const assistantBody = (article.querySelector('.standard-markdown') as HTMLElement) || (article as HTMLElement);
-				content = assistantBody.innerHTML;
+				content = serializeHTML(assistantBody);
 			} else {
 				// Skip unknown elements
 				return;

@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class GitHubExtractor extends BaseExtractor {
 	canExtract(): boolean {
@@ -145,7 +145,7 @@ export class GitHubExtractor extends BaseExtractor {
 		const cleanBody = bodyElement.cloneNode(true) as Element;
 		cleanBody.querySelectorAll('button, [data-testid*="button"], [data-testid*="menu"]').forEach(el => el.remove());
 		cleanBody.querySelectorAll('.js-clipboard-copy, .zeroclipboard-container').forEach(el => el.remove());
-		return cleanBody.innerHTML.trim();
+		return serializeHTML(cleanBody).trim();
 	}
 
 	private extractIssueNumber(): string {

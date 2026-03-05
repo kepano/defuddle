@@ -16,6 +16,23 @@ export function transferContent(source: Node, target: Node): void {
 }
 
 /**
+ * Read an element's inner HTML.
+ */
+export function serializeHTML(el: { innerHTML: string }): string {
+	return el.innerHTML;
+}
+
+/**
+ * Decode HTML entities in a string (e.g. `&amp;` → `&`).
+ * Uses a <textarea> element which is safe for entity decoding.
+ */
+export function decodeHTMLEntities(doc: Document, text: string): string {
+	const textarea = doc.createElement('textarea');
+	textarea.innerHTML = text;
+	return textarea.value;
+}
+
+/**
  * Parse an HTML string into a DocumentFragment.
  * Uses a <template> element when available (safer: no script execution,
  * no resource loading). Falls back to a <div> for environments that

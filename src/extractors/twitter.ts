@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class TwitterExtractor extends BaseExtractor {
 	private mainTweet: Element | null = null;
@@ -100,7 +100,7 @@ export class TwitterExtractor extends BaseExtractor {
 		});
 
 		// Get cleaned text and split into paragraphs
-		const cleanText = tempDiv.innerHTML;
+		const cleanText = serializeHTML(tempDiv);
 		const paragraphs = cleanText.split('\n')
 			.map(line => line.trim())
 			.filter(line => line);
@@ -125,7 +125,8 @@ export class TwitterExtractor extends BaseExtractor {
 			}
 		});
 
-		const tweetText = tweetClone.querySelector('[data-testid="tweetText"]')?.innerHTML || '';
+		const tweetTextEl = tweetClone.querySelector('[data-testid="tweetText"]');
+		const tweetText = tweetTextEl ? serializeHTML(tweetTextEl) : '';
 		const formattedText = this.formatTweetText(tweetText);
 		const images = this.extractImages(tweet);
 		

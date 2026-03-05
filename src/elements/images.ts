@@ -3,7 +3,7 @@
  */
 
 import { isElement, isTextNode } from '../utils';
-import { transferContent, parseHTML } from '../utils/dom';
+import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
 
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
@@ -686,8 +686,8 @@ function extractUniqueCaptionContent(caption: Element): string {
 		return textNodes.join(' ');
 	}
 	
-	// Otherwise, just use the innerHTML but try to clean it up
-	const html = caption.innerHTML;
+	// Otherwise, just use the inner HTML but try to clean it up
+	const html = serializeHTML(caption);
 	
 	return html;
 }

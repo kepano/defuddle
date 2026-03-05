@@ -1,6 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class GeminiExtractor extends ConversationExtractor {
 	private conversationContainers: NodeListOf<Element> | null;
@@ -30,7 +30,7 @@ export class GeminiExtractor extends ConversationExtractor {
 			if (userQuery) {
 				const queryText = userQuery.querySelector('.query-text');
 				if (queryText) {
-					const content = queryText.innerHTML || '';
+					const content = serializeHTML(queryText);
 					messages.push({
 						author: 'You',
 						content: content.trim(),
@@ -46,7 +46,7 @@ export class GeminiExtractor extends ConversationExtractor {
 				const contentElement = extendedContent || regularContent;
 
 				if (contentElement) {
-					let content = contentElement.innerHTML || '';
+					let content = serializeHTML(contentElement);
 					
 					const tempDiv = this.document.createElement('div');
 					tempDiv.appendChild(parseHTML(this.document, content));
@@ -56,7 +56,7 @@ export class GeminiExtractor extends ConversationExtractor {
 						el.classList.remove('table-content');
 					});
 
-					content = tempDiv.innerHTML;
+					content = serializeHTML(tempDiv);
 					
 					messages.push({
 						author: 'Gemini',

@@ -13,7 +13,7 @@ import {
 import { standardizeContent } from './standardize';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle } from './utils';
-import { parseHTML } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -142,7 +142,7 @@ export class Defuddle {
 	/**
 	 * Find a DOM element whose text matches the schema.org text content.
 	 * Used when the content scorer picked the wrong element from a feed page.
-	 * Returns the element's innerHTML including sibling media (images, etc.)
+	 * Returns the element's inner HTML including sibling media (images, etc.)
 	 */
 	private _findContentBySchemaText(schemaText: string): string {
 		const body = this.doc.body;
@@ -209,7 +209,7 @@ export class Defuddle {
 
 		// Now resolve URLs in the text content
 		this.resolveRelativeUrls(bestMatch);
-		let html = bestMatch.innerHTML;
+		let html = serializeHTML(bestMatch);
 
 		if (imageSrc) {
 			const img = this.doc.createElement('img');
@@ -376,7 +376,7 @@ export class Defuddle {
 			// Find main content
 			const mainContent = this.findMainContent(clone);
 			if (!mainContent) {
-				const fallbackContent = this.resolveContentUrls(this.doc.body.innerHTML);
+				const fallbackContent = this.resolveContentUrls(serializeHTML(this.doc.body));
 				const endTime = Date.now();
 				return {
 					content: fallbackContent,
@@ -420,7 +420,7 @@ export class Defuddle {
 			};
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this.resolveContentUrls(this.doc.body.innerHTML);
+			const errorContent = this.resolveContentUrls(serializeHTML(this.doc.body));
 			const endTime = Date.now();
 			return {
 				content: errorContent,
@@ -1060,7 +1060,7 @@ export class Defuddle {
 		const container = this.doc.createElement('div');
 		container.appendChild(parseHTML(this.doc, html));
 		this.resolveRelativeUrls(container);
-		return container.innerHTML;
+		return serializeHTML(container);
 	}
 
 	private _extractSchemaOrgData(doc: Document): any {
@@ -1126,8 +1126,6 @@ export class Defuddle {
 	}
 
 	private _decodeHTMLEntities(text: string): string {
-		const textarea = this.doc.createElement('textarea');
-		textarea.innerHTML = text;
-		return textarea.value;
+		return decodeHTMLEntities(this.doc, text);
 	}
 } 

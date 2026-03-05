@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class RedditExtractor extends BaseExtractor {
 	private shredditPost: Element | null;
@@ -97,7 +97,8 @@ export class RedditExtractor extends BaseExtractor {
 		const postTitle = thingLink?.querySelector('a.title')?.textContent?.trim() || '';
 		const postAuthor = thingLink?.getAttribute('data-author') || '';
 		const subreddit = thingLink?.getAttribute('data-subreddit') || '';
-		const postBody = thingLink?.querySelector('.usertext-body .md')?.innerHTML || '';
+		const postBodyEl = thingLink?.querySelector('.usertext-body .md');
+		const postBody = postBodyEl ? serializeHTML(postBodyEl) : '';
 
 		const commentArea = root.querySelector('.commentarea .sitetable');
 		const comments = commentArea ? this.processOldRedditComments(commentArea) : '';
@@ -123,7 +124,8 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	private getPostContent(): string {
-		const textBody = this.shredditPost?.querySelector('[slot="text-body"]')?.innerHTML || '';
+		const textBodyEl = this.shredditPost?.querySelector('[slot="text-body"]');
+		const textBody = textBodyEl ? serializeHTML(textBodyEl) : '';
 		const mediaBody = this.shredditPost?.querySelector('#post-image')?.outerHTML || '';
 		
 		return textBody + mediaBody;
@@ -187,7 +189,8 @@ export class RedditExtractor extends BaseExtractor {
 		const timeEl = comment.querySelector('.entry .tagline time[datetime]');
 		const datetime = timeEl?.getAttribute('datetime') || '';
 		const date = datetime ? new Date(datetime).toISOString().split('T')[0] : '';
-		const body = comment.querySelector('.entry .usertext-body .md')?.innerHTML || '';
+		const bodyEl = comment.querySelector('.entry .usertext-body .md');
+		const body = bodyEl ? serializeHTML(bodyEl) : '';
 
 		let html = '<blockquote>';
 		html += `<div class="comment">
@@ -222,7 +225,8 @@ export class RedditExtractor extends BaseExtractor {
 			const author = comment.getAttribute('author') || '';
 			const score = comment.getAttribute('score') || '0';
 			const permalink = comment.getAttribute('permalink') || '';
-			const content = comment.querySelector('[slot="comment"]')?.innerHTML || '';
+			const commentEl = comment.querySelector('[slot="comment"]');
+			const content = commentEl ? serializeHTML(commentEl) : '';
 			
 			// Get timestamp from faceplate-timeago element
 			const timeElement = comment.querySelector('faceplate-timeago');

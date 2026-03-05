@@ -1,6 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
 	private articles: NodeListOf<Element> | null;
@@ -43,14 +43,14 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				currentAuthorRole = authorRole;
 			}
 
-			let messageContent = article.innerHTML || '';
+			let messageContent = serializeHTML(article);
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
 			const tempDiv = this.document.createElement('div');
 			tempDiv.appendChild(parseHTML(this.document, messageContent));
 			tempDiv.querySelectorAll('h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
-			messageContent = tempDiv.innerHTML;
+			messageContent = serializeHTML(tempDiv);
 
 			// Process inline references using regex to find the containers
 			// Look for spans containing citation links (a[target=_blank][rel=noopener]), replacing entire structure

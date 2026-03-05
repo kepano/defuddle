@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { serializeHTML } from '../utils/dom';
 
 const SELECTORS = {
 	ARTICLE_CONTAINER: '[data-testid="twitterArticleRichTextView"]',
@@ -91,7 +92,7 @@ export class XArticleExtractor extends BaseExtractor {
 		const clone = this.articleContainer.cloneNode(true) as HTMLElement;
 		this.cleanContent(clone);
 
-		return `<article class="x-article">${clone.innerHTML}</article>`;
+		return `<article class="x-article">${serializeHTML(clone)}</article>`;
 	}
 
 	private cleanContent(container: HTMLElement): void {
