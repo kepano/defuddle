@@ -38,71 +38,6 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
-/**
- * Detect if content is already markdown rather than HTML.
- * Some sites (e.g. Obsidian Publish) serve raw markdown in a text node
- * for bot user agents. Running Turndown on this would double-escape it.
- */
-export function isMarkdownContent(content: string): boolean {
-	// Strip all HTML tags to get just the text content
-	const textOnly = content.replace(/<[^>]+>/g, '').trim();
-	if (!textOnly) return false;
-
-	// Calculate ratio of text to HTML tags
-	const tagMatches = content.match(/<[^>]+>/g) || [];
-	const totalTagLength = tagMatches.reduce((sum, tag) => sum + tag.length, 0);
-	const textRatio = textOnly.length / (textOnly.length + totalTagLength);
-
-	// Content-bearing HTML would have many tags relative to text.
-	// Raw markdown in a wrapper div has very high text ratio.
-	if (textRatio < 0.75) return false;
-
-	// Strip fenced code blocks before checking for HTML tags,
-	// since code blocks may contain HTML examples
-	const withoutCodeBlocks = content.replace(/```[\s\S]*?```/g, '');
-
-	// Check for block-level content HTML tags that indicate real HTML structure.
-	// Exclude wrapper tags like <body>, <div> and non-content tags like <svg>.
-	const contentHtmlTags = /<(?:p|h[1-6]|ul|ol|li|table|thead|tbody|tr|td|th|blockquote|section|article|figure|figcaption|details|summary|dl|dt|dd|pre)\b[^>]*>/i;
-	if (contentHtmlTags.test(withoutCodeBlocks)) return false;
-
-	// Count markdown-specific patterns in the text
-	let markdownSignals = 0;
-	if (/^#{1,6}\s+\S/m.test(textOnly)) markdownSignals++; // ATX headings
-	if (/\*\*[^*\n]+\*\*/m.test(textOnly)) markdownSignals++; // Bold
-	if (/\[[^\]]+\]\([^)]+\)/m.test(textOnly)) markdownSignals++; // Links
-	if (/^\s*[-*+]\s+\S/m.test(textOnly)) markdownSignals++; // Unordered lists
-	if (/^\s*\d+\.\s+\S/m.test(textOnly)) markdownSignals++; // Ordered lists
-	if (/^>\s+\S/m.test(textOnly)) markdownSignals++; // Blockquotes
-	if (/```/m.test(textOnly)) markdownSignals++; // Code blocks
-
-	return markdownSignals >= 2;
-}
-
-/**
- * Clean up raw markdown content that doesn't need Turndown conversion.
- * Strips residual HTML wrapper tags and decodes entities.
- */
-export function cleanMarkdownContent(content: string): string {
-	let markdown = content
-		.replace(/<[^>]+>/g, '')
-		.replace(/&amp;/g, '&')
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;/g, "'")
-		.trim();
-
-	const titleMatch = markdown.match(/^# .+\n+/);
-	if (titleMatch) {
-		markdown = markdown.slice(titleMatch[0].length);
-	}
-
-	markdown = markdown.replace(/\n{3,}/g, '\n\n');
-
-	return markdown.trim();
-}
-
 export function createMarkdownContent(content: string, url: string) {
 	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
@@ -234,8 +169,12 @@ export function createMarkdownContent(content: string, url: string) {
 			// Calculate the nesting level
 			let level = 0;
 			let currentParent = node.parentNode;
-			while (currentParent && isGenericElement(currentParent) && (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL')) {
-				level++;
+			while (currentParent && isGenericElement(currentParent)) {
+				if (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL') {
+					level++;
+				} else if (currentParent.nodeName !== 'LI') {
+					break;
+				}
 				currentParent = currentParent.parentNode;
 			}
 

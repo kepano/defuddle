@@ -1,6 +1,6 @@
 import { parseHTML } from 'linkedom';
 import { Defuddle } from '../../src/defuddle';
-import { toMarkdown, isMarkdownContent, cleanMarkdownContent } from '../../src/markdown';
+import { toMarkdown } from '../../src/markdown';
 import type { DefuddleResponse } from '../../src/types';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -81,15 +81,22 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 	if (result.wordCount === 0) {
 		try {
 			const botHtml = await fetchPage(targetUrl, BOT_UA);
+
+			// Check for raw markdown in the HTML before DOM parsing destroys
+			// whitespace (e.g. tab-indented lists). Some sites like Obsidian
+			// Publish embed raw markdown in a text node for bot UAs.
+			const rawMarkdown = extractRawMarkdown(botHtml);
+			if (rawMarkdown) {
+				// Use raw markdown content (preserves whitespace like tab indentation)
+				// but keep metadata from Defuddle's parsing
+				const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
+				botResult.content = cleanMarkdownContent(rawMarkdown);
+				botResult.wordCount = botResult.content.split(/\s+/).filter(w => w.length > 0).length;
+				return botResult;
+			}
 			const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
 			if (botResult.wordCount > 0) {
-				// Some sites serve raw markdown to bots — detect and clean it
-				// instead of running through Turndown which would escape it
-				if (isMarkdownContent(botResult.content)) {
-					botResult.content = cleanMarkdownContent(botResult.content);
-				} else {
-					toMarkdown(botResult, { markdown: true }, targetUrl);
-				}
+				toMarkdown(botResult, { markdown: true }, targetUrl);
 				return botResult;
 			}
 		} catch (e) {
@@ -100,6 +107,68 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 	toMarkdown(result, { markdown: true }, targetUrl);
 
 	return result;
+}
+
+/**
+ * Extract raw markdown from HTML before DOM parsing.
+ * Some sites (e.g. Obsidian Publish) embed raw markdown in a text node
+ * for bot user agents. DOM parsing destroys whitespace like tab indentation,
+ * so we extract it from the raw HTML string.
+ */
+function extractRawMarkdown(html: string): string | null {
+	// Look for a text block that appears to be raw markdown inside body.
+	// Obsidian Publish puts it in <div class="preload">...</div>
+	const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+	if (!bodyMatch) return null;
+
+	// Strip script/style/noscript elements and their content, then strip remaining tags
+	const textContent = bodyMatch[1]
+		.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, '')
+		.replace(/<[^>]+>/g, '')
+		.trim();
+	if (!textContent || !isMarkdownContent(textContent)) return null;
+
+	return textContent;
+}
+
+/**
+ * Detect if tag-stripped content looks like markdown.
+ * Expects input with HTML tags already removed by extractRawMarkdown.
+ */
+function isMarkdownContent(content: string): boolean {
+	let signals = 0;
+	if (/^#{1,6}\s+\S/m.test(content)) signals++;
+	if (/\*\*[^*\n]+\*\*/m.test(content)) signals++;
+	if (/\[[^\]]+\]\([^)]+\)/m.test(content)) signals++;
+	if (/^\s*[-*+]\s+\S/m.test(content)) signals++;
+	if (/^\s*\d+\.\s+\S/m.test(content)) signals++;
+	if (/^>\s+\S/m.test(content)) signals++;
+	if (/```/m.test(content)) signals++;
+
+	return signals >= 2;
+}
+
+/**
+ * Clean up raw markdown content. Decodes HTML entities and removes leading title.
+ * Expects input with HTML tags already removed by extractRawMarkdown.
+ */
+function cleanMarkdownContent(content: string): string {
+	let markdown = content
+		.replace(/&amp;/g, '&')
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.trim();
+
+	const titleMatch = markdown.match(/^# .+\n+/);
+	if (titleMatch) {
+		markdown = markdown.slice(titleMatch[0].length);
+	}
+
+	markdown = markdown.replace(/\n{3,}/g, '\n\n');
+
+	return markdown.trim();
 }
 
 export function formatResponse(result: DefuddleResponse, sourceUrl: string): string {

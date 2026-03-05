@@ -498,21 +498,21 @@ The next couple of posts (if I finish them before the end of the world) will pre
 	- **Conditioning.** GPT can be controlled to an impressive extent by prompt programming. Conditioning preserves distributional properties in potentially desirable but also potentially undesirable ways, and it’s not clear how out-of-distribution conditions will be interpreted by powerful simulators.
 		- Several posts have been made about this recently:
 			- [Conditioning Generative Models](https://lesswrong.com/posts/nXeLPcT9uhfG3TMPS/conditioning-generative-models).) and [Conditioning Generative Models with Restrictions](https://lesswrong.com/posts/adiszfnFgPEnRsGSr/conditioning-generative-models-with-restrictions) by Adam Jermyn
-			- [Conditioning Generative Models for Alignment](https://lesswrong.com/posts/JqnkeqaPseTgxLgEL/conditioning-generative-models-for-alignment) by Jozdien
-			- [Training goals for large language models](https://lesswrong.com/posts/dWJNFHnC4bkdbovug/training-goals-for-large-language-models) by Johannes Treutlein
-			- [Strategy For Conditioning Generative Models](https://lesswrong.com/posts/HAz7apopTzozrqW2k/strategy-for-conditioning-generative-models) by James Lucassen and Evan Hubinger
-		- Instead of conditioning on a prompt ("observable" variables), we might also control generative models by [conditioning on latents](https://rome.baulab.info/).
-	- **Distribution specification.** What kind of conditional distributions could be used for training data for a simulator? For example, the [decision transformer](https://arxiv.org/abs/2106.01345) dataset is constructed for the intent of outcome-conditioning.
-	- **Other methods.** When pretrained simulators are modified by methods like [reinforcement learning from human feedback](https://arxiv.org/abs/2009.01325), [rejection sampling](https://lesswrong.com/posts/k7oxdbNaGATZbtEg3/redwood-research-s-current-project), [STaR](https://arxiv.org/abs/2203.14465), etc, how do we expect their behavior to diverge from the simulation objective?
+						- [Conditioning Generative Models for Alignment](https://lesswrong.com/posts/JqnkeqaPseTgxLgEL/conditioning-generative-models-for-alignment) by Jozdien
+						- [Training goals for large language models](https://lesswrong.com/posts/dWJNFHnC4bkdbovug/training-goals-for-large-language-models) by Johannes Treutlein
+						- [Strategy For Conditioning Generative Models](https://lesswrong.com/posts/HAz7apopTzozrqW2k/strategy-for-conditioning-generative-models) by James Lucassen and Evan Hubinger
+				- Instead of conditioning on a prompt ("observable" variables), we might also control generative models by [conditioning on latents](https://rome.baulab.info/).
+		- **Distribution specification.** What kind of conditional distributions could be used for training data for a simulator? For example, the [decision transformer](https://arxiv.org/abs/2106.01345) dataset is constructed for the intent of outcome-conditioning.
+		- **Other methods.** When pretrained simulators are modified by methods like [reinforcement learning from human feedback](https://arxiv.org/abs/2009.01325), [rejection sampling](https://lesswrong.com/posts/k7oxdbNaGATZbtEg3/redwood-research-s-current-project), [STaR](https://arxiv.org/abs/2203.14465), etc, how do we expect their behavior to diverge from the simulation objective?
 - **Simulacra alignment.** What can and what should we simulate, and how do we specify/control it?
 - **How does predictive learning generalize?** Many of the above considerations are influenced by how predictive learning generalizes out-of-distribution..
 	- What are the relevant inductive biases?
-	- What factors influence generalization behavior?
-	- Will powerful models predict [self-fulfilling](https://lesswrong.com/posts/JqnkeqaPseTgxLgEL/conditioning-generative-models-for-alignment) [prophecies](https://lesswrong.com/posts/dWJNFHnC4bkdbovug/training-goals-for-large-language-models)?
+		- What factors influence generalization behavior?
+		- Will powerful models predict [self-fulfilling](https://lesswrong.com/posts/JqnkeqaPseTgxLgEL/conditioning-generative-models-for-alignment) [prophecies](https://lesswrong.com/posts/dWJNFHnC4bkdbovug/training-goals-for-large-language-models)?
 - **Simulator inner alignment.** If simulators are not inner aligned, then many important properties like prediction orthogonality may not hold.
 	- Should we expect self-supervised predictive models to be aligned to the simulation objective, or to “care” about some other mesaobjective?
-	- Why mechanistically should mesaoptimizers form in predictive learning, versus for instance in reinforcement learning or GANs?
-	- How would we test if simulators are inner aligned?
+		- Why mechanistically should mesaoptimizers form in predictive learning, versus for instance in reinforcement learning or GANs?
+		- How would we test if simulators are inner aligned?
 
 ## A note on GANs
 
