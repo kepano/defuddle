@@ -211,7 +211,10 @@ export class Defuddle {
 		let html = bestMatch.innerHTML;
 
 		if (imageSrc) {
-			html += `<img src="${imageSrc}" alt="${imageAlt}">`;
+			const img = this.doc.createElement('img');
+			img.setAttribute('src', imageSrc);
+			img.setAttribute('alt', imageAlt);
+			html += img.outerHTML;
 		}
 
 		return html;
