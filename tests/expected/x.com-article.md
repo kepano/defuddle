@@ -2,7 +2,7 @@
 {
   "title": "Lorem Ipsum Dolor Sit Amet",
   "author": "Jane Doe (@janedoe)",
-  "site": "",
+  "site": "X (Twitter)",
   "published": ""
 }
 ```

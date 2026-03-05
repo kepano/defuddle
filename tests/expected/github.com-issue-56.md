@@ -2,7 +2,7 @@
 {
   "title": "Defuddle on Cloudflare Workers · Issue #56 · kepano/defuddle",
   "author": "jmorrell",
-  "site": "GitHub",
+  "site": "GitHub - kepano/defuddle",
   "published": "2025-05-25T20:35:48.000Z"
 }
 ```

@@ -85,6 +85,12 @@ interface DraftEntityMapEntry {
 	};
 }
 
+interface Marker {
+	offset: number;
+	type: 'open' | 'close';
+	tag: string;
+}
+
 export class XOembedExtractor extends BaseExtractor {
 	canExtract(): boolean {
 		return false;
@@ -293,43 +299,11 @@ export class XOembedExtractor extends BaseExtractor {
 			`</div></div></div>`;
 	}
 
-	private applyFacets(text: string, textStart: number, textEnd: number, facets: FxTwitterFacet[]): string {
-		// Collect facets that overlap with this text range
-		interface Marker {
-			offset: number;
-			type: 'open' | 'close';
-			tag: string;
-		}
-
-		const markers: Marker[] = [];
-
-		for (const facet of facets) {
-			const [fStart, fEnd] = facet.indices;
-			if (fEnd <= textStart || fStart >= textEnd) continue;
-
-			// Clamp to text boundaries
-			const relStart = Math.max(0, fStart - textStart);
-			const relEnd = Math.min(text.length, fEnd - textStart);
-
-			if (facet.type === 'italic') {
-				markers.push({ offset: relStart, type: 'open', tag: '<em>' });
-				markers.push({ offset: relEnd, type: 'close', tag: '</em>' });
-			} else if (facet.type === 'mention' && facet.text) {
-				const url = `https://x.com/${this.escapeHtml(facet.text)}`;
-				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
-				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
-			} else if (facet.type === 'url' && facet.original) {
-				const url = this.escapeHtml(facet.original);
-				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
-				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
-			}
-		}
-
+	private applyMarkers(text: string, markers: Marker[]): string {
 		if (markers.length === 0) {
 			return this.escapeHtml(text);
 		}
 
-		// Sort: by offset, closes before opens at same offset
 		markers.sort((a, b) => {
 			if (a.offset !== b.offset) return a.offset - b.offset;
 			if (a.type === 'close' && b.type === 'open') return -1;
@@ -350,6 +324,33 @@ export class XOembedExtractor extends BaseExtractor {
 			result += this.escapeHtml(text.slice(pos));
 		}
 		return result;
+	}
+
+	private applyFacets(text: string, textStart: number, textEnd: number, facets: FxTwitterFacet[]): string {
+		const markers: Marker[] = [];
+
+		for (const facet of facets) {
+			const [fStart, fEnd] = facet.indices;
+			if (fEnd <= textStart || fStart >= textEnd) continue;
+
+			const relStart = Math.max(0, fStart - textStart);
+			const relEnd = Math.min(text.length, fEnd - textStart);
+
+			if (facet.type === 'italic') {
+				markers.push({ offset: relStart, type: 'open', tag: '<em>' });
+				markers.push({ offset: relEnd, type: 'close', tag: '</em>' });
+			} else if (facet.type === 'mention' && facet.text) {
+				const url = `https://x.com/${this.escapeHtml(facet.text)}`;
+				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
+			} else if (facet.type === 'url' && facet.original) {
+				const url = this.escapeHtml(facet.original);
+				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
+				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
+			}
+		}
+
+		return this.applyMarkers(text, markers);
 	}
 
 	private renderArticle(
@@ -445,16 +446,8 @@ export class XOembedExtractor extends BaseExtractor {
 		const text = block.text;
 		if (!text) return '';
 
-		// Build a list of markers for opens/closes of styled and entity ranges
-		interface Marker {
-			offset: number;
-			type: 'open' | 'close';
-			tag: string;
-		}
-
 		const markers: Marker[] = [];
 
-		// Bold styles
 		for (const range of block.inlineStyleRanges) {
 			if (range.style === 'Bold') {
 				markers.push({ offset: range.offset, type: 'open', tag: '<strong>' });
@@ -462,7 +455,6 @@ export class XOembedExtractor extends BaseExtractor {
 			}
 		}
 
-		// Entity ranges (LINK)
 		for (const range of block.entityRanges) {
 			const entityEntry = entityMap.find(e => e.key === String(range.key));
 			if (entityEntry?.value.type === 'LINK' && entityEntry.value.data.url) {
@@ -472,7 +464,6 @@ export class XOembedExtractor extends BaseExtractor {
 			}
 		}
 
-		// Mentions from block data
 		if (block.data?.mentions) {
 			for (const mention of block.data.mentions) {
 				const url = `https://x.com/${this.escapeHtml(mention.text)}`;
@@ -481,7 +472,6 @@ export class XOembedExtractor extends BaseExtractor {
 			}
 		}
 
-		// URLs from block data
 		if (block.data?.urls) {
 			for (const urlData of block.data.urls) {
 				const url = this.escapeHtml(urlData.text);
@@ -490,33 +480,7 @@ export class XOembedExtractor extends BaseExtractor {
 			}
 		}
 
-		// Sort: by offset, then closes before opens at the same offset
-		markers.sort((a, b) => {
-			if (a.offset !== b.offset) return a.offset - b.offset;
-			// Close tags before open tags at same offset
-			if (a.type === 'close' && b.type === 'open') return -1;
-			if (a.type === 'open' && b.type === 'close') return 1;
-			return 0;
-		});
-
-		// Walk through text, inserting tags at marker positions
-		let result = '';
-		let pos = 0;
-
-		for (const marker of markers) {
-			if (marker.offset > pos) {
-				result += this.escapeHtml(text.slice(pos, marker.offset));
-			}
-			result += marker.tag;
-			pos = marker.offset;
-		}
-
-		// Remaining text
-		if (pos < text.length) {
-			result += this.escapeHtml(text.slice(pos));
-		}
-
-		return result;
+		return this.applyMarkers(text, markers);
 	}
 
 	private escapeHtml(text: string): string {

@@ -232,17 +232,7 @@ export class Defuddle {
 				const extracted = await extractor.extractAsync();
 				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
 
-				// Collect meta tags
-				const pageMetaTags: MetaTagItem[] = [];
-				this.doc.querySelectorAll('meta').forEach(meta => {
-					const name = meta.getAttribute('name');
-					const property = meta.getAttribute('property');
-					let content = meta.getAttribute('content');
-					if (content) {
-						pageMetaTags.push({ name, property, content: this._decodeHTMLEntities(content) });
-					}
-				});
-
+				const pageMetaTags = this._collectMetaTags();
 				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
 				const endTime = Date.now();
 
@@ -285,16 +275,7 @@ export class Defuddle {
 		// Extract schema.org data
 		const schemaOrgData = this._extractSchemaOrgData(this.doc);
 
-		// Collect meta tags
-		const pageMetaTags: MetaTagItem[] = [];
-		this.doc.querySelectorAll('meta').forEach(meta => {
-			const name = meta.getAttribute('name');
-			const property = meta.getAttribute('property');
-			let content = meta.getAttribute('content');
-			if (content) { // Only include tags that have content
-				pageMetaTags.push({ name, property, content: this._decodeHTMLEntities(content) });
-			}
-		});
+		const pageMetaTags = this._collectMetaTags();
 
 		// Extract metadata
 		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
@@ -321,7 +302,7 @@ export class Defuddle {
 					image: metadata.image,
 					published: extracted.variables?.published || metadata.published,
 					author: extracted.variables?.author || metadata.author,
-					site: metadata.site,
+					site: extracted.variables?.site || metadata.site,
 					schemaOrgData: metadata.schemaOrgData,
 					wordCount: this.countWords(extracted.contentHtml),
 					parseTime: Math.round(endTime - startTime),
@@ -1070,6 +1051,19 @@ export class Defuddle {
 		};
 
 		return rawSchemaItems.map(decodeStringsInObject);
+	}
+
+	private _collectMetaTags(): MetaTagItem[] {
+		const pageMetaTags: MetaTagItem[] = [];
+		this.doc.querySelectorAll('meta').forEach(meta => {
+			const name = meta.getAttribute('name');
+			const property = meta.getAttribute('property');
+			let content = meta.getAttribute('content');
+			if (content) {
+				pageMetaTags.push({ name, property, content: this._decodeHTMLEntities(content) });
+			}
+		});
+		return pageMetaTags;
 	}
 
 	private _decodeHTMLEntities(text: string): string {

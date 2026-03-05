@@ -121,36 +121,17 @@ export class ExtractorRegistry {
 	}
 
 	static findExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
-		try {
-			const domain = new URL(url).hostname;
-
-			// Find matching extractor that can actually extract this content
-			// Extractors are tried in registration order, first match wins
-			for (const { patterns, extractor } of this.mappings) {
-				const matches = patterns.some(pattern => {
-					if (pattern instanceof RegExp) {
-						return pattern.test(url);
-					}
-					return domain.includes(pattern);
-				});
-
-				if (matches) {
-					const instance = new extractor(document, url, schemaOrgData);
-					if (instance.canExtract()) {
-						return instance;
-					}
-				}
-			}
-
-			return null;
-
-		} catch (error) {
-			console.error('Error in findExtractor:', error);
-			return null;
-		}
+		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtract());
 	}
 
 	static findAsyncExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
+		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtractAsync());
+	}
+
+	private static findByPredicate(
+		document: Document, url: string, schemaOrgData: any | undefined,
+		predicate: (instance: BaseExtractor) => boolean
+	): BaseExtractor | null {
 		try {
 			const domain = new URL(url).hostname;
 
@@ -164,7 +145,7 @@ export class ExtractorRegistry {
 
 				if (matches) {
 					const instance = new extractor(document, url, schemaOrgData);
-					if (instance.canExtractAsync()) {
+					if (predicate(instance)) {
 						return instance;
 					}
 				}
@@ -173,7 +154,7 @@ export class ExtractorRegistry {
 			return null;
 
 		} catch (error) {
-			console.error('Error in findAsyncExtractor:', error);
+			console.error('Error finding extractor:', error);
 			return null;
 		}
 	}
