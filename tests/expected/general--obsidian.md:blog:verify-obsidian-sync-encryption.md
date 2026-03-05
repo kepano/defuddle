@@ -7,33 +7,33 @@
 }
 ```
 
-On our [About page](https://obsidian.md/), we describe the guiding principles that have shaped Obsidian since the start. Privacy is one of these principles, and we go to great lengths to make sure we can uphold thisstatement:
+On our [About page](https://obsidian.md/), we describe the guiding principles that have shaped Obsidian since the start. Privacy is one of these principles, and we go to great lengths to make sure we can uphold this statement:
 
-> We believe that your thoughts and ideas belong to you and deserve complete privacy. That’s why your data is stored on your device, inaccessible to us. When you use our online services, your data is protected with end-to-end encryption for maximumsecurity.
+> We believe that your thoughts and ideas belong to you and deserve complete privacy. That’s why your data is stored on your device, inaccessible to us. When you use our online services, your data is protected with end-to-end encryption for maximum security.
 
-When you use [Obsidian Sync](https://obsidian.md/sync), your data is end-to-end encrypted. But how can you be sure that istrue?
+When you use [Obsidian Sync](https://obsidian.md/sync), your data is end-to-end encrypted. But how can you be sure that is true?
 
-In this guide, we provide step-by-step instructions so that you can trustlessly verify the end-to-end encryption of your data when it is sent and received via our Syncservers.
+In this guide, we provide step-by-step instructions so that you can trustlessly verify the end-to-end encryption of your data when it is sent and received via our Sync servers.
 
 ### How Obsidian Sync works
 
-Let’s review how Obsidian Sync encryptionworks:
+Let’s review how Obsidian Sync encryption works:
 
-1. You provide a vault password, or let our managed server generate one for you. This password is separate from your account password and is only used for establishing a remotevault.
-2. The Obsidian app generates a unique [salt](https://en.wikipedia.org/wiki/Salt_\(cryptography\)) for each vault. A salt is random data used to protect your password by mixing it with your password beforehashing.
+1. You provide a vault password, or let our managed server generate one for you. This password is separate from your account password and is only used for establishing a remote vault.
+2. The Obsidian app generates a unique [salt](https://en.wikipedia.org/wiki/Salt_\(cryptography\)) for each vault. A salt is random data used to protect your password by mixing it with your password before hashing.
 3. Your base key is derived from your password + salt using an algorithm called [scrypt](https://en.wikipedia.org/wiki/Scrypt).
-4. Your encryption key is derived from the base key using an algorithm called [HKDF](https://en.wikipedia.org/wiki/HKDF). If your vault was created using the [older encryption version](https://help.obsidian.md/sync/migrate), the encryption key uses the base keydirectly.
-5. This encryption key is used to encrypt/decrypt data with [AES -256](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) using [Galois/CounterMode](https://en.wikipedia.org/wiki/Galois/Counter_Mode).
+4. Your encryption key is derived from the base key using an algorithm called [HKDF](https://en.wikipedia.org/wiki/HKDF). If your vault was created using the [older encryption version](https://help.obsidian.md/sync/migrate), the encryption key uses the base key directly.
+5. This encryption key is used to encrypt/decrypt data with [AES-256](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard) using [Galois/Counter Mode](https://en.wikipedia.org/wiki/Galois/Counter_Mode).
 
-In the next few steps, you’ll learn how to get your vault’s salt, and test the encryption of yourdata.
+In the next few steps, you’ll learn how to get your vault’s salt, and test the encryption of your data.
 
 ### Getting your vault’s salt and encryption version
 
-First, get the salt used to derive your encryption key by following thesesteps:
+First, get the salt used to derive your encryption key by following these steps:
 
-1. Make sure that Obsidian Sync is turnedon.
+1. Make sure that Obsidian Sync is turned on.
 2. Open Developer Tools in the Obsidian app using the hotkey Cmd+Opt+I on macOS or Ctrl+Shift+I on Windows.
-3. Go to the Console and run the following code, by copy/pasting it and pressing the Returnkey:
+3. Go to the Console and run the following code, by copy/pasting it and pressing the Return key:
 ```js
 let data = await (await fetch('https://api.obsidian.md/vault/list', {method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({token: JSON.parse(localStorage.getItem('obsidian-account')).token})})).json();
 let vaults = [].concat(data.shared, data.vaults);
@@ -41,7 +41,7 @@ let vault = vaults.find(v => v.id === app.internalPlugins.getEnabledPluginById('
 console.log(\`The salt of your vault ${vault.name} is: "${vault.salt}" with encryptionVersion ${vault.encryption_version}\`);
 ```
 
-You should see a message containing your salt and encryptionversion:
+You should see a message containing your salt and encryption version:
 
 ```js
 The salt of your vault Notes is: "8II2%?YeNpddlbd@4Z)c" with encryptionVersion 0
@@ -49,13 +49,13 @@ The salt of your vault Notes is: "8II2%?YeNpddlbd@4Z)c" with encryptionVersion 0
 
 ### Decrypting data
 
-Next, find an example of a sync event and decrypt it. Here we will use the Network tab of Developers Tools. This is where all sync events are logged, so you can see data that is being sent and received by the Obsidian app, and confirm that it is using your encryptionkey.
+Next, find an example of a sync event and decrypt it. Here we will use the Network tab of Developers Tools. This is where all sync events are logged, so you can see data that is being sent and received by the Obsidian app, and confirm that it is using your encryption key.
 
 1. Go to the Network tab of the Developer Tools, and filter by "Socket" types (for [WebSocket](https://en.wikipedia.org/wiki/WebSocket)).
-2. Find the WebSocket connection to Obsidian Sync. It will look like `sync-xx.obsidian.md` — you may need to reload Obsidian to seeit.
-3. In the WebSocket data stream, go to the Message tab. There you will see binary messages of uploads and downloads. If you aren’t seeing them, you can easily trigger one by modifying any synced note in yourvault.
+2. Find the WebSocket connection to Obsidian Sync. It will look like `sync-xx.obsidian.md` — you may need to reload Obsidian to see it.
+3. In the WebSocket data stream, go to the Message tab. There you will see binary messages of uploads and downloads. If you aren’t seeing them, you can easily trigger one by modifying any synced note in your vault.
 4. Right click on one of them and choose `Copy message > Copy as Base64`.
-5. Using the following code, enter your password, your salt, and base64 binary data, and change the encryption version if necessary. Then, run the decryption routine in the Console (alternatively you can run it in a NodeJS prompt orscript).
+5. Using the following code, enter your password, your salt, and base64 binary data, and change the encryption version if necessary. Then, run the decryption routine in the Console (alternatively you can run it in a NodeJS prompt or script).
 ```js
 // Use the standard crypto package from NodeJS
 let crypto = require('crypto');
@@ -90,8 +90,8 @@ let decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]
 console.log(decrypted.toString('utf8'));
 ```
 
-The data that is returned should be a revision of a file that was sent or received via the Obsidian Sync’s servers. That’s it! If it properly decrypts, you’ll know your encryption key isworking.
+The data that is returned should be a revision of a file that was sent or received via the Obsidian Sync’s servers. That’s it! If it properly decrypts, you’ll know your encryption key is working.
 
 ---
 
-**2025-09-05 edit:** Updated instructions to support [new Syncversion](https://obsidian.md/changelog/2025-08-22-sync/).
+**2025-09-05 edit:** Updated instructions to support [new Sync version](https://obsidian.md/changelog/2025-08-22-sync/).

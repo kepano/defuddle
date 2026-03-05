@@ -116,7 +116,7 @@ export const EXACT_SELECTORS = [
 	// '[href*="/categories"]', // see issue #131
 	'[href*="/tag/"]',
 	'[href*="/tags/"]',
-	'[href*="/topics"]',
+	// '[href*="/topics"]', // see issue #131
 	'[href*="author"]',
 	'[href*="#toc"]',
 	'[href="#top"]',
@@ -745,7 +745,7 @@ export const PARTIAL_SELECTORS = [
 	'toc-container',
 	'toggle-caption',
 //	'toolbar', prism.js
-	'tooltip',
+	'tooltip-content',
 	'topbar',
 	'topic-list',
 	'topic-subnav',
