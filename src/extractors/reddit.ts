@@ -42,7 +42,11 @@ export class RedditExtractor extends BaseExtractor {
 		}
 
 		const html = await response.text();
-		const doc = new DOMParser().parseFromString(html, 'text/html');
+		const Parser = this.document.defaultView?.DOMParser ?? (typeof DOMParser !== 'undefined' ? DOMParser : null);
+		if (!Parser) {
+			throw new Error('DOMParser is not available in this environment');
+		}
+		const doc = new Parser().parseFromString(html, 'text/html');
 
 		return this.extractOldReddit(doc);
 	}

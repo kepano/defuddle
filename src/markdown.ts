@@ -280,9 +280,15 @@ export function createMarkdownContent(content: string, url: string) {
 				
 				// Process the caption content, including math elements
 				let captionContent = figcaption.innerHTML || '';
+				const ownerDoc = (node as any).ownerDocument;
 				captionContent = captionContent.replace(/<math.*?>(.*?)<\/math>/g, (match, mathContent, offset, string) => {
-					const mathElement = new DOMParser().parseFromString(match, 'text/html').body.firstChild;
-					const latex = mathElement && isGenericElement(mathElement) ? extractLatex(mathElement) : '';
+					let latex = '';
+					if (ownerDoc) {
+						const tempDiv = ownerDoc.createElement('div');
+						tempDiv.innerHTML = match;
+						const mathElement = tempDiv.querySelector('math');
+						latex = mathElement && isGenericElement(mathElement) ? extractLatex(mathElement) : '';
+					}
 					const prevChar = string[offset - 1] || '';
 					const nextChar = string[offset + match.length] || '';
 
