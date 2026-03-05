@@ -316,6 +316,7 @@ export const PARTIAL_SELECTORS = [
 	'bottom-of-article',
 	'bottom-wrapper',
 	'brand-bar',
+	'bcrumb',
 	'breadcrumb',
 	'brdcrumb',
 	'button-wrapper',

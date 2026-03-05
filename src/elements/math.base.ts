@@ -118,7 +118,13 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
-	// Fallback to alt text only — textContent of math containers is not LaTeX
+	// For <math> elements, textContent gives clean Unicode (e.g. "f′", "a~")
+	// Only safe for <math> — other containers (mjx-container, .katex) have garbage textContent
+	if (el.tagName.toLowerCase() === 'math' && el.textContent?.trim()) {
+		return el.textContent.trim();
+	}
+
+	// Fallback to alt text only
 	return el.getAttribute('alt') || null;
 };
 

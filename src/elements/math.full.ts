@@ -1,5 +1,5 @@
 import { MathMLToLaTeX } from 'mathml-to-latex';
-import * as temml from 'temml';
+import temml from 'temml';
 import {
 	MathData,
 	getMathMLFromElement,
@@ -73,8 +73,7 @@ export const mathRules = [
 		selector: mathSelectors,
 		element: 'math',
 		transform: (el: Element): Element => {
-			// Check if element is an HTMLElement by checking for common properties
-			if (!('style' in el) || !('className' in el)) {
+			if (!('classList' in el) || !('getAttribute' in el) || !('querySelector' in el)) {
 				return el;
 			}
 

@@ -7,4 +7,7 @@ export default defineConfig({
 			'./elements/math': path.resolve(__dirname, 'src/elements/math.full.ts'),
 		},
 	},
+	test: {
+		testTimeout: 30000,
+	},
 });

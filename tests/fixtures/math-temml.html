@@ -1,0 +1,35 @@
+<html lang="en"><head>
+   <meta charset="utf-8">
+   <title>Temml Math Test</title>
+</head>
+<body>
+<main>
+<h1>Temml Math Test</h1>
+<p>A variety of Temml-rendered math elements using the <code>hurmet-tex</code> pattern.</p>
+
+<h2>Accents</h2>
+<table><tbody><tr><td><span class="hurmet-tex" data-entry="\vec{F}"><math><mover><mi>F</mi><mo stretchy="false" class="tml-vec">→</mo></mover></math></span>  <code>\vec{F}</code></td><td><span class="hurmet-tex" data-entry="\tilde{a}"><math><mover><mi>a</mi><mo stretchy="false" style="math-depth:0;">~</mo></mover></math></span>  <code>\tilde{a}</code></td><td><span class="hurmet-tex" data-entry="\hat{\theta}"><math><mover><mi>θ</mi><mo stretchy="false" class="wbk-acc" style="math-depth:0;">^</mo></mover></math></span> <code>\hat{\theta}</code></td></tr>
+<tr><td><span class="hurmet-tex" data-entry="\dot{a}"><math><mover><mi>a</mi><mo stretchy="false" class="wbk-acc" style="math-depth:0;">˙</mo></mover></math></span>  <code>\dot{a}</code></td><td><span class="hurmet-tex" data-entry="\overline{AB}"><math><menclose notation="top" class="tml-overline"><mrow><mi>A</mi><mi>B</mi></mrow></menclose></math></span>  <code>\overline{AB}</code></td><td><span class="hurmet-tex" data-entry="\overbrace{AB}"><math><mover><mrow><mi>A</mi><mi>B</mi></mrow><mo stretchy="true" style="math-depth:0;">⏞</mo></mover></math></span>  <code>\overbrace{AB}</code></td></tr></tbody></table>
+
+<h2>Fractions and Roots</h2>
+<p>Inline fraction: <span class="hurmet-tex" data-entry="\frac{a}{b}"><math><mfrac><mi>a</mi><mi>b</mi></mfrac></math></span> and square root: <span class="hurmet-tex" data-entry="\sqrt{x^2+y^2}"><math><msqrt><mrow><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><msup><mi>y</mi><mn>2</mn></msup></mrow></msqrt></math></span>.</p>
+<p>Cube root: <span class="hurmet-tex" data-entry="\sqrt[3]{8}"><math><mroot><mn>8</mn><mn>3</mn></mroot></math></span></p>
+
+<h2>Display Math</h2>
+<p class="hurmet-tex" data-entry="E = mc^2"><math display="block" class="tml-display" style="display:block math;"><mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow></math></p>
+
+<h2>Operators</h2>
+<table><tbody><tr><td><span class="hurmet-tex" data-entry="\sum"><math><mo movablelimits="false" lspace="0em" rspace="0em">∑</mo></math></span>  <code>\sum</code></td><td><span class="hurmet-tex" data-entry="\int"><math><mo movablelimits="false" lspace="0em" rspace="0em">∫</mo></math></span>  <code>\int</code></td><td><span class="hurmet-tex" data-entry="\prod"><math><mo movablelimits="false" lspace="0em" rspace="0em">∏</mo></math></span>  <code>\prod</code></td><td><span class="hurmet-tex" data-entry="\oint"><math><mo movablelimits="false" lspace="0em" rspace="0em">∮</mo></math></span>  <code>\oint</code></td></tr></tbody></table>
+
+<h2>Environments</h2>
+<table><tbody><tr><td><span class="hurmet-tex" data-entry="\begin{pmatrix}
+a &amp; b \\
+c &amp; d
+\end{pmatrix}"><math><mrow><mo fence="true" form="prefix">(</mo><mtable><mtr><mtd style="padding-left:0em;padding-right:5.9776pt;"><mi>a</mi></mtd><mtd style="padding-left:5.9776pt;padding-right:0em;"><mi>b</mi></mtd></mtr><mtr><mtd style="padding-left:0em;padding-right:5.9776pt;"><mi>c</mi></mtd><mtd style="padding-left:5.9776pt;padding-right:0em;"><mi>d</mi></mtd></mtr></mtable><mo fence="true" form="postfix">)</mo></mrow></math></span></td><td><code>\begin{pmatrix}</code><br>&nbsp;&nbsp;&nbsp;<code>a &amp; b \\</code><br>&nbsp;&nbsp;&nbsp;<code>c &amp; d</code><br><code>\end{pmatrix}</code></td></tr></tbody></table>
+
+<h2>Greek and Symbols</h2>
+<p>Greek letters: <span class="hurmet-tex" data-entry="\alpha"><math><mi>α</mi></math></span>, <span class="hurmet-tex" data-entry="\beta"><math><mi>β</mi></math></span>, <span class="hurmet-tex" data-entry="\gamma"><math><mi>γ</mi></math></span>, <span class="hurmet-tex" data-entry="\Omega"><math><mi mathvariant="normal">Ω</mi></math></span></p>
+<p>Relation: <span class="hurmet-tex" data-entry="a \leq b"><math><mrow><mi>a</mi><mo>≤</mo><mi>b</mi></mrow></math></span>, not equal: <span class="hurmet-tex" data-entry="x \neq y"><math><mrow><mi>x</mi><mo>≠</mo><mi>y</mi></mrow></math></span></p>
+
+</main>
+</body></html>
