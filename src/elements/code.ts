@@ -239,10 +239,10 @@ export const codeBlockRules = [
 			// Recursively extract text content while preserving structure
 			const extractStructuredText = (element: Node): string => {
 				if (isTextNode(element)) {
-					// Skip whitespace-only text nodes between data-line spans
-					// (e.g. rehype-pretty-code / Shiki), since data-line handling
+					// Skip whitespace-only text nodes between line spans
+					// (e.g. rehype-pretty-code / Shiki), since line handling
 					// already appends a newline per line.
-					if (element.parentElement?.querySelector('[data-line]') &&
+					if (element.parentElement?.querySelector('[data-line], .line') &&
 						!(element.textContent || '').trim()) {
 						return '';
 					}

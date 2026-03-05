@@ -64,7 +64,9 @@ const socialProfilePattern = /\b(linkedin\.com\/(in|company)\/|twitter\.com\/(?!
 // Classes that indicate non-content these are elements are
 // not removed, but lower the score
 const nonContentPatterns = [
-	'ad',
+	'advert',
+	'ad-',
+	'ads',
 	'banner',
 	'cookie',
 	'copyright',
@@ -356,10 +358,25 @@ export class ContentScorer {
 		}
 
 		// Check for high link density (navigation)
-		const links = element.getElementsByTagName('a').length;
+		const linkElements = element.getElementsByTagName('a');
+		const links = linkElements.length;
 		const linkDensity = links / (words || 1);
 		if (linkDensity > 0.5) {
 			score -= 15;
+		}
+
+		// Check for high link text ratio (e.g. card groups, nav sections)
+		// Requires multiple links to avoid penalizing content paragraphs
+		// that happen to be wrapped in a single link
+		if (links > 1 && words < 80) {
+			let linkTextLength = 0;
+			for (let i = 0; i < linkElements.length; i++) {
+				linkTextLength += (linkElements[i].textContent || '').length;
+			}
+			const totalTextLength = text.length;
+			if (totalTextLength > 0 && linkTextLength / totalTextLength > 0.8) {
+				score -= 15;
+			}
 		}
 
 		// Check for list structure (navigation)
