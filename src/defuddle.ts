@@ -101,32 +101,38 @@ export class Defuddle {
 	}
 
 	/**
-	 * Remove dangerous elements from this.doc: scripts, styles, noscript,
-	 * and event-handler attributes. Preserves ld+json and math scripts
-	 * since they've already been consumed by parseInternal.
+	 * Remove dangerous elements and attributes from this.doc.
+	 * Called after parseInternal so that extractors and schema extraction
+	 * can still read script tags they depend on.
 	 */
 	private _stripUnsafeElements(): void {
 		const body = this.doc.body;
 		if (!body) return;
 
-		// Remove script tags (ld+json and math already consumed by parseInternal)
-		const scripts = body.querySelectorAll('script');
-		for (const el of scripts) el.remove();
+		// Remove dangerous elements. Iframes are kept — same-origin policy
+		// isolates them, and they're widely used for legitimate media embeds.
+		// Dangerous iframe attributes (srcdoc, javascript: src) are stripped
+		// in the attribute pass below. Math scripts are preserved for LaTeX
+		// content (matching the EXACT_SELECTORS approach).
+		const dangerousElements = body.querySelectorAll(
+			'script:not([type^="math/"]), style, noscript, frame, frameset, object, embed, applet, base'
+		);
+		for (const el of dangerousElements) el.remove();
 
-		// Remove style elements
-		const styles = body.querySelectorAll('style');
-		for (const el of styles) el.remove();
-
-		// Remove noscript elements
-		const noscripts = body.querySelectorAll('noscript');
-		for (const el of noscripts) el.remove();
-
-		// Remove event handler attributes (onclick, onerror, onload, etc.)
+		// Remove event handler attributes, dangerous URIs, and srcdoc
 		const allElements = body.querySelectorAll('*');
 		for (const el of allElements) {
 			for (const attr of Array.from(el.attributes)) {
-				if (attr.name.toLowerCase().startsWith('on')) {
+				const name = attr.name.toLowerCase();
+				if (name.startsWith('on')) {
 					el.removeAttribute(attr.name);
+				} else if (name === 'srcdoc') {
+					el.removeAttribute(attr.name);
+				} else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
+					const val = attr.value.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
+					if (val.startsWith('javascript:') || val.startsWith('data:text/html')) {
+						el.removeAttribute(attr.name);
+					}
 				}
 			}
 		}
