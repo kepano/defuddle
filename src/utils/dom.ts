@@ -1,11 +1,17 @@
 /**
- * Transfer all child nodes from source to target by cloning.
- * Clears target first, then appends deep clones of each child node.
+ * Move all child nodes from source to target.
+ * Clears target first, then moves each child node from source.
  */
-export function transferContent(source: Element, target: Element): void {
-	target.replaceChildren();
-	for (const child of Array.from(source.childNodes)) {
-		target.appendChild(child.cloneNode(true));
+export function transferContent(source: Node, target: Node): void {
+	if ('replaceChildren' in target) {
+		(target as Element).replaceChildren();
+	} else {
+		while (target.firstChild) {
+			target.removeChild(target.firstChild);
+		}
+	}
+	while (source.firstChild) {
+		target.appendChild(source.firstChild);
 	}
 }
 
@@ -16,9 +22,11 @@ export function transferContent(source: Element, target: Element): void {
  * don't support template.content (e.g. some server-side DOM libraries).
  */
 export function parseHTML(doc: Document, html: string): DocumentFragment {
+	if (!html) return doc.createDocumentFragment();
+
 	const template = doc.createElement('template');
 	template.innerHTML = html;
-	if (template.content && template.content.childNodes.length > 0) {
+	if (template.content) {
 		return template.content;
 	}
 	// Fallback for environments without template.content support

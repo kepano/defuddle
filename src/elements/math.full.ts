@@ -7,7 +7,7 @@ import {
 	isBlockDisplay,
 	mathSelectors
 } from './math.base';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, transferContent } from '../utils/dom';
 
 export const getLatexFromElement = (el: Element): string | null => {
 	// First try basic LaTeX extraction
@@ -41,9 +41,7 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 		const fragment = parseHTML(doc, mathData.mathml);
 		const mathContent = fragment.querySelector('math');
 		if (mathContent) {
-			while (mathContent.firstChild) {
-				cleanMathEl.appendChild(mathContent.firstChild);
-			}
+			transferContent(mathContent, cleanMathEl);
 		}
 	}
 	// If no MathML but we have LaTeX, convert it
