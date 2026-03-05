@@ -3,6 +3,7 @@
  */
 
 import { isElement, isTextNode } from '../utils';
+import { transferContent, parseHTML } from '../utils/dom';
 
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
@@ -32,8 +33,7 @@ export const imageRules = [
 					if (srcset) {
 						const newImg = doc.createElement('img');
 						applySrcsetToImage(srcset, newImg);
-						el.innerHTML = '';
-						el.appendChild(newImg);
+						el.replaceChildren(newImg);
 						return el;
 					}
 				}
@@ -129,7 +129,7 @@ export const imageRules = [
 					// Try to get cleaner text from specific inner element if possible
 					const richTextP = figcaptionEl.querySelector('.rich-text p');
 					if (richTextP) {
-						figcaption.innerHTML = richTextP.innerHTML; // Use innerHTML to preserve formatting if needed
+						transferContent(richTextP, figcaption);
 					} else {
 						figcaption.textContent = captionText;
 					}
@@ -308,7 +308,7 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
 	const uniqueCaptionContent = extractUniqueCaptionContent(captionElement);
-	figcaption.innerHTML = uniqueCaptionContent;
+	figcaption.appendChild(parseHTML(doc, uniqueCaptionContent));
 	figure.appendChild(figcaption);
 
 	return figure;

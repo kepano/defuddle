@@ -5,6 +5,7 @@ import {
 	isBlockDisplay,
 	mathSelectors
 } from './math.base';
+import { parseHTML } from '../utils/dom';
 
 export const createCleanMathEl = (doc: Document, mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
 	const cleanMathEl = doc.createElement('math');
@@ -15,11 +16,12 @@ export const createCleanMathEl = (doc: Document, mathData: MathData | null, late
 
 	// First try to use existing MathML content
 	if (mathData?.mathml) {
-		const tempDiv = doc.createElement('div');
-		tempDiv.innerHTML = mathData.mathml;
-		const mathContent = tempDiv.querySelector('math');
+		const fragment = parseHTML(doc, mathData.mathml);
+		const mathContent = fragment.querySelector('math');
 		if (mathContent) {
-			cleanMathEl.innerHTML = mathContent.innerHTML;
+			while (mathContent.firstChild) {
+				cleanMathEl.appendChild(mathContent.firstChild);
+			}
 		}
 	}
 	// If no MathML content but we have LaTeX, store it as text content

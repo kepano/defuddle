@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 interface OembedResponse {
 	html: string;
@@ -130,7 +131,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 		// Parse the oEmbed HTML to extract tweet text
 		const div = this.document.createElement('div');
-		div.innerHTML = data.html;
+		div.appendChild(parseHTML(this.document, data.html));
 
 		// The oEmbed HTML contains a <blockquote> with <p> tags for text
 		// and an <a> tag for the date

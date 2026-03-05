@@ -14,6 +14,7 @@ import { standardizeFootnotes } from './elements/footnotes';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
+import { transferContent } from './utils/dom';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name
@@ -43,7 +44,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 
 			// Get content from .callout-content div, or fall back to whole aside
 			const contentEl = el.querySelector('.callout-content');
-			blockquote.innerHTML = contentEl ? contentEl.innerHTML : el.innerHTML;
+			transferContent(contentEl || el, blockquote);
 
 			return blockquote;
 		}
@@ -55,10 +56,9 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 		element: 'p',
 		transform: (el: Element, doc: Document): Element => {
 			const p = doc.createElement('p');
-			
-			// Copy innerHTML
-			p.innerHTML = el.innerHTML;
-			
+
+			transferContent(el, p);
+
 			// Copy allowed attributes
 			Array.from(el.attributes).forEach(attr => {
 				if (ALLOWED_ATTRIBUTES.has(attr.name)) {
@@ -94,7 +94,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 					const paragraphDivs = content.querySelectorAll('div[role="paragraph"]');
 					paragraphDivs.forEach(div => {
 						const p = doc.createElement('p');
-						p.innerHTML = div.innerHTML;
+						transferContent(div, p);
 						div.replaceWith(p);
 					});
 					
@@ -118,10 +118,10 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 								const nestedParagraphs = nestedContent.querySelectorAll('div[role="paragraph"]');
 								nestedParagraphs.forEach(div => {
 									const p = doc.createElement('p');
-									p.innerHTML = div.innerHTML;
+									transferContent(div, p);
 									div.replaceWith(p);
 								});
-								nestedLi.innerHTML = nestedContent.innerHTML;
+								transferContent(nestedContent, nestedLi);
 							}
 							
 							newNestedList.appendChild(nestedLi);
@@ -130,7 +130,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 						nestedList.replaceWith(newNestedList);
 					});
 					
-					li.innerHTML = content.innerHTML;
+					transferContent(content, li);
 				}
 				
 				list.appendChild(li);
@@ -151,7 +151,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 			const paragraphDivs = content.querySelectorAll('div[role="paragraph"]');
 			paragraphDivs.forEach(div => {
 				const p = doc.createElement('p');
-				p.innerHTML = div.innerHTML;
+				transferContent(div, p);
 				div.replaceWith(p);
 			});
 			
@@ -356,7 +356,7 @@ function standardizeHeadings(element: Element, title: string, doc: Document): vo
 
 	Array.from(h1s).forEach(h1 => {
 		const h2 = doc.createElement('h2');
-		h2.innerHTML = h1.innerHTML;
+		transferContent(h1, h2);
 		// Copy allowed attributes
 		Array.from(h1.attributes).forEach(attr => {
 			if (ALLOWED_ATTRIBUTES.has(attr.name)) {

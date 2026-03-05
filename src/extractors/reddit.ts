@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 export class RedditExtractor extends BaseExtractor {
 	private shredditPost: Element | null;
@@ -168,7 +169,7 @@ export class RedditExtractor extends BaseExtractor {
 		if (!postContent) return '';
 
 		const tempDiv = this.document.createElement('div');
-		tempDiv.innerHTML = postContent;
+		tempDiv.appendChild(parseHTML(this.document, postContent));
 		return tempDiv.textContent?.trim()
 			.slice(0, 140)
 			.replace(/\s+/g, ' ') || '';

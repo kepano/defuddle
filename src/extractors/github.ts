@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 export class GitHubExtractor extends BaseExtractor {
 	canExtract(): boolean {
@@ -175,7 +176,7 @@ export class GitHubExtractor extends BaseExtractor {
 		if (!content) return '';
 
 		const tempDiv = this.document.createElement('div');
-		tempDiv.innerHTML = content;
+		tempDiv.appendChild(parseHTML(this.document, content));
 		return tempDiv.textContent?.trim()
 			.slice(0, 140)
 			.replace(/\s+/g, ' ') || '';

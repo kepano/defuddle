@@ -7,6 +7,7 @@ import {
 	isBlockDisplay,
 	mathSelectors
 } from './math.base';
+import { parseHTML } from '../utils/dom';
 
 export const getLatexFromElement = (el: Element): string | null => {
 	// First try basic LaTeX extraction
@@ -37,11 +38,12 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 
 	// First try to use existing MathML content
 	if (mathData?.mathml) {
-		const tempDiv = doc.createElement('div');
-		tempDiv.innerHTML = mathData.mathml;
-		const mathContent = tempDiv.querySelector('math');
+		const fragment = parseHTML(doc, mathData.mathml);
+		const mathContent = fragment.querySelector('math');
 		if (mathContent) {
-			cleanMathEl.innerHTML = mathContent.innerHTML;
+			while (mathContent.firstChild) {
+				cleanMathEl.appendChild(mathContent.firstChild);
+			}
 		}
 	}
 	// If no MathML but we have LaTeX, convert it
@@ -51,11 +53,12 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 				displayMode: isBlock,
 				throwOnError: false
 			});
-			const tempDiv = doc.createElement('div');
-			tempDiv.innerHTML = mathml;
-			const mathContent = tempDiv.querySelector('math');
+			const fragment = parseHTML(doc, mathml);
+			const mathContent = fragment.querySelector('math');
 			if (mathContent) {
-				cleanMathEl.innerHTML = mathContent.innerHTML;
+				while (mathContent.firstChild) {
+					cleanMathEl.appendChild(mathContent.firstChild);
+				}
 			} else {
 				cleanMathEl.textContent = latex; // Fallback to LaTeX as text
 			}

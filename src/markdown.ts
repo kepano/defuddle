@@ -1,5 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
+import { parseHTML } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -223,9 +224,8 @@ export function createMarkdownContent(content: string, url: string) {
 				captionContent = captionContent.replace(/<math.*?>(.*?)<\/math>/g, (match, mathContent, offset, string) => {
 					let latex = '';
 					if (ownerDoc) {
-						const tempDiv = ownerDoc.createElement('div');
-						tempDiv.innerHTML = match;
-						const mathElement = tempDiv.querySelector('math');
+						const fragment = parseHTML(ownerDoc, match);
+						const mathElement = fragment.querySelector('math');
 						latex = mathElement && isGenericElement(mathElement) ? extractLatex(mathElement) : '';
 					}
 					const prevChar = string[offset - 1] || '';

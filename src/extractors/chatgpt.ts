@@ -1,5 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
 	private articles: NodeListOf<Element> | null;
@@ -47,7 +48,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 			// Remove specific elements from the message content
 			const tempDiv = this.document.createElement('div');
-			tempDiv.innerHTML = messageContent;
+			tempDiv.appendChild(parseHTML(this.document, messageContent));
 			tempDiv.querySelectorAll('h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
 			messageContent = tempDiv.innerHTML;
 

@@ -1,4 +1,5 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES } from '../constants';
+import { transferContent, parseHTML } from '../utils/dom';
 
 // Use the global DOM types
 interface FootnoteData {
@@ -32,7 +33,7 @@ class FootnoteHandler {
 		// Handle content
 		if (typeof content === 'string') {
 			const paragraph = doc.createElement('p');
-			paragraph.innerHTML = content;
+			paragraph.appendChild(parseHTML(doc, content));
 			newItem.appendChild(paragraph);
 		} else {
 			// Get all paragraphs from the content
@@ -40,14 +41,14 @@ class FootnoteHandler {
 			if (paragraphs.length === 0) {
 				// If no paragraphs, wrap content in a paragraph
 				const paragraph = doc.createElement('p');
-				paragraph.innerHTML = content.innerHTML;
+				transferContent(content, paragraph);
 				this.removeBackrefs(paragraph);
 				newItem.appendChild(paragraph);
 			} else {
 				// Copy existing paragraphs
 				paragraphs.forEach((p: any) => {
 					const newP = doc.createElement('p');
-					newP.innerHTML = p.innerHTML;
+					transferContent(p, newP);
 					this.removeBackrefs(newP);
 					newItem.appendChild(newP);
 				});
@@ -61,9 +62,9 @@ class FootnoteHandler {
 			backlink.href = `#${refId}`;
 			backlink.title = 'return to article';
 			backlink.className = 'footnote-backref';
-			backlink.innerHTML = '↩';
+			backlink.textContent = '↩';
 			if (index < refs.length - 1) {
-				backlink.innerHTML += ' ';
+				backlink.textContent += ' ';
 			}
 			lastParagraph.appendChild(backlink);
 		});
@@ -97,7 +98,7 @@ class FootnoteHandler {
 							let text = clone.innerHTML || '';
 							text = text.replace(/^\s*\.\s*/, '');
 							const contentDiv = element.ownerDocument.createElement('div');
-							contentDiv.innerHTML = text.trim();
+							contentDiv.appendChild(parseHTML(element.ownerDocument, text.trim()));
 							footnotes[footnoteCount] = {
 								content: contentDiv,
 								originalId: id,

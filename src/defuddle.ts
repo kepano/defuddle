@@ -13,6 +13,7 @@ import {
 import { standardizeContent } from './standardize';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle } from './utils';
+import { parseHTML } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -432,9 +433,9 @@ export class Defuddle {
 	}
 
 	private countWords(content: string): number {
-		// Create a temporary div to parse HTML content
+		// Parse HTML content to extract text
 		const tempDiv = this.doc.createElement('div');
-		tempDiv.innerHTML = content;
+		tempDiv.appendChild(parseHTML(this.doc, content));
 
 		// Get text content, removing extra whitespace
 		const text = tempDiv.textContent || '';
@@ -1057,7 +1058,7 @@ export class Defuddle {
 		if (!baseUrl) return html;
 
 		const container = this.doc.createElement('div');
-		container.innerHTML = html;
+		container.appendChild(parseHTML(this.doc, html));
 		this.resolveRelativeUrls(container);
 		return container.innerHTML;
 	}

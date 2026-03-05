@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ConversationMessage, ConversationMetadata, Footnote, ExtractorResult } from '../types/extractors';
 import { Defuddle } from '../defuddle';
+import { parseHTML } from '../utils/dom';
 
 export abstract class ConversationExtractor extends BaseExtractor {
 	protected abstract extractMessages(): ConversationMessage[];
@@ -18,7 +19,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 		// Create a temporary document to run Defuddle on our content
 		const tempDoc = this.document.implementation.createHTMLDocument();
 		const container = tempDoc.createElement('article');
-		container.innerHTML = rawContentHtml;
+		container.appendChild(parseHTML(tempDoc, rawContentHtml));
 		tempDoc.body.appendChild(container);
 
 		// Run Defuddle on our formatted content

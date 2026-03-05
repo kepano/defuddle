@@ -1,3 +1,5 @@
+import { parseHTML } from '../utils/dom';
+
 export interface MathData {
 	mathml: string;
 	latex: string | null;
@@ -18,9 +20,9 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 	// 2. MathML in data-mathml attribute
 	const mathmlStr = el.getAttribute('data-mathml');
 	if (mathmlStr) {
-		const tempDiv = (el.ownerDocument || document).createElement('div');
-		tempDiv.innerHTML = mathmlStr;
-		const mathElement = tempDiv.querySelector('math');
+		const doc = el.ownerDocument || document;
+		const fragment = parseHTML(doc, mathmlStr);
+		const mathElement = fragment.querySelector('math');
 		if (mathElement) {
 			const isBlock = mathElement.getAttribute('display') === 'block';
 			return {

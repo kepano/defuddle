@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 export class TwitterExtractor extends BaseExtractor {
 	private mainTweet: Element | null = null;
@@ -85,7 +86,7 @@ export class TwitterExtractor extends BaseExtractor {
 
 		// Create a temporary div to parse and clean the HTML
 		const tempDiv = this.document.createElement('div');
-		tempDiv.innerHTML = text;
+		tempDiv.appendChild(parseHTML(this.document, text));
 
 		// Convert links to plain text with @ handles
 		tempDiv.querySelectorAll('a').forEach(link => {
