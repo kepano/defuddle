@@ -56,6 +56,12 @@ export class Defuddle {
 			}
 		}
 
+		// Strip dangerous elements from this.doc before any fallback paths
+		// that read from it (e.g. _findContentBySchemaText).
+		// This must happen after parseInternal, which needs script tags
+		// for schema.org extraction, site-specific extractors, and math.
+		this._stripUnsafeElements();
+
 		// If schema.org has a SocialMediaPosting with text content that is
 		// longer than what we extracted, the scorer likely picked the wrong
 		// element from a feed. Find the correct element in the DOM.
@@ -92,6 +98,38 @@ export class Defuddle {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Remove dangerous elements from this.doc: scripts, styles, noscript,
+	 * and event-handler attributes. Preserves ld+json and math scripts
+	 * since they've already been consumed by parseInternal.
+	 */
+	private _stripUnsafeElements(): void {
+		const body = this.doc.body;
+		if (!body) return;
+
+		// Remove script tags (ld+json and math already consumed by parseInternal)
+		const scripts = body.querySelectorAll('script');
+		for (const el of scripts) el.remove();
+
+		// Remove style elements
+		const styles = body.querySelectorAll('style');
+		for (const el of styles) el.remove();
+
+		// Remove noscript elements
+		const noscripts = body.querySelectorAll('noscript');
+		for (const el of noscripts) el.remove();
+
+		// Remove event handler attributes (onclick, onerror, onload, etc.)
+		const allElements = body.querySelectorAll('*');
+		for (const el of allElements) {
+			for (const attr of Array.from(el.attributes)) {
+				if (attr.name.toLowerCase().startsWith('on')) {
+					el.removeAttribute(attr.name);
+				}
+			}
+		}
 	}
 
 	/**
