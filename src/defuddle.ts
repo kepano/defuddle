@@ -670,8 +670,12 @@ export class Defuddle {
 		// Remove all collected elements in a single pass
 		// Skip elements that are ancestors of mainContent to avoid disconnecting it
 		// Skip footnote list containers, their parents, and immediate children
+		// Skip anchor links inside headings - the heading transform handles these
 		elementsToRemove.forEach(el => {
 			if (mainContent && el.contains(mainContent)) {
+				return;
+			}
+			if (el.tagName === 'A' && el.closest('h1, h2, h3, h4, h5, h6')) {
 				return;
 			}
 			try {
