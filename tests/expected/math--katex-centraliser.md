@@ -7,7 +7,7 @@
 }
 ```
 
-Time taken by KaTeX to render formulæ: 8 ms [PDF version](https://math-katex-centraliser/centraliser.pdf)  
+Time taken by KaTeX to render formulæ: 8 ms [PDF version](https://katex-centraliser/centraliser.pdf)  
   
 
 #### Theorem

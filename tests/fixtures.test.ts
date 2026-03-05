@@ -91,7 +91,8 @@ describe('Fixtures Tests', () => {
     const html = readFileSync(path, 'utf-8');
     
     // Process with Defuddle
-    const url = `https://${basename(path, '.html').replace(/:/g, '/')}`;
+    const urlName = basename(path, '.html').replace(/^[a-z]+--/, '');
+    const url = `https://${urlName.replace(/:/g, '/')}`;
     const response = await Defuddle(html, url, { separateMarkdown: true });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);

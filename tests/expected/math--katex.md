@@ -9,7 +9,7 @@
 
 ## KaTeX and MathJax Comparison Demo
 
-Page by Murray Bourne, [IntMath.com](https://math-katex/). Last updated: 29 Apr 2020
+Page by Murray Bourne, [IntMath.com](https://katex/). Last updated: 29 Apr 2020
 
 ### Repeating fractions
 
