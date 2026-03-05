@@ -324,7 +324,47 @@ class FootnoteHandler {
 		return sup;
 	}
 
+	/**
+	 * Handle CSS sidenote footnotes where content is embedded inline in the text.
+	 * Pattern: <span class="footnote-container">
+	 *            <label class="footnote-number"></label>
+	 *            <input class="margin-toggle">
+	 *            <span class="footnote">Content...</span>
+	 *          </span>
+	 */
+	collectInlineSidenotes(element: any): FootnoteCollection {
+		const footnotes: FootnoteCollection = {};
+		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container');
+		if (containers.length === 0) return footnotes;
+
+		let footnoteCount = 1;
+		containers.forEach((container: any) => {
+			const content = container.querySelector('span.footnote, span.sidenote');
+			if (!content) return;
+
+			// Clone content so we can manipulate it without affecting the DOM
+			const contentClone = content.cloneNode(true);
+
+			footnotes[footnoteCount] = {
+				content: contentClone,
+				originalId: String(footnoteCount),
+				refs: [`fnref:${footnoteCount}`]
+			};
+
+			// Replace the container with a standard footnote reference
+			const ref = this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`);
+			container.replaceWith(ref);
+
+			footnoteCount++;
+		});
+
+		return footnotes;
+	}
+
 	standardizeFootnotes(element: any) {
+		// Handle CSS sidenote footnotes first
+		const sidenotes = this.collectInlineSidenotes(element);
+
 		const footnotes = this.collectFootnotes(element);
 
 		// Standardize inline footnotes using the collected IDs
@@ -570,8 +610,11 @@ class FootnoteHandler {
 		newList.id = 'footnotes';
 		const orderedList = this.doc.createElement('ol');
 
+		// Merge sidenotes and regular footnotes
+		const allFootnotes = { ...sidenotes, ...footnotes };
+
 		// Create footnote items in order
-		Object.entries(footnotes).forEach(([number, data]) => {
+		Object.entries(allFootnotes).forEach(([number, data]) => {
 			const newItem = this.createFootnoteItem(
 				parseInt(number),
 				data.content,

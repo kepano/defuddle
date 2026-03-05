@@ -11,6 +11,7 @@ import {
 	FOOTNOTE_LIST_SELECTORS
 } from './constants';
 import { standardizeContent } from './standardize';
+import { standardizeFootnotes } from './elements/footnotes';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities } from './utils/dom';
@@ -386,6 +387,9 @@ export class Defuddle {
 					metaTags: pageMetaTags
 				};
 			}
+
+			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
+			standardizeFootnotes(mainContent);
 
 			// Remove small images
 			this.removeSmallImages(clone, smallImages);

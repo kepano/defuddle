@@ -10,7 +10,6 @@ import {
 import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
 import { codeBlockRules } from './elements/code';
-import { standardizeFootnotes } from './elements/footnotes';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
@@ -168,9 +167,6 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 
 	// Handle H1 elements - remove first one and convert others to H2
 	standardizeHeadings(element, metadata.title, doc);
-
-	// Standardize footnotes and citations
-	standardizeFootnotes(element);
 
 	// Convert embedded content to standard formats
 	standardizeElements(element, doc);
