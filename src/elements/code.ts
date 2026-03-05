@@ -147,7 +147,7 @@ export const codeBlockRules = [
 
 			const getCodeLanguage = (element: Element): string => {
 				// Check data-lang attribute first
-				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language');
+				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language') || element.getAttribute('language');
 				if (dataLang) {
 					return dataLang.toLowerCase();
 				}
