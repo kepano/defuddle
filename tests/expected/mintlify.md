@@ -26,7 +26,11 @@ The `mode` prop controls how `SanityImage` handles aspect ratio changes when you
 />
 ```
 
-With contain mode, if your original image is 1200×800 (3:2 ratio) and you request 500×300 (5:3 ratio), the image will be resized to fit within those boundaries while maintaining its 3:2 aspect ratio.**Cover** mode treats the dimensions you provide as a container, resizing the image to completely fill the dimensions. The output image will match the aspect ratio of the dimensions you provide.
+With contain mode, if your original image is 1200×800 (3:2 ratio) and you request 500×300 (5:3 ratio), the image will be resized to fit within those boundaries while maintaining its 3:2 aspect ratio.
+
+### Cover Mode
+
+**Cover** mode treats the dimensions you provide as a container, resizing the image to completely fill the dimensions. The output image will match the aspect ratio of the dimensions you provide.
 
 ```tsx
 <SanityImage

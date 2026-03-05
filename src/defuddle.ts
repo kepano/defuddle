@@ -636,6 +636,13 @@ export class Defuddle {
 					return;
 				}
 
+				// Skip code elements where class names indicate
+				// language/syntax, not page structure
+				const tag = el.tagName;
+				if (tag === 'CODE' || tag === 'PRE') {
+					return;
+				}
+
 				// Get all relevant attributes and combine into a single string
 				const attrs = TEST_ATTRIBUTES.map(attr => {
 					if (attr === 'class') {

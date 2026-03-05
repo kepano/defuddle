@@ -66,6 +66,10 @@ export const EXACT_SELECTORS = [
 	'[id="comments" i]',
 	'[id="comment" i]',
 
+	// cover images
+	'div[class*="cover-"]',
+	'div[id*="cover-"]',
+
 	// header, nav
 	'header',
 	'.header:not(.banner)',
@@ -361,7 +365,9 @@ export const PARTIAL_SELECTORS = [
 	'context-bar',
 	'context-widget', // Reuters
 	'core-collateral',
-	'cover-',
+	'cover-image',
+	'cover-photo',
+	'cover-wrap',
 	'created-date',
 	'creative-commons_',
 	'c-subscribe',
