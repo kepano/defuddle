@@ -9,6 +9,8 @@ Defuddle extracts the main content from web pages. It cleans up web pages by rem
 
 ## Features
 
+[![Chat with Repo](https://badge.forgithub.com/kepano/defuddle?badge=chat)](https://uithub.com/kepano/defuddle)
+
 Defuddle aims to output clean and consistent HTML documents. It was written for [Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper) with the goal of creating a more useful input for HTML-to-Markdown converters like [Turndown](https://github.com/mixmark-io/turndown).
 
 Defuddle can be used as a replacement for [Mozilla Readability](https://github.com/mozilla/readability) with a few differences:
