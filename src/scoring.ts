@@ -230,6 +230,11 @@ export class ContentScorer {
 				return;
 			}
 
+			// Skip elements inside code blocks — they are code structure, not page navigation
+			if (element.closest('pre')) {
+				return;
+			}
+
 			// Skip elements that are likely to be content
 			if (ContentScorer.isLikelyContent(element)) {
 				return;
@@ -275,6 +280,11 @@ export class ContentScorer {
 			if (className.includes(indicator) || id.includes(indicator)) {
 				return true;
 			}
+		}
+
+		// Elements containing code blocks are likely content
+		if (element.querySelector('pre')) {
+			return true;
 		}
 
 		const text = element.textContent || '';

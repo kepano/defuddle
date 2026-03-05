@@ -308,6 +308,28 @@ export const codeBlockRules = [
 				.replace(/^\n+/, '')            // Remove extra newlines at start
 				.replace(/\n+$/, '');           // Remove extra newlines at end
 
+			// Remove code block header/toolbar siblings (e.g. filename labels, copy buttons)
+			// before replacing, so they don't leak into content when wrappers are flattened.
+			// Only remove non-semantic divs/spans, not headings, paragraphs, etc.
+			// Check a few levels up since pre may be nested inside wrapper divs.
+			let ancestor: Element | null = el;
+			for (let i = 0; i < 3 && ancestor; i++) {
+				const container: Element | null = ancestor.parentElement;
+				if (!container || container.tagName === 'BODY') break;
+				const siblings = Array.from(container.children) as Element[];
+				for (const sib of siblings) {
+					if (sib.contains(el)) continue;
+					const sibTag = sib.tagName;
+					if (sibTag !== 'DIV' && sibTag !== 'SPAN') continue;
+					const sibText = (sib.textContent || '').trim();
+					const sibWords = sibText.split(/\s+/).length;
+					if (sibWords <= 5 && !sib.querySelector('pre, code, img, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol')) {
+						sib.remove();
+					}
+				}
+				ancestor = container;
+			}
+
 			// Create new pre element
 			const newPre = doc.createElement('pre');
 
@@ -318,7 +340,7 @@ export const codeBlockRules = [
 				code.setAttribute('class', `language-${language}`);
 			}
 			code.textContent = codeContent;
-			
+
 			newPre.appendChild(code);
 			return newPre;
 		}

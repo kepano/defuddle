@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>x402 payments | Stripe Documentation</title>
+	<meta name="description" content="Use x402 for machine-to-machine payments.">
+	<meta property="og:title" content="x402 payments | Stripe Documentation">
+	<meta property="og:site_name" content="Stripe Documentation">
+</head>
+<body>
+	<div id="root">
+		<!-- Sidebar navigation (should be removed) -->
+		<nav class="Shell-sidebar">
+			<ul>
+				<li><a href="/docs/payments">Payments</a></li>
+				<li><a href="/docs/billing">Billing</a></li>
+			</ul>
+		</nav>
+
+		<div class="Content Box-root">
+			<div class="Content-container Box-root">
+				<div class="Content-article MarkdocContentWrapper">
+					<article id="content">
+						<!-- Title area -->
+						<div>
+							<h1>x402 payments</h1>
+							<h2>Use x402 for machine-to-machine payments.</h2>
+						</div>
+
+						<!-- Toolbar (should be removed) -->
+						<div role="toolbar" aria-label="Actions" class="toolbar">
+							<button>Ask about this page</button>
+							<button>Copy for LLM</button>
+						</div>
+
+						<!-- Main document content -->
+						<div class="Document">
+							<p>x402 is a protocol for internet payments. When a client requests a paid resource, your server returns a <code>402 Payment Required</code> response with payment details. The client completes the payment and retries the request with proof of payment.</p>
+
+							<h2 class="Heading Heading--anchored" id="before-you-begin">Before you begin</h2>
+
+							<ul class="List default">
+								<li>A Stripe account.</li>
+								<li>Crypto payins enabled for your account.</li>
+								<li>Machine-to-machine payments for x402 enabled.</li>
+							</ul>
+
+							<!-- Section with heading wrapped in anchor link + code tab group -->
+							<div class="Section Section--numbered Box-root">
+								<a href="#create-your-endpoint" class="UnstyledLink InlineLink Text-color--blue">
+									<div class="Box-root Padding-top--16 Padding-bottom--12">
+										<div class="Box-root Flex-flex Flex-alignItems--center Flex-direction--row">
+											<h2 class="Heading Heading--anchored Section-header" id="create-your-endpoint">
+												<span>Create your endpoint</span>
+											</h2>
+										</div>
+									</div>
+								</a>
+
+								<div class="Section-content Box-root">
+									<p>Add payment middleware to your endpoint so it can accept x402 payments. The middleware handles payment verification and settlement with Stripe per request to <code>/paid</code>.</p>
+
+									<!-- Code tab group with dropdown class (previously caused removal) -->
+									<div id="codetab_abc123" class="CodeTabGroup Box-root">
+										<!-- Language selector listbox (should be removed) -->
+										<div role="listbox" tabindex="0">
+											<div role="option">Node.js</div>
+											<div role="option">Python</div>
+											<div>No results</div>
+										</div>
+										<div class="CodeTabGroup-content-dropdown-select ControlledContentGroup-content">
+											<span>
+												<div class="Box-root">
+													<div class="CodeBlock CodeBlock-numbered Box-root Box-background--blue800">
+														<div>
+															<!-- Pre with div wrapper inside (block element inside pre) -->
+															<pre class="CodeBlock-content"><div class="CodeBlock-wrapper"><code class="CodeBlock-code"><span class="token keyword">import</span><span class="token unknown-token"> </span><span class="token punctuation">{</span><span class="token unknown-token"> paymentMiddleware </span><span class="token punctuation">}</span><span class="token unknown-token"> </span><span class="token keyword">from</span><span class="token unknown-token"> </span><span class="token string">"@x402/hono"</span><span class="token punctuation">;</span>
+<span class="token keyword">import</span><span class="token unknown-token"> </span><span class="token punctuation">{</span><span class="token unknown-token"> x402ResourceServer, HTTPFacilitatorClient </span><span class="token punctuation">}</span><span class="token unknown-token"> </span><span class="token keyword">from</span><span class="token unknown-token"> </span><span class="token string">"@x402/core/server"</span><span class="token punctuation">;</span>
+
+<span class="token unknown-token">app</span><span class="token punctuation">.</span><span class="token method function property-access">use</span><span class="token punctuation">(</span>
+  <span class="token function">paymentMiddleware</span><span class="token punctuation">(</span>
+    <span class="token punctuation">{</span>
+      <span class="token string">"GET /paid"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token literal-property property">price</span><span class="token operator">:</span> <span class="token string">"$0.001"</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">network</span><span class="token operator">:</span> <span class="token string">"base-sepolia"</span><span class="token punctuation">,</span>
+        <span class="token literal-property property">config</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token literal-property property">description</span><span class="token operator">:</span> <span class="token string">"Access to paid content"</span> <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token unknown-token">facilitatorClient</span><span class="token punctuation">,</span>
+    <span class="token unknown-token">resourceServer</span>
+  <span class="token punctuation">)</span>
+<span class="token punctuation">)</span><span class="token punctuation">;</span></code></div></pre>
+														</div>
+													</div>
+												</div>
+											</span>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Section with another heading link and code block -->
+							<div class="Section Section--numbered Box-root">
+								<a href="#test-your-endpoint" class="UnstyledLink InlineLink Text-color--blue">
+									<div class="Box-root Padding-top--16 Padding-bottom--12">
+										<div class="Box-root Flex-flex Flex-alignItems--center Flex-direction--row">
+											<h2 class="Heading Heading--anchored Section-header" id="test-your-endpoint">
+												<span>Test your endpoint</span>
+											</h2>
+										</div>
+									</div>
+								</a>
+
+								<div class="Section-content Box-root">
+									<p>Make a request to your server without an existing payment header, and you receive a <code>402</code> response with payment requirements.</p>
+
+									<div id="codetab_def456" class="CodeTabGroup Box-root">
+										<div class="CodeTabGroup-content-dropdown-select ControlledContentGroup-content">
+											<span>
+												<div class="Box-root">
+													<div class="CodeBlock CodeBlock-numbered Box-root Box-background--blue800">
+														<!-- Code block header with filename label (should be removed) -->
+														<div class="CodeBlock-header Box-root">
+															<div class="CodeBlock-filename Box-root">
+																<div>Command Line</div>
+															</div>
+														</div>
+														<div>
+															<pre class="CodeBlock-content"><div class="CodeBlock-wrapper"><code class="CodeBlock-code"><span class="token unknown-token">curl http://localhost:3000/paid</span></code></div></pre>
+														</div>
+													</div>
+												</div>
+											</span>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Final section without code -->
+							<div class="Section Section--numbered Box-root">
+								<a href="#run-mainnet" class="UnstyledLink InlineLink Text-color--blue">
+									<div class="Box-root Padding-top--16 Padding-bottom--12">
+										<div class="Box-root Flex-flex Flex-alignItems--center Flex-direction--row">
+											<h2 class="Heading Heading--anchored Section-header" id="run-mainnet">
+												<span>Run mainnet transactions</span>
+											</h2>
+										</div>
+									</div>
+								</a>
+								<div class="Section-content Box-root">
+									<p>To run mainnet transactions, integrate with the mainnet facilitator and configure your environment for production use.</p>
+								</div>
+							</div>
+						</div>
+					</article>
+
+					<!-- Related links outside article (should be removed) -->
+					<footer class="Content-footer">
+						<div class="related-articles">
+							<h3>Related</h3>
+							<a href="/docs/payments/accept-a-payment">Accept a payment</a>
+							<a href="/docs/payments/payment-intents">Payment Intents</a>
+						</div>
+					</footer>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

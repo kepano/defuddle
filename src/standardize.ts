@@ -192,6 +192,17 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 			link.remove();
 		});
 
+		// Unwrap anchor links that wrap headings (e.g. clickable section headers)
+		const headingAnchors = Array.from(element.querySelectorAll('a[href^="#"]'));
+		headingAnchors.forEach(link => {
+			if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
+				while (link.firstChild) {
+					link.parentNode?.insertBefore(link.firstChild, link);
+				}
+				link.remove();
+			}
+		});
+
 		// Remove obsolete plugin elements
 		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());
 

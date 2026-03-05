@@ -145,6 +145,8 @@ export const EXACT_SELECTORS = [
 	'label',
 	'option',
 	'select',
+	'[role="listbox"]',
+	'[role="option"]',
 	'textarea',
 	// 'time', // see issue #136
 	// 'relative-time', // see issue #136

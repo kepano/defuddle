@@ -636,10 +636,10 @@ export class Defuddle {
 					return;
 				}
 
-				// Skip code elements where class names indicate
-				// language/syntax, not page structure
+				// Skip code elements and elements containing code blocks
+				// where class names indicate language/syntax, not page structure
 				const tag = el.tagName;
-				if (tag === 'CODE' || tag === 'PRE') {
+				if (tag === 'CODE' || tag === 'PRE' || el.querySelector('pre')) {
 					return;
 				}
 
