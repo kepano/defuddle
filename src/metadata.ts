@@ -113,18 +113,20 @@ export class MetadataExtractor {
 			});
 		};
 
-		const domAuthorSelectors = [
-			'[itemprop="author"]',
-			'.author',
-			'[href*="author"]',
-			'.authors a',
+		// maxMatches: skip ambiguous selectors with too many matches
+		// (e.g. testimonials, comments, contributor lists)
+		const domAuthorSelectors: { selector: string; maxMatches?: number }[] = [
+			{ selector: '[itemprop="author"]' },
+			{ selector: '.author', maxMatches: 3 },
+			{ selector: '[href*="author"]', maxMatches: 3 },
+			{ selector: '.authors a', maxMatches: 3 },
 		];
 
-		domAuthorSelectors.forEach(selector => {
-			doc.querySelectorAll(selector).forEach(el => {
-				addDomAuthor(el.textContent);
-			});
-		});
+		for (const { selector, maxMatches } of domAuthorSelectors) {
+			const matches = doc.querySelectorAll(selector);
+			if (maxMatches && matches.length > maxMatches) continue;
+			matches.forEach(el => addDomAuthor(el.textContent));
+		}
 
 		if (collectedAuthorsFromDOM.length > 0) {
 			let uniqueAuthors = [...new Set(collectedAuthorsFromDOM.map(name => name.trim()).filter(Boolean))];
@@ -155,24 +157,45 @@ export class MetadataExtractor {
 				sibling = sibling.nextElementSibling;
 			}
 
-			// Search ancestor containers of h1 for "By ..." bylines
-			let ancestor: Element | null = h1.parentElement;
-			for (let depth = 0; depth < 3 && ancestor && ancestor !== doc.documentElement; depth++) {
-				for (const el of ancestor.querySelectorAll('p, span, address')) {
-					const text = (el.textContent?.trim() || '').replace(/\u00a0/g, ' ');
-					if (text.length > 0 && text.length < 50) {
-						const bylineMatch = text.match(/^By\s+(.+)$/i);
-						if (bylineMatch) {
-							return bylineMatch[1].trim();
-						}
-					}
+			// Search for "By ..." bylines near h1: check siblings of h1
+			// and siblings of its ancestor containers (up to 3 levels)
+			let bylineScope: Element | null = h1;
+			for (let depth = 0; depth < 3 && bylineScope; depth++) {
+				let bylineCandidate = bylineScope.previousElementSibling;
+				// Check a few siblings before
+				for (let i = 0; i < 3 && bylineCandidate; i++) {
+					const bylineResult = this.extractByline(bylineCandidate);
+					if (bylineResult) return bylineResult;
+					bylineCandidate = bylineCandidate.previousElementSibling;
 				}
-				ancestor = ancestor.parentElement;
+				// Check a few siblings after
+				bylineCandidate = bylineScope.nextElementSibling;
+				for (let i = 0; i < 3 && bylineCandidate; i++) {
+					const bylineResult = this.extractByline(bylineCandidate);
+					if (bylineResult) return bylineResult;
+					bylineCandidate = bylineCandidate.nextElementSibling;
+				}
+				bylineScope = bylineScope.parentElement;
 			}
 		}
 
 		// 5. Fall back to site name
 		return this.getSiteName(schemaOrgData, metaTags);
+	}
+
+	private static extractByline(el: Element): string | null {
+		// Check the element itself and its direct children for "By ..." text
+		const candidates = [el, ...el.querySelectorAll('p, span, address')];
+		for (const candidate of candidates) {
+			const text = (candidate.textContent?.trim() || '').replace(/\u00a0/g, ' ');
+			if (text.length > 0 && text.length < 50) {
+				const bylineMatch = text.match(/^By\s+([A-Z].+)$/i);
+				if (bylineMatch) {
+					return bylineMatch[1].trim();
+				}
+			}
+		}
+		return null;
 	}
 
 	private static getSiteName(schemaOrgData: any, metaTags: MetaTagItem[]): string {

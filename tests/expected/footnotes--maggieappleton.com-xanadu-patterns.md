@@ -1,8 +1,8 @@
 ```json
 {
   "title": "The Pattern Language of Project Xanadu",
-  "author": "grand theft eigenvalue ????, Henrique Mota, CatoMinor, Richard Gaskin, isaac.learns.datascience, Maggie Appleton - indieweb.social/@maggie",
-  "site": "grand theft eigenvalue ????, Henrique Mota, CatoMinor, Richard Gaskin, isaac.learns.datascience, Maggie Appleton - indieweb.social/@maggie",
+  "author": "",
+  "site": "",
   "published": "2024-05-24T02:20:06+00:00"
 }
 ```
