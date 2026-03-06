@@ -679,7 +679,13 @@ export function createMarkdownContent(content: string, url: string) {
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
 
-		return tableClone.outerHTML;
+		// outerHTML encodes & as &amp;, which breaks LaTeX alignment
+		// characters inside math delimiters. Decode common entities since
+		// the output goes into markdown, not back through an HTML parser.
+		return tableClone.outerHTML
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>');
 	}
 
 	function extractLatex(element: GenericElement): string {
