@@ -1,9 +1,12 @@
 import { Defuddle as DefuddleBase } from './defuddle';
 import { DefuddleOptions, DefuddleResponse } from './types';
-import { toMarkdown } from './markdown';
+import { toMarkdown, createMarkdownContent } from './markdown';
 
 // Export types
 export type { DefuddleOptions, DefuddleResponse };
+
+// Export standalone markdown conversion
+export { createMarkdownContent };
 
 class Defuddle {
 	private defuddle: DefuddleBase;
