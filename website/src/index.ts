@@ -7,8 +7,10 @@ import { convertToMarkdown, formatResponse, parseHtml } from './convert';
 const PRIMARY_HOST = 'defuddle.md';
 const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
+const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/favicon.ico']);
+
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 		const path = url.pathname;
 
@@ -19,125 +21,144 @@ export default {
 			return Response.redirect(redirectUrl.toString(), 301);
 		}
 
-		// Landing page
-		if (path === '/' || path === '') {
-			return new Response(getLandingPage(), {
-				headers: {
-					'Content-Type': 'text/html; charset=utf-8',
-					'Cache-Control': 'public, max-age=3600',
-				},
-			});
-		}
-
-		// Handle CORS preflight
-		if (request.method === 'OPTIONS') {
-			return new Response(null, {
-				headers: {
-					'Access-Control-Allow-Origin': '*',
-					'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-					'Access-Control-Allow-Headers': 'Content-Type',
-				},
-			});
-		}
-
-		// favicon
-		if (path === '/favicon.ico') {
-			return new Response(null, { status: 204 });
-		}
-
-		// Playground
-		if (path === '/playground') {
-			let prefillHtml = '';
-			if (request.method === 'POST') {
-				try {
-					const formData = await request.formData();
-					prefillHtml = formData.get('html')?.toString() || '';
-				} catch {}
+		// Cache static pages at the edge
+		if (request.method === 'GET' && STATIC_PAGES.has(path)) {
+			const cache = caches.default;
+			const cacheKey = new Request(url.toString(), request);
+			const cachedResponse = await cache.match(cacheKey);
+			if (cachedResponse) {
+				return cachedResponse;
 			}
-			return new Response(getPlaygroundPage(prefillHtml), {
-				headers: {
-					'Content-Type': 'text/html; charset=utf-8',
-					'Cache-Control': 'public, max-age=3600',
-				},
-			});
+
+			const response = await handleRequest(request, url, path);
+			if (response.ok) {
+				ctx.waitUntil(cache.put(cacheKey, response.clone()));
+			}
+			return response;
 		}
 
-		// API: parse HTML to markdown
-		if (path === '/api/parse' && request.method === 'POST') {
+		return handleRequest(request, url, path);
+	},
+} satisfies ExportedHandler;
+
+async function handleRequest(request: Request, url: URL, path: string): Promise<Response> {
+	// Landing page
+	if (path === '/' || path === '') {
+		return new Response(getLandingPage(), {
+			headers: {
+				'Content-Type': 'text/html; charset=utf-8',
+				'Cache-Control': 'public, max-age=3600',
+			},
+		});
+	}
+
+	// Handle CORS preflight
+	if (request.method === 'OPTIONS') {
+		return new Response(null, {
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type',
+			},
+		});
+	}
+
+	// favicon
+	if (path === '/favicon.ico') {
+		return new Response(null, { status: 204 });
+	}
+
+	// Playground
+	if (path === '/playground') {
+		let prefillHtml = '';
+		if (request.method === 'POST') {
 			try {
-				const body = await request.json() as { html: string; url?: string };
-				if (!body.html) {
-					return errorResponse('Missing "html" field in request body.', 400);
-				}
-				const result = parseHtml(body.html, body.url || '');
-				return new Response(JSON.stringify(result), {
-					headers: {
-						'Content-Type': 'application/json; charset=utf-8',
-						'Access-Control-Allow-Origin': '*',
-					},
-				});
-			} catch (err) {
-				const message = err instanceof Error ? err.message : 'An unexpected error occurred';
-				return errorResponse(message, 500);
+				const formData = await request.formData();
+				prefillHtml = formData.get('html')?.toString() || '';
+			} catch {}
+		}
+		return new Response(getPlaygroundPage(prefillHtml), {
+			headers: {
+				'Content-Type': 'text/html; charset=utf-8',
+				'Cache-Control': 'public, max-age=3600',
+			},
+		});
+	}
+
+	// API: parse HTML to markdown
+	if (path === '/api/parse' && request.method === 'POST') {
+		try {
+			const body = await request.json() as { html: string; url?: string };
+			if (!body.html) {
+				return errorResponse('Missing "html" field in request body.', 400);
 			}
-		}
-
-		// Docs
-		if (path === '/docs') {
-			return new Response(getDocsPage(), {
+			const result = parseHtml(body.html, body.url || '');
+			return new Response(JSON.stringify(result), {
 				headers: {
-					'Content-Type': 'text/html; charset=utf-8',
-					'Cache-Control': 'public, max-age=3600',
-				},
-			});
-		}
-
-		// Parse target URL from path
-		let targetUrl = path.slice(1); // Remove leading /
-
-		// Decode URI components
-		targetUrl = decodeURIComponent(targetUrl);
-
-		// If query string was part of the original URL, append it
-		if (url.search) {
-			targetUrl += url.search;
-		}
-
-		// Prepend https:// if no protocol
-		if (!targetUrl.match(/^https?:\/\//)) {
-			targetUrl = 'https://' + targetUrl;
-		}
-
-		// Validate URL
-		let parsedTarget: URL;
-		try {
-			parsedTarget = new URL(targetUrl);
-		} catch {
-			return errorResponse('Invalid URL. Please provide a valid web address.', 400);
-		}
-
-		// Block self-referential requests
-		if (BLOCKED_HOSTS.some(host => parsedTarget.hostname.includes(host))) {
-			return errorResponse('Cannot convert this URL.', 400);
-		}
-
-		try {
-			const result = await convertToMarkdown(targetUrl);
-			const markdown = formatResponse(result, targetUrl);
-
-			return new Response(markdown, {
-				headers: {
-					'Content-Type': 'text/markdown; charset=utf-8',
+					'Content-Type': 'application/json; charset=utf-8',
 					'Access-Control-Allow-Origin': '*',
-					'Cache-Control': 'public, max-age=3600',
 				},
 			});
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'An unexpected error occurred';
-			return errorResponse(message, 502);
+			return errorResponse(message, 500);
 		}
-	},
-} satisfies ExportedHandler;
+	}
+
+	// Docs
+	if (path === '/docs') {
+		return new Response(getDocsPage(), {
+			headers: {
+				'Content-Type': 'text/html; charset=utf-8',
+				'Cache-Control': 'public, max-age=3600',
+			},
+		});
+	}
+
+	// Parse target URL from path
+	let targetUrl = path.slice(1); // Remove leading /
+
+	// Decode URI components
+	targetUrl = decodeURIComponent(targetUrl);
+
+	// If query string was part of the original URL, append it
+	if (url.search) {
+		targetUrl += url.search;
+	}
+
+	// Prepend https:// if no protocol
+	if (!targetUrl.match(/^https?:\/\//)) {
+		targetUrl = 'https://' + targetUrl;
+	}
+
+	// Validate URL
+	let parsedTarget: URL;
+	try {
+		parsedTarget = new URL(targetUrl);
+	} catch {
+		return errorResponse('Invalid URL. Please provide a valid web address.', 400);
+	}
+
+	// Block self-referential requests
+	if (BLOCKED_HOSTS.some(host => parsedTarget.hostname.includes(host))) {
+		return errorResponse('Cannot convert this URL.', 400);
+	}
+
+	try {
+		const result = await convertToMarkdown(targetUrl);
+		const markdown = formatResponse(result, targetUrl);
+
+		return new Response(markdown, {
+			headers: {
+				'Content-Type': 'text/markdown; charset=utf-8',
+				'Access-Control-Allow-Origin': '*',
+			},
+		});
+	} catch (err) {
+		const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+		return errorResponse(message, 502);
+	}
+}
 
 function errorResponse(message: string, status: number): Response {
 	return new Response(`Error: ${message}`, {
