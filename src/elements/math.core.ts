@@ -47,9 +47,10 @@ export const mathRules = [
 			const isBlock = isBlockDisplay(el);
 			const cleanMathEl = createCleanMathEl(doc, mathData, latex, isBlock);
 
-			// Clean up any associated math scripts after we've extracted their content
-			if (el.parentElement) {
-				// Remove all math-related scripts and previews
+			// Clean up any associated math scripts after we've extracted their content.
+			// Skip when el itself is a math script — it will be replaced by the
+			// caller, and removing siblings here would destroy unprocessed scripts.
+			if (el.parentElement && !el.matches('script[type^="math/"]')) {
 				const mathElements = el.parentElement.querySelectorAll(
 					'script[type^="math/"], .MathJax_Preview, script[type="text/javascript"][src*="mathjax"], script[type="text/javascript"][src*="katex"]'
 				);
