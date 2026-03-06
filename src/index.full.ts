@@ -30,6 +30,9 @@ class Defuddle {
 	}
 }
 
+// Attach named exports as static properties for UMD/CJS consumers
+(Defuddle as any).createMarkdownContent = createMarkdownContent;
+
 // Export Defuddle as default
 export default Defuddle;
 
