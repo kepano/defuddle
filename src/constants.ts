@@ -240,6 +240,7 @@ export const PARTIAL_SELECTORS = [
 	'activitypub',
 	'actioncall',
 	'addcomment',
+	'addtoany',
 	'advert',
 //	'-ad-', howtogeek.com
 	'adlayout',
@@ -294,6 +295,7 @@ export const PARTIAL_SELECTORS = [
 	'articletopics',
 	'article-topics',
 //	'article-type',
+	'article-actions',
 	'article--lede', // The Verge
 	'articlewell',
 	'associated-people',
@@ -396,6 +398,7 @@ export const PARTIAL_SELECTORS = [
 	'donation',
 	'dropdown', // Ars Technica
 
+	'element-invisible',
 	'eletters',
 	'emailsignup',
 	'emoji-bar',
@@ -437,6 +440,7 @@ export const PARTIAL_SELECTORS = [
 	'further-reading',
 	'fullbleedheader',
 	
+	'gallery-count',
 	'gated-',
 	'gh-feed',
 	'gist-meta',
@@ -468,6 +472,7 @@ export const PARTIAL_SELECTORS = [
 	'invisible',
 
 	'jp-no-solution',
+	'jp-relatedposts',
 	'jswarning',
 	'js-warning',
 	'jumplink',
@@ -514,6 +519,7 @@ export const PARTIAL_SELECTORS = [
 	'might-like',
 	'minibio',
 	'more-about',
+	'mod-paywall',
 	'_modal',
 	'-modal',
 	'more-',
@@ -660,6 +666,7 @@ export const PARTIAL_SELECTORS = [
 	'related',
 	'relevant',
 	'reversefootnote',
+	'robots-nocontent',
 	'_rss',
 	'rss-link',
 
@@ -771,6 +778,7 @@ export const PARTIAL_SELECTORS = [
 	'upsell',
 
 	'viewbottom',
+	'yarpp-related',
 	'visually-hidden',
 	'welcomebox',
 	'widget_pages',
