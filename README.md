@@ -133,6 +133,7 @@ Defuddle returns an object with the following properties:
 | `schemaOrgData` | object | Raw schema.org data extracted from the page |
 | `title` | string | Title of the article |
 | `wordCount` | number | Total number of words in the extracted content |
+| `debug` | object | Debug info including content selector and removals (when `debug: true`) |
 
 ## Bundles
 
@@ -148,28 +149,19 @@ The core bundle is recommended for most use cases. It still handles math content
 
 | Option                   | Type    | Default | Description                                                               |
 | ------------------------ | ------- | ------- | ------------------------------------------------------------------------- |
-| `debug`                  | boolean | false   | Enable debug logging                                                      |
+| `debug`                  | boolean | false   | Enable debug logging and return debug info in the response                |
 | `url`                    | string  |         | URL of the page being parsed                                              |
 | `markdown`               | boolean | false   | Convert `content` to Markdown                                             |
 | `separateMarkdown`       | boolean | false   | Keep `content` as HTML and return `contentMarkdown` as Markdown           |
 | `removeExactSelectors`   | boolean | true    | Remove elements matching exact selectors like ads, social buttons, etc.   |
 | `removePartialSelectors` | boolean | true    | Remove elements matching partial selectors like ads, social buttons, etc. |
+| `removeHiddenElements`   | boolean | true    | Remove elements hidden via CSS (display:none, visibility:hidden, etc.)    |
+| `removeLowScoring`       | boolean | true    | Remove non-content blocks by scoring (navigation, link lists, etc.)       |
+| `removeSmallImages`      | boolean | true    | Remove small images (icons, tracking pixels, etc.)                        |
 | `removeImages`           | boolean | false   | Remove images.                                                            |
+| `standardize`            | boolean | true    | Standardize HTML (footnotes, headings, code blocks, etc.)                 |
+| `contentSelector`        | string  |         | CSS selector to use as the main content element, bypassing auto-detection |
 | `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
-
-### Debug mode
-
-You can enable debug mode by passing an options object when creating a new Defuddle instance:
-
-```typescript
-const article = new Defuddle(document, { debug: true }).parse();
-```
-
-- More verbose console logging about the parsing process
-- Preserves HTML class and id attributes that are normally stripped
-- Retains all data-* attributes
-- Skips div flattening to preserve document structure
-
 
 ## HTML standardization
 
@@ -242,3 +234,68 @@ npm run build
 When using `parseAsync()`, if no content can be extracted from the local HTML, Defuddle may fetch content from third-party APIs as a fallback. This only happens when the page HTML contains no usable content (e.g. client-side rendered SPAs). You can disable this by setting `useAsync: false` in options.
 
 - [FxTwitter API](https://github.com/FixTweet/FxTwitter) — Used to extract X (Twitter) article content, which is not available in server-rendered HTML.
+
+## Debugging
+
+### Debug mode
+
+You can enable debug mode by passing an options object when creating a new Defuddle instance:
+
+```typescript
+const result = new Defuddle(document, { debug: true }).parse();
+
+// Access debug info
+console.log(result.debug.contentSelector); // CSS selector path of chosen main content element
+console.log(result.debug.removals);        // Array of removed elements with reasons
+```
+
+When debug mode is enabled:
+
+- Returns a `debug` field in the response with detailed information about content extraction
+- More verbose console logging about the parsing process
+- Preserves HTML class and id attributes that are normally stripped
+- Retains all data-* attributes
+- Skips div flattening to preserve document structure
+
+The `debug` field contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `contentSelector` | string | CSS selector path of the chosen main content element |
+| `removals` | array | List of elements removed during processing |
+
+Each removal entry contains:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `step` | string | Pipeline step that removed the element (e.g. `removeLowScoring`, `removeBySelector`, `removeHiddenElements`) |
+| `selector` | string | CSS selector or pattern that matched (for selector-based removal) |
+| `reason` | string | Why the element was removed (e.g. `score: -20`, `display:none`) |
+| `text` | string | First 200 characters of the removed element's text content |
+
+### Pipeline toggles
+
+You can disable individual pipeline steps to diagnose content extraction issues:
+
+```typescript
+// Skip content scoring to see if it's removing content incorrectly
+const result = new Defuddle(document, { removeLowScoring: false }).parse();
+
+// Skip hidden element removal (useful for CSS sidenote layouts)
+const result = new Defuddle(document, { removeHiddenElements: false }).parse();
+
+// Skip small image removal
+const result = new Defuddle(document, { removeSmallImages: false }).parse();
+```
+
+### Content selector
+
+Use `contentSelector` to bypass Defuddle's auto-detection and specify the main content element directly:
+
+```typescript
+const result = new Defuddle(document, {
+  contentSelector: 'article.post-content'
+}).parse();
+```
+
+If the selector doesn't match any element, Defuddle falls back to auto-detection.

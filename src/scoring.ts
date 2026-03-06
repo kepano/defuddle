@@ -1,4 +1,6 @@
 import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS, FOOTNOTE_LIST_SELECTORS } from './constants';
+import { DebugRemoval } from './types';
+import { textPreview } from './utils';
 
 const contentIndicators = [
 	'admonition',
@@ -211,14 +213,13 @@ export class ContentScorer {
 
 	/**
 	 * Scores blocks based on their content and structure
-	 * and removes those that are likely not content
+	 * and removes those that are likely not content.
 	 */
-	public static scoreAndRemove(doc: Document, debug: boolean = false) {
+	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[]): void {
 		const startTime = Date.now();
-		let removedCount = 0;
 
 		// Track all elements to be removed
-		const elementsToRemove = new Set<Element>();
+		const elementsToRemove = new Map<Element, number>();
 
 		// Get all block elements
 		const blockElements = Array.from(doc.querySelectorAll(BLOCK_ELEMENTS.join(',')));
@@ -245,18 +246,26 @@ export class ContentScorer {
 
 			// If the score is below the threshold, mark for removal
 			if (score < 0) {
-				elementsToRemove.add(element);
-				removedCount++;
+				elementsToRemove.set(element, score);
 			}
 		});
 
 		// Remove all collected elements in a single pass
-		elementsToRemove.forEach(el => el.remove());
+		elementsToRemove.forEach((score, el) => {
+			if (debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'scoreAndRemove',
+					reason: `score: ${score}`,
+					text: textPreview(el)
+				});
+			}
+			el.remove();
+		});
 
 		const endTime = Date.now();
 		if (debug) {
 			console.log('Defuddle', 'Removed non-content blocks:', {
-				count: removedCount,
+				count: elementsToRemove.size,
 				processingTime: `${(endTime - startTime).toFixed(2)}ms`
 			});
 		}

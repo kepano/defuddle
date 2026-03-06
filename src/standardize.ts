@@ -15,6 +15,9 @@ import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild } from './utils/dom';
 
+// Module-level debug flag, set by standardizeContent for child functions
+let _debug = false;
+
 // Element standardization rules
 // Maps selectors to their target HTML element name
 interface StandardizationRule {
@@ -160,6 +163,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 ];
 
 export function standardizeContent(element: Element, metadata: DefuddleMetadata, doc: Document, debug: boolean = false): void {
+	_debug = debug;
 	standardizeSpaces(element);
 
 	// Remove HTML comments
@@ -230,7 +234,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		stripUnwantedAttributes(element, debug);
 		removeTrailingHeadings(element);
 		stripExtraBrElements(element);
-		logDebug('Debug mode: Skipping div flattening to preserve structure');
+		logDebug(_debug, 'Debug mode: Skipping div flattening to preserve structure');
 	}
 }
 
@@ -334,7 +338,7 @@ function removeTrailingHeadings(element: Element): void {
 	}
 
 	if (removedCount > 0) {
-		logDebug('Removed trailing headings:', removedCount);
+		logDebug(_debug, 'Removed trailing headings:', removedCount);
 	}
 }
 
@@ -418,7 +422,7 @@ function removeHtmlComments(element: Element): void {
 		});
 	});
 
-	logDebug('Removed HTML comments:', removedCount);
+	logDebug(_debug, 'Removed HTML comments:', removedCount);
 }
 
 function stripUnwantedAttributes(element: Element, debug: boolean): void {
@@ -475,7 +479,7 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 	processElement(element);
 	element.querySelectorAll('*').forEach(processElement);
 
-	logDebug('Stripped attributes:', attributeCount);
+	logDebug(_debug, 'Stripped attributes:', attributeCount);
 }
 
 function unwrapBareSpans(element: Element): void {
@@ -503,7 +507,7 @@ function unwrapBareSpans(element: Element): void {
 		element.normalize();
 	}
 
-	logDebug('Unwrapped bare spans:', unwrappedCount);
+	logDebug(_debug, 'Unwrapped bare spans:', unwrappedCount);
 }
 
 function removeEmptyElements(element: Element): void {
@@ -558,7 +562,7 @@ function removeEmptyElements(element: Element): void {
 		}
 	}
 
-	logDebug('Removed empty elements:', removedCount, 'iterations:', iterations);
+	logDebug(_debug, 'Removed empty elements:', removedCount, 'iterations:', iterations);
 }
 
 function stripExtraBrElements(element: Element): void {
@@ -614,7 +618,7 @@ function stripExtraBrElements(element: Element): void {
 	processBrs();
 
 	const endTime = Date.now();
-	logDebug('Standardized br elements:', {
+	logDebug(_debug, 'Standardized br elements:', {
 		removed: processedCount,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
@@ -779,7 +783,7 @@ function removeEmptyLines(element: Element, doc: Document): void {
 	cleanupEmptyElements(element);
 
 	const endTime = Date.now();
-	logDebug('Removed empty lines:', {
+	logDebug(_debug, 'Removed empty lines:', {
 		charactersRemoved: removedCount,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
@@ -915,7 +919,7 @@ function standardizeElements(element: Element, doc: Document): void {
 		processedCount++;
 	});
 
-	logDebug('Converted embedded elements:', processedCount);
+	logDebug(_debug, 'Converted embedded elements:', processedCount);
 }
 
 function flattenWrapperElements(element: Element, doc: Document): void {
@@ -1210,7 +1214,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 	} while (keepProcessing);
 
 	const endTime = Date.now();
-	logDebug('Flattened wrapper elements:', {
+	logDebug(_debug, 'Flattened wrapper elements:', {
 		count: processedCount,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});

@@ -281,6 +281,7 @@ export function getDocsPage(): string {
 				<li><a href="#response">Response</a></li>
 				<li><a href="#bundles">Bundles</a></li>
 				<li><a href="#standardization">HTML standardization</a></li>
+				<li><a href="#debugging">Debugging</a></li>
 			</ul>
 		</nav>
 
@@ -393,20 +394,15 @@ defuddle parse page.html --output result.html</code></pre>
 				<tr><td><code>separateMarkdown</code></td><td>boolean</td><td>false</td><td>Keep <code>content</code> as HTML and return Markdown in <code>contentMarkdown</code></td></tr>
 				<tr><td><code>removeExactSelectors</code></td><td>boolean</td><td>true</td><td>Remove elements matching exact selectors (ads, social buttons, etc.)</td></tr>
 				<tr><td><code>removePartialSelectors</code></td><td>boolean</td><td>true</td><td>Remove elements matching partial selectors</td></tr>
+				<tr><td><code>removeHiddenElements</code></td><td>boolean</td><td>true</td><td>Remove elements hidden via CSS (display:none, visibility:hidden, etc.)</td></tr>
+				<tr><td><code>removeLowScoring</code></td><td>boolean</td><td>true</td><td>Remove non-content blocks by scoring (navigation, link lists, etc.)</td></tr>
+				<tr><td><code>removeSmallImages</code></td><td>boolean</td><td>true</td><td>Remove small images (icons, tracking pixels, etc.)</td></tr>
 				<tr><td><code>removeImages</code></td><td>boolean</td><td>false</td><td>Remove images from the output</td></tr>
-				<tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging</td></tr>
+				<tr><td><code>standardize</code></td><td>boolean</td><td>true</td><td>Standardize HTML (footnotes, headings, code blocks, etc.)</td></tr>
+				<tr><td><code>contentSelector</code></td><td>string</td><td></td><td>CSS selector to use as the main content element, bypassing auto-detection</td></tr>
+				<tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging and return debug info in the response</td></tr>
 			</tbody>
 		</table>
-
-		<h3>Debug mode</h3>
-
-		<p>When debug mode is enabled:</p>
-		<ul>
-			<li>More verbose console logging about the parsing process</li>
-			<li>Preserves HTML class and id attributes that are normally stripped</li>
-			<li>Retains all <code>data-*</code> attributes</li>
-			<li>Skips div flattening to preserve document structure</li>
-		</ul>
 
 		<h2 id="response">Response</h2>
 
@@ -432,6 +428,7 @@ defuddle parse page.html --output result.html</code></pre>
 				<tr><td><code>metaTags</code></td><td>object[]</td><td>Meta tags from the page</td></tr>
 				<tr><td><code>schemaOrgData</code></td><td>object</td><td>Schema.org data extracted from the page</td></tr>
 				<tr><td><code>extractorType</code></td><td>string</td><td>Type of site-specific extractor used, if any</td></tr>
+				<tr><td><code>debug</code></td><td>object</td><td>Debug info including content selector and removals (when <code>debug: true</code>)</td></tr>
 			</tbody>
 		</table>
 
@@ -476,6 +473,77 @@ defuddle parse page.html --output result.html</code></pre>
 
 		<h3>Math</h3>
 		<p>Math elements, including MathJax and KaTeX, are converted to standard MathML with a <code>data-latex</code> attribute containing the original LaTeX source.</p>
+
+		<h2 id="debugging">Debugging</h2>
+
+		<h3>Debug mode</h3>
+
+		<p>When debug mode is enabled:</p>
+		<ul>
+			<li>Returns a <code>debug</code> field in the response with detailed information about content extraction</li>
+			<li>More verbose console logging about the parsing process</li>
+			<li>Preserves HTML class and id attributes that are normally stripped</li>
+			<li>Retains all <code>data-*</code> attributes</li>
+			<li>Skips div flattening to preserve document structure</li>
+		</ul>
+
+<pre><code class="language-javascript">const result = new Defuddle(document, { debug: true }).parse();
+
+// CSS selector path of chosen main content element
+console.log(result.debug.contentSelector);
+
+// Array of removed elements with step, reason, selector, and text preview
+console.log(result.debug.removals);</code></pre>
+
+		<p>The <code>debug</code> field contains:</p>
+
+		<table>
+			<thead>
+				<tr><th>Property</th><th>Type</th><th>Description</th></tr>
+			</thead>
+			<tbody>
+				<tr><td><code>contentSelector</code></td><td>string</td><td>CSS selector path of the chosen main content element</td></tr>
+				<tr><td><code>removals</code></td><td>array</td><td>List of elements removed during processing</td></tr>
+			</tbody>
+		</table>
+
+		<p>Each removal entry contains:</p>
+
+		<table>
+			<thead>
+				<tr><th>Property</th><th>Type</th><th>Description</th></tr>
+			</thead>
+			<tbody>
+				<tr><td><code>step</code></td><td>string</td><td>Pipeline step (e.g. <code>removeLowScoring</code>, <code>removeBySelector</code>, <code>removeHiddenElements</code>)</td></tr>
+				<tr><td><code>selector</code></td><td>string</td><td>CSS selector or pattern that matched</td></tr>
+				<tr><td><code>reason</code></td><td>string</td><td>Why the element was removed (e.g. <code>score: -20</code>, <code>display:none</code>)</td></tr>
+				<tr><td><code>text</code></td><td>string</td><td>First 200 characters of removed element's text content</td></tr>
+			</tbody>
+		</table>
+
+		<h3>Pipeline toggles</h3>
+
+		<p>Disable individual pipeline steps to diagnose content extraction issues:</p>
+
+<pre><code class="language-javascript">// Skip content scoring
+const result = new Defuddle(document, { removeLowScoring: false }).parse();
+
+// Skip hidden element removal
+const result = new Defuddle(document, { removeHiddenElements: false }).parse();
+
+// Skip small image removal
+const result = new Defuddle(document, { removeSmallImages: false }).parse();
+
+// Skip HTML standardization
+const result = new Defuddle(document, { standardize: false }).parse();</code></pre>
+
+		<h3>Content selector</h3>
+
+		<p>Use <code>contentSelector</code> to bypass auto-detection and specify the main content element directly. Falls back to auto-detection if the selector doesn't match.</p>
+
+<pre><code class="language-javascript">const result = new Defuddle(document, {
+  contentSelector: 'article.post-content'
+}).parse();</code></pre>
 
 		<div class="footer">
 			<a href="https://github.com/kepano/defuddle">GitHub</a>
