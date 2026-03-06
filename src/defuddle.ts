@@ -51,8 +51,11 @@ export class Defuddle {
 				removePartialSelectors: false
 			});
 
-			// Return the result with more content
-			if (retryResult.wordCount > result.wordCount) {
+			// Only use the retry if it produces significantly more content.
+			// A small increase likely means partial selectors correctly removed
+			// clutter (author blocks, related articles, etc.) from a short article.
+			// A large increase (2x+) suggests partial selectors were too aggressive.
+			if (retryResult.wordCount > result.wordCount * 2) {
 				this._log('Retry produced more content');
 				result = retryResult;
 			}

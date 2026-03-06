@@ -398,6 +398,7 @@ export const PARTIAL_SELECTORS = [
 
 	'eletters',
 	'emailsignup',
+	'emoji-bar',
 	'engagement-widget',
 	'enhancement-',
 	'entry-author-info',
@@ -459,6 +460,7 @@ export const PARTIAL_SELECTORS = [
 	'hidden-accessibility',
 
 	'infoline',
+	'inline-topic',
 	'instacartIntegration',
 	'interlude',
 	'interaction',
@@ -752,6 +754,8 @@ export const PARTIAL_SELECTORS = [
 //	'toolbar', prism.js
 	'tooltip-content',
 	'topbar',
+	'topic-authors',
+	'topic-footer',
 	'topic-list',
 	'topic-subnav',
 //	'top-section',
