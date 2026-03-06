@@ -379,6 +379,9 @@ export class Defuddle {
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
+			// Flatten shadow DOM content into the clone
+			this.flattenShadowRoots(this.doc, clone);
+
 			// Apply mobile styles to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
@@ -1118,6 +1121,78 @@ export class Defuddle {
 			const poster = el.getAttribute('poster');
 			if (poster) el.setAttribute('poster', resolve(poster));
 		});
+	}
+
+	/**
+	 * Flatten shadow DOM content into a cloned document.
+	 * Walks both trees in parallel so positional correspondence is exact.
+	 */
+	private flattenShadowRoots(original: Document, clone: Document): void {
+		const origElements = Array.from(original.body.getElementsByTagName('*'));
+
+		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
+		const firstShadow = origElements.find(el => el.shadowRoot);
+		if (!firstShadow) return;
+
+		const cloneElements = Array.from(clone.body.getElementsByTagName('*'));
+
+		// Check if we can directly read shadow DOM content (main world / Node.js).
+		// In content script isolated worlds, shadowRoot exists but content is empty.
+		const canReadShadow = (firstShadow.shadowRoot?.childNodes?.length ?? 0) > 0;
+
+		if (canReadShadow) {
+			// Direct traversal works (main world / Node.js)
+			for (let i = origElements.length - 1; i >= 0; i--) {
+				const origEl = origElements[i];
+				if (!origEl.shadowRoot) continue;
+
+				const cloneEl = cloneElements[i];
+				if (!cloneEl) continue;
+
+				const shadowHtml = origEl.shadowRoot.innerHTML;
+				if (shadowHtml.length > 0) {
+					this.replaceShadowHost(cloneEl, shadowHtml, clone);
+				}
+			}
+		} else {
+			// Content script isolated world — read data-defuddle-shadow attributes
+			// stamped by an external main-world script.
+			const shadowData: {cloneEl: Element, html: string}[] = [];
+			for (let i = 0; i < origElements.length; i++) {
+				const origEl = origElements[i];
+				const shadowHtml = origEl.getAttribute('data-defuddle-shadow');
+				if (!shadowHtml) continue;
+
+				const cloneEl = cloneElements[i];
+				if (!cloneEl) continue;
+
+				shadowData.push({cloneEl, html: shadowHtml});
+				// Clean up temporary attributes from both original and clone
+				origEl.removeAttribute('data-defuddle-shadow');
+				cloneEl.removeAttribute('data-defuddle-shadow');
+			}
+			for (const {cloneEl, html} of shadowData) {
+				this.replaceShadowHost(cloneEl, html, clone);
+			}
+		}
+	}
+
+	/**
+	 * Replace a shadow DOM host element with a div containing its shadow content.
+	 * Custom elements (tag names with hyphens) would re-initialize when inserted
+	 * into a live DOM, recreating their shadow roots and hiding the content.
+	 */
+	private replaceShadowHost(el: Element, shadowHtml: string, doc: Document): void {
+		const fragment = parseHTML(doc, shadowHtml);
+		if (el.tagName.includes('-')) {
+			// Custom element — replace with a div to prevent re-initialization
+			const div = doc.createElement('div');
+			div.appendChild(fragment);
+			el.parentNode?.replaceChild(div, el);
+		} else {
+			el.textContent = '';
+			el.appendChild(fragment);
+		}
 	}
 
 	/**
