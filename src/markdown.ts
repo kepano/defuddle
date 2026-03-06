@@ -37,6 +37,16 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
+// Check if an element belongs directly to an ancestor, not to an intervening TABLE
+function isDirectChild(el: any, ancestor: any): boolean {
+	let parent = el.parentNode;
+	while (parent && parent !== ancestor) {
+		if (parent.nodeName === 'TABLE') return false;
+		parent = parent.parentNode;
+	}
+	return parent === ancestor;
+}
+
 export function createMarkdownContent(content: string, url: string) {
 	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
@@ -58,9 +68,34 @@ export function createMarkdownContent(content: string, url: string) {
 				return handleNestedEquations(node);
 			}
 
+			// Detect layout tables (used for styling/positioning, not data)
+			const hasNestedTables = node.querySelector('table') !== null;
+			const directCells = Array.from(node.querySelectorAll('td, th')).filter(
+				(el: any) => isDirectChild(el, node)
+			);
+
+			if (hasNestedTables || directCells.length <= 1) {
+				const directRows = Array.from(node.querySelectorAll('tr')).filter(
+					(el: any) => isDirectChild(el, node)
+				);
+				const cellCounts = directRows.map((tr: any) =>
+					directCells.filter((cell: any) => cell.parentNode === tr).length
+				);
+				const isSingleColumn = directRows.length > 0
+					&& new Set(cellCounts).size === 1
+					&& cellCounts[0] <= 1;
+
+				if (isSingleColumn) {
+					// Layout table — extract content, don't convert to markdown table
+					return '\n\n' + turndownService.turndown(
+						directCells.map((cell: any) => serializeHTML(cell)).join('')
+					) + '\n\n';
+				}
+			}
+
 			// Check if the table has colspan or rowspan
 			const cells = Array.from(node.querySelectorAll('td, th'));
-			const hasComplexStructure = cells.some(cell => 
+			const hasComplexStructure = cells.some(cell =>
 				isGenericElement(asGenericElement(cell)) && (cell.hasAttribute('colspan') || cell.hasAttribute('rowspan'))
 			);
 
@@ -76,15 +111,9 @@ export function createMarkdownContent(content: string, url: string) {
 			const tableEl = node as any;
 			const rowElements: any[] = tableEl.rows && tableEl.rows.length > 0
 				? Array.from(tableEl.rows)
-				: Array.from(node.querySelectorAll('tr')).filter((tr: any) => {
-					// Exclude rows from nested tables
-					let parent = tr.parentNode;
-					while (parent && parent !== node) {
-						if (parent.nodeName === 'TABLE') return false;
-						parent = parent.parentNode;
-					}
-					return parent === node;
-				});
+				: Array.from(node.querySelectorAll('tr')).filter(
+					(tr: any) => isDirectChild(tr, node)
+				);
 			const rows = rowElements.map((row: any) => {
 				const cellElements: any[] = row.cells && row.cells.length > 0
 					? Array.from(row.cells)

@@ -30,13 +30,80 @@ async function fetchPage(targetUrl: string, userAgent: string): Promise<string> 
 		throw new Error(`Page too large (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB, max 5MB)`);
 	}
 
-	const html = await response.text();
+	const buffer = await response.arrayBuffer();
 
-	if (html.length > MAX_SIZE) {
-		throw new Error(`Page too large (${Math.round(html.length / 1024 / 1024)}MB, max 5MB)`);
+	if (buffer.byteLength > MAX_SIZE) {
+		throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
 	}
 
-	return html;
+	return decodeHtml(buffer, contentType);
+}
+
+// Windows-1252 bytes 0x80-0x9F that differ from ISO-8859-1/Unicode
+const WIN1252: Record<number, number> = {
+	0x80:0x20AC,0x82:0x201A,0x83:0x0192,0x84:0x201E,0x85:0x2026,0x86:0x2020,
+	0x87:0x2021,0x88:0x02C6,0x89:0x2030,0x8A:0x0160,0x8B:0x2039,0x8C:0x0152,
+	0x8E:0x017D,0x91:0x2018,0x92:0x2019,0x93:0x201C,0x94:0x201D,0x95:0x2022,
+	0x96:0x2013,0x97:0x2014,0x98:0x02DC,0x99:0x2122,0x9A:0x0161,0x9B:0x203A,
+	0x9C:0x0153,0x9E:0x017E,0x9F:0x0178,
+};
+
+function decodeWindows1252(buffer: ArrayBuffer): string {
+	const bytes = new Uint8Array(buffer);
+	const CHUNK = 8192;
+	const parts: string[] = [];
+	for (let i = 0; i < bytes.length; i += CHUNK) {
+		const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+		const mapped = new Uint16Array(slice.length);
+		for (let j = 0; j < slice.length; j++) {
+			mapped[j] = WIN1252[slice[j]] ?? slice[j];
+		}
+		parts.push(String.fromCharCode(...mapped));
+	}
+	return parts.join('');
+}
+
+function detectCharset(contentType: string, buffer: ArrayBuffer): string {
+	// 1. Check Content-Type header for charset
+	const headerMatch = contentType.match(/charset=([^\s;]+)/i);
+	if (headerMatch) return headerMatch[1].toLowerCase();
+
+	// 2. Peek at the first 1024 bytes for a <meta> charset declaration
+	const head = new TextDecoder('latin1').decode(buffer.slice(0, 1024));
+	const metaCharset = head.match(/<meta[^>]+charset=["']?([^\s"';>]+)/i);
+	if (metaCharset) return metaCharset[1].toLowerCase();
+
+	const metaHttpEquiv = head.match(/<meta[^>]+content=["'][^"']*charset=([^\s"';]+)/i);
+	if (metaHttpEquiv) return metaHttpEquiv[1].toLowerCase();
+
+	// 3. Check for non-UTF-8 high bytes that suggest Windows-1252
+	// Only scan the first 8KB — encoding issues appear early in real pages
+	const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, 8192));
+	for (let i = 0; i < bytes.length; i++) {
+		const b = bytes[i];
+		// Bytes 0x80-0x9F are valid Windows-1252 but invalid as standalone in UTF-8
+		if (b >= 0x80 && b <= 0x9F) return 'windows-1252';
+		// Valid UTF-8 multi-byte sequence — skip ahead
+		if (b >= 0xC0 && b <= 0xF7) {
+			const seqLen = b < 0xE0 ? 2 : b < 0xF0 ? 3 : 4;
+			let valid = true;
+			for (let j = 1; j < seqLen && i + j < bytes.length; j++) {
+				if ((bytes[i + j] & 0xC0) !== 0x80) { valid = false; break; }
+			}
+			if (valid) { i += seqLen - 1; continue; }
+			return 'windows-1252';
+		}
+	}
+
+	return 'utf-8';
+}
+
+function decodeHtml(buffer: ArrayBuffer, contentType: string): string {
+	const charset = detectCharset(contentType, buffer);
+	if (charset === 'windows-1252' || charset === 'iso-8859-1' || charset === 'latin1') {
+		return decodeWindows1252(buffer);
+	}
+	return new TextDecoder(charset).decode(buffer);
 }
 
 function createDefuddle(html: string, targetUrl: string) {
