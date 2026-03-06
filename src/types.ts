@@ -18,11 +18,24 @@ export interface MetaTagItem {
 	content: string | null;
 }
 
+export interface DebugRemoval {
+	step: string;
+	selector?: string;
+	reason?: string;
+	text: string;
+}
+
+export interface DebugInfo {
+	contentSelector: string;
+	removals: DebugRemoval[];
+}
+
 export interface DefuddleResponse extends DefuddleMetadata {
 	content: string;
 	contentMarkdown?: string;
 	extractorType?: string;
 	metaTags?: MetaTagItem[];
+	debug?: DebugInfo;
 }
 
 export interface DefuddleOptions {
@@ -73,6 +86,29 @@ export interface DefuddleOptions {
 	 * Defaults to true
 	 */
 	useAsync?: boolean;
+
+	/**
+	 * Toggle hidden element removal
+	 * Defaults to true
+	 */
+	removeHiddenElements?: boolean;
+
+	/**
+	 * Toggle content scoring/removal
+	 * Defaults to true
+	 */
+	scoreAndRemove?: boolean;
+
+	/**
+	 * Toggle small image removal
+	 * Defaults to true
+	 */
+	removeSmallImages?: boolean;
+
+	/**
+	 * CSS selector to use as main content element, bypassing auto-detection
+	 */
+	contentSelector?: string;
 }
 
 export interface ExtractorVariables {

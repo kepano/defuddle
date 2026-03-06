@@ -50,8 +50,12 @@ export function getWindow(doc: Document): Window | null {
 	return null;
 }
 
-export function logDebug(message: string, ...args: any[]): void {
-	if (typeof window !== 'undefined' && (window as any).defuddleDebug) {
+export function textPreview(el: Element): string {
+	return (el.textContent || '').trim().substring(0, 200);
+}
+
+export function logDebug(debug: boolean, message: string, ...args: any[]): void {
+	if (debug) {
 		console.log('Defuddle:', message, ...args);
 	}
 } 

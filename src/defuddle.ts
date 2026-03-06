@@ -1,5 +1,5 @@
 import { MetadataExtractor } from './metadata';
-import { DefuddleOptions, DefuddleResponse, MetaTagItem } from './types';
+import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import {
 	MOBILE_WIDTH,
@@ -13,7 +13,7 @@ import {
 import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
 import { ContentScorer, ContentScore } from './scoring';
-import { getComputedStyle } from './utils';
+import { getComputedStyle, textPreview } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities } from './utils/dom';
 
 interface StyleChange {
@@ -317,12 +317,16 @@ export class Defuddle {
 	 */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
 		const startTime = Date.now();
-		const options = { 
-			removeExactSelectors: true, 
-			removePartialSelectors: true, 
-			...this.options, 
-			...overrideOptions 
+		const options = {
+			removeExactSelectors: true,
+			removePartialSelectors: true,
+			removeHiddenElements: true,
+			scoreAndRemove: true,
+			removeSmallImages: true,
+			...this.options,
+			...overrideOptions
 		};
+		const debugRemovals: DebugRemoval[] = [];
 
 		// Extract schema.org data
 		const schemaOrgData = this._extractSchemaOrgData(this.doc);
@@ -378,7 +382,14 @@ export class Defuddle {
 			this.applyMobileStyles(clone, mobileStyles);
 
 			// Find main content
-			const mainContent = this.findMainContent(clone);
+			let mainContent: Element | null = null;
+			if (options.contentSelector) {
+				mainContent = clone.querySelector(options.contentSelector);
+				this._log('Using contentSelector:', options.contentSelector, mainContent ? 'found' : 'not found');
+			}
+			if (!mainContent) {
+				mainContent = this.findMainContent(clone);
+			}
 			if (!mainContent) {
 				const fallbackContent = this.resolveContentUrls(serializeHTML(this.doc.body));
 				const endTime = Date.now();
@@ -395,18 +406,24 @@ export class Defuddle {
 			standardizeFootnotes(mainContent);
 
 			// Remove small images
-			this.removeSmallImages(clone, smallImages);
+			if (options.removeSmallImages) {
+				this.removeSmallImages(clone, smallImages);
+			}
 
 			// Remove hidden elements using computed styles
-			this.removeHiddenElements(clone);
+			if (options.removeHiddenElements) {
+				this.removeHiddenElements(clone, debugRemovals);
+			}
 
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
-			ContentScorer.scoreAndRemove(clone, this.debug);
+			if (options.scoreAndRemove) {
+				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals);
+			}
 
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
-				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent);
+				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
 			}
 
 			// Normalize the main content
@@ -418,13 +435,22 @@ export class Defuddle {
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();
 
-			return {
+			const result: DefuddleResponse = {
 				content,
 				...metadata,
 				wordCount: this.countWords(content),
 				parseTime: Math.round(endTime - startTime),
 				metaTags: pageMetaTags
 			};
+
+			if (this.debug) {
+				result.debug = {
+					contentSelector: this.getElementSelector(mainContent),
+					removals: debugRemovals
+				};
+			}
+
+			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
 			const errorContent = this.resolveContentUrls(serializeHTML(this.doc.body));
@@ -562,9 +588,9 @@ export class Defuddle {
 		});
 	}
 
-	private removeHiddenElements(doc: Document) {
+	private removeHiddenElements(doc: Document, debugRemovals?: DebugRemoval[]) {
 		let count = 0;
-		const elementsToRemove = new Set<Element>();
+		const elementsToRemove = new Map<Element, string>();
 
 		// Get all elements and check their styles
 		const allElements = Array.from(doc.getElementsByTagName('*'));
@@ -573,7 +599,7 @@ export class Defuddle {
 		const BATCH_SIZE = 100;
 		for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
 			const batch = allElements.slice(i, i + BATCH_SIZE);
-			
+
 			// Read phase - gather all computedStyles
 			const styles = batch.map(element => {
 				try {
@@ -582,7 +608,7 @@ export class Defuddle {
 					// If we can't get computed style, check inline styles
 					const style = element.getAttribute('style');
 					if (!style) return null;
-					
+
 					// Create a temporary style element to parse inline styles
 					const tempStyle = doc.createElement('style');
 					tempStyle.textContent = `* { ${style} }`;
@@ -592,40 +618,52 @@ export class Defuddle {
 					return computedStyle;
 				}
 			});
-			
+
 			// Write phase - mark elements for removal
 			batch.forEach((element, index) => {
 				const computedStyle = styles[index];
-				if (computedStyle && (
-					computedStyle.display === 'none' ||
-					computedStyle.visibility === 'hidden' ||
-					computedStyle.opacity === '0'
-				)) {
-					elementsToRemove.add(element);
-					count++;
+				if (computedStyle) {
+					let reason = '';
+					if (computedStyle.display === 'none') reason = 'display:none';
+					else if (computedStyle.visibility === 'hidden') reason = 'visibility:hidden';
+					else if (computedStyle.opacity === '0') reason = 'opacity:0';
+
+					if (reason) {
+						elementsToRemove.set(element, reason);
+						count++;
+					}
 				}
 			});
 		}
 
 		// Batch remove all hidden elements
-		elementsToRemove.forEach(el => el.remove());
+		elementsToRemove.forEach((reason, el) => {
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeHiddenElements',
+					reason,
+					text: textPreview(el)
+				});
+			}
+			el.remove();
+		});
 		this._log('Removed hidden elements:', count);
 	}
 
-	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null) {
+	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[]) {
 		const startTime = Date.now();
 		let exactSelectorCount = 0;
 		let partialSelectorCount = 0;
 
-		// Track all elements to be removed
-		const elementsToRemove = new Set<Element>();
+		// Track all elements to be removed, with their match type
+		const elementsToRemove = new Map<Element, { type: 'exact' | 'partial'; selector?: string }>();
 
 		// First collect elements matching exact selectors
 		if (removeExact) {
 			const exactElements = doc.querySelectorAll(EXACT_SELECTORS.join(','));
 			exactElements.forEach(el => {
 				if (el?.parentNode) {
-					elementsToRemove.add(el);
+					elementsToRemove.set(el, { type: 'exact' });
 					exactSelectorCount++;
 				}
 			});
@@ -635,6 +673,11 @@ export class Defuddle {
 			// Pre-compile regexes and combine into a single regex for better performance
 			const combinedPattern = PARTIAL_SELECTORS.join('|');
 			const partialRegex = new RegExp(combinedPattern, 'i');
+
+			// Pre-compile individual regexes for debug pattern identification
+			const individualRegexes = this.debug
+				? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
+				: null;
 
 			// Create an efficient attribute selector for elements we care about
 			const attributeSelector = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
@@ -672,7 +715,10 @@ export class Defuddle {
 
 				// Check for partial match using single regex test
 				if (partialRegex.test(attrs)) {
-					elementsToRemove.add(el);
+					const matchedPattern = individualRegexes
+						? individualRegexes.find(r => r.regex.test(attrs))?.pattern
+						: undefined;
+					elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 					partialSelectorCount++;
 				}
 			});
@@ -682,7 +728,7 @@ export class Defuddle {
 		// Skip elements that are ancestors of mainContent to avoid disconnecting it
 		// Skip footnote list containers, their parents, and immediate children
 		// Skip anchor links inside headings - the heading transform handles these
-		elementsToRemove.forEach(el => {
+		elementsToRemove.forEach(({ type, selector }, el) => {
 			if (mainContent && el.contains(mainContent)) {
 				return;
 			}
@@ -699,6 +745,14 @@ export class Defuddle {
 					return;
 				}
 			} catch (e) {}
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeBySelector',
+					selector: type === 'exact' ? 'exact' : selector,
+					reason: type === 'exact' ? 'exact selector match' : `partial match: ${selector}`,
+					text: textPreview(el)
+				});
+			}
 			el.remove();
 		});
 
