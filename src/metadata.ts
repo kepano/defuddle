@@ -118,7 +118,7 @@ export class MetadataExtractor {
 		const domAuthorSelectors: { selector: string; maxMatches?: number }[] = [
 			{ selector: '[itemprop="author"]' },
 			{ selector: '.author', maxMatches: 3 },
-			{ selector: '[href*="author"]', maxMatches: 3 },
+			{ selector: '[href*="/author/"]', maxMatches: 3 },
 			{ selector: '.authors a', maxMatches: 3 },
 		];
 
