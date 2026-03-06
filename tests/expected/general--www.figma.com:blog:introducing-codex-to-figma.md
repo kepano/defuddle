@@ -29,6 +29,8 @@ To get started, open the Figma file that you plan to build your application from
 
 These selection URLs are linked directly to a frame or node on the Figma canvas. They could be a single element or a collection of components, but essentially it’s the source data that an agent will use for code generation. Selections can come from Figma Design, Figma Make, or FigJam files. Once you have the URL, open Codex and select either a new project or existing one. From here you can instruct Codex with a prompt like: `Help me implement this Figma design in code, use my existing design system components as much as possible.`
 
+Beyond extracting design information, there are a number of other [helpful tools](https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/) available in the Figma MCP server.
+
 Prompts like this will instruct the agent to call the `get_design_context` tool from the Figma MCP server. This tool helps extract critical design information from Figma files like layouts, styles, and component information and then provides that context to Codex for code generation.
 
 ## From code to canvas

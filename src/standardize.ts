@@ -178,7 +178,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	if (!debug) {
 		// First pass of div flattening
 		flattenWrapperElements(element, doc);
-		
+
 		// Strip unwanted attributes
 		stripUnwantedAttributes(element, debug);
 

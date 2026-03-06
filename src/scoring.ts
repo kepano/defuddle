@@ -335,6 +335,16 @@ export class ContentScorer {
 			return true;
 		}
 
+		// Prose text with sentence-ending punctuation and low link density is
+		// likely content even without <p> tags (e.g. transcript segments using divs/spans)
+		if (words >= 10 && /[.?!]/.test(text)) {
+			const linkCount = element.getElementsByTagName('a').length;
+			const linkDensity = linkCount / words;
+			if (linkDensity < 0.1) {
+				return true;
+			}
+		}
+
 		return false;
 	}
 
@@ -363,11 +373,17 @@ export class ContentScorer {
 			return 0;
 		}
 
+		const textLower = text.toLowerCase();
+		let indicatorMatches = 0;
 		for (const indicator of navigationIndicators) {
-			if (text.toLowerCase().includes(indicator)) {
-				score -= 10;
+			// Use word boundary matching to avoid false positives like
+			// "design information" matching "sign in"
+			const regex = new RegExp(`\\b${indicator.replace(/\s+/g, '\\s+')}\\b`);
+			if (regex.test(textLower)) {
+				indicatorMatches++;
 			}
 		}
+		score -= indicatorMatches * 10;
 
 		// Check for high link density (navigation)
 		const linkElements = element.getElementsByTagName('a');
@@ -418,18 +434,6 @@ export class ContentScorer {
 				score -= 8;
 			}
 		}
-
-		// Check for elements with many child elements but little text (typical for navigation)
-		// const childElements = element.children.length;
-		// if (childElements > 5 && words < childElements * 3) {
-		// 	score -= 12;
-		// }
-
-		// Check for elements with many divs but little text (typical for layout elements)
-		// const divs = element.getElementsByTagName('div').length;
-		// if (divs > 3 && words < divs * 2) {
-		// 	score -= 10;
-		// }
 
 		return score;
 	}
