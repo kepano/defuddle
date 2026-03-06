@@ -106,6 +106,12 @@ export interface DefuddleOptions {
 	removeSmallImages?: boolean;
 
 	/**
+	 * Toggle HTML standardization (footnotes, headings, code blocks, etc.)
+	 * Defaults to true
+	 */
+	standardize?: boolean;
+
+	/**
 	 * CSS selector to use as main content element, bypassing auto-detection
 	 */
 	contentSelector?: string;

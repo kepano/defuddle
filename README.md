@@ -156,9 +156,10 @@ The core bundle is recommended for most use cases. It still handles math content
 | `removeExactSelectors`   | boolean | true    | Remove elements matching exact selectors like ads, social buttons, etc.   |
 | `removePartialSelectors` | boolean | true    | Remove elements matching partial selectors like ads, social buttons, etc. |
 | `removeHiddenElements`   | boolean | true    | Remove elements hidden via CSS (display:none, visibility:hidden, etc.)    |
-| `removeLowScoring`         | boolean | true    | Remove non-content blocks by scoring (navigation, link lists, etc.)       |
+| `removeLowScoring`       | boolean | true    | Remove non-content blocks by scoring (navigation, link lists, etc.)       |
 | `removeSmallImages`      | boolean | true    | Remove small images (icons, tracking pixels, etc.)                        |
 | `removeImages`           | boolean | false   | Remove images.                                                            |
+| `standardize`            | boolean | true    | Standardize HTML (footnotes, headings, code blocks, etc.)                 |
 | `contentSelector`        | string  |         | CSS selector to use as the main content element, bypassing auto-detection |
 | `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
 

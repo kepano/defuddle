@@ -323,6 +323,7 @@ export class Defuddle {
 			removeHiddenElements: true,
 			removeLowScoring: true,
 			removeSmallImages: true,
+			standardize: true,
 			...this.options,
 			...overrideOptions
 		};
@@ -403,7 +404,9 @@ export class Defuddle {
 			}
 
 			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
-			standardizeFootnotes(mainContent);
+			if (options.standardize) {
+				standardizeFootnotes(mainContent);
+			}
 
 			// Remove small images
 			if (options.removeSmallImages) {
@@ -427,7 +430,9 @@ export class Defuddle {
 			}
 
 			// Normalize the main content
-			standardizeContent(mainContent, metadata, this.doc, this.debug);
+			if (options.standardize) {
+				standardizeContent(mainContent, metadata, this.doc, this.debug);
+			}
 
 			// Resolve relative URLs to absolute
 			this.resolveRelativeUrls(mainContent);

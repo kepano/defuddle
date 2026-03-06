@@ -395,9 +395,10 @@ defuddle parse page.html --output result.html</code></pre>
 				<tr><td><code>removeExactSelectors</code></td><td>boolean</td><td>true</td><td>Remove elements matching exact selectors (ads, social buttons, etc.)</td></tr>
 				<tr><td><code>removePartialSelectors</code></td><td>boolean</td><td>true</td><td>Remove elements matching partial selectors</td></tr>
 				<tr><td><code>removeHiddenElements</code></td><td>boolean</td><td>true</td><td>Remove elements hidden via CSS (display:none, visibility:hidden, etc.)</td></tr>
-				<tr><td><code>scoreAndRemove</code></td><td>boolean</td><td>true</td><td>Remove non-content blocks by scoring (navigation, link lists, etc.)</td></tr>
+				<tr><td><code>removeLowScoring</code></td><td>boolean</td><td>true</td><td>Remove non-content blocks by scoring (navigation, link lists, etc.)</td></tr>
 				<tr><td><code>removeSmallImages</code></td><td>boolean</td><td>true</td><td>Remove small images (icons, tracking pixels, etc.)</td></tr>
 				<tr><td><code>removeImages</code></td><td>boolean</td><td>false</td><td>Remove images from the output</td></tr>
+				<tr><td><code>standardize</code></td><td>boolean</td><td>true</td><td>Standardize HTML (footnotes, headings, code blocks, etc.)</td></tr>
 				<tr><td><code>contentSelector</code></td><td>string</td><td></td><td>CSS selector to use as the main content element, bypassing auto-detection</td></tr>
 				<tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging and return debug info in the response</td></tr>
 			</tbody>
@@ -513,7 +514,7 @@ console.log(result.debug.removals);</code></pre>
 				<tr><th>Property</th><th>Type</th><th>Description</th></tr>
 			</thead>
 			<tbody>
-				<tr><td><code>step</code></td><td>string</td><td>Pipeline step (e.g. <code>scoreAndRemove</code>, <code>removeBySelector</code>, <code>removeHiddenElements</code>)</td></tr>
+				<tr><td><code>step</code></td><td>string</td><td>Pipeline step (e.g. <code>removeLowScoring</code>, <code>removeBySelector</code>, <code>removeHiddenElements</code>)</td></tr>
 				<tr><td><code>selector</code></td><td>string</td><td>CSS selector or pattern that matched</td></tr>
 				<tr><td><code>reason</code></td><td>string</td><td>Why the element was removed (e.g. <code>score: -20</code>, <code>display:none</code>)</td></tr>
 				<tr><td><code>text</code></td><td>string</td><td>First 200 characters of removed element's text content</td></tr>
@@ -525,13 +526,16 @@ console.log(result.debug.removals);</code></pre>
 		<p>Disable individual pipeline steps to diagnose content extraction issues:</p>
 
 <pre><code class="language-javascript">// Skip content scoring
-const result = new Defuddle(document, { scoreAndRemove: false }).parse();
+const result = new Defuddle(document, { removeLowScoring: false }).parse();
 
 // Skip hidden element removal
 const result = new Defuddle(document, { removeHiddenElements: false }).parse();
 
 // Skip small image removal
-const result = new Defuddle(document, { removeSmallImages: false }).parse();</code></pre>
+const result = new Defuddle(document, { removeSmallImages: false }).parse();
+
+// Skip HTML standardization
+const result = new Defuddle(document, { standardize: false }).parse();</code></pre>
 
 		<h3>Content selector</h3>
 
