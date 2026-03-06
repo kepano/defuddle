@@ -24,6 +24,7 @@ export default {
 			return new Response(getLandingPage(), {
 				headers: {
 					'Content-Type': 'text/html; charset=utf-8',
+					'Cache-Control': 'public, max-age=3600',
 				},
 			});
 		}
@@ -56,6 +57,7 @@ export default {
 			return new Response(getPlaygroundPage(prefillHtml), {
 				headers: {
 					'Content-Type': 'text/html; charset=utf-8',
+					'Cache-Control': 'public, max-age=3600',
 				},
 			});
 		}
@@ -85,6 +87,7 @@ export default {
 			return new Response(getDocsPage(), {
 				headers: {
 					'Content-Type': 'text/html; charset=utf-8',
+					'Cache-Control': 'public, max-age=3600',
 				},
 			});
 		}
