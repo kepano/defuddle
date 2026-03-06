@@ -410,16 +410,41 @@ class FootnoteHandler {
 				if (id) {
 					footnoteId = id.toLowerCase();
 				}
-			// Arxiv
+			// Arxiv — handle multi-citation groups (e.g. [35, 2, 5])
 			} else if (el.matches('cite.ltx_cite')) {
-				const link = el.querySelector('a');
-				if (link) {
-					const href = link.getAttribute('href');
-					if (href) {
+				const links = Array.from(el.querySelectorAll('a'));
+				if (links.length > 0) {
+					// Process all links in the citation group
+					const refs: any[] = [];
+					links.forEach((link: any) => {
+						const href = link.getAttribute('href');
+						if (!href) return;
 						const match = href.split('/').pop()?.match(/bib\.bib(\d+)/);
-						if (match) {
-							footnoteId = match[1].toLowerCase();
-						}
+						if (!match) return;
+						const citationId = match[1].toLowerCase();
+						const entry = Object.entries(footnotes).find(
+							([_, data]) => data.originalId === citationId
+						);
+						if (!entry) return;
+						const [fnNum, fnData] = entry;
+						const refId = fnData.refs.length > 0
+							? `fnref:${fnNum}-${fnData.refs.length + 1}`
+							: `fnref:${fnNum}`;
+						fnData.refs.push(refId);
+						refs.push(this.createFootnoteReference(fnNum, refId));
+					});
+					if (refs.length > 0) {
+						const container = this.findOuterFootnoteContainer(el);
+						const fragment = el.ownerDocument.createDocumentFragment();
+						refs.forEach((ref: any, i: number) => {
+							if (i > 0) {
+								fragment.appendChild(el.ownerDocument.createTextNode(' '));
+							}
+							fragment.appendChild(ref);
+						});
+						container.replaceWith(fragment);
+						// Skip the default single-footnote handling below
+						return;
 					}
 				}
 			} else if (el.matches('sup.reference')) {

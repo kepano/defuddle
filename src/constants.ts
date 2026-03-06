@@ -186,7 +186,7 @@ export const EXACT_SELECTORS = [
 	'[class*="clickable-icon" i]',
 	'li span[class*="ltx_tag" i][class*="ltx_tag_item" i]',
 	'a[href^="#"][class*="anchor" i]',
-	'a[href^="#"][class*="ref" i]',
+	'a[href^="#"][class*="ref" i]:not(.ltx_ref)',
 
 	// link lists
 	'[data-container*="most-viewed" i]',

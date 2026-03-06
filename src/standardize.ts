@@ -808,6 +808,63 @@ function standardizeElements(element: Element, doc: Document): void {
 		});
 	});
 
+	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
+	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
+	equationTables.forEach(table => {
+		const mathElements = table.querySelectorAll('math');
+		if (mathElements.length === 0) return;
+
+		const fragment = doc.createDocumentFragment();
+		mathElements.forEach(mathEl => {
+			// Extract LaTeX from alttext or annotation
+			const alttext = mathEl.getAttribute('alttext');
+			const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]');
+			const latex = alttext || annotation?.textContent?.trim() || '';
+
+			if (!latex) return;
+
+			const isBlock = mathEl.getAttribute('display') === 'block' ||
+				table.classList.contains('ltx_equation') ||
+				table.classList.contains('ltx_equationgroup');
+
+			const cleanMath = doc.createElement('math');
+			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
+			cleanMath.setAttribute('data-latex', latex);
+			cleanMath.textContent = latex;
+			fragment.appendChild(cleanMath);
+		});
+
+		if (fragment.childNodes.length > 0) {
+			table.replaceWith(fragment);
+			processedCount++;
+		}
+	});
+
+	// arXiv LaTeXML: Remove hidden ltx_note_outer spans (CSS display:none on arxiv.org)
+	// These contain duplicated footnote marks and "footnotemark:" text
+	const noteOuters = Array.from(element.querySelectorAll('span.ltx_note_outer'));
+	noteOuters.forEach(outer => {
+		outer.remove();
+		processedCount++;
+	});
+
+	// arXiv LaTeXML: Unwrap ltx_ref_tag spans so cross-reference numbers are preserved
+	// These spans (e.g. <span class="ltx_text ltx_ref_tag">1</span>) get stripped to bare
+	// spans during attribute stripping, then unwrapped — but their parent <a> links get
+	// removed by the exact selector `a[href^="#"][class*="ref" i]`. Fix by unwrapping the
+	// link and keeping the text inline.
+	const refLinks = Array.from(element.querySelectorAll('a.ltx_ref'));
+	refLinks.forEach(link => {
+		const refTag = link.querySelector('span.ltx_ref_tag, span.ltx_text.ltx_ref_tag');
+		if (refTag) {
+			// Replace the link with just the text content
+			const text = doc.createTextNode(link.textContent || '');
+			link.replaceWith(text);
+			processedCount++;
+		}
+	});
+
 	// Convert lite-youtube elements
 	const liteYoutubeElements = element.querySelectorAll('lite-youtube');
 	liteYoutubeElements.forEach(el => {
