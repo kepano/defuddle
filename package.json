@@ -75,8 +75,8 @@
 		"commander": "^12.1.0"
 	},
 	"optionalDependencies": {
-		"mathml-to-latex": "^1.4.3",
-		"temml": "^0.11.2",
+		"mathml-to-latex": "^1.5.0",
+		"temml": "^0.13.1",
 		"turndown": "^7.2.0"
 	},
 	"peerDependencies": {
