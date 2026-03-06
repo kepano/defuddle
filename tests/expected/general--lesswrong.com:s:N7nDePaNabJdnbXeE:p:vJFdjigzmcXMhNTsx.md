@@ -514,6 +514,8 @@ The next couple of posts (if I finish them before the end of the world) will pre
 		- Why mechanistically should mesaoptimizers form in predictive learning, versus for instance in reinforcement learning or GANs?
 		- How would we test if simulators are inner aligned?
 
+## Appendix: Quasi-simulators
+
 ## A note on GANs
 
 GANs and predictive learning with log-loss are both shaped by a causal chain that flows from a single source of information: a ground truth distribution. In both cases the training process is supposed to make the generator model end up producing samples indistinguishable from the training distribution. But whereas log-loss minimizes the generator’s prediction loss against ground truth samples directly, in a GAN setup the generator never directly “sees” ground truth samples. It instead learns through interaction with an intermediary, the discriminator, which does get to see the ground truth, which it references to learn to tell real samples from forged ones produced by the generator. The generator is optimized to produce samples that fool the discriminator.
