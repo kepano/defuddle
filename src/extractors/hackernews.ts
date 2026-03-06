@@ -15,14 +15,15 @@ export class HackerNewsExtractor extends BaseExtractor {
 	}
 
 	private detectCommentPage(): boolean {
-		// Check if we're on a comment page by looking for a parent link in the navigation
-		return !!this.mainPost?.querySelector('.navs a[href*="parent"]');
+		// Comment pages have an "on: <story title>" link but no story title row
+		return !!this.mainPost?.querySelector('.onstory') && !this.mainPost?.querySelector('.titleline');
 	}
 
 	private findMainComment(): Element | null {
-		// The main comment is the first comment in the fatitem
-		const comment = this.mainPost?.querySelector('.comment');
-		return comment || null;
+		// Use the tr.athing row which contains both the comment metadata (.comhead)
+		// and the comment text (.commtext). The .comment div alone doesn't include
+		// the author (.hnuser) or timestamp (.age) which are in the sibling .comhead.
+		return this.mainPost?.querySelector('tr.athing') || null;
 	}
 
 	canExtract(): boolean {
