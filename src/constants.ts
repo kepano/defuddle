@@ -465,6 +465,9 @@ export const PARTIAL_SELECTORS = [
 	'itemendrow',
 	'invisible',
 
+	'jp-no-solution',
+	'jswarning',
+	'js-warning',
 	'jumplink',
 	'jump-to-',
 	'js-skip-to-content',
