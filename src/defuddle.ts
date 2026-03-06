@@ -92,10 +92,10 @@ export class Defuddle {
 
 		const items = Array.isArray(schemaOrgData) ? schemaOrgData : [schemaOrgData];
 		for (const item of items) {
-			if (item?.text) {
+			if (item?.text && typeof item.text === 'string') {
 				return item.text;
 			}
-			if (item?.articleBody) {
+			if (item?.articleBody && typeof item.articleBody === 'string') {
 				return item.articleBody;
 			}
 		}
