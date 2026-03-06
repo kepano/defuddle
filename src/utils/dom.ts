@@ -33,6 +33,19 @@ export function decodeHTMLEntities(doc: Document, text: string): string {
 }
 
 /**
+ * Check if an element belongs directly to an ancestor table,
+ * not to an intervening nested TABLE.
+ */
+export function isDirectTableChild(el: Node, ancestor: Node): boolean {
+	let parent = el.parentNode;
+	while (parent && parent !== ancestor) {
+		if (parent.nodeName === 'TABLE') return false;
+		parent = parent.parentNode;
+	}
+	return parent === ancestor;
+}
+
+/**
  * Parse an HTML string into a DocumentFragment.
  * Uses a <template> element when available (safer: no script execution,
  * no resource loading). Falls back to a <div> for environments that

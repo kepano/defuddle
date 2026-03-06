@@ -13,7 +13,7 @@ import { codeBlockRules } from './elements/code';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
-import { transferContent } from './utils/dom';
+import { transferContent, isDirectTableChild } from './utils/dom';
 
 // Element standardization rules
 // Maps selectors to their target HTML element name
@@ -863,6 +863,37 @@ function standardizeElements(element: Element, doc: Document): void {
 			link.replaceWith(text);
 			processedCount++;
 		}
+	});
+
+	// Unwrap single-column layout tables (used for styling/positioning, not data)
+	const tables = Array.from(element.querySelectorAll('table'));
+	tables.forEach(table => {
+		if (!table.isConnected) return;
+
+		const directCells = Array.from(table.querySelectorAll('td, th'))
+			.filter(cell => isDirectTableChild(cell, table));
+
+		// Skip data tables that have direct header cells
+		if (directCells.some(cell => cell.tagName === 'TH')) return;
+
+		const directRows = Array.from(table.querySelectorAll('tr'))
+			.filter(row => isDirectTableChild(row, table));
+		if (directRows.length === 0) return;
+
+		// Check that every row has at most one direct cell
+		const isSingleColumn = directRows.every(tr =>
+			directCells.filter(cell => cell.parentNode === tr).length <= 1
+		);
+		if (!isSingleColumn) return;
+
+		const fragment = doc.createDocumentFragment();
+		directCells.forEach(cell => {
+			while (cell.firstChild) {
+				fragment.appendChild(cell.firstChild);
+			}
+		});
+		table.replaceWith(fragment);
+		processedCount++;
 	});
 
 	// Convert lite-youtube elements

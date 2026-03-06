@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { parseHTML, serializeHTML } from './utils/dom';
+import { parseHTML, serializeHTML, isDirectTableChild } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -37,15 +37,6 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
-// Check if an element belongs directly to an ancestor, not to an intervening TABLE
-function isDirectChild(el: any, ancestor: any): boolean {
-	let parent = el.parentNode;
-	while (parent && parent !== ancestor) {
-		if (parent.nodeName === 'TABLE') return false;
-		parent = parent.parentNode;
-	}
-	return parent === ancestor;
-}
 
 export function createMarkdownContent(content: string, url: string) {
 	const footnotes: { [key: string]: string } = {};
@@ -71,12 +62,12 @@ export function createMarkdownContent(content: string, url: string) {
 			// Detect layout tables (used for styling/positioning, not data)
 			const hasNestedTables = node.querySelector('table') !== null;
 			const directCells = Array.from(node.querySelectorAll('td, th')).filter(
-				(el: any) => isDirectChild(el, node)
+				(el: any) => isDirectTableChild(el, node)
 			);
 
 			if (hasNestedTables || directCells.length <= 1) {
 				const directRows = Array.from(node.querySelectorAll('tr')).filter(
-					(el: any) => isDirectChild(el, node)
+					(el: any) => isDirectTableChild(el, node)
 				);
 				const cellCounts = directRows.map((tr: any) =>
 					directCells.filter((cell: any) => cell.parentNode === tr).length
@@ -112,7 +103,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const rowElements: any[] = tableEl.rows && tableEl.rows.length > 0
 				? Array.from(tableEl.rows)
 				: Array.from(node.querySelectorAll('tr')).filter(
-					(tr: any) => isDirectChild(tr, node)
+					(tr: any) => isDirectTableChild(tr, node)
 				);
 			const rows = rowElements.map((row: any) => {
 				const cellElements: any[] = row.cells && row.cells.length > 0
