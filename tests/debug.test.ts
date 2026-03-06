@@ -58,7 +58,7 @@ describe('Pipeline toggles', () => {
 		const withScoring = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
 		const withoutScoring = await Defuddle(fixtureHtml, fixtureUrl, {
 			debug: true,
-			scoreAndRemove: false,
+			removeLowScoring: false,
 		});
 
 		const scoringRemovals = withScoring.debug!.removals.filter(
@@ -101,7 +101,7 @@ describe('Pipeline toggles', () => {
 	test('all toggles off produces more or equal content', async () => {
 		const defaults = await Defuddle(fixtureHtml, fixtureUrl);
 		const allOff = await Defuddle(fixtureHtml, fixtureUrl, {
-			scoreAndRemove: false,
+			removeLowScoring: false,
 			removeHiddenElements: false,
 			removeSmallImages: false,
 			removeExactSelectors: false,

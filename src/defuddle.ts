@@ -321,7 +321,7 @@ export class Defuddle {
 			removeExactSelectors: true,
 			removePartialSelectors: true,
 			removeHiddenElements: true,
-			scoreAndRemove: true,
+			removeLowScoring: true,
 			removeSmallImages: true,
 			...this.options,
 			...overrideOptions
@@ -417,7 +417,7 @@ export class Defuddle {
 
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
-			if (options.scoreAndRemove) {
+			if (options.removeLowScoring) {
 				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals);
 			}
 
@@ -663,6 +663,10 @@ export class Defuddle {
 			const exactElements = doc.querySelectorAll(EXACT_SELECTORS.join(','));
 			exactElements.forEach(el => {
 				if (el?.parentNode) {
+					// Skip elements inside code blocks (e.g. syntax highlighting spans)
+					if (el.closest('pre, code')) {
+						return;
+					}
 					elementsToRemove.set(el, { type: 'exact' });
 					exactSelectorCount++;
 				}

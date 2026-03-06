@@ -156,7 +156,7 @@ The core bundle is recommended for most use cases. It still handles math content
 | `removeExactSelectors`   | boolean | true    | Remove elements matching exact selectors like ads, social buttons, etc.   |
 | `removePartialSelectors` | boolean | true    | Remove elements matching partial selectors like ads, social buttons, etc. |
 | `removeHiddenElements`   | boolean | true    | Remove elements hidden via CSS (display:none, visibility:hidden, etc.)    |
-| `scoreAndRemove`         | boolean | true    | Remove non-content blocks by scoring (navigation, link lists, etc.)       |
+| `removeLowScoring`         | boolean | true    | Remove non-content blocks by scoring (navigation, link lists, etc.)       |
 | `removeSmallImages`      | boolean | true    | Remove small images (icons, tracking pixels, etc.)                        |
 | `removeImages`           | boolean | false   | Remove images.                                                            |
 | `contentSelector`        | string  |         | CSS selector to use as the main content element, bypassing auto-detection |
@@ -267,7 +267,7 @@ Each removal entry contains:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `step` | string | Pipeline step that removed the element (e.g. `scoreAndRemove`, `removeBySelector`, `removeHiddenElements`) |
+| `step` | string | Pipeline step that removed the element (e.g. `removeLowScoring`, `removeBySelector`, `removeHiddenElements`) |
 | `selector` | string | CSS selector or pattern that matched (for selector-based removal) |
 | `reason` | string | Why the element was removed (e.g. `score: -20`, `display:none`) |
 | `text` | string | First 200 characters of the removed element's text content |
@@ -278,7 +278,7 @@ You can disable individual pipeline steps to diagnose content extraction issues:
 
 ```typescript
 // Skip content scoring to see if it's removing content incorrectly
-const result = new Defuddle(document, { scoreAndRemove: false }).parse();
+const result = new Defuddle(document, { removeLowScoring: false }).parse();
 
 // Skip hidden element removal (useful for CSS sidenote layouts)
 const result = new Defuddle(document, { removeHiddenElements: false }).parse();

@@ -97,7 +97,7 @@ export interface DefuddleOptions {
 	 * Toggle content scoring/removal
 	 * Defaults to true
 	 */
-	scoreAndRemove?: boolean;
+	removeLowScoring?: boolean;
 
 	/**
 	 * Toggle small image removal
