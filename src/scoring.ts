@@ -40,7 +40,6 @@ const navigationIndicators = [
 	'nav',
 	'navigation',
 	'newsletter',
-	'newsletter',
 	'popular',
 	'privacy',
 	'recommended',
@@ -55,13 +54,19 @@ const navigationIndicators = [
 	'social',
 	'sponsored',
 	'subscribe',
-	'subscribe',
 	'terms',
 	'trending'
 ];
 
 // Social media profile URL pattern — used to detect author bios
 const socialProfilePattern = /\b(linkedin\.com\/(in|company)\/|twitter\.com\/(?!intent\b)\w|x\.com\/(?!intent\b)\w|facebook\.com\/(?!share\b)\w|instagram\.com\/\w|threads\.net\/\w|mastodon\.\w)/i;
+
+// Date pattern for detecting standalone bylines — no leading \b because
+// textContent can concatenate adjacent elements without whitespace
+const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+
+// Author attribution pattern — case-sensitive "By" + capitalized name
+const bylinePattern = /\bBy\s+[A-Z]/;
 
 // Classes that indicate non-content these are elements are
 // not removed, but lower the score
@@ -301,14 +306,31 @@ export class ContentScorer {
 
 		// Check for headings that signal non-content sections (e.g. "Related articles")
 		// even if the element has enough text/paragraphs to otherwise look like content.
-		if (words < 200) {
+		// Skip very large elements (1000+ words) as they are likely page-level wrappers.
+		if (words < 1000) {
 			const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
+			let hasNavigationHeading = false;
 			for (let i = 0; i < headings.length; i++) {
 				const headingText = (headings[i].textContent || '').toLowerCase().trim();
 				for (const indicator of navigationIndicators) {
 					if (headingText.includes(indicator)) {
-						return false;
+						hasNavigationHeading = true;
+						break;
 					}
+				}
+				if (hasNavigationHeading) break;
+			}
+
+			if (hasNavigationHeading) {
+				if (words < 200) {
+					return false;
+				}
+				// Larger sections (e.g. card grids) are also non-content
+				// if they have high link density
+				const linkCount = element.getElementsByTagName('a').length;
+				const linkDensity = linkCount / (words || 1);
+				if (linkDensity > 0.2) {
+					return false;
 				}
 			}
 		}
@@ -431,6 +453,15 @@ export class ContentScorer {
 					score -= 15;
 					break;
 				}
+			}
+		}
+
+		// Penalize very small blocks that look like standalone author bylines with dates
+		// e.g. "By Author Name · March 4, 2026". Requires both an author attribution
+		// and a date to avoid false positives.
+		if (words < 15) {
+			if (bylinePattern.test(text) && datePattern.test(text)) {
+				score -= 10;
 			}
 		}
 
