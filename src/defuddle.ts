@@ -985,12 +985,28 @@ export class Defuddle {
 		// just because sibling noise inflates the parent's content score.
 		// Only prefer the child if it has meaningful content (>50 words),
 		// otherwise it may be an empty card element (e.g. related article cards).
+		// Skip this when the parent contains multiple children matching the
+		// same selector — that indicates a listing/portfolio page where the
+		// parent is the real content container.
 		const top = candidates[0];
 		let best = top;
 		for (let i = 1; i < candidates.length; i++) {
 			const child = candidates[i];
 			const childWords = (child.element.textContent || '').split(/\s+/).length;
 			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element) && childWords > 50) {
+				// Count how many candidates share this selector index inside
+				// the top element. Use top (not best) as the stable reference
+				// so the check isn't affected by earlier iterations.
+				let siblingsAtIndex = 0;
+				for (const c of candidates) {
+					if (c.selectorIndex === child.selectorIndex && top.element.contains(c.element)) {
+						if (++siblingsAtIndex > 1) break;
+					}
+				}
+				if (siblingsAtIndex > 1) {
+					// Multiple articles/cards inside the parent — it's a listing page
+					continue;
+				}
 				best = child;
 			}
 		}
