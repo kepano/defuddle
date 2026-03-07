@@ -615,8 +615,9 @@ export class Defuddle {
 		let count = 0;
 		const elementsToRemove = new Map<Element, string>();
 
-		// Get all elements and check their styles
-		const allElements = Array.from(doc.getElementsByTagName('*'));
+		// Use querySelectorAll instead of getElementsByTagName because
+		// linkedom's cloneNode does not wire up live HTMLCollections.
+		const allElements = Array.from(doc.querySelectorAll('*'));
 
 		// Process styles in batches to minimize layout thrashing
 		const BATCH_SIZE = 100;
@@ -654,6 +655,23 @@ export class Defuddle {
 					if (reason) {
 						elementsToRemove.set(element, reason);
 						count++;
+					}
+				}
+
+				// Detect CSS framework hidden utilities (e.g. Tailwind's "hidden",
+				// "sm:hidden", "not-machine:hidden") which JSDOM/linkedom can't
+				// resolve through computed styles.
+				if (!elementsToRemove.has(element)) {
+					const className = element.getAttribute('class') || '';
+					if (className) {
+						const tokens = className.split(/\s+/);
+						for (const token of tokens) {
+							if (token === 'hidden' || token.endsWith(':hidden')) {
+								elementsToRemove.set(element, `class:${token}`);
+								count++;
+								break;
+							}
+						}
 					}
 				}
 			});

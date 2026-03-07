@@ -338,9 +338,9 @@ export function createMarkdownContent(content: string, url: string) {
 			const href = node.getAttribute('href');
 			const title = node.getAttribute('title');
 			
-			// Extract the heading
+			// Extract the heading — use outerHTML to preserve the heading tag
 			const headingNode = node.querySelector('h1, h2, h3, h4, h5, h6');
-			const headingContent = headingNode ? turndownService.turndown(serializeHTML(headingNode)) : '';
+			const headingContent = headingNode ? turndownService.turndown((headingNode as any).outerHTML) : '';
 			
 			// Remove the heading from the content
 			if (headingNode) {

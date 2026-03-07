@@ -31,7 +31,7 @@ export default {
 			}
 
 			const response = await handleRequest(request, url, path);
-			if (response.ok) {
+			if (response.ok && response.status !== 204 && response.status !== 205) {
 				ctx.waitUntil(cache.put(cacheKey, response.clone()));
 			}
 			return response;
