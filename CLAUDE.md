@@ -75,7 +75,7 @@ Debug mode preserves class/id/data-* attributes and skips div flattening. Use `c
 2. Disable steps one at a time to find which one removes the content
 3. For selector issues, check `EXACT_SELECTORS` and `PARTIAL_SELECTORS` in `src/constants.ts`
 4. Elements inside `<pre>` or `<code>` are protected from selector removal
-5. After fixing, create a minimal fixture in `tests/fixtures/` with expected output in `tests/expected/` to prevent regressions
+5. After fixing, create a minimal fixture in `tests/fixtures/` with expected output in `tests/expected/` to prevent regressions. Anonymize fixtures — replace real names, emails, URLs, and identifying content with generic placeholders.
 
 ### Rules
 
