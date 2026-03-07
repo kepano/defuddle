@@ -301,15 +301,31 @@ export class ContentScorer {
 
 		// Check for headings that signal non-content sections (e.g. "Related articles")
 		// even if the element has enough text/paragraphs to otherwise look like content.
-		if (words < 200) {
-			const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
-			for (let i = 0; i < headings.length; i++) {
-				const headingText = (headings[i].textContent || '').toLowerCase().trim();
-				for (const indicator of navigationIndicators) {
-					if (headingText.includes(indicator)) {
-						return false;
-					}
+		const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
+		let hasNavigationHeading = false;
+		for (let i = 0; i < headings.length; i++) {
+			const headingText = (headings[i].textContent || '').toLowerCase().trim();
+			for (const indicator of navigationIndicators) {
+				if (headingText.includes(indicator)) {
+					hasNavigationHeading = true;
+					break;
 				}
+			}
+			if (hasNavigationHeading) break;
+		}
+
+		if (hasNavigationHeading) {
+			// Small sections with navigation headings are clearly non-content
+			if (words < 200) {
+				return false;
+			}
+			// Larger sections (e.g. card grids with many items) are also non-content
+			// if they have high link density. Use a higher threshold to avoid
+			// catching page-level wrappers that contain the main content.
+			const linkCount = element.getElementsByTagName('a').length;
+			const linkDensity = linkCount / (words || 1);
+			if (linkDensity > 0.2) {
+				return false;
 			}
 		}
 
@@ -431,6 +447,19 @@ export class ContentScorer {
 					score -= 15;
 					break;
 				}
+			}
+		}
+
+		// Penalize very small blocks that look like standalone author bylines with dates
+		// e.g. "By Author Name · March 4, 2026". Requires both an author attribution
+		// ("By" + capitalized name) and a date to avoid false positives.
+		// The date pattern does not require a word boundary before the month name
+		// because textContent can concatenate text from adjacent elements
+		// without whitespace (e.g. "ParallelMarch 4, 2026").
+		if (words < 15) {
+			const datePattern = /(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}/i;
+			if (/\bBy\s+[A-Z]/.test(text) && datePattern.test(text)) {
+				score -= 10;
 			}
 		}
 
