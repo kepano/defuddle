@@ -61,6 +61,21 @@ export class Defuddle {
 			}
 		}
 
+		// If still very little content, the page may be an index/listing page
+		// where card elements were scored as non-content or removed by partial
+		// selectors (e.g. "post-preview"). Retry with both disabled.
+		if (result.wordCount < 50) {
+			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
+			const indexRetry = this.parseInternal({
+				removeLowScoring: false,
+				removePartialSelectors: false
+			});
+			if (indexRetry.wordCount > result.wordCount) {
+				this._log('Index page retry produced more content');
+				result = indexRetry;
+			}
+		}
+
 		// Strip dangerous elements from this.doc before any fallback paths
 		// that read from it (e.g. _findContentBySchemaText).
 		// This must happen after parseInternal, which needs script tags
