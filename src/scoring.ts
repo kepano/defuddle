@@ -296,8 +296,8 @@ export class ContentScorer {
 			}
 		}
 
-		// Elements containing code blocks are likely content
-		if (element.querySelector('pre')) {
+		// Elements containing code blocks or tables are likely content
+		if (element.querySelector('pre, table')) {
 			return true;
 		}
 
