@@ -96,7 +96,8 @@ program
 					author: result.author,
 					site: result.site,
 					schemaOrgData: result.schemaOrgData,
-					wordCount: result.wordCount
+					wordCount: result.wordCount,
+					...(result.variables ? { variables: result.variables } : {}),
 				}, null, 2);
 			} else {
 				output = result.content;

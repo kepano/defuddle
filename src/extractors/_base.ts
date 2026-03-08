@@ -18,6 +18,15 @@ export abstract class BaseExtractor {
 		return false;
 	}
 
+	/**
+	 * When true, parseAsync() will prefer extractAsync() over extract(),
+	 * even if sync extraction produces content. Use this when the async
+	 * path provides strictly better results (e.g. YouTube transcripts).
+	 */
+	prefersAsync(): boolean {
+		return false;
+	}
+
 	async extractAsync(): Promise<ExtractorResult> {
 		return this.extract();
 	}

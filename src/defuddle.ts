@@ -1,6 +1,7 @@
 import { MetadataExtractor } from './metadata';
 import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
+import { BaseExtractor } from './extractors/_base';
 import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS,
@@ -25,6 +26,7 @@ export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
+	private cachedSchemaOrgData: any = undefined;
 
 	/**
 	 * Create a new Defuddle instance
@@ -280,19 +282,60 @@ export class Defuddle {
 	}
 
 	/**
-	 * Parse the document, falling back to async extractors if sync parse yields no content
+	 * Parse the document asynchronously. Checks for extractors that prefer
+	 * async (e.g. YouTube transcripts) before sync, then falls back to async
+	 * extractors if sync parse yields no content.
 	 */
 	async parseAsync(): Promise<DefuddleResponse> {
+		if (this.options.useAsync !== false) {
+			const asyncResult = await this.tryAsyncExtractor(
+				ExtractorRegistry.findPreferredAsyncExtractor.bind(ExtractorRegistry)
+			);
+			if (asyncResult) return asyncResult;
+		}
+
 		const result = this.parse();
 
 		if (result.wordCount > 0 || this.options.useAsync === false) {
 			return result;
 		}
 
+		return (await this.tryAsyncExtractor(
+			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
+		)) ?? result;
+	}
+
+	/**
+	 * Fetch only async variables (e.g. transcript) without re-parsing.
+	 * Safe to call after parse() — uses cached schema.org data since
+	 * parse() strips script tags from the document.
+	 */
+	async fetchAsyncVariables(): Promise<{ [key: string]: string } | null> {
+		if (this.options.useAsync === false) return null;
+
+		try {
+			const url = this.options.url || this.doc.URL;
+			const schemaOrgData = this.cachedSchemaOrgData ?? this._extractSchemaOrgData(this.doc);
+			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData);
+
+			if (extractor) {
+				const extracted = await extractor.extractAsync();
+				return this.getExtractorVariables(extracted.variables) || null;
+			}
+		} catch (error) {
+			console.error('Defuddle', 'Error fetching async variables:', error);
+		}
+
+		return null;
+	}
+
+	private async tryAsyncExtractor(
+		finder: (document: Document, url: string, schemaOrgData?: any) => BaseExtractor | null
+	): Promise<DefuddleResponse | null> {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this._extractSchemaOrgData(this.doc);
-			const extractor = ExtractorRegistry.findAsyncExtractor(this.doc, url, schemaOrgData);
+			const extractor = finder(this.doc, url, schemaOrgData);
 
 			if (extractor) {
 				const startTime = Date.now();
@@ -302,6 +345,7 @@ export class Defuddle {
 				const pageMetaTags = this._collectMetaTags();
 				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
 				const endTime = Date.now();
+				const variables = this.getExtractorVariables(extracted.variables);
 
 				return {
 					content: contentHtml,
@@ -317,14 +361,15 @@ export class Defuddle {
 					wordCount: this.countWords(extracted.contentHtml),
 					parseTime: Math.round(endTime - startTime),
 					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags
+					metaTags: pageMetaTags,
+					...(variables ? { variables } : {}),
 				};
 			}
 		} catch (error) {
 			console.error('Defuddle', 'Error in async extraction:', error);
 		}
 
-		return result;
+		return null;
 	}
 
 	/**
@@ -344,8 +389,9 @@ export class Defuddle {
 		};
 		const debugRemovals: DebugRemoval[] = [];
 
-		// Extract schema.org data
+		// Extract schema.org data (cache for fetchAsyncVariables after parse mutates DOM)
 		const schemaOrgData = this._extractSchemaOrgData(this.doc);
+		this.cachedSchemaOrgData = schemaOrgData;
 
 		const pageMetaTags = this._collectMetaTags();
 
@@ -364,7 +410,7 @@ export class Defuddle {
 				const extracted = extractor.extract();
 				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
 				const endTime = Date.now();
-				// console.log('Using extractor:', extractor.constructor.name.replace('Extractor', ''));
+				const variables = this.getExtractorVariables(extracted.variables);
 				return {
 					content: contentHtml,
 					title: extracted.variables?.title || metadata.title,
@@ -379,7 +425,8 @@ export class Defuddle {
 					wordCount: this.countWords(extracted.contentHtml),
 					parseTime: Math.round(endTime - startTime),
 					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags
+					metaTags: pageMetaTags,
+					...(variables ? { variables } : {}),
 				};
 			}
 
@@ -1321,5 +1368,23 @@ export class Defuddle {
 
 	private _decodeHTMLEntities(text: string): string {
 		return decodeHTMLEntities(this.doc, text);
+	}
+
+	/**
+	 * Filter extractor variables to only include custom ones
+	 * (exclude standard fields that are already mapped to top-level properties)
+	 */
+	private getExtractorVariables(variables?: { [key: string]: string }): { [key: string]: string } | undefined {
+		if (!variables) return undefined;
+		const standardKeys = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
+		const custom: { [key: string]: string } = {};
+		let hasCustom = false;
+		for (const [key, value] of Object.entries(variables)) {
+			if (!standardKeys.has(key)) {
+				custom[key] = value;
+				hasCustom = true;
+			}
+		}
+		return hasCustom ? custom : undefined;
 	}
 } 
