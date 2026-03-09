@@ -677,6 +677,14 @@ export class Defuddle {
 
 		const allElements = doc.querySelectorAll('*');
 		for (const element of allElements) {
+			// Skip elements that contain math — sites like Wikipedia wrap MathML
+			// in display:none spans for accessibility (the visible version is an
+			// image/SVG fallback). We need to preserve these for math extraction.
+			if (element.querySelector('math, [data-mathml], .katex-mathml') ||
+				element.tagName.toLowerCase() === 'math') {
+				continue;
+			}
+
 			// Check inline style for hidden patterns
 			const style = element.getAttribute('style');
 			if (style && hiddenStylePattern.test(style)) {
