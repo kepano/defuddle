@@ -1,7 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { parseHTML, serializeHTML } from '../utils/dom';
-import { buildCommentTree, buildComment, type CommentData } from '../utils/comments';
+import { buildCommentTree, buildContentHtml, type CommentData } from '../utils/comments';
 
 export class RedditExtractor extends BaseExtractor {
 	private shredditPost: Element | null;
@@ -102,7 +102,8 @@ export class RedditExtractor extends BaseExtractor {
 		const postBody = postBodyEl ? serializeHTML(postBodyEl) : '';
 
 		const commentArea = root.querySelector('.commentarea .sitetable');
-		const comments = commentArea ? this.processOldRedditComments(commentArea) : '';
+		const commentData = commentArea ? this.collectOldRedditComments(commentArea) : [];
+		const comments = commentData.length > 0 ? buildCommentTree(commentData) : '';
 
 		const contentHtml = this.createContentHtml(postBody, comments);
 		const description = this.createDescription(postBody);
@@ -133,20 +134,7 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	private createContentHtml(postContent: string, comments: string): string {
-		return `
-			<div class="reddit post">
-				<div class="post-content">
-					${postContent}
-				</div>
-			</div>
-			${comments ? `
-				<hr>
-				<div class="reddit comments">
-					<h2>Comments</h2>
-					${comments}
-				</div>
-			` : ''}
-		`.trim();
+		return buildContentHtml('reddit', postContent, comments);
 	}
 
 	private extractComments(): string {
@@ -178,37 +166,36 @@ export class RedditExtractor extends BaseExtractor {
 			.replace(/\s+/g, ' ') || '';
 	}
 
-	private processOldRedditComments(container: Element): string {
-		const topLevelComments = Array.from(container.querySelectorAll(':scope > .thing.comment'));
-		return topLevelComments.map(comment => this.renderOldRedditComment(comment)).join('');
-	}
+	private collectOldRedditComments(container: Element, depth: number = 0): CommentData[] {
+		const result: CommentData[] = [];
+		const comments = Array.from(container.querySelectorAll(':scope > .thing.comment'));
 
-	private renderOldRedditComment(comment: Element): string {
-		const author = comment.getAttribute('data-author') || '';
-		const permalink = comment.getAttribute('data-permalink') || '';
-		const score = comment.querySelector('.entry .tagline .score.unvoted')?.textContent?.trim() || '';
-		const timeEl = comment.querySelector('.entry .tagline time[datetime]');
-		const datetime = timeEl?.getAttribute('datetime') || '';
-		const date = datetime ? new Date(datetime).toISOString().split('T')[0] : '';
-		const bodyEl = comment.querySelector('.entry .usertext-body .md');
-		const body = bodyEl ? serializeHTML(bodyEl) : '';
+		for (const comment of comments) {
+			const author = comment.getAttribute('data-author') || '';
+			const permalink = comment.getAttribute('data-permalink') || '';
+			const score = comment.querySelector('.entry .tagline .score.unvoted')?.textContent?.trim() || '';
+			const timeEl = comment.querySelector('.entry .tagline time[datetime]');
+			const datetime = timeEl?.getAttribute('datetime') || '';
+			const date = datetime ? new Date(datetime).toISOString().split('T')[0] : '';
+			const bodyEl = comment.querySelector('.entry .usertext-body .md');
+			const body = bodyEl ? serializeHTML(bodyEl) : '';
 
-		let html = '<blockquote>';
-		html += buildComment({
-			metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<a href="https://reddit.com${permalink}" class="comment-link">${score}</a> ·\n\t\t<span class="comment-date">${date}</span>`,
-			content: body,
-		});
+			result.push({
+				author,
+				date,
+				content: body,
+				depth,
+				score: score || undefined,
+				url: permalink ? `https://reddit.com${permalink}` : undefined,
+			});
 
-		const childContainer = comment.querySelector('.child > .sitetable');
-		if (childContainer) {
-			const children = Array.from(childContainer.querySelectorAll(':scope > .thing.comment'));
-			for (const child of children) {
-				html += this.renderOldRedditComment(child);
+			const childContainer = comment.querySelector('.child > .sitetable');
+			if (childContainer) {
+				result.push(...this.collectOldRedditComments(childContainer, depth + 1));
 			}
 		}
 
-		html += '</blockquote>';
-		return html;
+		return result;
 	}
 
 	private processComments(comments: Element[]): string {
@@ -228,9 +215,12 @@ export class RedditExtractor extends BaseExtractor {
 			const date = timestamp ? new Date(timestamp).toISOString().split('T')[0] : '';
 
 			commentData.push({
-				metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<a href="https://reddit.com${permalink}" class="comment-link">${score} points</a> ·\n\t\t<span class="comment-date">${date}</span>`,
+				author,
+				date,
 				content,
 				depth,
+				score: `${score} points`,
+				url: permalink ? `https://reddit.com${permalink}` : undefined,
 			});
 		}
 

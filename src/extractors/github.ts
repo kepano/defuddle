@@ -1,7 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { parseHTML, serializeHTML } from '../utils/dom';
-import { buildCommentTree, type CommentData } from '../utils/comments';
+import { buildCommentTree, buildContentHtml, type CommentData } from '../utils/comments';
 
 export class GitHubExtractor extends BaseExtractor {
 	private isIssue: boolean;
@@ -78,20 +78,7 @@ export class GitHubExtractor extends BaseExtractor {
 	}
 
 	private createContentHtml(postContent: string, comments: string): string {
-		return `
-			<div class="github post">
-				<div class="post-content">
-					${postContent}
-				</div>
-			</div>
-			${comments ? `
-				<hr>
-				<div class="github comments">
-					<h2>Comments</h2>
-					${comments}
-				</div>
-			` : ''}
-		`.trim();
+		return buildContentHtml('github', postContent, comments);
 	}
 
 	private getIssueContent(): { content: string; author: string; published: string } {
@@ -147,7 +134,8 @@ export class GitHubExtractor extends BaseExtractor {
 			if (!bodyContent) continue;
 
 			commentData.push({
-				metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<span class="comment-date">${date}</span>`,
+				author,
+				date,
 				content: bodyContent,
 			});
 		}
@@ -205,7 +193,8 @@ export class GitHubExtractor extends BaseExtractor {
 			if (!bodyContent) continue;
 
 			commentData.push({
-				metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<span class="comment-date">${date}</span>`,
+				author,
+				date,
 				content: bodyContent,
 			});
 		}

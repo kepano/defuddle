@@ -1,17 +1,50 @@
 /**
  * Standardized comment HTML construction.
  *
- * Used by Reddit, Hacker News, and GitHub extractors to produce
+ * Used by Reddit, Hacker News, GitHub, and other extractors to produce
  * consistent comment markup.
+ *
+ * Metadata format (in markdown): **author** · date · score
+ * - date is linked if a url is provided
+ * - score is omitted if not provided
  */
 
 export interface CommentData {
-	/** Pre-built metadata HTML (author, date, score, links) */
-	metadata: string;
+	/** Comment author name */
+	author: string;
+	/** Display date (e.g. "2025-01-15") */
+	date: string;
 	/** Comment body HTML */
 	content: string;
 	/** Nesting depth (0 = top-level). Omit for flat lists. */
 	depth?: number;
+	/** Score text (e.g. "42 points", "25 points") */
+	score?: string;
+	/** Permalink URL for the comment */
+	url?: string;
+}
+
+/**
+ * Build the full content HTML for a post with optional comments section.
+ * @param site - Site identifier for wrapper class (e.g. "reddit", "hackernews", "github")
+ * @param postContent - The main post body HTML
+ * @param comments - Pre-built comments HTML string (from buildCommentTree)
+ */
+export function buildContentHtml(site: string, postContent: string, comments: string): string {
+	return `
+		<div class="${site} post">
+			<div class="post-content">
+				${postContent}
+			</div>
+		</div>
+		${comments ? `
+			<hr>
+			<div class="${site} comments">
+				<h2>Comments</h2>
+				${comments}
+			</div>
+		` : ''}
+	`.trim();
 }
 
 /**
@@ -40,7 +73,11 @@ export function buildCommentTree(comments: CommentData[]): string {
 					html += '</blockquote>';
 					blockquoteStack.pop();
 				}
-			} else if (depth > currentDepth) {
+			}
+			// Open a new level if needed (handles both deeper nesting
+			// and reopening after closing, e.g. depth 2 → 1 → 1)
+			const newCurrentDepth = blockquoteStack[blockquoteStack.length - 1] ?? -1;
+			if (depth > newCurrentDepth) {
 				html += '<blockquote>';
 				blockquoteStack.push(depth);
 			}
@@ -59,11 +96,25 @@ export function buildCommentTree(comments: CommentData[]): string {
 
 /**
  * Build a single comment div with metadata and content.
+ *
+ * Metadata order: author · date · score
+ * - date is wrapped in a link if url is provided
+ * - score is omitted if not provided
  */
 export function buildComment(comment: CommentData): string {
+	const author = `<span class="comment-author"><strong>${comment.author}</strong></span>`;
+
+	const dateHtml = comment.url
+		? `<a href="${comment.url}" class="comment-link">${comment.date}</a>`
+		: `<span class="comment-date">${comment.date}</span>`;
+
+	const scoreHtml = comment.score
+		? ` · <span class="comment-points">${comment.score}</span>`
+		: '';
+
 	return `<div class="comment">
 	<div class="comment-metadata">
-		${comment.metadata}
+		${author} · ${dateHtml}${scoreHtml}
 	</div>
 	<div class="comment-content">${comment.content}</div>
 </div>`;

@@ -1,7 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { serializeHTML } from '../utils/dom';
-import { buildCommentTree, CommentData } from '../utils/comments';
+import { buildComment, buildCommentTree, buildContentHtml, CommentData } from '../utils/comments';
 
 export class HackerNewsExtractor extends BaseExtractor {
 	private mainPost: Element | null;
@@ -59,20 +59,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 	}
 
 	private createContentHtml(postContent: string, comments: string): string {
-		return `
-			<div class="hackernews post">
-				<div class="post-content">
-					${postContent}
-				</div>
-				${comments ? `
-					<hr>
-					<div class="hackernews comments">
-						<h2>Comments</h2>
-						${comments}
-					</div>
-				` : ''}
-			</div>
-		`.trim();
+		return buildContentHtml('hackernews', postContent, comments);
 	}
 
 	private getPostContent(): string {
@@ -87,19 +74,13 @@ export class HackerNewsExtractor extends BaseExtractor {
 			const timestamp = timeElement?.getAttribute('title') || '';
 			const date = timestamp.split('T')[0] || '';
 			const points = this.mainComment.querySelector('.score')?.textContent?.trim() || '';
-			const parentUrl = this.mainPost.querySelector('.navs a[href*="parent"]')?.getAttribute('href') || '';
-			
-			return `
-				<div class="comment main-comment">
-					<div class="comment-metadata">
-						<span class="comment-author"><strong>${author}</strong></span> ·
-						<span class="comment-date">${date}</span>
-						${points ? ` · <span class="comment-points">${points}</span>` : ''}
-						${parentUrl ? ` · <a href="https://news.ycombinator.com/${parentUrl}" class="parent-link">parent</a>` : ''}
-					</div>
-					<div class="comment-content">${commentText}</div>
-				</div>
-			`.trim();
+
+			return buildComment({
+				author,
+				date,
+				content: commentText,
+				score: points || undefined,
+			});
 		}
 
 		// Otherwise handle regular post content
@@ -148,9 +129,12 @@ export class HackerNewsExtractor extends BaseExtractor {
 			const date = timestamp.split('T')[0] || '';
 
 			commentData.push({
-				metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<a href="${commentUrl}" class="comment-link">${date}</a>${points ? `\n\t\t · <span class="comment-points">${points}</span>` : ''}`,
+				author,
+				date,
 				content: serializeHTML(commentText),
 				depth,
+				score: points || undefined,
+				url: commentUrl,
 			});
 		}
 
