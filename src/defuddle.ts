@@ -453,6 +453,9 @@ export class Defuddle {
 			// Flatten shadow DOM content into the clone
 			this.flattenShadowRoots(this.doc, clone);
 
+			// Resolve React streaming SSR suspense boundaries
+			this.resolveStreamedContent(clone);
+
 			// Apply mobile styles to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
@@ -1231,6 +1234,67 @@ export class Defuddle {
 			for (const {cloneEl, html} of shadowData) {
 				this.replaceShadowHost(cloneEl, html, clone);
 			}
+		}
+	}
+
+	/**
+	 * Resolve React streaming SSR suspense boundaries.
+	 * React's streaming SSR places content in hidden divs (id="S:0") and
+	 * template placeholders (id="B:0") with $RC scripts to swap them.
+	 * Since we don't execute scripts, we perform the swap manually.
+	 */
+	private resolveStreamedContent(doc: Document): void {
+		// Find $RC("B:X","S:X") calls in inline scripts
+		const scripts = doc.querySelectorAll('script');
+		const rcPattern = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
+		const swaps: { templateId: string; contentId: string }[] = [];
+
+		for (const script of scripts) {
+			const text = script.textContent || '';
+			let match;
+			while ((match = rcPattern.exec(text)) !== null) {
+				swaps.push({ templateId: match[1], contentId: match[2] });
+			}
+		}
+
+		if (swaps.length === 0) return;
+
+		let swapCount = 0;
+		for (const { templateId, contentId } of swaps) {
+			const template = doc.getElementById(templateId);
+			const content = doc.getElementById(contentId);
+			if (!template || !content) continue;
+
+			// Move the hidden content's children into the template's position
+			const parent = template.parentNode;
+			if (!parent) continue;
+
+			// Remove the fallback/skeleton content between <!--$?--> and template
+			// by removing sibling nodes after the template until the <!--/$--> marker
+			let next = template.nextSibling;
+			while (next) {
+				const following = next.nextSibling;
+				if (next.nodeType === 8 && (next as Comment).data === '/$') {
+					next.remove();
+					break;
+				}
+				next.remove();
+				next = following;
+			}
+
+			// Insert content children before the template position
+			while (content.firstChild) {
+				parent.insertBefore(content.firstChild, template);
+			}
+
+			// Clean up the template and hidden div
+			template.remove();
+			content.remove();
+			swapCount++;
+		}
+
+		if (swapCount > 0) {
+			this._log('Resolved streamed content:', swapCount, 'suspense boundaries');
 		}
 	}
 
