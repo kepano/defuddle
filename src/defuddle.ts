@@ -25,6 +25,9 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
 
+// React streaming SSR pattern: $RC("B:X","S:X") calls in inline scripts
+const REACT_RC_PATTERN = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
+
 // Content pattern detection constants
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
@@ -1246,13 +1249,14 @@ export class Defuddle {
 	private resolveStreamedContent(doc: Document): void {
 		// Find $RC("B:X","S:X") calls in inline scripts
 		const scripts = doc.querySelectorAll('script');
-		const rcPattern = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
 		const swaps: { templateId: string; contentId: string }[] = [];
 
 		for (const script of scripts) {
 			const text = script.textContent || '';
+			if (!text.includes('$RC(')) continue;
+			REACT_RC_PATTERN.lastIndex = 0;
 			let match;
-			while ((match = rcPattern.exec(text)) !== null) {
+			while ((match = REACT_RC_PATTERN.exec(text)) !== null) {
 				swaps.push({ templateId: match[1], contentId: match[2] });
 			}
 		}
@@ -1265,22 +1269,26 @@ export class Defuddle {
 			const content = doc.getElementById(contentId);
 			if (!template || !content) continue;
 
-			// Move the hidden content's children into the template's position
 			const parent = template.parentNode;
 			if (!parent) continue;
 
-			// Remove the fallback/skeleton content between <!--$?--> and template
-			// by removing sibling nodes after the template until the <!--/$--> marker
+			// Remove the fallback/skeleton content after the template
+			// until the <!--/$--> comment marker
 			let next = template.nextSibling;
+			let foundMarker = false;
 			while (next) {
 				const following = next.nextSibling;
 				if (next.nodeType === 8 && (next as Comment).data === '/$') {
 					next.remove();
+					foundMarker = true;
 					break;
 				}
 				next.remove();
 				next = following;
 			}
+
+			// Skip swap if marker wasn't found — malformed streaming output
+			if (!foundMarker) continue;
 
 			// Insert content children before the template position
 			while (content.firstChild) {
