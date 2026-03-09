@@ -222,6 +222,14 @@ export class YoutubeExtractor extends BaseExtractor {
 				|| captionTracks[0];
 			if (!track?.baseUrl) return undefined;
 
+			// Validate URL to prevent SSRF in server-side contexts
+			try {
+				const captionUrl = new URL(track.baseUrl);
+				if (!captionUrl.hostname.endsWith('.youtube.com')) return undefined;
+			} catch {
+				return undefined;
+			}
+
 			const response = await fetch(track.baseUrl, {
 				headers: { 'User-Agent': 'Mozilla/5.0' },
 			});
