@@ -695,6 +695,7 @@ export const PARTIAL_SELECTORS = [
 	'share-post',
 	'share-print',
 	'share-section',
+	'shariff-',
 	'show-for-print',
 	'sidebartitle',
 //	'sidebar_',
