@@ -293,6 +293,14 @@ export function getDocsPage(): string {
 
 		<pre><code class="language-bash">npm install defuddle jsdom</code></pre>
 
+		<p>To use the CLI globally, install with <code>-g</code>, or use <code>npx</code> to run without installing globally:</p>
+
+<pre><code class="language-bash"># Install globally
+npm install -g defuddle
+
+# Or use npx
+npx defuddle parse https://example.com/article</code></pre>
+
 		<h2 id="browser">Browser use</h2>
 
 		<p>In the browser, create a Defuddle instance with a <code>Document</code> object and call <code>parse()</code>.</p>
@@ -344,25 +352,25 @@ const result = await Defuddle(dom, 'https://example.com/article', {
 
 		<h2 id="cli">CLI use</h2>
 
-		<p>Defuddle includes a CLI for parsing web pages from the terminal.</p>
+		<p>Defuddle includes a CLI for parsing web pages from the terminal. You can run it with <code>npx</code> or install it globally with <code>npm install -g defuddle</code>.</p>
 
 <pre><code class="language-bash"># Parse a local HTML file
-defuddle parse page.html
+npx defuddle parse page.html
 
 # Parse a URL
-defuddle parse https://example.com/article
+npx defuddle parse https://example.com/article
 
 # Output as markdown
-defuddle parse page.html --markdown
+npx defuddle parse page.html --markdown
 
 # Output as JSON with metadata
-defuddle parse page.html --json
+npx defuddle parse page.html --json
 
 # Extract a specific property
-defuddle parse page.html --property title
+npx defuddle parse page.html --property title
 
 # Save output to a file
-defuddle parse page.html --output result.html</code></pre>
+npx defuddle parse page.html --output result.html</code></pre>
 
 		<h3>CLI options</h3>
 

@@ -66,29 +66,29 @@ _Note: for `defuddle/node` to import properly, the module format in your `packag
 
 ### CLI
 
-Defuddle includes a command-line interface for parsing web pages directly from the terminal.
+Defuddle includes a command-line interface for parsing web pages directly from the terminal. You can run it with `npx` or [install it globally](#cli-installation).
 
 ```bash
 # Parse a local HTML file
-defuddle parse page.html
+npx defuddle parse page.html
 
 # Parse a URL
-defuddle parse https://example.com/article
+npx defuddle parse https://example.com/article
 
 # Output as markdown
-defuddle parse page.html --markdown
+npx defuddle parse page.html --markdown
 
 # Output as JSON with metadata
-defuddle parse page.html --json
+npx defuddle parse page.html --json
 
 # Extract a specific property
-defuddle parse page.html --property title
+npx defuddle parse page.html --property title
 
 # Save output to a file
-defuddle parse page.html --output result.html
+npx defuddle parse page.html --output result.html
 
 # Enable debug mode
-defuddle parse page.html --debug
+npx defuddle parse page.html --debug
 ```
 
 #### CLI Options
@@ -112,6 +112,20 @@ For Node.js usage, you'll also need to install JSDOM:
 
 ```bash
 npm install jsdom
+```
+
+### CLI installation
+
+To use the `defuddle` command globally, install it with the `-g` flag:
+
+```bash
+npm install -g defuddle
+```
+
+Or use `npx` to run the CLI without installing globally:
+
+```bash
+npx defuddle parse https://example.com/article
 ```
 
 ## Response
