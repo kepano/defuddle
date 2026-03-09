@@ -59,14 +59,14 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 	private createContentHtml(postContent: string, comments: string): string {
 		return `
-			<div class="hackernews-post">
+			<div class="hackernews post">
 				<div class="post-content">
 					${postContent}
 				</div>
 				${comments ? `
 					<hr>
 					<h2>Comments</h2>
-					<div class="hackernews-comments">
+					<div class="hackernews comments">
 						${comments}
 					</div>
 				` : ''}

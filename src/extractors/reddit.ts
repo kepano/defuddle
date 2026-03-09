@@ -133,7 +133,7 @@ export class RedditExtractor extends BaseExtractor {
 
 	private createContentHtml(postContent: string, comments: string): string {
 		return `
-			<div class="reddit-post">
+			<div class="reddit post">
 				<div class="post-content">
 					${postContent}
 				</div>
@@ -141,7 +141,7 @@ export class RedditExtractor extends BaseExtractor {
 			${comments ? `
 				<hr>
 				<h2>Comments</h2>
-				<div class="reddit-comments">
+				<div class="reddit comments">
 					${comments}
 				</div>
 			` : ''}
