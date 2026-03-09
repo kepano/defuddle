@@ -1,5 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { escapeHtml } from '../utils/dom';
 
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
@@ -41,18 +42,18 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	async extractAsync(): Promise<ExtractorResult> {
 		const transcript = await this.fetchTranscript();
-		return this.buildResult(transcript?.html, transcript?.text, transcript?.languageCode);
+		return this.buildResult(transcript);
 	}
 
-	private buildResult(transcriptHtml?: string, transcriptText?: string, languageCode?: string): ExtractorResult {
+	private buildResult(transcript?: { html: string; text: string; languageCode: string }): ExtractorResult {
 		const videoData = this.getVideoData();
 		const channelName = this.getChannelName(videoData);
 		const description = videoData.description || '';
 		const formattedDescription = this.formatDescription(description);
 		let contentHtml = `<iframe width="560" height="315" src="https://www.youtube.com/embed/${this.getVideoId()}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>${formattedDescription}`;
 
-		if (transcriptHtml) {
-			contentHtml += transcriptHtml;
+		if (transcript?.html) {
+			contentHtml += transcript.html;
 		}
 
 		const variables: { [key: string]: string } = {
@@ -64,12 +65,12 @@ export class YoutubeExtractor extends BaseExtractor {
 			description: description.slice(0, 200).trim(),
 		};
 
-		if (transcriptText) {
-			variables.transcript = transcriptText;
+		if (transcript?.text) {
+			variables.transcript = transcript.text;
 		}
 
-		if (languageCode) {
-			variables.language = languageCode;
+		if (transcript?.languageCode) {
+			variables.language = transcript.languageCode;
 		}
 
 		return {
@@ -283,7 +284,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		const htmlLines = segments.map(seg => {
 			const timestamp = this.formatTimestamp(seg.start);
-			return `<li><span data-timestamp="${seg.start}">${timestamp}</span> ${this.escapeHtml(seg.text)}</li>`;
+			return `<li><span data-timestamp="${seg.start}">${timestamp}</span> ${escapeHtml(seg.text)}</li>`;
 		});
 
 		const textLines = segments.map(seg => {
@@ -319,14 +320,6 @@ export class YoutubeExtractor extends BaseExtractor {
 			return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 		}
 		return `${m}:${String(s).padStart(2, '0')}`;
-	}
-
-	private escapeHtml(text: string): string {
-		return text
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;');
 	}
 
 	private getVideoId(): string {

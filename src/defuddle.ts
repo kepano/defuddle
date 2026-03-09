@@ -22,6 +22,9 @@ interface StyleChange {
 	styles: string;
 }
 
+/** Keys from extractor variables that map to top-level DefuddleResponse fields */
+const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
+
 export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
@@ -353,30 +356,9 @@ export class Defuddle {
 			if (extractor) {
 				const startTime = Date.now();
 				const extracted = await extractor.extractAsync();
-				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
-
 				const pageMetaTags = this._collectMetaTags();
 				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
-				const endTime = Date.now();
-				const variables = this.getExtractorVariables(extracted.variables);
-
-				return {
-					content: contentHtml,
-					title: extracted.variables?.title || metadata.title,
-					description: metadata.description,
-					domain: metadata.domain,
-					favicon: metadata.favicon,
-					image: metadata.image,
-					published: extracted.variables?.published || metadata.published,
-					author: extracted.variables?.author || metadata.author,
-					site: extracted.variables?.site || metadata.site,
-					schemaOrgData: metadata.schemaOrgData,
-					wordCount: this.countWords(extracted.contentHtml),
-					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags,
-					...(variables ? { variables } : {}),
-				};
+				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 		} catch (error) {
 			console.error('Defuddle', 'Error in async extraction:', error);
@@ -420,26 +402,7 @@ export class Defuddle {
 			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
-				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
-				const endTime = Date.now();
-				const variables = this.getExtractorVariables(extracted.variables);
-				return {
-					content: contentHtml,
-					title: extracted.variables?.title || metadata.title,
-					description: metadata.description,
-					domain: metadata.domain,
-					favicon: metadata.favicon,
-					image: metadata.image,
-					published: extracted.variables?.published || metadata.published,
-					author: extracted.variables?.author || metadata.author,
-					site: extracted.variables?.site || metadata.site,
-					schemaOrgData: metadata.schemaOrgData,
-					wordCount: this.countWords(extracted.contentHtml),
-					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags,
-					...(variables ? { variables } : {}),
-				};
+				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 
 			// Continue if there is no extractor...
@@ -1383,16 +1346,46 @@ export class Defuddle {
 	}
 
 	/**
+	 * Build a DefuddleResponse from an extractor result with metadata
+	 */
+	private buildExtractorResponse(
+		extracted: { contentHtml: string; variables?: { [key: string]: string } },
+		metadata: ReturnType<typeof MetadataExtractor.extract>,
+		startTime: number,
+		extractor: BaseExtractor,
+		pageMetaTags: MetaTagItem[]
+	): DefuddleResponse {
+		const contentHtml = this.resolveContentUrls(extracted.contentHtml);
+		const variables = this.getExtractorVariables(extracted.variables);
+		return {
+			content: contentHtml,
+			title: extracted.variables?.title || metadata.title,
+			description: metadata.description,
+			domain: metadata.domain,
+			favicon: metadata.favicon,
+			image: metadata.image,
+			published: extracted.variables?.published || metadata.published,
+			author: extracted.variables?.author || metadata.author,
+			site: extracted.variables?.site || metadata.site,
+			schemaOrgData: metadata.schemaOrgData,
+			wordCount: this.countWords(extracted.contentHtml),
+			parseTime: Math.round(Date.now() - startTime),
+			extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+			metaTags: pageMetaTags,
+			...(variables ? { variables } : {}),
+		};
+	}
+
+	/**
 	 * Filter extractor variables to only include custom ones
 	 * (exclude standard fields that are already mapped to top-level properties)
 	 */
 	private getExtractorVariables(variables?: { [key: string]: string }): { [key: string]: string } | undefined {
 		if (!variables) return undefined;
-		const standardKeys = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
 		const custom: { [key: string]: string } = {};
 		let hasCustom = false;
 		for (const [key, value] of Object.entries(variables)) {
-			if (!standardKeys.has(key)) {
+			if (!STANDARD_VARIABLE_KEYS.has(key)) {
 				custom[key] = value;
 				hasCustom = true;
 			}
