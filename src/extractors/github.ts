@@ -9,8 +9,8 @@ export class GitHubExtractor extends BaseExtractor {
 
 	constructor(document: Document, url: string) {
 		super(document, url);
-		this.isIssue = /\/(issues)\/\d+/.test(url);
-		this.isPR = /\/(pull)\/\d+/.test(url);
+		this.isIssue = /\/issues\/\d+/.test(url);
+		this.isPR = /\/pull\/\d+/.test(url);
 	}
 
 	canExtract(): boolean {

@@ -9,6 +9,8 @@
  * - score is omitted if not provided
  */
 
+import { escapeHtml } from './dom';
+
 export interface CommentData {
 	/** Comment author name */
 	author: string;
@@ -64,7 +66,6 @@ export function buildCommentTree(comments: CommentData[]): string {
 				blockquoteStack.pop();
 			}
 			html += '<blockquote>';
-			blockquoteStack.length = 0;
 			blockquoteStack.push(0);
 		} else {
 			const currentDepth = blockquoteStack[blockquoteStack.length - 1] ?? -1;
@@ -102,14 +103,15 @@ export function buildCommentTree(comments: CommentData[]): string {
  * - score is omitted if not provided
  */
 export function buildComment(comment: CommentData): string {
-	const author = `<span class="comment-author"><strong>${comment.author}</strong></span>`;
+	const author = `<span class="comment-author"><strong>${escapeHtml(comment.author)}</strong></span>`;
 
-	const dateHtml = comment.url
-		? `<a href="${comment.url}" class="comment-link">${comment.date}</a>`
-		: `<span class="comment-date">${comment.date}</span>`;
+	const safeUrl = comment.url && !isBannedUrl(comment.url) ? comment.url : '';
+	const dateHtml = safeUrl
+		? `<a href="${escapeHtml(safeUrl)}" class="comment-link">${escapeHtml(comment.date)}</a>`
+		: `<span class="comment-date">${escapeHtml(comment.date)}</span>`;
 
 	const scoreHtml = comment.score
-		? ` · <span class="comment-points">${comment.score}</span>`
+		? ` · <span class="comment-points">${escapeHtml(comment.score)}</span>`
 		: '';
 
 	return `<div class="comment">
@@ -118,4 +120,9 @@ export function buildComment(comment: CommentData): string {
 	</div>
 	<div class="comment-content">${comment.content}</div>
 </div>`;
+}
+
+function isBannedUrl(url: string): boolean {
+	const normalized = url.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
+	return normalized.startsWith('javascript:') || normalized.startsWith('data:text/html');
 }
