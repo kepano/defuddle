@@ -1,4 +1,4 @@
-import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS, FOOTNOTE_LIST_SELECTORS } from './constants';
+import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from './constants';
 import { DebugRemoval } from './types';
 import { textPreview } from './utils';
 
@@ -67,6 +67,16 @@ const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s
 
 // Author attribution pattern — case-sensitive "By" + capitalized name
 const bylinePattern = /\bBy\s+[A-Z]/;
+
+// Pre-compiled navigation indicator regexes for scoreNonContentBlock
+const navigationIndicatorRegexes = navigationIndicators.map(
+	indicator => new RegExp(`\\b${indicator.replace(/\s+/g, '\\s+')}\\b`)
+);
+
+// Single combined regex for heading text matching in isLikelyContent
+const navigationHeadingPattern = new RegExp(
+	navigationIndicators.map(i => i.replace(/\s+/g, '\\s+')).join('|'), 'i'
+);
 
 // Classes that indicate non-content these are elements are
 // not removed, but lower the score
@@ -227,7 +237,7 @@ export class ContentScorer {
 		const elementsToRemove = new Map<Element, number>();
 
 		// Get all block elements
-		const blockElements = Array.from(doc.querySelectorAll(BLOCK_ELEMENTS.join(',')));
+		const blockElements = Array.from(doc.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
 
 		// Process each block element
 		blockElements.forEach(element => {
@@ -312,13 +322,10 @@ export class ContentScorer {
 			let hasNavigationHeading = false;
 			for (let i = 0; i < headings.length; i++) {
 				const headingText = (headings[i].textContent || '').toLowerCase().trim();
-				for (const indicator of navigationIndicators) {
-					if (headingText.includes(indicator)) {
-						hasNavigationHeading = true;
-						break;
-					}
+				if (navigationHeadingPattern.test(headingText)) {
+					hasNavigationHeading = true;
+					break;
 				}
-				if (hasNavigationHeading) break;
 			}
 
 			if (hasNavigationHeading) {
@@ -406,10 +413,7 @@ export class ContentScorer {
 
 		const textLower = text.toLowerCase();
 		let indicatorMatches = 0;
-		for (const indicator of navigationIndicators) {
-			// Use word boundary matching to avoid false positives like
-			// "design information" matching "sign in"
-			const regex = new RegExp(`\\b${indicator.replace(/\s+/g, '\\s+')}\\b`);
+		for (const regex of navigationIndicatorRegexes) {
 			if (regex.test(textLower)) {
 				indicatorMatches++;
 			}

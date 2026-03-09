@@ -1,5 +1,6 @@
-import { 
-	BLOCK_ELEMENTS,
+import {
+	BLOCK_ELEMENTS_SET,
+	BLOCK_ELEMENTS_SELECTOR,
 	PRESERVE_ELEMENTS,
 	INLINE_ELEMENTS,
 	ALLOWED_ATTRIBUTES,
@@ -164,6 +165,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 
 export function standardizeContent(element: Element, metadata: DefuddleMetadata, doc: Document, debug: boolean = false): void {
 	_debug = debug;
+
 	standardizeSpaces(element);
 
 	// Remove HTML comments
@@ -407,20 +409,18 @@ function standardizeHeadings(element: Element, title: string, doc: Document): vo
 
 function removeHtmlComments(element: Element): void {
 	let removedCount = 0;
+	const doc = element.ownerDocument;
 
-	// Get all elements and check their child nodes
-	const allElements = Array.from(element.getElementsByTagName('*'));
-	
-	// Process each element's child nodes
-	allElements.forEach(el => {
-		const childNodes = Array.from(el.childNodes);
-		childNodes.forEach(node => {
-			if (isCommentNode(node)) {
-				node.remove();
-				removedCount++;
-			}
-		});
-	});
+	// Use TreeWalker to find comment nodes directly (O(n) instead of O(n*m))
+	const walker = doc.createTreeWalker(element, 128 /* NodeFilter.SHOW_COMMENT */);
+	const comments: Node[] = [];
+	while (walker.nextNode()) {
+		comments.push(walker.currentNode);
+	}
+	for (const node of comments) {
+		node.parentNode?.removeChild(node);
+		removedCount++;
+	}
 
 	logDebug(_debug, 'Removed HTML comments:', removedCount);
 }
@@ -512,57 +512,51 @@ function unwrapBareSpans(element: Element): void {
 
 function removeEmptyElements(element: Element): void {
 	let removedCount = 0;
-	let iterations = 0;
-	let keepRemoving = true;
 
-	while (keepRemoving) {
-		iterations++;
-		keepRemoving = false;
-		// Get all elements without children, working from deepest first
-		const emptyElements = Array.from(element.getElementsByTagName('*')).filter(el => {
-			if (ALLOWED_EMPTY_ELEMENTS.has(el.tagName.toLowerCase())) {
-				return false;
-			}
-			
-			// Check if element has only whitespace or &nbsp;
-			const textContent = el.textContent || '';
-			const hasOnlyWhitespace = textContent.trim().length === 0;
-			const hasNbsp = textContent.includes('\u00A0'); // Unicode non-breaking space
-			
-			// Check if element has no meaningful children
-			const hasNoChildren = !el.hasChildNodes() || 
-				(Array.from(el.childNodes).every(node => {
-					if (isTextNode(node)) { // TEXT_NODE
-						const nodeText = node.textContent || '';
-						return nodeText.trim().length === 0 && !nodeText.includes('\u00A0');
-					}
-					return false;
-				}));
+	const isEmptyElement = (el: Element): boolean => {
+		if (ALLOWED_EMPTY_ELEMENTS.has(el.tagName.toLowerCase())) return false;
 
-			// Special case: Check for divs that only contain spans with commas
-			if (el.tagName.toLowerCase() === 'div') {
-				const children = Array.from(el.children);
-				const hasOnlyCommaSpans = children.length > 0 && children.every(child => {
-					if (child.tagName.toLowerCase() !== 'span') return false;
+		// Special case: divs that only contain spans with commas
+		if (el.tagName === 'DIV') {
+			const children = el.children;
+			if (children.length > 0) {
+				let allCommaSpans = true;
+				for (let i = 0; i < children.length; i++) {
+					const child = children[i];
+					if (child.tagName !== 'SPAN') { allCommaSpans = false; break; }
 					const content = child.textContent?.trim() || '';
-					return content === ',' || content === '' || content === ' ';
-				});
-				if (hasOnlyCommaSpans) return true;
+					if (content !== ',' && content !== '' && content !== ' ') { allCommaSpans = false; break; }
+				}
+				if (allCommaSpans) return true;
 			}
+		}
 
-			return hasOnlyWhitespace && !hasNbsp && hasNoChildren;
-		});
+		const textContent = el.textContent || '';
+		if (textContent.trim().length > 0 || textContent.includes('\u00A0')) return false;
 
-		if (emptyElements.length > 0) {
-			emptyElements.forEach(el => {
-				el.remove();
-				removedCount++;
-			});
-			keepRemoving = true;
+		// Check if element has no meaningful children (no element children, only whitespace text)
+		if (!el.hasChildNodes()) return true;
+		const childNodes = el.childNodes;
+		for (let i = 0; i < childNodes.length; i++) {
+			const node = childNodes[i];
+			if (!isTextNode(node)) return false;
+			const nodeText = node.textContent || '';
+			if (nodeText.trim().length > 0 || nodeText.includes('\u00A0')) return false;
+		}
+		return true;
+	};
+
+	// Process deepest-first in a single pass by reversing the element list
+	// (querySelectorAll returns document order, reverse gives deepest last → first)
+	const allElements = Array.from(element.querySelectorAll('*')).reverse();
+	for (const el of allElements) {
+		if (el.parentNode && isEmptyElement(el)) {
+			el.remove();
+			removedCount++;
 		}
 	}
 
-	logDebug(_debug, 'Removed empty elements:', removedCount, 'iterations:', iterations);
+	logDebug(_debug, 'Removed empty elements:', removedCount);
 }
 
 function stripExtraBrElements(element: Element): void {
@@ -673,7 +667,7 @@ function removeEmptyLines(element: Element, doc: Document): void {
 			const text = node.textContent || '';
 			// If it's completely empty or just zero-width/invisible characters, remove it
 			// Preserve nodes with regular spaces or &nbsp; as they may separate words
-			if (!text || text.match(/^[\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/)) {
+			if (!text || /^[\u200C\u200B\u200D\u200E\u200F\uFEFF]*$/.test(text)) {
 				node.parentNode?.removeChild(node);
 				removedCount++;
 			} else {
@@ -992,7 +986,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		// Check if all children are block elements
 		const allBlockElements = children.every(child => {
 			const tag = child.tagName.toLowerCase();
-			return BLOCK_ELEMENTS.includes(tag) || 
+			return BLOCK_ELEMENTS_SET.has(tag) || 
 				   tag === 'p' || tag === 'h1' || tag === 'h2' || 
 				   tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6' ||
 				   tag === 'ul' || tag === 'ol' || tag === 'pre' || tag === 'blockquote' ||
@@ -1106,7 +1100,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			const childTag = child.tagName.toLowerCase();
 			
 			// Only unwrap if the single child is a block element and not preserved
-			if (BLOCK_ELEMENTS.includes(childTag) && !shouldPreserveElement(child)) {
+			if (BLOCK_ELEMENTS_SET.has(childTag) && !shouldPreserveElement(child)) {
 				el.replaceWith(child);
 				processedCount++;
 				return true;
@@ -1118,7 +1112,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		let parent = el.parentElement;
 		while (parent) {
 			const parentTag = parent.tagName.toLowerCase();
-			if (BLOCK_ELEMENTS.includes(parentTag)) {
+			if (BLOCK_ELEMENTS_SET.has(parentTag)) {
 				nestingDepth++;
 			}
 			parent = parent.parentElement;
@@ -1141,7 +1135,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 	// First pass: Process top-level wrapper elements
 	const processTopLevelElements = () => {
 		const topElements = Array.from(element.children).filter(
-			el => BLOCK_ELEMENTS.includes(el.tagName.toLowerCase())
+			el => BLOCK_ELEMENTS_SET.has(el.tagName.toLowerCase())
 		);
 		
 		let modified = false;
@@ -1156,7 +1150,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 	// Second pass: Process remaining wrapper elements from deepest to shallowest
 	const processRemainingElements = () => {
 		// Get all wrapper elements
-		const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS.join(',')))
+		const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR))
 			.sort((a, b) => {
 				// Count nesting depth
 				const getDepth = (el: Element): number => {
@@ -1164,7 +1158,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 					let parent = el.parentElement;
 					while (parent) {
 						const parentTag = parent.tagName.toLowerCase();
-						if (BLOCK_ELEMENTS.includes(parentTag)) depth++;
+						if (BLOCK_ELEMENTS_SET.has(parentTag)) depth++;
 						parent = parent.parentElement;
 					}
 					return depth;
@@ -1183,7 +1177,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 
 	// Final cleanup pass - aggressively flatten remaining wrapper elements
 	const finalCleanup = () => {
-		const remainingElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS.join(',')));
+		const remainingElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
 		let modified = false;
 		
 		remainingElements.forEach(el => {

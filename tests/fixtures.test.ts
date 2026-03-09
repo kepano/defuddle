@@ -1,7 +1,8 @@
 import { describe, test, expect } from 'vitest';
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { Defuddle, DefuddleResponse } from '../src/node';
+import { getFixtures } from './helpers';
 
 /**
  * Fixtures-based testing for Defuddle extractors
@@ -31,19 +32,6 @@ import { Defuddle, DefuddleResponse } from '../src/node';
  * 2. Run `npm test`
  * 3. Review the updated files in tests/expected/
  */
-
-// Helper function to get all HTML fixtures
-function getFixtures(): Array<{ name: string; path: string }> {
-  const fixturesDir = join(__dirname, 'fixtures');
-  const files = readdirSync(fixturesDir).filter(file => file.endsWith('.html'));
-  
-  return files.map(file => {
-    const name = basename(file, extname(file));
-    const path = join(fixturesDir, file);
-
-    return { name, path };
-  });
-}
 
 // Helper function to save/load expected results
 function getExpectedMarkdownPath(fixtureName: string): string {
