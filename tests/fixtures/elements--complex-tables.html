@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Framework Performance Benchmarks</title>
+  <meta name="author" content="Jordan Lee" />
+</head>
+<body>
+  <article>
+    <h1>Framework Performance Benchmarks</h1>
+    <p>We measured the response latency of several popular frameworks under realistic workloads. Here are the results:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Framework</th>
+          <th>Latency (ms)</th>
+          <th>Year</th>
+          <th>Runtime</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="https://example.com/alpha">Alpha</a></td>
+          <td>12</td>
+          <td>2019</td>
+          <td>Native</td>
+          <td><strong>Fastest overall</strong></td>
+        </tr>
+        <tr>
+          <td><a href="https://example.com/bravo">Bravo</a></td>
+          <td>25</td>
+          <td>2020</td>
+          <td>JIT</td>
+          <td>Uses <strong>aggressive caching</strong></td>
+        </tr>
+        <tr>
+          <td><a href="https://example.com/charlie">Charlie 2.0</a></td>
+          <td>40</td>
+          <td>2018</td>
+          <td>Interpreted</td>
+          <td>Legacy support only</td>
+        </tr>
+        <tr>
+          <td>Delta <strong>optimized</strong></td>
+          <td>55</td>
+          <td>2021</td>
+          <td>Native</td>
+          <td>Requires <a href="https://example.com/config">custom config</a></td>
+        </tr>
+        <tr>
+          <td><a href="https://example.com/echo">Echo</a></td>
+          <td>90</td>
+          <td>2017</td>
+          <td>VM</td>
+          <td><strong>Most popular</strong> in surveys</td>
+        </tr>
+        <tr>
+          <td>Foxtrot</td>
+          <td>150</td>
+          <td>2022</td>
+          <td>Interpreted</td>
+          <td>Still in <strong>beta</strong></td>
+        </tr>
+      </tbody>
+    </table>
+    <p>The fastest frameworks tend to use native compilation, while interpreted runtimes show higher latency across the board.</p>
+    <h2>Memory Usage</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Framework</th>
+          <th>Peak Memory (MB)</th>
+          <th>Idle Memory (MB)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Alpha</td>
+          <td>45</td>
+          <td>12</td>
+        </tr>
+        <tr>
+          <td>Bravo</td>
+          <td>120</td>
+          <td>38</td>
+        </tr>
+        <tr>
+          <td>Charlie 2.0</td>
+          <td>200</td>
+          <td>95</td>
+        </tr>
+        <tr>
+          <td>Echo</td>
+          <td>310</td>
+          <td>150</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Memory consumption varies widely and does not always correlate with latency performance.</p>
+  </article>
+</body>
+</html>

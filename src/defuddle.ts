@@ -428,7 +428,7 @@ export class Defuddle {
 				this._smallImages = this.findSmallImages(this.doc);
 			}
 			const smallImages = this._smallImages;
-			
+
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
@@ -668,9 +668,12 @@ export class Defuddle {
 		const elementsToRemove = new Map<Element, string>();
 
 		// Check inline styles and CSS class-based hidden patterns.
-		// getComputedStyle is unreliable in JSDOM/linkedom so we check
-		// inline style attributes directly and CSS framework utilities.
 		const hiddenStylePattern = /(?:^|;\s*)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)(?:\s*;|\s*$)/i;
+
+		// Only use getComputedStyle in browser environments where it's meaningful.
+		// In JSDOM/linkedom without stylesheets, it's extremely slow and unreliable.
+		const defaultView = doc.defaultView;
+		const isBrowser = typeof window !== 'undefined' && defaultView === window;
 
 		const allElements = doc.querySelectorAll('*');
 		for (const element of allElements) {
@@ -684,10 +687,10 @@ export class Defuddle {
 				continue;
 			}
 
-			// Also try getComputedStyle if available (browser environment)
-			try {
-				const computedStyle = element.ownerDocument.defaultView?.getComputedStyle(element);
-				if (computedStyle) {
+			// Use getComputedStyle only in real browser environments
+			if (isBrowser) {
+				try {
+					const computedStyle = defaultView!.getComputedStyle(element);
 					let reason = '';
 					if (computedStyle.display === 'none') reason = 'display:none';
 					else if (computedStyle.visibility === 'hidden') reason = 'visibility:hidden';
@@ -697,8 +700,8 @@ export class Defuddle {
 						count++;
 						continue;
 					}
-				}
-			} catch (e) {}
+				} catch (e) {}
+			}
 
 			// Detect CSS framework hidden utilities (e.g. Tailwind's "hidden",
 			// "sm:hidden", "not-machine:hidden")
@@ -855,6 +858,8 @@ export class Defuddle {
 		let processedCount = 0;
 
 		const elements = doc.querySelectorAll('img, svg');
+		const defaultView = doc.defaultView;
+		const isBrowser = typeof window !== 'undefined' && defaultView === window;
 
 		for (const element of elements) {
 			const attrWidth = parseInt(element.getAttribute('width') || '0');
@@ -865,20 +870,20 @@ export class Defuddle {
 			const styleWidth = parseInt(style.match(/width\s*:\s*(\d+)/)?.[1] || '0');
 			const styleHeight = parseInt(style.match(/height\s*:\s*(\d+)/)?.[1] || '0');
 
-			// Also try getComputedStyle and getBoundingClientRect (browser environment)
+			// Use getComputedStyle and getBoundingClientRect only in browser
 			let computedWidth = 0, computedHeight = 0;
-			try {
-				const cs = element.ownerDocument.defaultView?.getComputedStyle(element);
-				if (cs) {
+			if (isBrowser) {
+				try {
+					const cs = defaultView!.getComputedStyle(element);
 					computedWidth = parseInt(cs.width) || 0;
 					computedHeight = parseInt(cs.height) || 0;
-				}
-			} catch (e) {}
-			try {
-				const rect = element.getBoundingClientRect();
-				if (rect.width > 0) computedWidth = computedWidth || rect.width;
-				if (rect.height > 0) computedHeight = computedHeight || rect.height;
-			} catch (e) {}
+				} catch (e) {}
+				try {
+					const rect = element.getBoundingClientRect();
+					if (rect.width > 0) computedWidth = computedWidth || rect.width;
+					if (rect.height > 0) computedHeight = computedHeight || rect.height;
+				} catch (e) {}
+			}
 
 			const widths = [attrWidth, styleWidth, computedWidth].filter(d => d > 0);
 			const heights = [attrHeight, styleHeight, computedHeight].filter(d => d > 0);
@@ -1149,13 +1154,13 @@ export class Defuddle {
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
-		const origElements = Array.from(original.body.getElementsByTagName('*'));
+		const origElements = Array.from(original.body.querySelectorAll('*'));
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
 		const firstShadow = origElements.find(el => el.shadowRoot);
 		if (!firstShadow) return;
 
-		const cloneElements = Array.from(clone.body.getElementsByTagName('*'));
+		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
 
 		// Check if we can directly read shadow DOM content (main world / Node.js).
 		// In content script isolated worlds, shadowRoot exists but content is empty.
