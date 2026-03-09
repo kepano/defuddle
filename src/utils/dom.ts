@@ -44,6 +44,15 @@ export function escapeHtml(text: string): string {
 }
 
 /**
+ * Check if a URL uses a dangerous protocol (javascript:, data:text/html).
+ * Strips whitespace and control characters before checking.
+ */
+export function isDangerousUrl(url: string): boolean {
+	const normalized = url.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
+	return normalized.startsWith('javascript:') || normalized.startsWith('data:text/html');
+}
+
+/**
  * Check if an element belongs directly to an ancestor table,
  * not to an intervening nested TABLE.
  */

@@ -1,7 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
-import { buildTranscript, formatTimestamp } from '../utils/transcript';
+import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
 
@@ -556,7 +556,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		const groups: { start: number; text: string; speakerChange: boolean }[] = [];
 		let buffer = '';
 		let bufferStart = 0;
-		let lastEnd = 0;
+		let lastStart = 0;
 
 		const flush = () => {
 			if (buffer.trim()) {
@@ -571,7 +571,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		for (const seg of segments) {
 			// Flush on a significant time gap (>5s between segments)
-			if (buffer && seg.start - lastEnd > 5) {
+			if (buffer && seg.start - lastStart > 5) {
 				flush();
 			}
 
@@ -579,7 +579,7 @@ export class YoutubeExtractor extends BaseExtractor {
 				bufferStart = seg.start;
 			}
 			buffer += (buffer ? ' ' : '') + seg.text;
-			lastEnd = seg.start;
+			lastStart = seg.start;
 
 			// Only flush when the segment itself ends with sentence punctuation
 			if (SENTENCE_END.test(seg.text)) {

@@ -27,19 +27,19 @@ export class GitHubExtractor extends BaseExtractor {
 		}
 
 		if (this.isIssue) {
-			return !![
+			return [
 				'[data-testid="issue-metadata-sticky"]',
 				'[data-testid="issue-title"]',
-			].find(selector => this.document.querySelector(selector) !== null);
+			].some(selector => this.document.querySelector(selector) !== null);
 		}
 
 		if (this.isPR) {
-			return !![
+			return [
 				'.pull-discussion-timeline',
 				'.discussion-timeline',
 				'.gh-header-title',
 				'.js-issue-title',
-			].find(selector => this.document.querySelector(selector) !== null);
+			].some(selector => this.document.querySelector(selector) !== null);
 		}
 
 		return false;
@@ -50,11 +50,12 @@ export class GitHubExtractor extends BaseExtractor {
 		const number = this.extractNumber();
 		const type = this.isPR ? 'pull' : 'issue';
 
+		const prBody = this.isPR ? this.getPRBody() : null;
 		const { content: postContent, author, published } = this.isPR
-			? this.getPRContent()
+			? this.getPRContent(prBody)
 			: this.getIssueContent();
 		const comments = this.isPR
-			? this.extractPRComments()
+			? this.extractPRComments(prBody)
 			: this.extractComments();
 		const contentHtml = this.createContentHtml(postContent, comments);
 
@@ -149,8 +150,7 @@ export class GitHubExtractor extends BaseExtractor {
 			|| this.document.querySelector('.timeline-comment');
 	}
 
-	private getPRContent(): { content: string; author: string; published: string } {
-		const prBody = this.getPRBody();
+	private getPRContent(prBody: Element | null): { content: string; author: string; published: string } {
 
 		const bodyEl = prBody?.querySelector('.comment-body.markdown-body')
 			|| this.document.querySelector('.comment-body.markdown-body');
@@ -166,8 +166,7 @@ export class GitHubExtractor extends BaseExtractor {
 		return { content, author, published };
 	}
 
-	private extractPRComments(): string {
-		const prBody = this.getPRBody();
+	private extractPRComments(prBody: Element | null): string {
 		// Find all comment containers: regular comments (.timeline-comment)
 		// and code review comments (.review-comment)
 		const allComments = Array.from(

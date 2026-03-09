@@ -9,7 +9,7 @@
  * - score is omitted if not provided
  */
 
-import { escapeHtml } from './dom';
+import { escapeHtml, isDangerousUrl } from './dom';
 
 export interface CommentData {
 	/** Comment author name */
@@ -54,7 +54,7 @@ export function buildContentHtml(site: string, postContent: string, comments: st
  * Uses <blockquote> elements to represent reply hierarchy.
  */
 export function buildCommentTree(comments: CommentData[]): string {
-	let html = '';
+	const parts: string[] = [];
 	const blockquoteStack: number[] = [];
 
 	for (const comment of comments) {
@@ -62,16 +62,16 @@ export function buildCommentTree(comments: CommentData[]): string {
 
 		if (depth === 0) {
 			while (blockquoteStack.length > 0) {
-				html += '</blockquote>';
+				parts.push('</blockquote>');
 				blockquoteStack.pop();
 			}
-			html += '<blockquote>';
+			parts.push('<blockquote>');
 			blockquoteStack.push(0);
 		} else {
 			const currentDepth = blockquoteStack[blockquoteStack.length - 1] ?? -1;
 			if (depth < currentDepth) {
 				while (blockquoteStack.length > 0 && blockquoteStack[blockquoteStack.length - 1] >= depth) {
-					html += '</blockquote>';
+					parts.push('</blockquote>');
 					blockquoteStack.pop();
 				}
 			}
@@ -79,20 +79,20 @@ export function buildCommentTree(comments: CommentData[]): string {
 			// and reopening after closing, e.g. depth 2 → 1 → 1)
 			const newCurrentDepth = blockquoteStack[blockquoteStack.length - 1] ?? -1;
 			if (depth > newCurrentDepth) {
-				html += '<blockquote>';
+				parts.push('<blockquote>');
 				blockquoteStack.push(depth);
 			}
 		}
 
-		html += buildComment(comment);
+		parts.push(buildComment(comment));
 	}
 
 	while (blockquoteStack.length > 0) {
-		html += '</blockquote>';
+		parts.push('</blockquote>');
 		blockquoteStack.pop();
 	}
 
-	return html;
+	return parts.join('');
 }
 
 /**
@@ -105,7 +105,7 @@ export function buildCommentTree(comments: CommentData[]): string {
 export function buildComment(comment: CommentData): string {
 	const author = `<span class="comment-author"><strong>${escapeHtml(comment.author)}</strong></span>`;
 
-	const safeUrl = comment.url && !isBannedUrl(comment.url) ? comment.url : '';
+	const safeUrl = comment.url && !isDangerousUrl(comment.url) ? comment.url : '';
 	const dateHtml = safeUrl
 		? `<a href="${escapeHtml(safeUrl)}" class="comment-link">${escapeHtml(comment.date)}</a>`
 		: `<span class="comment-date">${escapeHtml(comment.date)}</span>`;
@@ -120,9 +120,4 @@ export function buildComment(comment: CommentData): string {
 	</div>
 	<div class="comment-content">${comment.content}</div>
 </div>`;
-}
-
-function isBannedUrl(url: string): boolean {
-	const normalized = url.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
-	return normalized.startsWith('javascript:') || normalized.startsWith('data:text/html');
 }
