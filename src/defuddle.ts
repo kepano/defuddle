@@ -501,7 +501,7 @@ export class Defuddle {
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
 			if (options.removeLowScoring) {
-				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals);
+				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
 			}
 
 			// Remove clutter using selectors

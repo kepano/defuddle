@@ -241,7 +241,7 @@ export class ContentScorer {
 	 * Scores blocks based on their content and structure
 	 * and removes those that are likely not content.
 	 */
-	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[]): void {
+	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[], mainContent?: Element | null): void {
 		const startTime = Date.now();
 
 		// Track all elements to be removed
@@ -254,6 +254,11 @@ export class ContentScorer {
 		blockElements.forEach(element => {
 			// Skip elements that are already marked for removal
 			if (elementsToRemove.has(element)) {
+				return;
+			}
+
+			// Skip ancestors of mainContent to avoid disconnecting it
+			if (mainContent && element.contains(mainContent)) {
 				return;
 			}
 

@@ -123,6 +123,7 @@ export const EXACT_SELECTORS = [
 	'[href*="/author?"]',
 	'[href$="/author"]',
 	'a[href*="copyright.com"]',
+	'a[href*="google.com/preferences"]',
 	'[href*="#toc"]',
 	'[href="#top"]',
 	'[href="#Top"]',
