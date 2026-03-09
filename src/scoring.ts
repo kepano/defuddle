@@ -356,6 +356,8 @@ export class ContentScorer {
 		// Article card listing detection: blocks with many headings and images
 		// but very little prose per heading are likely article card grids
 		// (e.g. "related articles", "more stories"), not single-article content.
+		// Also checked in scoreNonContentBlock as a score penalty for elements
+		// that pass the content checks above but still look like card grids.
 		if (ContentScorer.isCardGrid(element, words)) {
 			return false;
 		}
@@ -518,7 +520,7 @@ export class ContentScorer {
 		if (words < 3 || words >= 500) return false;
 		const headings = element.querySelectorAll('h2, h3, h4');
 		if (headings.length < 3) return false;
-		const images = element.getElementsByTagName('img');
+		const images = element.querySelectorAll('img');
 		if (images.length < 2) return false;
 		let headingWordCount = 0;
 		for (let i = 0; i < headings.length; i++) {
