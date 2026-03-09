@@ -25,6 +25,22 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
 
+// Content pattern detection constants
+const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
+const BOILERPLATE_PATTERNS = [
+	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
+	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
+	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
+];
+const METADATA_STRIP_PATTERNS = [
+	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
+	/\b\d+(?:st|nd|rd|th)?\b/g,
+	/\bmin(?:ute)?s?\b/gi,
+	/\bread\b/gi,
+	/[|·•—–\-,.\s]/g,
+];
+
 export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
@@ -1368,30 +1384,11 @@ export class Defuddle {
 	 * CSS selectors (e.g. Tailwind/CSS-in-JS sites with non-semantic class names).
 	 */
 	private removeByContentPattern(mainContent: Element, debugRemovals?: DebugRemoval[]) {
-		const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
-		const readTimePattern = /\d+\s*min(?:ute)?s?\s+read\b/i;
-		const boilerplatePatterns = [
-			/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
-			/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
-			/^Originally (?:published|appeared) (?:in|on|at)\b/i,
-		];
-
-		// Patterns to strip when checking if text is purely date+readtime metadata
-		const metadataStrip = [
-			/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
-			/\b\d+(?:st|nd|rd|th)?\b/g,
-			/\bmin(?:ute)?s?\b/gi,
-			/\bread\b/gi,
-			/[|·•—–\-,.\s]/g,
-		];
-
 		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
-		// Checks all elements, not just block elements, since metadata
-		// may be in <p> or <span> tags with no semantic class names.
-		// Only removes elements whose text is PURELY date + read time,
+		// Only removes leaf elements whose text is PURELY date + read time,
 		// not mixed with other meaningful content like tag names.
-		const allElements = Array.from(mainContent.querySelectorAll('*'));
-		for (const el of allElements) {
+		const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
+		for (const el of candidates) {
 			if (!el.parentNode) continue;
 			if (el.closest('pre') || el.closest('code')) continue;
 
@@ -1399,13 +1396,13 @@ export class Defuddle {
 			const words = text.split(/\s+/).length;
 
 			// Match date + read time in short elements
-			if (words <= 15 && datePattern.test(text) && readTimePattern.test(text)) {
+			if (words <= 15 && CONTENT_DATE_PATTERN.test(text) && CONTENT_READ_TIME_PATTERN.test(text)) {
 				// Ensure this is a leaf-ish element, not a large container
 				if (el.querySelectorAll('p, div, section, article').length === 0) {
 					// Verify the text is ONLY date + read time metadata
 					// by stripping all date/time words and checking nothing remains
 					let cleaned = text;
-					for (const pattern of metadataStrip) {
+					for (const pattern of METADATA_STRIP_PATTERNS) {
 						cleaned = cleaned.replace(pattern, '');
 					}
 					if (cleaned.trim().length > 0) continue;
@@ -1423,8 +1420,9 @@ export class Defuddle {
 		}
 
 		// Remove boilerplate sentences and trailing non-content.
-		// Search all elements for end-of-article boilerplate, then truncate
+		// Search elements for end-of-article boilerplate, then truncate
 		// from the best ancestor that has siblings to remove.
+		const fullText = mainContent.textContent || '';
 		const boilerplateElements = mainContent.querySelectorAll('p, div, span, section');
 		for (const el of boilerplateElements) {
 			if (!el.parentNode) continue;
@@ -1432,22 +1430,18 @@ export class Defuddle {
 			const words = text.split(/\s+/).length;
 			if (words > 50 || words < 3) continue;
 
-			for (const pattern of boilerplatePatterns) {
+			for (const pattern of BOILERPLATE_PATTERNS) {
 				if (pattern.test(text)) {
 					// Walk up to find an ancestor that has next siblings to truncate.
 					// Don't walk all the way to mainContent's direct child — if there's
 					// a single wrapper div, that would remove everything.
 					let target: Element = el;
 					while (target.parentElement && target.parentElement !== mainContent) {
-						// Stop walking up if the current element has a next sibling —
-						// we can truncate from here
 						if (target.nextElementSibling) break;
 						target = target.parentElement;
 					}
 
 					// Only truncate if there's substantial content before the boilerplate
-					// to avoid accidentally removing early content
-					const fullText = mainContent.textContent || '';
 					const targetText = target.textContent || '';
 					const targetPos = fullText.indexOf(targetText);
 					if (targetPos < 200) continue;
