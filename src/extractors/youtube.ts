@@ -13,6 +13,13 @@ const INNERTUBE_CONTEXT = {
 	}
 };
 const INNERTUBE_USER_AGENT = `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 14)`;
+const INNERTUBE_NEXT_URL = 'https://www.youtube.com/youtubei/v1/next?prettyPrint=false';
+const INNERTUBE_WEB_CONTEXT = {
+	client: {
+		clientName: 'WEB',
+		clientVersion: '2.20240101.00.00',
+	}
+};
 
 export class YoutubeExtractor extends BaseExtractor {
 	private videoElement: HTMLVideoElement | null;
@@ -197,21 +204,13 @@ export class YoutubeExtractor extends BaseExtractor {
 			const videoId = this.getVideoId();
 			if (!videoId) return undefined;
 
-			// Use innertube player API to get caption track URLs
-			const playerResp = await fetch(INNERTUBE_API_URL, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'User-Agent': INNERTUBE_USER_AGENT,
-				},
-				body: JSON.stringify({
-					context: INNERTUBE_CONTEXT,
-					videoId,
-				})
-			});
+			// Fetch captions and chapters in parallel
+			const [playerData, chapters] = await Promise.all([
+				this.fetchPlayerData(videoId),
+				this.fetchChapters(videoId),
+			]);
 
-			if (!playerResp.ok) return undefined;
-			const playerData = await playerResp.json() as any;
+			if (!playerData) return undefined;
 
 			const captionTracks = playerData?.captions
 				?.playerCaptionsTracklistRenderer?.captionTracks;
@@ -238,14 +237,119 @@ export class YoutubeExtractor extends BaseExtractor {
 			const xml = await response.text();
 			if (!xml) return undefined;
 
-			return this.parseTranscriptXml(xml, track.languageCode || 'en');
+			return this.parseTranscriptXml(xml, track.languageCode || 'en', chapters);
 		} catch (error) {
 			console.error('YoutubeExtractor: failed to fetch transcript', error);
 			return undefined;
 		}
 	}
 
-	private parseTranscriptXml(xml: string, languageCode: string): { html: string; text: string; languageCode: string } | undefined {
+	private async fetchPlayerData(videoId: string): Promise<any> {
+		try {
+			const resp = await fetch(INNERTUBE_API_URL, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'User-Agent': INNERTUBE_USER_AGENT,
+				},
+				body: JSON.stringify({
+					context: INNERTUBE_CONTEXT,
+					videoId,
+				})
+			});
+			if (!resp.ok) return undefined;
+			return resp.json();
+		} catch {
+			return undefined;
+		}
+	}
+
+	private async fetchChapters(videoId: string): Promise<{ title: string; start: number }[]> {
+		try {
+			const resp = await fetch(INNERTUBE_NEXT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					context: INNERTUBE_WEB_CONTEXT,
+					videoId,
+				})
+			});
+			if (!resp.ok) return [];
+			const data = await resp.json() as any;
+
+			// Try chapterRenderer from the player bar (explicit chapters)
+			const chapters = this.extractChaptersFromPlayerBar(data);
+			if (chapters.length > 0) return chapters;
+
+			// Fall back to macroMarkersListItemRenderer from engagement panels
+			// (auto-generated "Key moments" from description timestamps)
+			return this.extractChaptersFromEngagementPanels(data);
+		} catch {
+			return [];
+		}
+	}
+
+	private extractChaptersFromPlayerBar(data: any): { title: string; start: number }[] {
+		const chapters: { title: string; start: number }[] = [];
+		const panels = data?.playerOverlays?.playerOverlayRenderer
+			?.decoratedPlayerBarRenderer?.decoratedPlayerBarRenderer?.playerBar
+			?.multiMarkersPlayerBarRenderer?.markersMap;
+
+		if (!Array.isArray(panels)) return chapters;
+
+		for (const panel of panels) {
+			const markers = panel?.value?.chapters;
+			if (!Array.isArray(markers)) continue;
+			for (const marker of markers) {
+				const ch = marker?.chapterRenderer;
+				if (!ch) continue;
+				const title = ch.title?.simpleText || '';
+				const startMs = ch.timeRangeStartMillis;
+				if (title && typeof startMs === 'number') {
+					chapters.push({ title, start: startMs / 1000 });
+				}
+			}
+		}
+
+		return chapters;
+	}
+
+	private extractChaptersFromEngagementPanels(data: any): { title: string; start: number }[] {
+		const chapters: { title: string; start: number }[] = [];
+		const panels = data?.engagementPanels;
+		if (!Array.isArray(panels)) return chapters;
+
+		for (const panel of panels) {
+			const content = panel?.engagementPanelSectionListRenderer?.content;
+			const items = content?.macroMarkersListRenderer?.contents;
+			if (!Array.isArray(items)) continue;
+
+			for (const item of items) {
+				const renderer = item?.macroMarkersListItemRenderer;
+				if (!renderer) continue;
+				const title = renderer.title?.simpleText || '';
+				const timeStr = renderer.timeDescription?.simpleText || '';
+				if (!title || !timeStr) continue;
+
+				const seconds = this.parseTimestamp(timeStr);
+				if (seconds !== null) {
+					chapters.push({ title, start: seconds });
+				}
+			}
+		}
+
+		return chapters;
+	}
+
+	private parseTimestamp(ts: string): number | null {
+		const parts = ts.split(':').map(Number);
+		if (parts.some(isNaN)) return null;
+		if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+		if (parts.length === 2) return parts[0] * 60 + parts[1];
+		return null;
+	}
+
+	private parseTranscriptXml(xml: string, languageCode: string, chapters: { title: string; start: number }[] = []): { html: string; text: string; languageCode: string } | undefined {
 		const segments: { start: number; text: string }[] = [];
 
 		// Handle srv3 format: <p t="ms" d="ms"><s>word</s>...</p>
@@ -290,19 +394,47 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		if (segments.length === 0) return undefined;
 
-		const htmlLines = segments.map(seg => {
-			const timestamp = this.formatTimestamp(seg.start);
-			return `<li><span data-timestamp="${seg.start}">${timestamp}</span> ${escapeHtml(seg.text)}</li>`;
-		});
+		const groups = this.groupTranscriptSegments(segments);
 
-		const textLines = segments.map(seg => {
-			const timestamp = this.formatTimestamp(seg.start);
-			return `- ${timestamp} ${seg.text}`;
-		});
+		// Sort chapters by start time for insertion
+		const sortedChapters = [...chapters].sort((a, b) => a.start - b.start);
+		let chapterIdx = 0;
+
+		// Build HTML — paragraphs with chapter headings and speaker breaks
+		const htmlParts: string[] = [];
+		for (const group of groups) {
+			// Insert chapter headings before this group
+			while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].start <= group.start) {
+				htmlParts.push(`<h3>${escapeHtml(sortedChapters[chapterIdx].title)}</h3>`);
+				chapterIdx++;
+			}
+			const timestamp = this.formatTimestamp(group.start);
+			const text = escapeHtml(group.text);
+			const speakerClass = group.speaker !== undefined ? ` speaker-${group.speaker}` : '';
+			const tsHtml = `<strong><span class="timestamp" data-timestamp="${group.start}">${timestamp}</span></strong>`;
+			htmlParts.push(`<p class="transcript-segment${speakerClass}">${tsHtml} · ${text}</p>`);
+		}
+
+		// Build text — blank lines between speaker changes, with chapter headings
+		chapterIdx = 0;
+		const textParts: string[] = [];
+		for (const group of groups) {
+			while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].start <= group.start) {
+				if (textParts.length > 0) textParts.push('');
+				textParts.push(`### ${sortedChapters[chapterIdx].title}`);
+				textParts.push('');
+				chapterIdx++;
+			}
+			if (group.speakerChange && textParts.length > 0) {
+				textParts.push('');
+			}
+			const timestamp = this.formatTimestamp(group.start);
+			textParts.push(`**${timestamp}** · ${group.text}`);
+		}
 
 		return {
-			html: `<h2>Transcript</h2>\n<ul class="transcript">\n${htmlLines.join('\n')}\n</ul>`,
-			text: textLines.join('\n'),
+			html: `<h2>Transcript</h2>\n<div class="youtube transcript">\n${htmlParts.join('\n')}\n</div>`,
+			text: textParts.join('\n'),
 			languageCode,
 		};
 	}
@@ -336,5 +468,173 @@ export class YoutubeExtractor extends BaseExtractor {
 			return url.pathname.slice(1);
 		}
 		return new URLSearchParams(url.search).get('v') || '';
+	}
+
+	/**
+	 * Group raw transcript segments into readable blocks.
+	 * If speaker markers (>>) are present, groups by speaker turn.
+	 * Otherwise, groups by sentence boundaries.
+	 */
+	private groupTranscriptSegments(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
+		if (segments.length === 0) return [];
+
+		const hasSpeakerMarkers = segments.some(s => /^>>/.test(s.text));
+		return hasSpeakerMarkers
+			? this.groupBySpeaker(segments)
+			: this.groupBySentence(segments);
+	}
+
+	/**
+	 * Group segments by speaker turns, then by sentences within each turn.
+	 * Each ">>" marker starts a new speaker turn (with blank line separation).
+	 * Within a turn, text is split at sentence boundaries for readability.
+	 * Tracks alternating speaker identity (0/1).
+	 */
+	private groupBySpeaker(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
+		// First pass: collect segments into speaker turns
+		const turns: { start: number; segments: { start: number; text: string }[]; speakerChange: boolean; speaker?: number }[] = [];
+		let currentTurn: typeof turns[0] | null = null;
+		let speakerIndex = -1;
+
+		let prevSegText = '';
+		for (const seg of segments) {
+			const isSpeakerChange = /^>>/.test(seg.text);
+			const cleanText = seg.text.replace(/^>>\s*/, '');
+
+			// Only treat >> as a real speaker change if the previous segment
+			// ended at a sentence boundary — otherwise it's a mid-sentence
+			// false positive from auto-captions
+			const prevEndsWithComma = /,\s*$/.test(prevSegText);
+			const prevEndedSentence = (/[.!?]["'\u2019\u201D)]*\s*$/.test(prevSegText) || !prevSegText) && !prevEndsWithComma;
+			const isRealSpeakerChange = isSpeakerChange && prevEndedSentence;
+
+			if (isRealSpeakerChange) {
+				if (currentTurn) turns.push(currentTurn);
+				speakerIndex = (speakerIndex + 1) % 2;
+				currentTurn = { start: seg.start, segments: [{ start: seg.start, text: cleanText }], speakerChange: true, speaker: speakerIndex };
+			} else {
+				if (!currentTurn) {
+					currentTurn = { start: seg.start, segments: [], speakerChange: false };
+				}
+				currentTurn.segments.push({ start: seg.start, text: cleanText });
+			}
+			prevSegText = cleanText;
+		}
+		if (currentTurn) turns.push(currentTurn);
+
+		// Split turns that start with a short affirmative (e.g. "Mhm.", "Yeah.")
+		// followed by longer text — the affirmative is likely the other speaker
+		this.splitAffirmativeTurns(turns);
+
+		// Second pass: split each turn into sentence groups
+		const groups: { start: number; text: string; speakerChange: boolean; speaker?: number }[] = [];
+		for (const turn of turns) {
+			const sentenceGroups = this.groupBySentence(turn.segments);
+			for (let i = 0; i < sentenceGroups.length; i++) {
+				groups.push({
+					...sentenceGroups[i],
+					speakerChange: i === 0 && turn.speakerChange,
+					speaker: turn.speaker,
+				});
+			}
+		}
+
+		return groups;
+	}
+
+	/**
+	 * Split turns that start with a short affirmative response (e.g. "Mhm.", "Yeah.")
+	 * followed by longer content. The affirmative belongs to the current speaker,
+	 * but the rest is likely the other speaker (missed diarization in auto-captions).
+	 */
+	private splitAffirmativeTurns(turns: { start: number; segments: { start: number; text: string }[]; speakerChange: boolean; speaker?: number }[]): void {
+		const affirmativePattern = /^(mhm|yeah|yes|yep|right|okay|ok|absolutely|sure|exactly|uh-huh|mm-hmm)[.!,]?\s+/i;
+
+		for (let i = 0; i < turns.length; i++) {
+			const turn = turns[i];
+			if (turn.speaker === undefined || turn.segments.length === 0) continue;
+
+			const firstSeg = turn.segments[0];
+			const match = affirmativePattern.exec(firstSeg.text);
+			if (!match) continue;
+
+			// Don't split if the affirmative ends with a comma — the speaker is continuing
+			if (/,\s*$/.test(match[0])) continue;
+
+			// Check that there's substantial content after the affirmative
+			// Only split when the remainder is long enough to be a different speaker's
+			// response, not just the same speaker continuing after an affirmative
+			const remainder = firstSeg.text.slice(match[0].length).trim();
+			const restSegments = turn.segments.slice(1);
+			const restWords = remainder.split(/\s+/).filter(w => w).length
+				+ restSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);
+			if (restWords < 30) continue;
+
+			// Split: keep affirmative in current turn, move rest to new turn with flipped speaker
+			const affirmativeText = match[0].trimEnd();
+			const newRestSegments = remainder
+				? [{ start: firstSeg.start, text: remainder }, ...restSegments]
+				: restSegments;
+
+			const affirmativeTurn = {
+				start: turn.start,
+				segments: [{ start: firstSeg.start, text: affirmativeText }],
+				speakerChange: turn.speakerChange,
+				speaker: turn.speaker,
+			};
+			const restTurn = {
+				start: newRestSegments[0].start,
+				segments: newRestSegments,
+				speakerChange: true,
+				speaker: turn.speaker === 0 ? 1 : 0,
+			};
+
+			turns.splice(i, 1, affirmativeTurn, restTurn);
+			i++; // skip the newly inserted rest turn
+		}
+	}
+
+	/**
+	 * Group segments by sentence boundaries for transcripts without speaker markers.
+	 * Accumulates text until a segment ends with sentence-ending punctuation (.!?),
+	 * or until a time gap >5 seconds between segments.
+	 */
+	private groupBySentence(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
+		const groups: { start: number; text: string; speakerChange: boolean }[] = [];
+		let buffer = '';
+		let bufferStart = 0;
+		let lastEnd = 0;
+
+		const flush = () => {
+			if (buffer.trim()) {
+				groups.push({
+					start: bufferStart,
+					text: buffer.trim(),
+					speakerChange: false,
+				});
+				buffer = '';
+			}
+		};
+
+		for (const seg of segments) {
+			// Flush on a significant time gap (>5s between segments)
+			if (buffer && seg.start - lastEnd > 5) {
+				flush();
+			}
+
+			if (!buffer) {
+				bufferStart = seg.start;
+			}
+			buffer += (buffer ? ' ' : '') + seg.text;
+			lastEnd = seg.start;
+
+			// Only flush when the segment itself ends with sentence punctuation
+			if (/[.!?]["'\u2019\u201D)]*\s*$/.test(seg.text)) {
+				flush();
+			}
+		}
+
+		flush();
+		return groups;
 	}
 } 
