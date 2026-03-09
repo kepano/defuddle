@@ -2,7 +2,7 @@
 title: "Obsidian October 2025"
 author: "kepano"
 source: "https://www.reddit.com/r/ObsidianMD/comments/1nvmgpp/obsidian_october_2025/"
-word_count: 394
+word_count: 396
 ---
 
 Obsidian October is back! Every October, the community comes together to hack on plugins, themes, vaults, videos, and other projects. We’ll host office hours on [Discord](https://discord.gg/obsidianmd) to help you polish your creations, ship updates, or kick off that project you’ve been itching to build!

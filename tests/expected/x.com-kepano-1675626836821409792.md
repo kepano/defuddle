@@ -2,7 +2,7 @@
 title: "Post by @kepano"
 author: "@kepano"
 source: "https://x.com/kepano/status/1675626836821409792"
-word_count: 376
+word_count: 377
 ---
 
 **kepano** @kepano

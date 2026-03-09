@@ -22,6 +22,8 @@ export const ENTRY_POINT_ELEMENTS = [
 
 export const MOBILE_WIDTH = 600;
 export const BLOCK_ELEMENTS = ['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'content'];
+export const BLOCK_ELEMENTS_SELECTOR = BLOCK_ELEMENTS.join(',');
+export const BLOCK_ELEMENTS_SET = new Set(BLOCK_ELEMENTS);
 
 // Elements that should not be unwrapped
 export const PRESERVE_ELEMENTS = new Set([

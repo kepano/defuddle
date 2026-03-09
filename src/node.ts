@@ -21,12 +21,7 @@ export async function Defuddle(
 	if (typeof htmlOrDom === 'string') {
 		dom = new JSDOM(htmlOrDom, {
 			url,
-//			runScripts: 'outside-only',
-			resources: 'usable',
-			pretendToBeVisual: true,
-			includeNodeLocations: true,
 			storageQuota: 10000000,
-			// Add virtual console to suppress warnings
 			virtualConsole: new VirtualConsole().sendTo(console, { omitJSDOMErrors: true })
 		});
 	} else {

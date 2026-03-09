@@ -4,7 +4,7 @@ import { ExtractorRegistry } from './extractor-registry';
 import { BaseExtractor } from './extractors/_base';
 import {
 	MOBILE_WIDTH,
-	BLOCK_ELEMENTS,
+	BLOCK_ELEMENTS_SELECTOR,
 	EXACT_SELECTORS,
 	PARTIAL_SELECTORS,
 	ENTRY_POINT_ELEMENTS,
@@ -31,6 +31,10 @@ export class Defuddle {
 	private debug: boolean;
 	private _schemaOrgData: any = undefined;
 	private _schemaOrgExtracted = false;
+	private _metaTags: MetaTagItem[] | undefined;
+	private _metadata: any | undefined;
+	private _mobileStyles: StyleChange[] | undefined;
+	private _smallImages: Set<string> | undefined;
 
 	/**
 	 * Create a new Defuddle instance
@@ -387,10 +391,16 @@ export class Defuddle {
 		// Extract schema.org data (cached — must happen before _stripUnsafeElements removes scripts)
 		const schemaOrgData = this.getSchemaOrgData();
 
-		const pageMetaTags = this._collectMetaTags();
+		// Cache meta tags and metadata across retries
+		if (!this._metaTags) {
+			this._metaTags = this._collectMetaTags();
+		}
+		const pageMetaTags = this._metaTags;
 
-		// Extract metadata
-		const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+		if (!this._metadata) {
+			this._metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+		}
+		const metadata = this._metadata;
 
 		if (options.removeImages) {
 			this.removeImages(this.doc);
@@ -407,12 +417,18 @@ export class Defuddle {
 
 			// Continue if there is no extractor...
 
-			// Evaluate mobile styles and sizes on original document
-			const mobileStyles = this._evaluateMediaQueries(this.doc);
+			// Evaluate mobile styles and sizes on original document (cached across retries)
+			if (!this._mobileStyles) {
+				this._mobileStyles = this._evaluateMediaQueries(this.doc);
+			}
+			const mobileStyles = this._mobileStyles;
 
-			// Find small images in original document, excluding lazy-loaded ones
-			const smallImages = this.findSmallImages(this.doc);
-			
+			// Find small images in original document (cached across retries)
+			if (!this._smallImages) {
+				this._smallImages = this.findSmallImages(this.doc);
+			}
+			const smallImages = this._smallImages;
+
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
@@ -511,19 +527,33 @@ export class Defuddle {
 	}
 
 	private countWords(content: string): number {
-		// Parse HTML content to extract text
-		const tempDiv = this.doc.createElement('div');
-		tempDiv.appendChild(parseHTML(this.doc, content));
+		// Strip HTML tags and decode common entities without DOM parsing
+		const text = content
+			.replace(/<[^>]*>/g, ' ')
+			.replace(/&nbsp;/gi, ' ')
+			.replace(/&amp;/gi, '&')
+			.replace(/&lt;/gi, '<')
+			.replace(/&gt;/gi, '>')
+			.replace(/&quot;/gi, '"')
+			.replace(/&#\d+;/g, ' ')
+			.replace(/&\w+;/g, ' ');
 
-		// Get text content, removing extra whitespace
-		const text = tempDiv.textContent || '';
-		const words = text
-			.trim()
-			.replace(/\s+/g, ' ') // Replace multiple spaces with single space
-			.split(' ')
-			.filter(word => word.length > 0); // Filter out empty strings
+		const trimmed = text.trim();
+		if (!trimmed) return 0;
 
-		return words.length;
+		// Count words by splitting on whitespace
+		let count = 0;
+		let inWord = false;
+		for (let i = 0; i < trimmed.length; i++) {
+			const isSpace = trimmed.charCodeAt(i) <= 32;
+			if (!isSpace && !inWord) {
+				count++;
+				inWord = true;
+			} else if (isSpace) {
+				inWord = false;
+			}
+		}
+		return count;
 	}
 
 	// Make all other methods private by removing the static keyword and using private
@@ -637,66 +667,63 @@ export class Defuddle {
 		let count = 0;
 		const elementsToRemove = new Map<Element, string>();
 
-		// Use querySelectorAll instead of getElementsByTagName because
-		// linkedom's cloneNode does not wire up live HTMLCollections.
-		const allElements = Array.from(doc.querySelectorAll('*'));
+		// Check inline styles and CSS class-based hidden patterns.
+		const hiddenStylePattern = /(?:^|;\s*)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)(?:\s*;|\s*$)/i;
 
-		// Process styles in batches to minimize layout thrashing
-		const BATCH_SIZE = 100;
-		for (let i = 0; i < allElements.length; i += BATCH_SIZE) {
-			const batch = allElements.slice(i, i + BATCH_SIZE);
+		// Only use getComputedStyle in browser environments where it's meaningful.
+		// In JSDOM/linkedom without stylesheets, it's extremely slow and unreliable.
+		const defaultView = doc.defaultView;
+		const isBrowser = typeof window !== 'undefined' && defaultView === window;
 
-			// Read phase - gather all computedStyles
-			const styles = batch.map(element => {
+		const allElements = doc.querySelectorAll('*');
+		for (const element of allElements) {
+			// Skip elements that contain math — sites like Wikipedia wrap MathML
+			// in display:none spans for accessibility (the visible version is an
+			// image/SVG fallback). We need to preserve these for math extraction.
+			if (element.querySelector('math, [data-mathml], .katex-mathml') ||
+				element.tagName.toLowerCase() === 'math') {
+				continue;
+			}
+
+			// Check inline style for hidden patterns
+			const style = element.getAttribute('style');
+			if (style && hiddenStylePattern.test(style)) {
+				const reason = style.includes('display') ? 'display:none' :
+					style.includes('visibility') ? 'visibility:hidden' : 'opacity:0';
+				elementsToRemove.set(element, reason);
+				count++;
+				continue;
+			}
+
+			// Use getComputedStyle only in real browser environments
+			if (isBrowser) {
 				try {
-					return element.ownerDocument.defaultView?.getComputedStyle(element);
-				} catch (e) {
-					// If we can't get computed style, check inline styles
-					const style = element.getAttribute('style');
-					if (!style) return null;
-
-					// Create a temporary style element to parse inline styles
-					const tempStyle = doc.createElement('style');
-					tempStyle.textContent = `* { ${style} }`;
-					doc.head.appendChild(tempStyle);
-					const computedStyle = element.ownerDocument.defaultView?.getComputedStyle(element);
-					doc.head.removeChild(tempStyle);
-					return computedStyle;
-				}
-			});
-
-			// Write phase - mark elements for removal
-			batch.forEach((element, index) => {
-				const computedStyle = styles[index];
-				if (computedStyle) {
+					const computedStyle = defaultView!.getComputedStyle(element);
 					let reason = '';
 					if (computedStyle.display === 'none') reason = 'display:none';
 					else if (computedStyle.visibility === 'hidden') reason = 'visibility:hidden';
 					else if (computedStyle.opacity === '0') reason = 'opacity:0';
-
 					if (reason) {
 						elementsToRemove.set(element, reason);
 						count++;
+						continue;
 					}
-				}
+				} catch (e) {}
+			}
 
-				// Detect CSS framework hidden utilities (e.g. Tailwind's "hidden",
-				// "sm:hidden", "not-machine:hidden") which JSDOM/linkedom can't
-				// resolve through computed styles.
-				if (!elementsToRemove.has(element)) {
-					const className = element.getAttribute('class') || '';
-					if (className) {
-						const tokens = className.split(/\s+/);
-						for (const token of tokens) {
-							if (token === 'hidden' || token.endsWith(':hidden')) {
-								elementsToRemove.set(element, `class:${token}`);
-								count++;
-								break;
-							}
-						}
+			// Detect CSS framework hidden utilities (e.g. Tailwind's "hidden",
+			// "sm:hidden", "not-machine:hidden")
+			const className = element.getAttribute('class') || '';
+			if (className) {
+				const tokens = className.split(/\s+/);
+				for (const token of tokens) {
+					if (token === 'hidden' || token.endsWith(':hidden')) {
+						elementsToRemove.set(element, `class:${token}`);
+						count++;
+						break;
 					}
 				}
-			});
+			}
 		}
 
 		// Batch remove all hidden elements
@@ -836,116 +863,54 @@ export class Defuddle {
 	private findSmallImages(doc: Document): Set<string> {
 		const MIN_DIMENSION = 33;
 		const smallImages = new Set<string>();
-		const transformRegex = /scale\(([\d.]+)\)/;
-		const startTime = Date.now();
 		let processedCount = 0;
 
-		// 1. Read phase - Gather all elements in a single pass
-		const elements = [
-			...Array.from(doc.getElementsByTagName('img')),
-			...Array.from(doc.getElementsByTagName('svg'))
-		];
+		const elements = doc.querySelectorAll('img, svg');
+		const defaultView = doc.defaultView;
+		const isBrowser = typeof window !== 'undefined' && defaultView === window;
 
-		if (elements.length === 0) {
-			return smallImages;
-		}
+		for (const element of elements) {
+			const attrWidth = parseInt(element.getAttribute('width') || '0');
+			const attrHeight = parseInt(element.getAttribute('height') || '0');
 
-		// 2. Batch process - Collect all measurements in one go
-		const measurements = elements.map(element => ({
-			element,
-			// Static attributes (no reflow)
-			naturalWidth: element.tagName.toLowerCase() === 'img' ? 
-				parseInt(element.getAttribute('width') || '0') || 0 : 0,
-			naturalHeight: element.tagName.toLowerCase() === 'img' ? 
-				parseInt(element.getAttribute('height') || '0') || 0 : 0,
-			attrWidth: parseInt(element.getAttribute('width') || '0'),
-			attrHeight: parseInt(element.getAttribute('height') || '0')
-		}));
+			// Check inline style dimensions
+			const style = element.getAttribute('style') || '';
+			const styleWidth = parseInt(style.match(/width\s*:\s*(\d+)/)?.[1] || '0');
+			const styleHeight = parseInt(style.match(/height\s*:\s*(\d+)/)?.[1] || '0');
 
-		// 3. Batch compute styles - Process in chunks to avoid long tasks
-		const BATCH_SIZE = 50;
-		for (let i = 0; i < measurements.length; i += BATCH_SIZE) {
-			const batch = measurements.slice(i, i + BATCH_SIZE);
-			
-			try {
-				// Read phase - compute all styles at once
-				const styles = batch.map(({ element }) => {
-					try {
-						return element.ownerDocument.defaultView?.getComputedStyle(element);
-					} catch (e) {
-						return null;
+			// Use getComputedStyle and getBoundingClientRect only in browser
+			let computedWidth = 0, computedHeight = 0;
+			if (isBrowser) {
+				try {
+					const cs = defaultView!.getComputedStyle(element);
+					computedWidth = parseInt(cs.width) || 0;
+					computedHeight = parseInt(cs.height) || 0;
+				} catch (e) {}
+				try {
+					const rect = element.getBoundingClientRect();
+					if (rect.width > 0) computedWidth = computedWidth || rect.width;
+					if (rect.height > 0) computedHeight = computedHeight || rect.height;
+				} catch (e) {}
+			}
+
+			const widths = [attrWidth, styleWidth, computedWidth].filter(d => d > 0);
+			const heights = [attrHeight, styleHeight, computedHeight].filter(d => d > 0);
+
+			if (widths.length > 0 && heights.length > 0) {
+				const effectiveWidth = Math.min(...widths);
+				const effectiveHeight = Math.min(...heights);
+
+				if (effectiveWidth < MIN_DIMENSION || effectiveHeight < MIN_DIMENSION) {
+					const identifier = this.getElementIdentifier(element);
+					if (identifier) {
+						smallImages.add(identifier);
+						processedCount++;
 					}
-				});
-
-				// Get bounding rectangles if available
-				const rects = batch.map(({ element }) => {
-					try {
-						return element.getBoundingClientRect();
-					} catch (e) {
-						return null;
-					}
-				});
-				
-				// Process phase - no DOM operations
-				batch.forEach((measurement, index) => {
-					try {
-						const style = styles[index];
-						const rect = rects[index];
-						
-						if (!style) return;
-						
-						// Get transform scale in the same batch
-						const transform = style.transform;
-						const scale = transform ? 
-							parseFloat(transform.match(transformRegex)?.[1] || '1') : 1;
-
-						// Calculate effective dimensions
-						const widths = [
-							measurement.naturalWidth,
-							measurement.attrWidth,
-							parseInt(style.width) || 0,
-							rect ? rect.width * scale : 0
-						].filter(dim => typeof dim === 'number' && dim > 0);
-
-						const heights = [
-							measurement.naturalHeight,
-							measurement.attrHeight,
-							parseInt(style.height) || 0,
-							rect ? rect.height * scale : 0
-						].filter(dim => typeof dim === 'number' && dim > 0);
-
-						// Decision phase - no DOM operations
-						if (widths.length > 0 && heights.length > 0) {
-							const effectiveWidth = Math.min(...widths);
-							const effectiveHeight = Math.min(...heights);
-
-							if (effectiveWidth < MIN_DIMENSION || effectiveHeight < MIN_DIMENSION) {
-								const identifier = this.getElementIdentifier(measurement.element);
-								if (identifier) {
-									smallImages.add(identifier);
-									processedCount++;
-								}
-							}
-						}
-					} catch (e) {
-						if (this.debug) {
-							console.warn('Defuddle: Failed to process element dimensions:', e);
-						}
-					}
-				});
-			} catch (e) {
-				if (this.debug) {
-					console.warn('Defuddle: Failed to process batch:', e);
 				}
 			}
 		}
 
-		const endTime = Date.now();
-		this._log('Found small elements:', {
-			count: processedCount,
-			processingTime: `${(endTime - startTime).toFixed(2)}ms`
-		});
-
+		this._log('Found small elements:', processedCount);
 		return smallImages;
 	}
 
@@ -1096,13 +1061,11 @@ export class Defuddle {
 	private findContentByScoring(doc: Document): Element | null {
 		const candidates: ContentScore[] = [];
 
-		BLOCK_ELEMENTS.forEach((tag: string) => {
-			Array.from(doc.getElementsByTagName(tag)).forEach((element: Element) => {
-				const score = ContentScorer.scoreElement(element);
-				if (score > 0) {
-					candidates.push({ score, element });
-				}
-			});
+		doc.querySelectorAll(BLOCK_ELEMENTS_SELECTOR).forEach((element: Element) => {
+			const score = ContentScorer.scoreElement(element);
+			if (score > 0) {
+				candidates.push({ score, element });
+			}
 		});
 
 		return candidates.length > 0 ? candidates.sort((a, b) => b.score - a.score)[0].element : null;
@@ -1199,13 +1162,13 @@ export class Defuddle {
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
-		const origElements = Array.from(original.body.getElementsByTagName('*'));
+		const origElements = Array.from(original.body.querySelectorAll('*'));
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
 		const firstShadow = origElements.find(el => el.shadowRoot);
 		if (!firstShadow) return;
 
-		const cloneElements = Array.from(clone.body.getElementsByTagName('*'));
+		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
 
 		// Check if we can directly read shadow DOM content (main world / Node.js).
 		// In content script isolated worlds, shadowRoot exists but content is empty.
