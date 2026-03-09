@@ -33,6 +33,17 @@ export function decodeHTMLEntities(doc: Document, text: string): string {
 }
 
 /**
+ * Escape HTML special characters in a string.
+ */
+export function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}
+
+/**
  * Check if an element belongs directly to an ancestor table,
  * not to an intervening nested TABLE.
  */

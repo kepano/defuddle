@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 
 interface OembedResponse {
 	html: string;
@@ -149,10 +149,10 @@ export class XOembedExtractor extends BaseExtractor {
 		const dateText = dateLink?.textContent?.trim() || '';
 		const permalink = dateLink?.getAttribute('href') || this.url;
 
-		const escapedAuthorName = this.escapeHtml(data.author_name);
-		const escapedHandle = this.escapeHtml(handle);
-		const escapedDateText = this.escapeHtml(dateText);
-		const escapedPermalink = this.escapeHtml(permalink);
+		const escapedAuthorName = escapeHtml(data.author_name);
+		const escapedHandle = escapeHtml(handle);
+		const escapedDateText = escapeHtml(dateText);
+		const escapedPermalink = escapeHtml(permalink);
 
 		const contentHtml = `
 			<div class="tweet-thread">
@@ -287,12 +287,12 @@ export class XOembedExtractor extends BaseExtractor {
 		// Append media images
 		if (tweet.media?.photos) {
 			for (const photo of tweet.media.photos) {
-				htmlParts.push(`<img src="${this.escapeHtml(photo.url)}" alt="">`);
+				htmlParts.push(`<img src="${escapeHtml(photo.url)}" alt="">`);
 			}
 		}
 
-		const handle = this.escapeHtml(`@${tweet.author.screen_name}`);
-		const authorName = this.escapeHtml(tweet.author.name);
+		const handle = escapeHtml(`@${tweet.author.screen_name}`);
+		const authorName = escapeHtml(tweet.author.name);
 
 		return `<div class="tweet-thread"><div class="main-tweet"><div class="tweet">` +
 			`<div class="tweet-header"><span class="tweet-author"><strong>${authorName}</strong> <span class="tweet-handle">${handle}</span></span></div>` +
@@ -302,7 +302,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 	private applyMarkers(text: string, markers: Marker[]): string {
 		if (markers.length === 0) {
-			return this.escapeHtml(text);
+			return escapeHtml(text);
 		}
 
 		markers.sort((a, b) => {
@@ -316,13 +316,13 @@ export class XOembedExtractor extends BaseExtractor {
 		let pos = 0;
 		for (const marker of markers) {
 			if (marker.offset > pos) {
-				result += this.escapeHtml(text.slice(pos, marker.offset));
+				result += escapeHtml(text.slice(pos, marker.offset));
 			}
 			result += marker.tag;
 			pos = marker.offset;
 		}
 		if (pos < text.length) {
-			result += this.escapeHtml(text.slice(pos));
+			result += escapeHtml(text.slice(pos));
 		}
 		return result;
 	}
@@ -341,11 +341,11 @@ export class XOembedExtractor extends BaseExtractor {
 				markers.push({ offset: relStart, type: 'open', tag: '<em>' });
 				markers.push({ offset: relEnd, type: 'close', tag: '</em>' });
 			} else if (facet.type === 'mention' && facet.text) {
-				const url = `https://x.com/${this.escapeHtml(facet.text)}`;
+				const url = `https://x.com/${escapeHtml(facet.text)}`;
 				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
 				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
 			} else if (facet.type === 'url' && facet.original) {
-				const url = this.escapeHtml(facet.original);
+				const url = escapeHtml(facet.original);
 				markers.push({ offset: relStart, type: 'open', tag: `<a href="${url}">` });
 				markers.push({ offset: relEnd, type: 'close', tag: '</a>' });
 			}
@@ -363,7 +363,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 		// Add cover image if available
 		if (coverMedia?.media_info?.original_img_url) {
-			parts.push(`<img src="${this.escapeHtml(coverMedia.media_info.original_img_url)}" alt="Cover image">`);
+			parts.push(`<img src="${escapeHtml(coverMedia.media_info.original_img_url)}" alt="Cover image">`);
 		}
 
 		let i = 0;
@@ -422,7 +422,7 @@ export class XOembedExtractor extends BaseExtractor {
 			case 'MEDIA': {
 				const caption = entity.data.caption;
 				if (caption) {
-					return `<figure><figcaption>${this.escapeHtml(caption)}</figcaption></figure>`;
+					return `<figure><figcaption>${escapeHtml(caption)}</figcaption></figure>`;
 				}
 				return '';
 			}
@@ -433,10 +433,10 @@ export class XOembedExtractor extends BaseExtractor {
 				if (codeMatch) {
 					const lang = codeMatch[1];
 					const code = codeMatch[2];
-					const langAttr = lang ? ` class="language-${this.escapeHtml(lang)}" data-lang="${this.escapeHtml(lang)}"` : '';
-					return `<pre><code${langAttr}>${this.escapeHtml(code)}</code></pre>`;
+					const langAttr = lang ? ` class="language-${escapeHtml(lang)}" data-lang="${escapeHtml(lang)}"` : '';
+					return `<pre><code${langAttr}>${escapeHtml(code)}</code></pre>`;
 				}
-				return `<pre><code>${this.escapeHtml(markdown)}</code></pre>`;
+				return `<pre><code>${escapeHtml(markdown)}</code></pre>`;
 			}
 			default:
 				return '';
@@ -459,7 +459,7 @@ export class XOembedExtractor extends BaseExtractor {
 		for (const range of block.entityRanges) {
 			const entityEntry = entityMap.find(e => e.key === String(range.key));
 			if (entityEntry?.value.type === 'LINK' && entityEntry.value.data.url) {
-				const url = this.escapeHtml(entityEntry.value.data.url);
+				const url = escapeHtml(entityEntry.value.data.url);
 				markers.push({ offset: range.offset, type: 'open', tag: `<a href="${url}">` });
 				markers.push({ offset: range.offset + range.length, type: 'close', tag: '</a>' });
 			}
@@ -467,7 +467,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 		if (block.data?.mentions) {
 			for (const mention of block.data.mentions) {
-				const url = `https://x.com/${this.escapeHtml(mention.text)}`;
+				const url = `https://x.com/${escapeHtml(mention.text)}`;
 				markers.push({ offset: mention.fromIndex, type: 'open', tag: `<a href="${url}">` });
 				markers.push({ offset: mention.toIndex, type: 'close', tag: '</a>' });
 			}
@@ -475,7 +475,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 		if (block.data?.urls) {
 			for (const urlData of block.data.urls) {
-				const url = this.escapeHtml(urlData.text);
+				const url = escapeHtml(urlData.text);
 				markers.push({ offset: urlData.fromIndex, type: 'open', tag: `<a href="${url}">` });
 				markers.push({ offset: urlData.toIndex, type: 'close', tag: '</a>' });
 			}
@@ -484,11 +484,4 @@ export class XOembedExtractor extends BaseExtractor {
 		return this.applyMarkers(text, markers);
 	}
 
-	private escapeHtml(text: string): string {
-		return text
-			.replace(/&/g, '&amp;')
-			.replace(/</g, '&lt;')
-			.replace(/>/g, '&gt;')
-			.replace(/"/g, '&quot;');
-	}
 }

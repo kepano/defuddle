@@ -1,6 +1,7 @@
 import { MetadataExtractor } from './metadata';
 import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
+import { BaseExtractor } from './extractors/_base';
 import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS,
@@ -21,10 +22,15 @@ interface StyleChange {
 	styles: string;
 }
 
+/** Keys from extractor variables that map to top-level DefuddleResponse fields */
+const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
+
 export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
+	private _schemaOrgData: any = undefined;
+	private _schemaOrgExtracted = false;
 
 	/**
 	 * Create a new Defuddle instance
@@ -35,6 +41,18 @@ export class Defuddle {
 		this.doc = doc;
 		this.options = options;
 		this.debug = options.debug || false;
+	}
+
+	/**
+	 * Lazily extract and cache schema.org data. Must be called before
+	 * parse() strips script tags from the document.
+	 */
+	private getSchemaOrgData(): any {
+		if (!this._schemaOrgExtracted) {
+			this._schemaOrgData = this._extractSchemaOrgData(this.doc);
+			this._schemaOrgExtracted = true;
+		}
+		return this._schemaOrgData;
 	}
 
 	/**
@@ -280,51 +298,73 @@ export class Defuddle {
 	}
 
 	/**
-	 * Parse the document, falling back to async extractors if sync parse yields no content
+	 * Parse the document asynchronously. Checks for extractors that prefer
+	 * async (e.g. YouTube transcripts) before sync, then falls back to async
+	 * extractors if sync parse yields no content.
 	 */
 	async parseAsync(): Promise<DefuddleResponse> {
+		if (this.options.useAsync !== false) {
+			const asyncResult = await this.tryAsyncExtractor(
+				ExtractorRegistry.findPreferredAsyncExtractor.bind(ExtractorRegistry)
+			);
+			if (asyncResult) return asyncResult;
+		}
+
 		const result = this.parse();
 
 		if (result.wordCount > 0 || this.options.useAsync === false) {
 			return result;
 		}
 
+		return (await this.tryAsyncExtractor(
+			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
+		)) ?? result;
+	}
+
+	/**
+	 * Fetch only async variables (e.g. transcript) without re-parsing.
+	 * Safe to call after parse() — uses cached schema.org data since
+	 * parse() strips script tags from the document.
+	 */
+	async fetchAsyncVariables(): Promise<{ [key: string]: string } | null> {
+		if (this.options.useAsync === false) return null;
+
 		try {
 			const url = this.options.url || this.doc.URL;
-			const schemaOrgData = this._extractSchemaOrgData(this.doc);
-			const extractor = ExtractorRegistry.findAsyncExtractor(this.doc, url, schemaOrgData);
+			const schemaOrgData = this.getSchemaOrgData();
+			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData);
+
+			if (extractor) {
+				const extracted = await extractor.extractAsync();
+				return this.getExtractorVariables(extracted.variables) || null;
+			}
+		} catch (error) {
+			console.error('Defuddle', 'Error fetching async variables:', error);
+		}
+
+		return null;
+	}
+
+	private async tryAsyncExtractor(
+		finder: (document: Document, url: string, schemaOrgData?: any) => BaseExtractor | null
+	): Promise<DefuddleResponse | null> {
+		try {
+			const url = this.options.url || this.doc.URL;
+			const schemaOrgData = this.getSchemaOrgData();
+			const extractor = finder(this.doc, url, schemaOrgData);
 
 			if (extractor) {
 				const startTime = Date.now();
 				const extracted = await extractor.extractAsync();
-				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
-
 				const pageMetaTags = this._collectMetaTags();
 				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
-				const endTime = Date.now();
-
-				return {
-					content: contentHtml,
-					title: extracted.variables?.title || metadata.title,
-					description: metadata.description,
-					domain: metadata.domain,
-					favicon: metadata.favicon,
-					image: metadata.image,
-					published: extracted.variables?.published || metadata.published,
-					author: extracted.variables?.author || metadata.author,
-					site: extracted.variables?.site || metadata.site,
-					schemaOrgData: metadata.schemaOrgData,
-					wordCount: this.countWords(extracted.contentHtml),
-					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags
-				};
+				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 		} catch (error) {
 			console.error('Defuddle', 'Error in async extraction:', error);
 		}
 
-		return result;
+		return null;
 	}
 
 	/**
@@ -344,8 +384,8 @@ export class Defuddle {
 		};
 		const debugRemovals: DebugRemoval[] = [];
 
-		// Extract schema.org data
-		const schemaOrgData = this._extractSchemaOrgData(this.doc);
+		// Extract schema.org data (cached — must happen before _stripUnsafeElements removes scripts)
+		const schemaOrgData = this.getSchemaOrgData();
 
 		const pageMetaTags = this._collectMetaTags();
 
@@ -362,25 +402,7 @@ export class Defuddle {
 			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
-				const contentHtml = this.resolveContentUrls(extracted.contentHtml);
-				const endTime = Date.now();
-				// console.log('Using extractor:', extractor.constructor.name.replace('Extractor', ''));
-				return {
-					content: contentHtml,
-					title: extracted.variables?.title || metadata.title,
-					description: metadata.description,
-					domain: metadata.domain,
-					favicon: metadata.favicon,
-					image: metadata.image,
-					published: extracted.variables?.published || metadata.published,
-					author: extracted.variables?.author || metadata.author,
-					site: extracted.variables?.site || metadata.site,
-					schemaOrgData: metadata.schemaOrgData,
-					wordCount: this.countWords(extracted.contentHtml),
-					parseTime: Math.round(endTime - startTime),
-					extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
-					metaTags: pageMetaTags
-				};
+				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 
 			// Continue if there is no extractor...
@@ -1321,5 +1343,53 @@ export class Defuddle {
 
 	private _decodeHTMLEntities(text: string): string {
 		return decodeHTMLEntities(this.doc, text);
+	}
+
+	/**
+	 * Build a DefuddleResponse from an extractor result with metadata
+	 */
+	private buildExtractorResponse(
+		extracted: { contentHtml: string; variables?: { [key: string]: string } },
+		metadata: ReturnType<typeof MetadataExtractor.extract>,
+		startTime: number,
+		extractor: BaseExtractor,
+		pageMetaTags: MetaTagItem[]
+	): DefuddleResponse {
+		const contentHtml = this.resolveContentUrls(extracted.contentHtml);
+		const variables = this.getExtractorVariables(extracted.variables);
+		return {
+			content: contentHtml,
+			title: extracted.variables?.title || metadata.title,
+			description: metadata.description,
+			domain: metadata.domain,
+			favicon: metadata.favicon,
+			image: metadata.image,
+			published: extracted.variables?.published || metadata.published,
+			author: extracted.variables?.author || metadata.author,
+			site: extracted.variables?.site || metadata.site,
+			schemaOrgData: metadata.schemaOrgData,
+			wordCount: this.countWords(extracted.contentHtml),
+			parseTime: Math.round(Date.now() - startTime),
+			extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+			metaTags: pageMetaTags,
+			...(variables ? { variables } : {}),
+		};
+	}
+
+	/**
+	 * Filter extractor variables to only include custom ones
+	 * (exclude standard fields that are already mapped to top-level properties)
+	 */
+	private getExtractorVariables(variables?: { [key: string]: string }): { [key: string]: string } | undefined {
+		if (!variables) return undefined;
+		const custom: { [key: string]: string } = {};
+		let hasCustom = false;
+		for (const [key, value] of Object.entries(variables)) {
+			if (!STANDARD_VARIABLE_KEYS.has(key)) {
+				custom[key] = value;
+				hasCustom = true;
+			}
+		}
+		return hasCustom ? custom : undefined;
 	}
 } 

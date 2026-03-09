@@ -128,6 +128,10 @@ export class ExtractorRegistry {
 		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtractAsync());
 	}
 
+	static findPreferredAsyncExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
+		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtractAsync() && e.prefersAsync());
+	}
+
 	private static findByPredicate(
 		document: Document, url: string, schemaOrgData: any | undefined,
 		predicate: (instance: BaseExtractor) => boolean
