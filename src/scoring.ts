@@ -134,10 +134,9 @@ export class ContentScorer {
 		const paragraphs = element.getElementsByTagName('p').length;
 		score += paragraphs * 10;
 
-		// Link density (penalize high link density)
-		const links = element.getElementsByTagName('a').length;
-		const linkDensity = links / (words || 1);
-		score -= linkDensity * 5;
+		// Comma counting — prose text has commas, navigation doesn't
+		const commas = text.split(/,/).length - 1;
+		score += commas;
 
 		// Image ratio (penalize high image density)
 		const images = element.getElementsByTagName('img').length;
@@ -208,6 +207,18 @@ export class ContentScorer {
 			}
 		}
 
+		// Link density as a multiplier — scales the score down proportionally
+		// rather than applying a fixed penalty. Capped at 0.5 reduction to
+		// avoid over-penalizing link-heavy content like blog index pages.
+		const linkElements = element.getElementsByTagName('a');
+		let linkTextLength = 0;
+		for (let i = 0; i < linkElements.length; i++) {
+			linkTextLength += (linkElements[i].textContent || '').length;
+		}
+		const textLength = text.length || 1;
+		const linkDensity = Math.min(linkTextLength / textLength, 0.5);
+		score *= (1 - linkDensity);
+
 		return score;
 	}
 
@@ -230,7 +241,7 @@ export class ContentScorer {
 	 * Scores blocks based on their content and structure
 	 * and removes those that are likely not content.
 	 */
-	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[]): void {
+	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[], mainContent?: Element | null): void {
 		const startTime = Date.now();
 
 		// Track all elements to be removed
@@ -243,6 +254,11 @@ export class ContentScorer {
 		blockElements.forEach(element => {
 			// Skip elements that are already marked for removal
 			if (elementsToRemove.has(element)) {
+				return;
+			}
+
+			// Skip ancestors of mainContent to avoid disconnecting it
+			if (mainContent && element.contains(mainContent)) {
 				return;
 			}
 
@@ -342,6 +358,15 @@ export class ContentScorer {
 			}
 		}
 
+		// Article card listing detection: blocks with many headings and images
+		// but very little prose per heading are likely article card grids
+		// (e.g. "related articles", "more stories"), not single-article content.
+		// Also checked in scoreNonContentBlock as a score penalty for elements
+		// that pass the content checks above but still look like card grids.
+		if (ContentScorer.isCardGrid(element, words)) {
+			return false;
+		}
+
 		// Small elements containing social media profile links are likely
 		// author bios or social widgets, not article content.
 		if (words < 80) {
@@ -411,6 +436,11 @@ export class ContentScorer {
 			return 0;
 		}
 
+		// Comma counting — prose has commas, navigation/boilerplate doesn't.
+		// This counterbalances negative signals from navigation indicators.
+		const commas = text.split(/,/).length - 1;
+		score += commas;
+
 		const textLower = text.toLowerCase();
 		let indicatorMatches = 0;
 		for (const regex of navigationIndicatorRegexes) {
@@ -469,6 +499,11 @@ export class ContentScorer {
 			}
 		}
 
+		// Penalize blocks that look like article card grids
+		if (ContentScorer.isCardGrid(element, words)) {
+			score -= 15;
+		}
+
 		// Check for specific class patterns that indicate non-content
 		const className = element.className.toLowerCase();
 		const id = element.id.toLowerCase();
@@ -481,4 +516,22 @@ export class ContentScorer {
 
 		return score;
 	}
-} 
+
+	/**
+	 * Detects article card grids: blocks with 3+ headings and 2+ images
+	 * but very little prose per heading.
+	 */
+	private static isCardGrid(element: Element, words: number): boolean {
+		if (words < 3 || words >= 500) return false;
+		const headings = element.querySelectorAll('h2, h3, h4');
+		if (headings.length < 3) return false;
+		const images = element.querySelectorAll('img');
+		if (images.length < 2) return false;
+		let headingWordCount = 0;
+		for (let i = 0; i < headings.length; i++) {
+			headingWordCount += (headings[i].textContent || '').split(/\s+/).length;
+		}
+		const prosePerHeading = (words - headingWordCount) / headings.length;
+		return prosePerHeading < 20;
+	}
+}

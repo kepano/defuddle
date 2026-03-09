@@ -5,10 +5,13 @@
 </head>
 <body>
 <article>
+<time class="date-label" datetime="2025-01-15">January 15, 2025</time>
 <h1>Article with Time Elements</h1>
-<p>This article was published on <time datetime="2025-01-15">January 15, 2025</time>.</p>
-<p>The event happened at <time datetime="2025-01-15T10:00:00Z">10:00 AM</time> and ended at <time datetime="2025-01-15T14:00:00Z">2:00 PM</time>.</p>
-<p>The <relative-time datetime="2025-01-15T10:00:00Z">3 months ago</relative-time> update was significant.</p>
+<p><i><time datetime="2025-01-15">15 Jan, 2025</time></i></p>
+<p>This article explores how time elements should be handled in content extraction. When a standalone time element appears at the beginning or end of an article, it typically represents metadata like publication dates. These should be removed from the extracted content since they duplicate information already captured in the article metadata.</p>
+<p>However, time elements that appear inline within prose paragraphs should be preserved. For example, the event happened at <time datetime="2025-01-15T10:00:00Z">10:00 AM</time> and ended at <time datetime="2025-01-15T14:00:00Z">2:00 PM</time>. These times are part of the narrative and removing them would break the content.</p>
+<p>The <relative-time datetime="2025-01-15T10:00:00Z">3 months ago</relative-time> update was significant because it changed how the system processes incoming data. The key distinction is between time elements that serve as standalone date labels versus those embedded in flowing text that provides context to the reader.</p>
+<p>Content extraction tools must carefully distinguish between these two cases to produce clean output without losing meaningful information from the original article.</p>
 </article>
 </body>
 </html>

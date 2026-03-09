@@ -25,6 +25,22 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
 
+// Content pattern detection constants
+const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
+const BOILERPLATE_PATTERNS = [
+	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
+	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
+	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
+];
+const METADATA_STRIP_PATTERNS = [
+	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
+	/\b\d+(?:st|nd|rd|th)?\b/g,
+	/\bmin(?:ute)?s?\b/gi,
+	/\bread\b/gi,
+	/[|·•—–\-,.\s]/g,
+];
+
 export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
@@ -90,7 +106,8 @@ export class Defuddle {
 			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
 			const indexRetry = this.parseInternal({
 				removeLowScoring: false,
-				removePartialSelectors: false
+				removePartialSelectors: false,
+				removeContentPatterns: false
 			});
 			if (indexRetry.wordCount > result.wordCount) {
 				this._log('Index page retry produced more content');
@@ -382,6 +399,7 @@ export class Defuddle {
 			removeHiddenElements: true,
 			removeLowScoring: true,
 			removeSmallImages: true,
+			removeContentPatterns: true,
 			standardize: true,
 			...this.options,
 			...overrideOptions
@@ -435,6 +453,9 @@ export class Defuddle {
 			// Flatten shadow DOM content into the clone
 			this.flattenShadowRoots(this.doc, clone);
 
+			// Resolve React streaming SSR suspense boundaries
+			this.resolveStreamedContent(clone);
+
 			// Apply mobile styles to clone
 			this.applyMobileStyles(clone, mobileStyles);
 
@@ -477,12 +498,17 @@ export class Defuddle {
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
 			if (options.removeLowScoring) {
-				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals);
+				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
 			}
 
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
 				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
+			}
+
+			// Remove elements by content patterns (read time, boilerplate, article cards)
+			if (options.removeContentPatterns && mainContent) {
+				this.removeByContentPattern(mainContent, this.debug ? debugRemovals : undefined);
 			}
 
 			// Normalize the main content
@@ -1212,6 +1238,73 @@ export class Defuddle {
 	}
 
 	/**
+	 * Resolve React streaming SSR suspense boundaries.
+	 * React's streaming SSR places content in hidden divs (id="S:0") and
+	 * template placeholders (id="B:0") with $RC scripts to swap them.
+	 * Since we don't execute scripts, we perform the swap manually.
+	 */
+	private resolveStreamedContent(doc: Document): void {
+		// Find $RC("B:X","S:X") calls in inline scripts
+		const scripts = doc.querySelectorAll('script');
+		const swaps: { templateId: string; contentId: string }[] = [];
+		const rcPattern = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
+
+		for (const script of scripts) {
+			const text = script.textContent || '';
+			if (!text.includes('$RC(')) continue;
+			rcPattern.lastIndex = 0;
+			let match;
+			while ((match = rcPattern.exec(text)) !== null) {
+				swaps.push({ templateId: match[1], contentId: match[2] });
+			}
+		}
+
+		if (swaps.length === 0) return;
+
+		let swapCount = 0;
+		for (const { templateId, contentId } of swaps) {
+			const template = doc.getElementById(templateId);
+			const content = doc.getElementById(contentId);
+			if (!template || !content) continue;
+
+			const parent = template.parentNode;
+			if (!parent) continue;
+
+			// Remove the fallback/skeleton content after the template
+			// until the <!--/$--> comment marker
+			let next = template.nextSibling;
+			let foundMarker = false;
+			while (next) {
+				const following = next.nextSibling;
+				if (next.nodeType === 8 && (next as Comment).data === '/$') {
+					next.remove();
+					foundMarker = true;
+					break;
+				}
+				next.remove();
+				next = following;
+			}
+
+			// Skip swap if marker wasn't found — malformed streaming output
+			if (!foundMarker) continue;
+
+			// Insert content children before the template position
+			while (content.firstChild) {
+				parent.insertBefore(content.firstChild, template);
+			}
+
+			// Clean up the template and hidden div
+			template.remove();
+			content.remove();
+			swapCount++;
+		}
+
+		if (swapCount > 0) {
+			this._log('Resolved streamed content:', swapCount, 'suspense boundaries');
+		}
+	}
+
+	/**
 	 * Replace a shadow DOM host element with a div containing its shadow content.
 	 * Custom elements (tag names with hyphens) would re-initialize when inserted
 	 * into a live DOM, recreating their shadow roots and hiding the content.
@@ -1355,4 +1448,200 @@ export class Defuddle {
 		}
 		return hasCustom ? custom : undefined;
 	}
-} 
+
+	/**
+	 * Content-based pattern removal for elements that can't be detected by
+	 * CSS selectors (e.g. Tailwind/CSS-in-JS sites with non-semantic class names).
+	 */
+	private removeByContentPattern(mainContent: Element, debugRemovals?: DebugRemoval[]) {
+		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
+		// Only removes leaf elements whose text is PURELY date + read time,
+		// not mixed with other meaningful content like tag names.
+		const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
+		for (const el of candidates) {
+			if (!el.parentNode) continue;
+			if (el.closest('pre') || el.closest('code')) continue;
+
+			const text = el.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+
+			// Match date + read time in short elements
+			if (words <= 15 && CONTENT_DATE_PATTERN.test(text) && CONTENT_READ_TIME_PATTERN.test(text)) {
+				// Ensure this is a leaf-ish element, not a large container
+				if (el.querySelectorAll('p, div, section, article').length === 0) {
+					// Verify the text is ONLY date + read time metadata
+					// by stripping all date/time words and checking nothing remains
+					let cleaned = text;
+					for (const pattern of METADATA_STRIP_PATTERNS) {
+						cleaned = cleaned.replace(pattern, '');
+					}
+					if (cleaned.trim().length > 0) continue;
+
+					if (this.debug && debugRemovals) {
+						debugRemovals.push({
+							step: 'removeByContentPattern',
+							reason: 'read time metadata',
+							text: textPreview(el)
+						});
+					}
+					el.remove();
+				}
+			}
+		}
+
+		// Remove standalone time/date elements near the start or end of content.
+		// A <time> in its own paragraph at the boundary is metadata (publish date),
+		// but <time> inline within prose should be preserved (see issue #136).
+		const timeElements = Array.from(mainContent.querySelectorAll('time'));
+		const contentText = mainContent.textContent || '';
+		for (const time of timeElements) {
+			if (!time.parentNode) continue;
+			// Walk up through inline/formatting wrappers only (i, em, span, b, strong)
+			// Stop at block elements to avoid removing containers with other content.
+			let target: Element = time;
+			let targetText = target.textContent?.trim() || '';
+			while (target.parentElement && target.parentElement !== mainContent) {
+				const parentTag = target.parentElement.tagName.toLowerCase();
+				const parentText = target.parentElement.textContent?.trim() || '';
+				// If parent is a <p> that only wraps this time, include it
+				if (parentTag === 'p' && parentText === targetText) {
+					target = target.parentElement;
+					break;
+				}
+				// Only walk through inline formatting wrappers
+				if (['i', 'em', 'span', 'b', 'strong', 'small'].includes(parentTag) &&
+					parentText === targetText) {
+					target = target.parentElement;
+					targetText = parentText;
+					continue;
+				}
+				break;
+			}
+			const text = target.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+			if (words > 10) continue;
+			// Check if this element is near the start or end of mainContent
+			const pos = contentText.indexOf(text);
+			const distFromEnd = contentText.length - (pos + text.length);
+			if (pos > 200 && distFromEnd > 200) continue;
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'boundary date element',
+					text: textPreview(target)
+				});
+			}
+			target.remove();
+		}
+
+		// Remove section breadcrumbs
+		// Short elements containing a link to a parent section of the current URL.
+		const url = this.options.url || this.doc.URL || '';
+		let urlPath = '';
+		try { urlPath = new URL(url).pathname; } catch {}
+		if (urlPath) {
+			const shortElements = mainContent.querySelectorAll('div, span, p');
+			for (const el of shortElements) {
+				if (!el.parentNode) continue;
+				const text = el.textContent?.trim() || '';
+				const words = text.split(/\s+/).length;
+				if (words > 10) continue;
+				// Must be a leaf-ish element (no block children)
+				if (el.querySelectorAll('p, div, section, article').length > 0) continue;
+				const link = el.querySelector('a[href]');
+				if (!link) continue;
+				try {
+					const linkPath = new URL(link.getAttribute('href') || '', url).pathname;
+					if (linkPath !== '/' && linkPath !== urlPath && urlPath.startsWith(linkPath)) {
+						if (this.debug && debugRemovals) {
+							debugRemovals.push({
+								step: 'removeByContentPattern',
+								reason: 'section breadcrumb',
+								text: textPreview(el)
+							});
+						}
+						el.remove();
+					}
+				} catch {}
+			}
+		}
+
+		// Remove boilerplate sentences and trailing non-content.
+		// Search elements for end-of-article boilerplate, then truncate
+		// from the best ancestor that has siblings to remove.
+		const fullText = mainContent.textContent || '';
+		const boilerplateElements = mainContent.querySelectorAll('p, div, span, section');
+		for (const el of boilerplateElements) {
+			if (!el.parentNode) continue;
+			const text = el.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+			if (words > 50 || words < 3) continue;
+
+			for (const pattern of BOILERPLATE_PATTERNS) {
+				if (pattern.test(text)) {
+					// Walk up to find an ancestor that has next siblings to truncate.
+					// Don't walk all the way to mainContent's direct child — if there's
+					// a single wrapper div, that would remove everything.
+					let target: Element = el;
+					while (target.parentElement && target.parentElement !== mainContent) {
+						if (target.nextElementSibling) break;
+						target = target.parentElement;
+					}
+
+					// Only truncate if there's substantial content before the boilerplate
+					const targetText = target.textContent || '';
+					const targetPos = fullText.indexOf(targetText);
+					if (targetPos < 200) continue;
+
+					// Collect ancestors before modifying the DOM
+					const ancestors: Element[] = [];
+					let anc = target.parentElement;
+					while (anc && anc !== mainContent) {
+						ancestors.push(anc);
+						anc = anc.parentElement;
+					}
+
+					// Remove target element and its following siblings
+					this.removeTrailingSiblings(target, true, debugRemovals);
+
+					// Cascade upward: remove following siblings at each
+					// ancestor level too. Everything after the boilerplate
+					// in document order is non-content.
+					for (const ancestor of ancestors) {
+						this.removeTrailingSiblings(ancestor, false, debugRemovals);
+					}
+					return;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Remove an element's following siblings, and optionally the element itself.
+	 */
+	private removeTrailingSiblings(element: Element, removeSelf: boolean, debugRemovals?: DebugRemoval[]) {
+		let sibling = element.nextElementSibling;
+		while (sibling) {
+			const next = sibling.nextElementSibling;
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'trailing non-content',
+					text: textPreview(sibling)
+				});
+			}
+			sibling.remove();
+			sibling = next;
+		}
+		if (removeSelf) {
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'boilerplate text',
+					text: textPreview(element)
+				});
+			}
+			element.remove();
+		}
+	}
+}

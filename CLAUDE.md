@@ -37,14 +37,16 @@ Extracts main content from web pages as clean HTML.
 ### Pipeline order
 
 1. Flatten shadow DOM (`flattenShadowRoots`)
-2. Find main content (auto-detection or `contentSelector`)
-3. `standardizeFootnotes` — runs before removals because CSS sidenotes use `display:none`
-4. `removeSmallImages`
-5. `removeHiddenElements`
-6. `removeLowScoring`
-7. `removeBySelector` — exact and partial selectors from `src/constants.ts`
-8. `standardizeContent` — HTML normalization
-9. Resolve relative URLs
+2. Resolve React streaming SSR (`resolveStreamedContent`)
+3. Find main content (auto-detection or `contentSelector`)
+4. `standardizeFootnotes` — runs before removals because CSS sidenotes use `display:none`
+5. `removeSmallImages`
+6. `removeHiddenElements`
+7. `removeLowScoring`
+8. `removeBySelector` — exact and partial selectors from `src/constants.ts`
+9. `removeByContentPattern` — content-based removal (read time, boilerplate, article cards)
+10. `standardizeContent` — HTML normalization
+11. Resolve relative URLs
 
 ### Pipeline toggles
 
@@ -55,6 +57,7 @@ new Defuddle(document, {
   removeLowScoring: false,
   removeExactSelectors: false,
   removePartialSelectors: false,
+  removeContentPatterns: false,
   standardize: false,  // disables standardizeFootnotes and standardizeContent
 }).parse();
 ```
