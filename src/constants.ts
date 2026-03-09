@@ -518,6 +518,8 @@ export const PARTIAL_SELECTORS = [
 	'menu-',
 //	'meta-', syntax highlighting
 	'metadata',
+	'meta-date',
+	'meta-row',
 	'might-like',
 	'minibio',
 	'more-about',
