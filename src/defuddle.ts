@@ -25,9 +25,6 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
 
-// React streaming SSR pattern: $RC("B:X","S:X") calls in inline scripts
-const REACT_RC_PATTERN = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
-
 // Content pattern detection constants
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
@@ -1250,13 +1247,14 @@ export class Defuddle {
 		// Find $RC("B:X","S:X") calls in inline scripts
 		const scripts = doc.querySelectorAll('script');
 		const swaps: { templateId: string; contentId: string }[] = [];
+		const rcPattern = /\$RC\("(B:\d+)","(S:\d+)"\)/g;
 
 		for (const script of scripts) {
 			const text = script.textContent || '';
 			if (!text.includes('$RC(')) continue;
-			REACT_RC_PATTERN.lastIndex = 0;
+			rcPattern.lastIndex = 0;
 			let match;
-			while ((match = REACT_RC_PATTERN.exec(text)) !== null) {
+			while ((match = rcPattern.exec(text)) !== null) {
 				swaps.push({ templateId: match[1], contentId: match[2] });
 			}
 		}
@@ -1495,22 +1493,26 @@ export class Defuddle {
 		// A <time> in its own paragraph at the boundary is metadata (publish date),
 		// but <time> inline within prose should be preserved (see issue #136).
 		const timeElements = Array.from(mainContent.querySelectorAll('time'));
+		const contentText = mainContent.textContent || '';
 		for (const time of timeElements) {
 			if (!time.parentNode) continue;
 			// Walk up through inline/formatting wrappers only (i, em, span, b, strong)
 			// Stop at block elements to avoid removing containers with other content.
 			let target: Element = time;
+			let targetText = target.textContent?.trim() || '';
 			while (target.parentElement && target.parentElement !== mainContent) {
 				const parentTag = target.parentElement.tagName.toLowerCase();
+				const parentText = target.parentElement.textContent?.trim() || '';
 				// If parent is a <p> that only wraps this time, include it
-				if (parentTag === 'p' && target.parentElement.textContent?.trim() === target.textContent?.trim()) {
+				if (parentTag === 'p' && parentText === targetText) {
 					target = target.parentElement;
 					break;
 				}
 				// Only walk through inline formatting wrappers
 				if (['i', 'em', 'span', 'b', 'strong', 'small'].includes(parentTag) &&
-					target.parentElement.textContent?.trim() === target.textContent?.trim()) {
+					parentText === targetText) {
 					target = target.parentElement;
+					targetText = parentText;
 					continue;
 				}
 				break;
@@ -1519,7 +1521,6 @@ export class Defuddle {
 			const words = text.split(/\s+/).length;
 			if (words > 10) continue;
 			// Check if this element is near the start or end of mainContent
-			const contentText = mainContent.textContent || '';
 			const pos = contentText.indexOf(text);
 			const distFromEnd = contentText.length - (pos + text.length);
 			if (pos > 200 && distFromEnd > 200) continue;

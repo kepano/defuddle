@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Understanding Widget Architecture | acme blog</title>
+<meta name="description" content="A deep dive into how modern widget systems work under the hood."/>
+<meta name="author" content="Jane Smith"/>
+<meta property="article:published_time" content="2025-06-15T00:00:00Z"/>
+</head>
+<body>
+<div id="root">
+<header>
+<nav><a href="/">Acme</a><a href="/blog">Blog</a></nav>
+</header>
+<main>
+<article>
+<h1>Understanding Widget Architecture</h1>
+<p class="byline">Jane Smith · June 15, 2025</p>
+<div class="article-body"><!--$?--><template id="B:0"></template><div class="skeleton loading"><div class="skeleton-line w-88"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-72"></div></div><!--/$--></div>
+</article>
+</main>
+<footer><p>© 2025 Acme Inc.</p></footer>
+</div>
+<script>$RB=[];$RV=function(a){};$RC=function(b,c){var a=document.getElementById(b);var d=document.getElementById(c);if(a&&d){var f=a.parentNode;var e=a.nextSibling;var h=0;while(e){var g=e.nextSibling;if(e.nodeType===8&&e.data==="/$"){if(h===0)break;h--}else if(e.nodeType===8&&e.data==="$?"){h++}f.removeChild(e);e=g}while(d.firstChild)f.insertBefore(d.firstChild,e);a.remove();d.remove()}};</script>
+<div hidden id="S:0"><p>Modern widget systems have evolved significantly over the past decade. What started as simple reusable components has grown into sophisticated architectures that handle state management, lifecycle events, and cross-widget communication.</p>
+<p>At the core of any widget system is the <strong>render pipeline</strong>. When a widget is first mounted, the system allocates a dedicated context object that tracks the widget's state, props, and subscriptions. This context persists for the lifetime of the widget and is cleaned up during unmounting.</p>
+<p>The rendering process follows a predictable sequence. First, the widget's configuration is validated against its schema. Then, the layout engine calculates the widget's dimensions based on its container and siblings. Finally, the paint phase converts the abstract layout into visible elements on screen.</p>
+<p>One of the most important optimizations is <strong>incremental rendering</strong>. Rather than re-rendering an entire widget tree when a single value changes, the system identifies the minimal set of affected nodes and updates only those. This is achieved through a dependency graph that maps state values to their consuming widgets.</p>
+<p>Consider the case of a dashboard with dozens of widgets, each displaying different metrics. When a data source updates, only the widgets subscribed to that particular source need to re-render. The dependency graph makes this lookup efficient, typically completing in constant time regardless of the total number of widgets.</p></div>
+<script>$RC("B:0","S:0")</script>
+</body>
+</html>
