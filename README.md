@@ -140,6 +140,7 @@ Defuddle returns an object with the following properties:
 | `domain` | string | Domain name of the website |
 | `favicon` | string | URL of the website's favicon |
 | `image` | string | URL of the article's main image |
+| `language` | string | Language of the page in [BCP 47](https://www.rfc-editor.org/info/bcp47) format (e.g. `en`, `en-US`) |
 | `metaTags` | object | Meta tags |
 | `parseTime` | number | Time taken to parse the page in milliseconds |
 | `published` | string | Publication date of the article |

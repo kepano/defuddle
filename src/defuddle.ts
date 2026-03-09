@@ -23,7 +23,7 @@ interface StyleChange {
 }
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
-const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image']);
+const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
 // Content pattern detection constants
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
@@ -1419,6 +1419,7 @@ export class Defuddle {
 			domain: metadata.domain,
 			favicon: metadata.favicon,
 			image: metadata.image,
+			language: extracted.variables?.language || metadata.language,
 			published: extracted.variables?.published || metadata.published,
 			author: extracted.variables?.author || metadata.author,
 			site: extracted.variables?.site || metadata.site,

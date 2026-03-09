@@ -430,6 +430,7 @@ npx defuddle parse page.html --output result.html</code></pre>
 				<tr><td><code>domain</code></td><td>string</td><td>Domain name of the website</td></tr>
 				<tr><td><code>favicon</code></td><td>string</td><td>URL of the website's favicon</td></tr>
 				<tr><td><code>image</code></td><td>string</td><td>URL of the article's main image</td></tr>
+				<tr><td><code>language</code></td><td>string</td><td>Language of the page in BCP 47 format (e.g. <code>en</code>, <code>en-US</code>)</td></tr>
 				<tr><td><code>published</code></td><td>string</td><td>Publication date</td></tr>
 				<tr><td><code>wordCount</code></td><td>number</td><td>Number of words in the extracted content</td></tr>
 				<tr><td><code>parseTime</code></td><td>number</td><td>Time taken to parse in milliseconds</td></tr>

@@ -46,6 +46,7 @@ export class MetadataExtractor {
 			domain,
 			favicon: this.getFavicon(doc, url, metaTags),
 			image: this.getImage(doc, schemaOrgData, metaTags),
+			language: this.getLanguage(doc, schemaOrgData, metaTags),
 			published: this.getPublished(doc, schemaOrgData, metaTags),
 			author: this.getAuthor(doc, schemaOrgData, metaTags),
 			site: this.getSite(doc, schemaOrgData, metaTags),
@@ -275,6 +276,35 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "sailthru.image.full") ||
 			''
 		);
+	}
+
+	private static getLanguage(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+		// 1. <html lang="...">
+		const htmlLang = doc.documentElement?.getAttribute('lang')?.trim();
+		if (htmlLang) return this.normalizeLangCode(htmlLang);
+
+		// 2. Content-Language meta tag
+		const contentLang = this.getMetaContent(metaTags, "name", "content-language") ||
+			this.getMetaContent(metaTags, "property", "og:locale");
+		if (contentLang) return this.normalizeLangCode(contentLang);
+
+		// 3. http-equiv Content-Language (stored as name in our meta tag collection)
+		const httpEquivLang = doc.querySelector('meta[http-equiv="Content-Language" i]')?.getAttribute('content')?.trim();
+		if (httpEquivLang) return this.normalizeLangCode(httpEquivLang);
+
+		// 4. Schema.org
+		const schemaLang = this.getSchemaProperty(schemaOrgData, 'inLanguage');
+		if (schemaLang) return this.normalizeLangCode(schemaLang);
+
+		return '';
+	}
+
+	/**
+	 * Normalize language codes to BCP 47 format (e.g. en_US -> en-US)
+	 */
+	private static normalizeLangCode(code: string): string {
+		// Replace underscores with hyphens (og:locale uses en_US)
+		return code.replace(/_/g, '-');
 	}
 
 	private static getFavicon(doc: Document, baseUrl: string, metaTags: MetaTagItem[]): string {

@@ -4,6 +4,7 @@ export interface DefuddleMetadata {
 	domain: string;
 	favicon: string;
 	image: string;
+	language: string;
 	parseTime: number;
 	published: string;
 	author: string;
