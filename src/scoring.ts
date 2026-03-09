@@ -134,10 +134,9 @@ export class ContentScorer {
 		const paragraphs = element.getElementsByTagName('p').length;
 		score += paragraphs * 10;
 
-		// Link density (penalize high link density)
-		const links = element.getElementsByTagName('a').length;
-		const linkDensity = links / (words || 1);
-		score -= linkDensity * 5;
+		// Comma counting — prose text has commas, navigation doesn't
+		const commas = text.split(/,/).length - 1;
+		score += commas;
 
 		// Image ratio (penalize high image density)
 		const images = element.getElementsByTagName('img').length;
@@ -207,6 +206,18 @@ export class ContentScorer {
 				}
 			}
 		}
+
+		// Link density as a multiplier — scales the score down proportionally
+		// rather than applying a fixed penalty. Capped at 0.5 reduction to
+		// avoid over-penalizing link-heavy content like blog index pages.
+		const linkElements = element.getElementsByTagName('a');
+		let linkTextLength = 0;
+		for (let i = 0; i < linkElements.length; i++) {
+			linkTextLength += (linkElements[i].textContent || '').length;
+		}
+		const textLength = text.length || 1;
+		const linkDensity = Math.min(linkTextLength / textLength, 0.5);
+		score *= (1 - linkDensity);
 
 		return score;
 	}
@@ -417,6 +428,11 @@ export class ContentScorer {
 		if (words < 3) {
 			return 0;
 		}
+
+		// Comma counting — prose has commas, navigation/boilerplate doesn't.
+		// This counterbalances negative signals from navigation indicators.
+		const commas = text.split(/,/).length - 1;
+		score += commas;
 
 		const textLower = text.toLowerCase();
 		let indicatorMatches = 0;
