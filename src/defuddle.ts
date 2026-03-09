@@ -1491,6 +1491,80 @@ export class Defuddle {
 			}
 		}
 
+		// Remove standalone time/date elements near the start or end of content.
+		// A <time> in its own paragraph at the boundary is metadata (publish date),
+		// but <time> inline within prose should be preserved (see issue #136).
+		const timeElements = Array.from(mainContent.querySelectorAll('time'));
+		for (const time of timeElements) {
+			if (!time.parentNode) continue;
+			// Walk up through inline/formatting wrappers only (i, em, span, b, strong)
+			// Stop at block elements to avoid removing containers with other content.
+			let target: Element = time;
+			while (target.parentElement && target.parentElement !== mainContent) {
+				const parentTag = target.parentElement.tagName.toLowerCase();
+				// If parent is a <p> that only wraps this time, include it
+				if (parentTag === 'p' && target.parentElement.textContent?.trim() === target.textContent?.trim()) {
+					target = target.parentElement;
+					break;
+				}
+				// Only walk through inline formatting wrappers
+				if (['i', 'em', 'span', 'b', 'strong', 'small'].includes(parentTag) &&
+					target.parentElement.textContent?.trim() === target.textContent?.trim()) {
+					target = target.parentElement;
+					continue;
+				}
+				break;
+			}
+			const text = target.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+			if (words > 10) continue;
+			// Check if this element is near the start or end of mainContent
+			const contentText = mainContent.textContent || '';
+			const pos = contentText.indexOf(text);
+			const distFromEnd = contentText.length - (pos + text.length);
+			if (pos > 200 && distFromEnd > 200) continue;
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'boundary date element',
+					text: textPreview(target)
+				});
+			}
+			target.remove();
+		}
+
+		// Remove section breadcrumbs
+		// Short elements containing a link to a parent section of the current URL.
+		const url = this.options.url || this.doc.URL || '';
+		let urlPath = '';
+		try { urlPath = new URL(url).pathname; } catch {}
+		if (urlPath) {
+			const shortElements = mainContent.querySelectorAll('div, span, p');
+			for (const el of shortElements) {
+				if (!el.parentNode) continue;
+				const text = el.textContent?.trim() || '';
+				const words = text.split(/\s+/).length;
+				if (words > 10) continue;
+				// Must be a leaf-ish element (no block children)
+				if (el.querySelectorAll('p, div, section, article').length > 0) continue;
+				const link = el.querySelector('a[href]');
+				if (!link) continue;
+				try {
+					const linkPath = new URL(link.getAttribute('href') || '', url).pathname;
+					if (linkPath !== '/' && linkPath !== urlPath && urlPath.startsWith(linkPath)) {
+						if (this.debug && debugRemovals) {
+							debugRemovals.push({
+								step: 'removeByContentPattern',
+								reason: 'section breadcrumb',
+								text: textPreview(el)
+							});
+						}
+						el.remove();
+					}
+				} catch {}
+			}
+		}
+
 		// Remove boilerplate sentences and trailing non-content.
 		// Search elements for end-of-article boilerplate, then truncate
 		// from the best ancestor that has siblings to remove.
