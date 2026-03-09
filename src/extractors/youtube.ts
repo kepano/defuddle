@@ -1,14 +1,17 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 
+// Unofficial InnerTube API. Uses Android client context to get caption track URLs.
+// Version may need updating if Google changes the API.
 const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+const INNERTUBE_CLIENT_VERSION = '20.10.38';
 const INNERTUBE_CONTEXT = {
 	client: {
 		clientName: 'ANDROID',
-		clientVersion: '20.10.38',
+		clientVersion: INNERTUBE_CLIENT_VERSION,
 	}
 };
-const INNERTUBE_USER_AGENT = 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)';
+const INNERTUBE_USER_AGENT = `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 14)`;
 
 export class YoutubeExtractor extends BaseExtractor {
 	private videoElement: HTMLVideoElement | null;
@@ -227,7 +230,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (!xml) return undefined;
 
 			return this.parseTranscriptXml(xml, track.languageCode || 'en');
-		} catch {
+		} catch (error) {
+			console.error('YoutubeExtractor: failed to fetch transcript', error);
 			return undefined;
 		}
 	}
@@ -301,7 +305,9 @@ export class YoutubeExtractor extends BaseExtractor {
 			.replace(/&gt;/g, '>')
 			.replace(/&quot;/g, '"')
 			.replace(/&#39;/g, "'")
-			.replace(/&apos;/g, "'");
+			.replace(/&apos;/g, "'")
+			.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+			.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
 	}
 
 	private formatTimestamp(seconds: number): string {

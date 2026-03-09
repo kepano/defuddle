@@ -26,7 +26,8 @@ export class Defuddle {
 	private readonly doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
-	private cachedSchemaOrgData: any = undefined;
+	private _schemaOrgData: any = undefined;
+	private _schemaOrgExtracted = false;
 
 	/**
 	 * Create a new Defuddle instance
@@ -37,6 +38,18 @@ export class Defuddle {
 		this.doc = doc;
 		this.options = options;
 		this.debug = options.debug || false;
+	}
+
+	/**
+	 * Lazily extract and cache schema.org data. Must be called before
+	 * parse() strips script tags from the document.
+	 */
+	private getSchemaOrgData(): any {
+		if (!this._schemaOrgExtracted) {
+			this._schemaOrgData = this._extractSchemaOrgData(this.doc);
+			this._schemaOrgExtracted = true;
+		}
+		return this._schemaOrgData;
 	}
 
 	/**
@@ -315,7 +328,7 @@ export class Defuddle {
 
 		try {
 			const url = this.options.url || this.doc.URL;
-			const schemaOrgData = this.cachedSchemaOrgData ?? this._extractSchemaOrgData(this.doc);
+			const schemaOrgData = this.getSchemaOrgData();
 			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData);
 
 			if (extractor) {
@@ -334,7 +347,7 @@ export class Defuddle {
 	): Promise<DefuddleResponse | null> {
 		try {
 			const url = this.options.url || this.doc.URL;
-			const schemaOrgData = this._extractSchemaOrgData(this.doc);
+			const schemaOrgData = this.getSchemaOrgData();
 			const extractor = finder(this.doc, url, schemaOrgData);
 
 			if (extractor) {
@@ -389,9 +402,8 @@ export class Defuddle {
 		};
 		const debugRemovals: DebugRemoval[] = [];
 
-		// Extract schema.org data (cache for fetchAsyncVariables after parse mutates DOM)
-		const schemaOrgData = this._extractSchemaOrgData(this.doc);
-		this.cachedSchemaOrgData = schemaOrgData;
+		// Extract schema.org data (cached — must happen before _stripUnsafeElements removes scripts)
+		const schemaOrgData = this.getSchemaOrgData();
 
 		const pageMetaTags = this._collectMetaTags();
 
