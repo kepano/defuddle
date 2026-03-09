@@ -272,18 +272,17 @@ export function createMarkdownContent(content: string, url: string) {
 
 			let imageMarkdown = `![${alt}](${src})\n\n${caption}\n\n`;
 
-			// Preserve non-image content inside the figure (e.g. when an unclosed
-			// <figure> tag causes subsequent content to be nested inside it)
-			const clone = node.cloneNode(true) as Element;
+			// Preserve non-image content inside malformed figures (e.g. when an
+			// unclosed <figure> tag causes subsequent content to be nested inside it)
+			if (!hasResidualFigureContent(node as Element)) {
+				return imageMarkdown;
+			}
+
+			const clone = (node as Element).cloneNode(true) as Element;
 
 			const cloneImg = clone.querySelector('img');
 			if (cloneImg) {
-				const parentLink = cloneImg.closest('a');
-				if (parentLink && parentLink !== clone) {
-					parentLink.remove();
-				} else {
-					cloneImg.remove();
-				}
+				cloneImg.remove();
 			}
 
 			const cloneFigcaption = clone.querySelector('figcaption');
@@ -291,8 +290,8 @@ export function createMarkdownContent(content: string, url: string) {
 				cloneFigcaption.remove();
 			}
 
-			// Remove empty links and picture elements left behind
-			Array.from(clone.querySelectorAll('a, picture')).forEach((el: Element) => {
+			// Remove empty wrappers left behind after stripping the image/caption.
+			Array.from(clone.querySelectorAll('a, picture, div, span')).forEach((el: Element) => {
 				if (!el.textContent?.trim() && !el.querySelector('img')) {
 					el.remove();
 				}
@@ -725,6 +724,45 @@ export function createMarkdownContent(content: string, url: string) {
 				return alttext.trim();
 		}
 		return '';
+	}
+
+	function hasResidualFigureContent(figure: Element): boolean {
+		for (const child of Array.from(figure.childNodes)) {
+			if (child.nodeType === 3 && child.textContent?.trim()) {
+				return true;
+			}
+			if (child.nodeType !== 1) {
+				continue;
+			}
+
+			if (hasResidualFigureElement(child as Element)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function hasResidualFigureElement(el: Element): boolean {
+		if (el.tagName === 'FIGCAPTION' || el.tagName === 'IMG' || el.tagName === 'SOURCE') {
+			return false;
+		}
+
+		if (el.tagName === 'A' || el.tagName === 'DIV' || el.tagName === 'SPAN' || el.tagName === 'PICTURE') {
+			for (const child of Array.from(el.childNodes)) {
+				if (child.nodeType === 3 && child.textContent?.trim()) {
+					return true;
+				}
+				if (child.nodeType !== 1) {
+					continue;
+				}
+				if (hasResidualFigureElement(child as Element)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		return true;
 	}
 
 	try {
