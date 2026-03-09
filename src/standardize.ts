@@ -214,10 +214,6 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		// Remove obsolete plugin elements
 		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());
 
-		// Remove inline SVG elements (diagrams, icons) — they produce garbage in text output.
-		// SVG referenced via <img src="*.svg"> are preserved as normal images.
-		element.querySelectorAll('svg').forEach(el => el.remove());
-
 		// Remove empty elements
 		removeEmptyElements(element);
 
