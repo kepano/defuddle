@@ -113,6 +113,12 @@ export interface DefuddleOptions {
 	standardize?: boolean;
 
 	/**
+	 * Toggle content-based pattern removal (read time, boilerplate, article cards)
+	 * Defaults to true
+	 */
+	removeContentPatterns?: boolean;
+
+	/**
 	 * CSS selector to use as main content element, bypassing auto-detection
 	 */
 	contentSelector?: string;

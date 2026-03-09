@@ -43,8 +43,9 @@ Extracts main content from web pages as clean HTML.
 5. `removeHiddenElements`
 6. `removeLowScoring`
 7. `removeBySelector` — exact and partial selectors from `src/constants.ts`
-8. `standardizeContent` — HTML normalization
-9. Resolve relative URLs
+8. `removeByContentPattern` — content-based removal (read time, boilerplate, article cards)
+9. `standardizeContent` — HTML normalization
+10. Resolve relative URLs
 
 ### Pipeline toggles
 
@@ -55,6 +56,7 @@ new Defuddle(document, {
   removeLowScoring: false,
   removeExactSelectors: false,
   removePartialSelectors: false,
+  removeContentPatterns: false,
   standardize: false,  // disables standardizeFootnotes and standardizeContent
 }).parse();
 ```

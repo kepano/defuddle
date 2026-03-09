@@ -90,7 +90,8 @@ export class Defuddle {
 			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
 			const indexRetry = this.parseInternal({
 				removeLowScoring: false,
-				removePartialSelectors: false
+				removePartialSelectors: false,
+				removeContentPatterns: false
 			});
 			if (indexRetry.wordCount > result.wordCount) {
 				this._log('Index page retry produced more content');
@@ -382,6 +383,7 @@ export class Defuddle {
 			removeHiddenElements: true,
 			removeLowScoring: true,
 			removeSmallImages: true,
+			removeContentPatterns: true,
 			standardize: true,
 			...this.options,
 			...overrideOptions
@@ -483,6 +485,11 @@ export class Defuddle {
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
 				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
+			}
+
+			// Remove elements by content patterns (read time, boilerplate, article cards)
+			if (options.removeContentPatterns && mainContent) {
+				this.removeByContentPattern(mainContent, this.debug ? debugRemovals : undefined);
 			}
 
 			// Normalize the main content
@@ -1355,4 +1362,145 @@ export class Defuddle {
 		}
 		return hasCustom ? custom : undefined;
 	}
-} 
+
+	/**
+	 * Content-based pattern removal for elements that can't be detected by
+	 * CSS selectors (e.g. Tailwind/CSS-in-JS sites with non-semantic class names).
+	 */
+	private removeByContentPattern(mainContent: Element, debugRemovals?: DebugRemoval[]) {
+		const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+		const readTimePattern = /\d+\s*min(?:ute)?s?\s+read\b/i;
+		const boilerplatePatterns = [
+			/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
+			/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
+			/^Originally (?:published|appeared) (?:in|on|at)\b/i,
+		];
+
+		// Patterns to strip when checking if text is purely date+readtime metadata
+		const metadataStrip = [
+			/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
+			/\b\d+(?:st|nd|rd|th)?\b/g,
+			/\bmin(?:ute)?s?\b/gi,
+			/\bread\b/gi,
+			/[|·•—–\-,.\s]/g,
+		];
+
+		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
+		// Checks all elements, not just block elements, since metadata
+		// may be in <p> or <span> tags with no semantic class names.
+		// Only removes elements whose text is PURELY date + read time,
+		// not mixed with other meaningful content like tag names.
+		const allElements = Array.from(mainContent.querySelectorAll('*'));
+		for (const el of allElements) {
+			if (!el.parentNode) continue;
+			if (el.closest('pre') || el.closest('code')) continue;
+
+			const text = el.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+
+			// Match date + read time in short elements
+			if (words <= 15 && datePattern.test(text) && readTimePattern.test(text)) {
+				// Ensure this is a leaf-ish element, not a large container
+				if (el.querySelectorAll('p, div, section, article').length === 0) {
+					// Verify the text is ONLY date + read time metadata
+					// by stripping all date/time words and checking nothing remains
+					let cleaned = text;
+					for (const pattern of metadataStrip) {
+						cleaned = cleaned.replace(pattern, '');
+					}
+					if (cleaned.trim().length > 0) continue;
+
+					if (this.debug && debugRemovals) {
+						debugRemovals.push({
+							step: 'removeByContentPattern',
+							reason: 'read time metadata',
+							text: textPreview(el)
+						});
+					}
+					el.remove();
+				}
+			}
+		}
+
+		// Remove boilerplate sentences and trailing non-content.
+		// Search all elements for end-of-article boilerplate, then truncate
+		// from the best ancestor that has siblings to remove.
+		const boilerplateElements = mainContent.querySelectorAll('p, div, span, section');
+		for (const el of boilerplateElements) {
+			if (!el.parentNode) continue;
+			const text = el.textContent?.trim() || '';
+			const words = text.split(/\s+/).length;
+			if (words > 50 || words < 3) continue;
+
+			for (const pattern of boilerplatePatterns) {
+				if (pattern.test(text)) {
+					// Walk up to find an ancestor that has next siblings to truncate.
+					// Don't walk all the way to mainContent's direct child — if there's
+					// a single wrapper div, that would remove everything.
+					let target: Element = el;
+					while (target.parentElement && target.parentElement !== mainContent) {
+						// Stop walking up if the current element has a next sibling —
+						// we can truncate from here
+						if (target.nextElementSibling) break;
+						target = target.parentElement;
+					}
+
+					// Only truncate if there's substantial content before the boilerplate
+					// to avoid accidentally removing early content
+					const fullText = mainContent.textContent || '';
+					const targetText = target.textContent || '';
+					const targetPos = fullText.indexOf(targetText);
+					if (targetPos < 200) continue;
+
+					// Collect ancestors before modifying the DOM
+					const ancestors: Element[] = [];
+					let anc = target.parentElement;
+					while (anc && anc !== mainContent) {
+						ancestors.push(anc);
+						anc = anc.parentElement;
+					}
+
+					// Remove target element and its following siblings
+					this.removeTrailingSiblings(target, true, debugRemovals);
+
+					// Cascade upward: remove following siblings at each
+					// ancestor level too. Everything after the boilerplate
+					// in document order is non-content.
+					for (const ancestor of ancestors) {
+						this.removeTrailingSiblings(ancestor, false, debugRemovals);
+					}
+					return;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Remove an element's following siblings, and optionally the element itself.
+	 */
+	private removeTrailingSiblings(element: Element, removeSelf: boolean, debugRemovals?: DebugRemoval[]) {
+		let sibling = element.nextElementSibling;
+		while (sibling) {
+			const next = sibling.nextElementSibling;
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'trailing non-content',
+					text: textPreview(sibling)
+				});
+			}
+			sibling.remove();
+			sibling = next;
+		}
+		if (removeSelf) {
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'boilerplate text',
+					text: textPreview(element)
+				});
+			}
+			element.remove();
+		}
+	}
+}

@@ -68,6 +68,9 @@ const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s
 // Author attribution pattern — case-sensitive "By" + capitalized name
 const bylinePattern = /\bBy\s+[A-Z]/;
 
+// Read time pattern — "N min read", "N minute read", etc.
+const readTimePattern = /\d+\s*min(?:ute)?s?\s+read\b/i;
+
 // Pre-compiled navigation indicator regexes for scoreNonContentBlock
 const navigationIndicatorRegexes = navigationIndicators.map(
 	indicator => new RegExp(`\\b${indicator.replace(/\s+/g, '\\s+')}\\b`)
@@ -342,6 +345,27 @@ export class ContentScorer {
 			}
 		}
 
+		// Article card listing detection: blocks with many headings and images
+		// but very little prose per heading are likely article card grids
+		// (e.g. "related articles", "more stories"), not single-article content.
+		if (words < 500) {
+			const cardHeadings = element.querySelectorAll('h2, h3, h4');
+			if (cardHeadings.length >= 3) {
+				const cardImages = element.getElementsByTagName('img');
+				if (cardImages.length >= 2) {
+					let headingWordCount = 0;
+					for (let i = 0; i < cardHeadings.length; i++) {
+						headingWordCount += (cardHeadings[i].textContent || '').split(/\s+/).length;
+					}
+					const proseWordCount = words - headingWordCount;
+					const prosePerHeading = proseWordCount / cardHeadings.length;
+					if (prosePerHeading < 20) {
+						return false;
+					}
+				}
+			}
+		}
+
 		// Small elements containing social media profile links are likely
 		// author bios or social widgets, not article content.
 		if (words < 80) {
@@ -466,6 +490,26 @@ export class ContentScorer {
 		if (words < 15) {
 			if (bylinePattern.test(text) && datePattern.test(text)) {
 				score -= 10;
+			}
+		}
+
+		// Penalize blocks that look like article card grids: multiple headings
+		// with images but very little prose per heading
+		if (words > 3 && words < 500) {
+			const headings = element.querySelectorAll('h2, h3, h4');
+			if (headings.length >= 3) {
+				const images = element.getElementsByTagName('img');
+				if (images.length >= 2) {
+					let headingWordCount = 0;
+					for (let i = 0; i < headings.length; i++) {
+						headingWordCount += (headings[i].textContent || '').split(/\s+/).length;
+					}
+					const proseWordCount = words - headingWordCount;
+					const prosePerHeading = proseWordCount / headings.length;
+					if (prosePerHeading < 20) {
+						score -= 15;
+					}
+				}
 			}
 		}
 
