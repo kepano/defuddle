@@ -7,7 +7,7 @@
 }
 ```
 
-**testuser** • 2025-06-15
+**testuser** · 2025-06-15
 
 This is the main comment text that should be extracted by the Hacker News extractor.
 

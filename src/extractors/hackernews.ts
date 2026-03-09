@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { serializeHTML } from '../utils/dom';
+import { buildCommentTree, CommentData } from '../utils/comments';
 
 export class HackerNewsExtractor extends BaseExtractor {
 	private mainPost: Element | null;
@@ -65,8 +66,8 @@ export class HackerNewsExtractor extends BaseExtractor {
 				</div>
 				${comments ? `
 					<hr>
-					<h2>Comments</h2>
 					<div class="hackernews comments">
+						<h2>Comments</h2>
 						${comments}
 					</div>
 				` : ''}
@@ -91,10 +92,10 @@ export class HackerNewsExtractor extends BaseExtractor {
 			return `
 				<div class="comment main-comment">
 					<div class="comment-metadata">
-						<span class="comment-author"><strong>${author}</strong></span> •
+						<span class="comment-author"><strong>${author}</strong></span> ·
 						<span class="comment-date">${date}</span>
-						${points ? ` • <span class="comment-points">${points}</span>` : ''}
-						${parentUrl ? ` • <a href="https://news.ycombinator.com/${parentUrl}" class="parent-link">parent</a>` : ''}
+						${points ? ` · <span class="comment-points">${points}</span>` : ''}
+						${parentUrl ? ` · <a href="https://news.ycombinator.com/${parentUrl}" class="parent-link">parent</a>` : ''}
 					</div>
 					<div class="comment-content">${commentText}</div>
 				</div>
@@ -125,10 +126,8 @@ export class HackerNewsExtractor extends BaseExtractor {
 	}
 
 	private processComments(comments: Element[]): string {
-		let html = '';
+		const commentData: CommentData[] = [];
 		const processedIds = new Set<string>();
-		let currentDepth = -1;
-		let blockquoteStack: number[] = [];
 
 		for (const comment of comments) {
 			const id = comment.getAttribute('id');
@@ -141,62 +140,21 @@ export class HackerNewsExtractor extends BaseExtractor {
 			const author = comment.querySelector('.hnuser')?.textContent || '[deleted]';
 			const timeElement = comment.querySelector('.age');
 			const points = comment.querySelector('.score')?.textContent?.trim() || '';
-			
+
 			if (!commentText) continue;
 
-			// Get the comment URL
 			const commentUrl = `https://news.ycombinator.com/item?id=${id}`;
-			
-			// Get the timestamp from the title attribute and extract the date portion
 			const timestamp = timeElement?.getAttribute('title') || '';
 			const date = timestamp.split('T')[0] || '';
-			
-			// For top-level comments, close all previous blockquotes and start fresh
-			if (depth === 0) {
-				while (blockquoteStack.length > 0) {
-					html += '</blockquote>';
-					blockquoteStack.pop();
-				}
-				html += '<blockquote>';
-				blockquoteStack = [0];
-				currentDepth = 0;
-			}
-			// For nested comments
-			else {
-				// If we're moving back up the tree
-				if (depth < currentDepth) {
-					while (blockquoteStack.length > 0 && blockquoteStack[blockquoteStack.length - 1] >= depth) {
-						html += '</blockquote>';
-						blockquoteStack.pop();
-					}
-				}
-				// If we're going deeper
-				else if (depth > currentDepth) {
-					html += '<blockquote>';
-					blockquoteStack.push(depth);
-				}
-				// If we're at the same depth, no need to close or open blockquotes
-			}
 
-			html += `<div class="comment">
-	<div class="comment-metadata">
-		<span class="comment-author"><strong>${author}</strong></span> •
-		<a href="${commentUrl}" class="comment-link">${date}</a>
-		${points ? ` • <span class="comment-points">${points}</span>` : ''}
-	</div>
-	<div class="comment-content">${serializeHTML(commentText)}</div>
-</div>`;
-
-			currentDepth = depth;
+			commentData.push({
+				metadata: `<span class="comment-author"><strong>${author}</strong></span> ·\n\t\t<a href="${commentUrl}" class="comment-link">${date}</a>${points ? `\n\t\t · <span class="comment-points">${points}</span>` : ''}`,
+				content: serializeHTML(commentText),
+				depth,
+			});
 		}
 
-		// Close any remaining blockquotes
-		while (blockquoteStack.length > 0) {
-			html += '</blockquote>';
-			blockquoteStack.pop();
-		}
-
-		return html;
+		return buildCommentTree(commentData);
 	}
 
 	private getPostId(): string {

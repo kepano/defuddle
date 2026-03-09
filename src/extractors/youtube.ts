@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
+import { buildTranscript, formatTimestamp } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
 
@@ -397,41 +398,9 @@ export class YoutubeExtractor extends BaseExtractor {
 		if (segments.length === 0) return undefined;
 
 		const groups = this.groupTranscriptSegments(segments);
+		const { html, text } = buildTranscript('youtube', groups, chapters);
 
-		// Sort chapters by start time for insertion
-		const sortedChapters = [...chapters].sort((a, b) => a.start - b.start);
-		let chapterIdx = 0;
-
-		// Build HTML and text in a single pass
-		const htmlParts: string[] = [];
-		const textParts: string[] = [];
-		for (const group of groups) {
-			// Insert chapter headings before this group
-			while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].start <= group.start) {
-				const title = sortedChapters[chapterIdx].title;
-				htmlParts.push(`<h3>${escapeHtml(title)}</h3>`);
-				if (textParts.length > 0) textParts.push('');
-				textParts.push(`### ${title}`);
-				textParts.push('');
-				chapterIdx++;
-			}
-
-			const timestamp = this.formatTimestamp(group.start);
-			const speakerClass = group.speaker !== undefined ? ` speaker-${group.speaker}` : '';
-			const tsHtml = `<strong><span class="timestamp" data-timestamp="${group.start}">${timestamp}</span></strong>`;
-			htmlParts.push(`<p class="transcript-segment${speakerClass}">${tsHtml} · ${escapeHtml(group.text)}</p>`);
-
-			if (group.speakerChange && textParts.length > 0) {
-				textParts.push('');
-			}
-			textParts.push(`**${timestamp}** · ${group.text}`);
-		}
-
-		return {
-			html: `<h2>Transcript</h2>\n<div class="youtube transcript">\n${htmlParts.join('\n')}\n</div>`,
-			text: textParts.join('\n'),
-			languageCode,
-		};
+		return { html, text, languageCode };
 	}
 
 	private decodeEntities(text: string): string {
@@ -444,17 +413,6 @@ export class YoutubeExtractor extends BaseExtractor {
 			.replace(/&apos;/g, "'")
 			.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
 			.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
-	}
-
-	private formatTimestamp(seconds: number): string {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.floor((seconds % 3600) / 60);
-		const s = Math.floor(seconds % 60);
-
-		if (h > 0) {
-			return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-		}
-		return `${m}:${String(s).padStart(2, '0')}`;
 	}
 
 	private getVideoId(): string {
