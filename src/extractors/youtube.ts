@@ -2,6 +2,8 @@ import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 
+const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
+
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
 const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
@@ -400,35 +402,28 @@ export class YoutubeExtractor extends BaseExtractor {
 		const sortedChapters = [...chapters].sort((a, b) => a.start - b.start);
 		let chapterIdx = 0;
 
-		// Build HTML — paragraphs with chapter headings and speaker breaks
+		// Build HTML and text in a single pass
 		const htmlParts: string[] = [];
+		const textParts: string[] = [];
 		for (const group of groups) {
 			// Insert chapter headings before this group
 			while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].start <= group.start) {
-				htmlParts.push(`<h3>${escapeHtml(sortedChapters[chapterIdx].title)}</h3>`);
-				chapterIdx++;
-			}
-			const timestamp = this.formatTimestamp(group.start);
-			const text = escapeHtml(group.text);
-			const speakerClass = group.speaker !== undefined ? ` speaker-${group.speaker}` : '';
-			const tsHtml = `<strong><span class="timestamp" data-timestamp="${group.start}">${timestamp}</span></strong>`;
-			htmlParts.push(`<p class="transcript-segment${speakerClass}">${tsHtml} · ${text}</p>`);
-		}
-
-		// Build text — blank lines between speaker changes, with chapter headings
-		chapterIdx = 0;
-		const textParts: string[] = [];
-		for (const group of groups) {
-			while (chapterIdx < sortedChapters.length && sortedChapters[chapterIdx].start <= group.start) {
+				const title = sortedChapters[chapterIdx].title;
+				htmlParts.push(`<h3>${escapeHtml(title)}</h3>`);
 				if (textParts.length > 0) textParts.push('');
-				textParts.push(`### ${sortedChapters[chapterIdx].title}`);
+				textParts.push(`### ${title}`);
 				textParts.push('');
 				chapterIdx++;
 			}
+
+			const timestamp = this.formatTimestamp(group.start);
+			const speakerClass = group.speaker !== undefined ? ` speaker-${group.speaker}` : '';
+			const tsHtml = `<strong><span class="timestamp" data-timestamp="${group.start}">${timestamp}</span></strong>`;
+			htmlParts.push(`<p class="transcript-segment${speakerClass}">${tsHtml} · ${escapeHtml(group.text)}</p>`);
+
 			if (group.speakerChange && textParts.length > 0) {
 				textParts.push('');
 			}
-			const timestamp = this.formatTimestamp(group.start);
 			textParts.push(`**${timestamp}** · ${group.text}`);
 		}
 
@@ -505,7 +500,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			// ended at a sentence boundary — otherwise it's a mid-sentence
 			// false positive from auto-captions
 			const prevEndsWithComma = /,\s*$/.test(prevSegText);
-			const prevEndedSentence = (/[.!?]["'\u2019\u201D)]*\s*$/.test(prevSegText) || !prevSegText) && !prevEndsWithComma;
+			const prevEndedSentence = (SENTENCE_END.test(prevSegText) || !prevSegText) && !prevEndsWithComma;
 			const isRealSpeakerChange = isSpeakerChange && prevEndedSentence;
 
 			if (isRealSpeakerChange) {
@@ -629,7 +624,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			lastEnd = seg.start;
 
 			// Only flush when the segment itself ends with sentence punctuation
-			if (/[.!?]["'\u2019\u201D)]*\s*$/.test(seg.text)) {
+			if (SENTENCE_END.test(seg.text)) {
 				flush();
 			}
 		}
