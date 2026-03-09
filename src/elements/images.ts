@@ -260,6 +260,13 @@ export const imageRules = [
 					return el; 
 				}
 
+				// If the figure has non-image/non-caption content (e.g. from
+				// an unclosed <figure> tag nesting subsequent content), skip
+				// the standardization and let the markdown rule handle it.
+				if (el.tagName === 'FIGURE' && hasNonImageContent(el)) {
+					return el;
+				}
+
 				// Note: Previous rules might have processed the image inside 'el'.
 				
 				const caption = findCaption(el);
@@ -295,6 +302,27 @@ export const imageRules = [
 		}
 	},
 ];
+
+/**
+ * Check if a figure element has direct children that indicate extraneous
+ * content from malformed HTML (e.g. an unclosed <figure> tag nesting
+ * subsequent block content). Wrapper elements like <div> or <span>
+ * around images are not considered extraneous.
+ */
+function hasNonImageContent(figure: Element): boolean {
+	const CONTENT_TAGS = new Set([
+		'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+		'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'TABLE',
+		'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV',
+		'FIGURE',
+	]);
+	for (const child of Array.from(figure.children)) {
+		if (CONTENT_TAGS.has(child.tagName)) {
+			return true;
+		}
+	}
+	return false;
+}
 
 /**
  * Creates a standard <figure> element containing an image and a caption.

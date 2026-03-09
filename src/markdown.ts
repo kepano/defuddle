@@ -270,7 +270,43 @@ export function createMarkdownContent(content: string, url: string) {
 				return `[${text}](${href})`;
 			});
 
-			return `![${alt}](${src})\n\n${caption}\n\n`;
+			let imageMarkdown = `![${alt}](${src})\n\n${caption}\n\n`;
+
+			// Preserve non-image content inside the figure (e.g. when an unclosed
+			// <figure> tag causes subsequent content to be nested inside it)
+			const clone = node.cloneNode(true) as Element;
+
+			const cloneImg = clone.querySelector('img');
+			if (cloneImg) {
+				const parentLink = cloneImg.closest('a');
+				if (parentLink && parentLink !== clone) {
+					parentLink.remove();
+				} else {
+					cloneImg.remove();
+				}
+			}
+
+			const cloneFigcaption = clone.querySelector('figcaption');
+			if (cloneFigcaption) {
+				cloneFigcaption.remove();
+			}
+
+			// Remove empty links and picture elements left behind
+			Array.from(clone.querySelectorAll('a, picture')).forEach((el: Element) => {
+				if (!el.textContent?.trim() && !el.querySelector('img')) {
+					el.remove();
+				}
+			});
+
+			const remainingHTML = serializeHTML(clone).trim();
+			if (remainingHTML) {
+				const remainingMarkdown = turndownService.turndown(remainingHTML).trim();
+				if (remainingMarkdown) {
+					imageMarkdown += remainingMarkdown + '\n\n';
+				}
+			}
+
+			return imageMarkdown;
 		}
 	});
 
