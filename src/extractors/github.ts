@@ -35,9 +35,10 @@ export class GitHubExtractor extends BaseExtractor {
 
 		if (this.isPR) {
 			return !![
+				'.pull-discussion-timeline',
+				'.discussion-timeline',
 				'.gh-header-title',
 				'.js-issue-title',
-				'.discussion-timeline',
 			].find(selector => this.document.querySelector(selector) !== null);
 		}
 
@@ -154,32 +155,41 @@ export class GitHubExtractor extends BaseExtractor {
 		return buildCommentTree(commentData);
 	}
 
-	private getPRContent(): { content: string; author: string; published: string } {
-		// PR description is the first .comment-body.markdown-body in the timeline
-		const firstComment = this.document.querySelector('.timeline-comment .comment-body.markdown-body')
-			|| this.document.querySelector('.comment-body.markdown-body');
-		const content = firstComment ? this.cleanBodyContent(firstComment) : '';
+	private getPRBody(): Element | null {
+		// PR body is in [id^="pullrequest-"] or the first .timeline-comment
+		return this.document.querySelector('[id^="pullrequest-"]')
+			|| this.document.querySelector('.timeline-comment');
+	}
 
-		// Author from the first timeline comment header
-		const authorEl = this.document.querySelector('.timeline-comment .author')
+	private getPRContent(): { content: string; author: string; published: string } {
+		const prBody = this.getPRBody();
+
+		const bodyEl = prBody?.querySelector('.comment-body.markdown-body')
+			|| this.document.querySelector('.comment-body.markdown-body');
+		const content = bodyEl ? this.cleanBodyContent(bodyEl) : '';
+
+		const authorEl = prBody?.querySelector('.author')
 			|| this.document.querySelector('.gh-header-meta .author');
 		const author = authorEl?.textContent?.trim() || '';
 
-		// Timestamp from the first relative-time in the timeline
-		const timeEl = this.document.querySelector('.timeline-comment relative-time');
+		const timeEl = prBody?.querySelector('relative-time');
 		const published = timeEl?.getAttribute('datetime') || '';
 
 		return { content, author, published };
 	}
 
 	private extractPRComments(): string {
-		// PR comments are .timeline-comment elements after the first one (which is the PR body)
-		const allComments = Array.from(this.document.querySelectorAll('.timeline-comment'));
+		const prBody = this.getPRBody();
+		// Find all comment containers: regular comments (.timeline-comment)
+		// and code review comments (.review-comment)
+		const allComments = Array.from(
+			this.document.querySelectorAll('.timeline-comment, .review-comment')
+		);
 		const commentData: CommentData[] = [];
 
-		// Skip the first one (PR description)
-		for (let i = 1; i < allComments.length; i++) {
-			const comment = allComments[i];
+		for (const comment of allComments) {
+			// Skip the PR description
+			if (prBody && (comment === prBody || prBody.contains(comment))) continue;
 
 			const authorEl = comment.querySelector('.author');
 			const author = authorEl?.textContent?.trim() || '';
@@ -227,6 +237,35 @@ export class GitHubExtractor extends BaseExtractor {
 		const cleanBody = bodyElement.cloneNode(true) as Element;
 		cleanBody.querySelectorAll('button, [data-testid*="button"], [data-testid*="menu"]').forEach(el => el.remove());
 		cleanBody.querySelectorAll('.js-clipboard-copy, .zeroclipboard-container').forEach(el => el.remove());
+
+		// Convert GitHub's highlighted code blocks to standard <pre><code>
+		// GitHub uses <div class="highlight highlight-source-{lang}"><pre>spans...</pre></div>
+		// The <pre> has no <code> child, which breaks markdown conversion.
+		cleanBody.querySelectorAll('div.highlight[class*="highlight-source-"] pre, div.highlight pre').forEach(pre => {
+			const wrapper = pre.parentElement;
+			if (!wrapper) return;
+
+			// Extract language from wrapper class (e.g. "highlight-source-ts")
+			const langMatch = wrapper.className.match(/highlight-source-(\w+)/);
+			const lang = langMatch?.[1] || '';
+
+			// Use data-snippet-clipboard-copy-content if available (clean text),
+			// otherwise fall back to textContent
+			const content = wrapper.getAttribute('data-snippet-clipboard-copy-content')
+				|| pre.textContent || '';
+
+			const code = this.document.createElement('code');
+			if (lang) {
+				code.setAttribute('class', `language-${lang}`);
+				code.setAttribute('data-lang', lang);
+			}
+			code.textContent = content;
+
+			const newPre = this.document.createElement('pre');
+			newPre.appendChild(code);
+			wrapper.replaceWith(newPre);
+		});
+
 		return serializeHTML(cleanBody).trim();
 	}
 
