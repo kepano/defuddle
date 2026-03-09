@@ -1,0 +1,140 @@
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="expected-hostname" content="github.com">
+<title>Fix rendering when malformed elements nest content · Pull Request #42 · test-owner/test-repo</title>
+<meta property="og:url" content="https://github.com/test-owner/test-repo/pull/42">
+<meta property="og:title" content="Fix rendering when malformed elements nest content">
+</head>
+<body>
+
+<div class="pull-discussion-timeline js-pull-discussion-timeline">
+<div class="js-discussion">
+
+<!-- PR body -->
+<div class="timeline-comment-group js-minimizable-comment-group TimelineItem-body my-0" id="issue-1001">
+  <div id="pullrequest-2001" class="timeline-comment-group js-minimizable-comment-group my-0 comment js-comment editable-comment timeline-comment--caret timeline-comment unminimized-comment">
+    <div class="timeline-comment-header clearfix d-flex flex-items-start">
+      <h3 class="f5 text-normal py-2">
+        <strong>
+          <a class="author Link--primary text-bold" href="/author-one">author-one</a>
+        </strong>
+        commented
+        <a href="#issue-1001" class="Link--secondary js-timestamp">
+          <relative-time datetime="2026-01-15T10:30:00Z" class="no-wrap">Jan 15, 2026</relative-time>
+        </a>
+      </h3>
+    </div>
+    <div class="edit-comment-hide">
+      <task-lists disabled="" sortable="">
+        <div class="comment-body markdown-body js-comment-body soft-wrap d-block">
+          <h2 dir="auto">Summary</h2>
+          <p dir="auto">This fixes a regression where content was clipped partway through extraction.</p>
+          <p dir="auto">The root cause was a malformed <code class="notranslate">&lt;figure&gt;</code> in the source HTML.</p>
+          <h2 dir="auto">Changes</h2>
+          <ul dir="auto">
+            <li>Skip processing when element contains unexpected content</li>
+            <li>Preserve remaining content after extraction</li>
+            <li>Add regression fixture and test coverage</li>
+          </ul>
+          <h2 dir="auto">Testing</h2>
+          <ul dir="auto">
+            <li><code class="notranslate">npm test</code></li>
+          </ul>
+        </div>
+      </task-lists>
+    </div>
+  </div>
+</div>
+
+<!-- Code review comment -->
+<div class="js-inline-comments-container">
+  <div class="js-comments-holder">
+    <div id="discussion_r3001" class="timeline-comment-group js-minimizable-comment-group my-0 comment js-comment review-comment unminimized-comment">
+      <div class="ml-n1 clearfix d-flex">
+        <h3 class="f5 text-normal d-flex">
+          <strong class="ml-1">
+            <a class="author Link--primary text-bold" href="/reviewer-bot">reviewer-bot</a>
+          </strong>
+          <a href="#discussion_r3001" class="Link--secondary js-timestamp">
+            <relative-time datetime="2026-01-15T10:45:00Z" class="no-wrap">Jan 15, 2026</relative-time>
+          </a>
+        </h3>
+      </div>
+      <div class="tmp-ml-5">
+        <div class="edit-comment-hide">
+          <task-lists disabled="" sortable="">
+            <div class="comment-body markdown-body js-comment-body soft-wrap d-block">
+              <p dir="auto">Consider removing just the image element instead of the entire anchor, to preserve any text content inside the link.</p>
+            </div>
+          </task-lists>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Another code review comment -->
+<div class="js-inline-comments-container">
+  <div class="js-comments-holder">
+    <div id="discussion_r3002" class="timeline-comment-group js-minimizable-comment-group my-0 comment js-comment review-comment unminimized-comment">
+      <div class="ml-n1 clearfix d-flex">
+        <h3 class="f5 text-normal d-flex">
+          <strong class="ml-1">
+            <a class="author Link--primary text-bold" href="/reviewer-bot">reviewer-bot</a>
+          </strong>
+          <a href="#discussion_r3002" class="Link--secondary js-timestamp">
+            <relative-time datetime="2026-01-15T10:46:00Z" class="no-wrap">Jan 15, 2026</relative-time>
+          </a>
+        </h3>
+      </div>
+      <div class="tmp-ml-5">
+        <div class="edit-comment-hide">
+          <task-lists disabled="" sortable="">
+            <div class="comment-body markdown-body js-comment-body soft-wrap d-block">
+              <p dir="auto">The early return here might skip valid figures that happen to contain extra whitespace nodes. Consider checking for actual block-level content instead.</p>
+            </div>
+          </task-lists>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Regular conversation comment -->
+<div class="TimelineItem js-comment-container">
+  <div class="timeline-comment-group TimelineItem-body my-0" id="issuecomment-5001">
+    <div class="timeline-comment unminimized-comment comment js-comment timeline-comment--caret">
+      <div class="timeline-comment-header clearfix d-flex flex-items-start">
+        <h3 class="f5 text-normal py-2">
+          <strong>
+            <a class="author Link--primary text-bold" href="/author-one">author-one</a>
+          </strong>
+          commented
+          <a href="#issuecomment-5001" class="Link--secondary js-timestamp">
+            <relative-time datetime="2026-01-15T14:00:00Z" class="no-wrap">Jan 15, 2026</relative-time>
+          </a>
+        </h3>
+      </div>
+      <table class="d-block">
+        <tbody class="d-block">
+          <tr class="d-block">
+            <td class="d-block comment-body markdown-body js-comment-body">
+              <p dir="auto">Posted a follow-up commit to address the review comments.</p>
+              <ul dir="auto">
+                <li>Preserve linked text when stripping the image</li>
+                <li>Check for block-level content instead of early return</li>
+              </ul>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+</body>
+</html>

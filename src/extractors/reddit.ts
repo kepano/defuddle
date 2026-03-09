@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { parseHTML, serializeHTML } from '../utils/dom';
+import { buildCommentTree, buildContentHtml, type CommentData } from '../utils/comments';
 
 export class RedditExtractor extends BaseExtractor {
 	private shredditPost: Element | null;
@@ -101,7 +102,8 @@ export class RedditExtractor extends BaseExtractor {
 		const postBody = postBodyEl ? serializeHTML(postBodyEl) : '';
 
 		const commentArea = root.querySelector('.commentarea .sitetable');
-		const comments = commentArea ? this.processOldRedditComments(commentArea) : '';
+		const commentData = commentArea ? this.collectOldRedditComments(commentArea) : [];
+		const comments = commentData.length > 0 ? buildCommentTree(commentData) : '';
 
 		const contentHtml = this.createContentHtml(postBody, comments);
 		const description = this.createDescription(postBody);
@@ -132,20 +134,7 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	private createContentHtml(postContent: string, comments: string): string {
-		return `
-			<div class="reddit post">
-				<div class="post-content">
-					${postContent}
-				</div>
-			</div>
-			${comments ? `
-				<hr>
-				<h2>Comments</h2>
-				<div class="reddit comments">
-					${comments}
-				</div>
-			` : ''}
-		`.trim();
+		return buildContentHtml('reddit', postContent, comments);
 	}
 
 	private extractComments(): string {
@@ -177,48 +166,40 @@ export class RedditExtractor extends BaseExtractor {
 			.replace(/\s+/g, ' ') || '';
 	}
 
-	private processOldRedditComments(container: Element): string {
-		const topLevelComments = Array.from(container.querySelectorAll(':scope > .thing.comment'));
-		return topLevelComments.map(comment => this.renderOldRedditComment(comment)).join('');
-	}
+	private collectOldRedditComments(container: Element, depth: number = 0): CommentData[] {
+		const result: CommentData[] = [];
+		const comments = Array.from(container.querySelectorAll(':scope > .thing.comment'));
 
-	private renderOldRedditComment(comment: Element): string {
-		const author = comment.getAttribute('data-author') || '';
-		const permalink = comment.getAttribute('data-permalink') || '';
-		const score = comment.querySelector('.entry .tagline .score.unvoted')?.textContent?.trim() || '';
-		const timeEl = comment.querySelector('.entry .tagline time[datetime]');
-		const datetime = timeEl?.getAttribute('datetime') || '';
-		const date = datetime ? new Date(datetime).toISOString().split('T')[0] : '';
-		const bodyEl = comment.querySelector('.entry .usertext-body .md');
-		const body = bodyEl ? serializeHTML(bodyEl) : '';
+		for (const comment of comments) {
+			const author = comment.getAttribute('data-author') || '';
+			const permalink = comment.getAttribute('data-permalink') || '';
+			const score = comment.querySelector('.entry .tagline .score.unvoted')?.textContent?.trim() || '';
+			const timeEl = comment.querySelector('.entry .tagline time[datetime]');
+			const datetime = timeEl?.getAttribute('datetime') || '';
+			const date = datetime ? new Date(datetime).toISOString().split('T')[0] : '';
+			const bodyEl = comment.querySelector('.entry .usertext-body .md');
+			const body = bodyEl ? serializeHTML(bodyEl) : '';
 
-		let html = '<blockquote>';
-		html += `<div class="comment">
-	<div class="comment-metadata">
-		<span class="comment-author"><strong>${author}</strong></span> •
-		<a href="https://reddit.com${permalink}" class="comment-link">${score}</a> •
-		<span class="comment-date">${date}</span>
-	</div>
-	<div class="comment-content">${body}</div>
-</div>`;
+			result.push({
+				author,
+				date,
+				content: body,
+				depth,
+				score: score || undefined,
+				url: permalink ? `https://reddit.com${permalink}` : undefined,
+			});
 
-		// Recurse into child comments
-		const childContainer = comment.querySelector('.child > .sitetable');
-		if (childContainer) {
-			const children = Array.from(childContainer.querySelectorAll(':scope > .thing.comment'));
-			for (const child of children) {
-				html += this.renderOldRedditComment(child);
+			const childContainer = comment.querySelector('.child > .sitetable');
+			if (childContainer) {
+				result.push(...this.collectOldRedditComments(childContainer, depth + 1));
 			}
 		}
 
-		html += '</blockquote>';
-		return html;
+		return result;
 	}
 
 	private processComments(comments: Element[]): string {
-		let html = '';
-		let currentDepth = -1;
-		let blockquoteStack: number[] = []; // Keep track of open blockquotes at each depth
+		const commentData: CommentData[] = [];
 
 		for (const comment of comments) {
 			const depth = parseInt(comment.getAttribute('depth') || '0');
@@ -227,59 +208,22 @@ export class RedditExtractor extends BaseExtractor {
 			const permalink = comment.getAttribute('permalink') || '';
 			const commentEl = comment.querySelector('[slot="comment"]');
 			const content = commentEl ? serializeHTML(commentEl) : '';
-			
-			// Get timestamp from faceplate-timeago element
-			const timeElement = comment.querySelector('faceplate-timeago');
-			const timestamp = timeElement?.getAttribute('ts') || '';
+
+			const timestamp = comment.getAttribute('created')
+				|| comment.querySelector('time')?.getAttribute('datetime')
+				|| '';
 			const date = timestamp ? new Date(timestamp).toISOString().split('T')[0] : '';
-			
-			// For top-level comments, close all previous blockquotes and start fresh
-			if (depth === 0) {
-				// Close all open blockquotes
-				while (blockquoteStack.length > 0) {
-					html += '</blockquote>';
-					blockquoteStack.pop();
-				}
-				html += '<blockquote>';
-				blockquoteStack = [0];
-				currentDepth = 0;
-			}
-			// For nested comments
-			else {
-				// If we're moving back up the tree
-				if (depth < currentDepth) {
-					// Close blockquotes until we reach the current depth
-					while (blockquoteStack.length > 0 && blockquoteStack[blockquoteStack.length - 1] >= depth) {
-						html += '</blockquote>';
-						blockquoteStack.pop();
-					}
-				}
-				// If we're going deeper
-				else if (depth > currentDepth) {
-					html += '<blockquote>';
-					blockquoteStack.push(depth);
-				}
-				// If we're at the same depth, no need to close or open blockquotes
-			}
 
-			html += `<div class="comment">
-	<div class="comment-metadata">
-		<span class="comment-author"><strong>${author}</strong></span> •
-		<a href="https://reddit.com${permalink}" class="comment-link">${score} points</a> •
-		<span class="comment-date">${date}</span>
-	</div>
-	<div class="comment-content">${content}</div>
-</div>`;
-
-			currentDepth = depth;
+			commentData.push({
+				author,
+				date,
+				content,
+				depth,
+				score: `${score} points`,
+				url: permalink ? `https://reddit.com${permalink}` : undefined,
+			});
 		}
 
-		// Close any remaining blockquotes
-		while (blockquoteStack.length > 0) {
-			html += '</blockquote>';
-			blockquoteStack.pop();
-		}
-
-		return html;
+		return buildCommentTree(commentData);
 	}
 } 

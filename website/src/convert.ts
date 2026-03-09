@@ -7,6 +7,9 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';
 const BOT_UA = DEFAULT_UA + ' bot';
 
+// Domains that serve better content to bot user agents (e.g. SSR vs client-rendered)
+const BOT_UA_DOMAINS = ['github.com'];
+
 async function fetchPage(targetUrl: string, userAgent: string): Promise<string> {
 	const response = await fetch(targetUrl, {
 		headers: {
@@ -139,13 +142,24 @@ export function parseHtml(html: string, url: string): DefuddleResponse & { conte
 	return { ...result, contentHtml };
 }
 
+function getInitialUA(targetUrl: string): string {
+	try {
+		const hostname = new URL(targetUrl).hostname;
+		if (BOT_UA_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))) {
+			return BOT_UA;
+		}
+	} catch {}
+	return DEFAULT_UA;
+}
+
 export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
-	const html = await fetchPage(targetUrl, DEFAULT_UA);
+	const initialUA = getInitialUA(targetUrl);
+	const html = await fetchPage(targetUrl, initialUA);
 	let result = await defuddleHtmlAsync(html, targetUrl);
 
 	// If no content was extracted, the page may be JS-rendered.
 	// Retry with a bot UA — some sites serve pre-rendered content to bots.
-	if (result.wordCount === 0) {
+	if (result.wordCount === 0 && initialUA !== BOT_UA) {
 		try {
 			const botHtml = await fetchPage(targetUrl, BOT_UA);
 

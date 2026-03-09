@@ -15,7 +15,7 @@ import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle, textPreview } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -188,8 +188,7 @@ export class Defuddle {
 				} else if (name === 'srcdoc') {
 					el.removeAttribute(attr.name);
 				} else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
-					const val = attr.value.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
-					if (val.startsWith('javascript:') || val.startsWith('data:text/html')) {
+					if (isDangerousUrl(attr.value)) {
 						el.removeAttribute(attr.name);
 					}
 				}
