@@ -483,6 +483,7 @@ export const PARTIAL_SELECTORS = [
 	'jswarning',
 	'js-warning',
 	'jumplink',
+	'jumpto',
 	'jump-to-',
 	'js-skip-to-content',
 
