@@ -4,6 +4,7 @@ import { toMarkdown } from '../../src/markdown';
 import type { DefuddleResponse } from '../../src/types';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const FETCH_TIMEOUT = 10_000; // 10s
 const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';
 const BOT_UA = DEFAULT_UA + ' bot';
 
@@ -11,35 +12,48 @@ const BOT_UA = DEFAULT_UA + ' bot';
 const BOT_UA_DOMAINS = ['github.com'];
 
 async function fetchPage(targetUrl: string, userAgent: string): Promise<string> {
-	const response = await fetch(targetUrl, {
-		headers: {
-			'User-Agent': userAgent,
-			'Accept': 'text/html,application/xhtml+xml',
-		},
-		redirect: 'follow',
-	});
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
-	if (!response.ok) {
-		throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+	try {
+		const response = await fetch(targetUrl, {
+			headers: {
+				'User-Agent': userAgent,
+				'Accept': 'text/html,application/xhtml+xml',
+			},
+			redirect: 'follow',
+			signal: controller.signal,
+		});
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+		}
+
+		const contentType = response.headers.get('content-type') || '';
+		if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+			throw new Error(`Not an HTML page (content-type: ${contentType})`);
+		}
+
+		const contentLength = response.headers.get('content-length');
+		if (contentLength && parseInt(contentLength) > MAX_SIZE) {
+			throw new Error(`Page too large (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB, max 5MB)`);
+		}
+
+		const buffer = await response.arrayBuffer();
+
+		if (buffer.byteLength > MAX_SIZE) {
+			throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
+		}
+
+		return decodeHtml(buffer, contentType);
+	} catch (err: any) {
+		if (err.name === 'AbortError') {
+			throw new Error(`Timed out fetching page after ${FETCH_TIMEOUT / 1000}s`);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
 	}
-
-	const contentType = response.headers.get('content-type') || '';
-	if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-		throw new Error(`Not an HTML page (content-type: ${contentType})`);
-	}
-
-	const contentLength = response.headers.get('content-length');
-	if (contentLength && parseInt(contentLength) > MAX_SIZE) {
-		throw new Error(`Page too large (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB, max 5MB)`);
-	}
-
-	const buffer = await response.arrayBuffer();
-
-	if (buffer.byteLength > MAX_SIZE) {
-		throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
-	}
-
-	return decodeHtml(buffer, contentType);
 }
 
 // Windows-1252 bytes 0x80-0x9F that differ from ISO-8859-1/Unicode

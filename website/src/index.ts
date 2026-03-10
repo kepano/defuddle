@@ -11,33 +11,38 @@ const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/favicon.ico']);
 
 export default {
 	async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
-		const url = new URL(request.url);
-		const path = url.pathname;
+		try {
+			const url = new URL(request.url);
+			const path = url.pathname;
 
-		// Redirect defuddle.dev to defuddle.md
-		if (url.hostname.includes('defuddle.dev')) {
-			const redirectUrl = new URL(request.url);
-			redirectUrl.hostname = PRIMARY_HOST;
-			return Response.redirect(redirectUrl.toString(), 301);
-		}
-
-		// Cache static pages at the edge
-		if (request.method === 'GET' && STATIC_PAGES.has(path)) {
-			const cache = caches.default;
-			const cacheKey = new Request(url.toString(), request);
-			const cachedResponse = await cache.match(cacheKey);
-			if (cachedResponse) {
-				return cachedResponse;
+			// Redirect defuddle.dev to defuddle.md
+			if (url.hostname.includes('defuddle.dev')) {
+				const redirectUrl = new URL(request.url);
+				redirectUrl.hostname = PRIMARY_HOST;
+				return Response.redirect(redirectUrl.toString(), 301);
 			}
 
-			const response = await handleRequest(request, url, path);
-			if (response.ok && response.status !== 204 && response.status !== 205) {
-				ctx.waitUntil(cache.put(cacheKey, response.clone()));
-			}
-			return response;
-		}
+			// Cache static pages at the edge
+			if (request.method === 'GET' && STATIC_PAGES.has(path)) {
+				const cache = caches.default;
+				const cacheKey = new Request(url.toString(), request);
+				const cachedResponse = await cache.match(cacheKey);
+				if (cachedResponse) {
+					return cachedResponse;
+				}
 
-		return handleRequest(request, url, path);
+				const response = await handleRequest(request, url, path);
+				if (response.ok && response.status !== 204 && response.status !== 205) {
+					ctx.waitUntil(cache.put(cacheKey, response.clone()));
+				}
+				return response;
+			}
+
+			return await handleRequest(request, url, path);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+			return errorResponse(message, 500);
+		}
 	},
 } satisfies ExportedHandler;
 
@@ -116,7 +121,7 @@ async function handleRequest(request: Request, url: URL, path: string): Promise<
 	}
 
 	// Parse target URL from path
-	let targetUrl = path.slice(1); // Remove leading /
+	let targetUrl = path.replace(/^\/+/, ''); // Remove leading slashes
 
 	// Decode URI components
 	targetUrl = decodeURIComponent(targetUrl);
