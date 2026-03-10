@@ -280,7 +280,8 @@ class FootnoteHandler {
 
 	removeBackrefs(el: any): void {
 		el.querySelectorAll('a').forEach((a: any) => {
-			if (a.textContent?.trim() === '↩' || a.classList?.contains('footnote-backref')) {
+			const text = a.textContent?.trim().replace(/\uFE0E|\uFE0F/g, '') || '';
+			if (/^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/.test(text) || a.classList?.contains('footnote-backref')) {
 				a.remove();
 			}
 		});
