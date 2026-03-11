@@ -1,6 +1,7 @@
 import { parseHTML } from 'linkedom';
 import { Defuddle } from '../../src/defuddle';
 import { toMarkdown } from '../../src/markdown';
+import { countWords } from '../../src/utils';
 import type { DefuddleResponse } from '../../src/types';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -186,7 +187,7 @@ export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResp
 				// but keep metadata from Defuddle's parsing
 				const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
 				botResult.content = cleanMarkdownContent(rawMarkdown);
-				botResult.wordCount = botResult.content.split(/\s+/).filter(w => w.length > 0).length;
+				botResult.wordCount = countWords(botResult.content);
 				return botResult;
 			}
 			const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
