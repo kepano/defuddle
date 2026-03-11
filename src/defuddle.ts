@@ -7,6 +7,8 @@ import {
 	BLOCK_ELEMENTS_SELECTOR,
 	EXACT_SELECTORS,
 	PARTIAL_SELECTORS,
+	PARTIAL_SELECTORS_REGEX,
+	TEST_ATTRIBUTES_SELECTOR,
 	ENTRY_POINT_ELEMENTS,
 	TEST_ATTRIBUTES,
 	FOOTNOTE_LIST_SELECTORS
@@ -50,7 +52,7 @@ export class Defuddle {
 	private _metaTags: MetaTagItem[] | undefined;
 	private _metadata: any | undefined;
 	private _mobileStyles: StyleChange[] | undefined;
-	private _smallImages: Set<string> | undefined;
+
 
 	/**
 	 * Create a new Defuddle instance
@@ -440,12 +442,6 @@ export class Defuddle {
 			}
 			const mobileStyles = this._mobileStyles;
 
-			// Find small images in original document (cached across retries)
-			if (!this._smallImages) {
-				this._smallImages = this.findSmallImages(this.doc);
-			}
-			const smallImages = this._smallImages;
-
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
@@ -484,25 +480,40 @@ export class Defuddle {
 				standardizeFootnotes(mainContent);
 			}
 
-			// Remove small images
+			// Scope all subsequent removal passes to mainContent when possible.
+			// The full document is only needed when mainContent is body itself,
+			// since all content is inside it already. When a more specific element
+			// is found, scanning the whole document wastes time on elements
+			// (header, nav, footer, etc.) that are never serialized.
+			//
+			// The removal methods are typed to accept Document but only call
+			// querySelectorAll / getElementsByTagName, which exist on Element too.
+			// We cast through unknown to satisfy TypeScript.
+			const removalRoot =
+				(mainContent.tagName.toLowerCase() === 'body')
+					? clone
+					: mainContent as unknown as Document;
+
+			// Remove small images — scoped to removalRoot so we only scan mainContent
 			if (options.removeSmallImages) {
-				this.removeSmallImages(clone, smallImages);
+				const smallImages = this.findSmallImages(removalRoot);
+				this.removeSmallImages(removalRoot, smallImages);
 			}
 
 			// Remove hidden elements using computed styles
 			if (options.removeHiddenElements) {
-				this.removeHiddenElements(clone, debugRemovals);
+				this.removeHiddenElements(removalRoot, debugRemovals);
 			}
 
 			// Remove non-content blocks by scoring
 			// Tries to find lists, navigation based on text content and link density
 			if (options.removeLowScoring) {
-				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
+				ContentScorer.scoreAndRemove(removalRoot, this.debug, debugRemovals, mainContent);
 			}
 
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
-				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
+				this.removeBySelector(removalRoot, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
 			}
 
 			// Remove elements by content patterns (read time, boilerplate, article cards)
@@ -789,18 +800,16 @@ export class Defuddle {
 		}
 
 		if (removePartial) {
-			// Pre-compile regexes and combine into a single regex for better performance
-			const combinedPattern = PARTIAL_SELECTORS.join('|');
-			const partialRegex = new RegExp(combinedPattern, 'i');
+			// Use module-level pre-compiled regex (avoids rebuilding 534-pattern regex per parse)
+			const partialRegex = PARTIAL_SELECTORS_REGEX;
 
-			// Pre-compile individual regexes for debug pattern identification
+			// Pre-compile individual regexes for debug pattern identification only
 			const individualRegexes = this.debug
 				? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
 				: null;
 
-			// Create an efficient attribute selector for elements we care about
-			const attributeSelector = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
-			const allElements = doc.querySelectorAll(attributeSelector);
+			// Use pre-built attribute selector for elements we care about
+			const allElements = doc.querySelectorAll(TEST_ATTRIBUTES_SELECTOR);
 
 			// Process elements for partial matches
 			allElements.forEach(el => {
