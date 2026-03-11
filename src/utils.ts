@@ -75,7 +75,8 @@ export function countWords(text: string): number {
 	for (let i = 0; i < text.length; i++) {
 		const code = text.charCodeAt(i);
 
-		// Check for CJK character ranges
+		// Check for CJK character ranges (BMP only — Extension B+ are
+		// surrogate pairs and would need codePointAt, rare in practice)
 		if (
 			(code >= 0x3040 && code <= 0x309f) || // Hiragana
 			(code >= 0x30a0 && code <= 0x30ff) || // Katakana
