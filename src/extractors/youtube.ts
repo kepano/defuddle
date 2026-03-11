@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
+import { countWords } from '../utils';
 import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
@@ -519,8 +520,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			// response, not just the same speaker continuing after an affirmative
 			const remainder = firstSeg.text.slice(match[0].length).trim();
 			const restSegments = turn.segments.slice(1);
-			const restWords = remainder.split(/\s+/).filter(w => w).length
-				+ restSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);
+			const restWords = countWords(remainder)
+				+ restSegments.reduce((sum, s) => sum + countWords(s.text), 0);
 			if (restWords < 30) continue;
 
 			// Split: keep affirmative in current turn, move rest to new turn with flipped speaker

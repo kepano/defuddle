@@ -58,4 +58,42 @@ export function logDebug(debug: boolean, message: string, ...args: any[]): void 
 	if (debug) {
 		console.log('Defuddle:', message, ...args);
 	}
-} 
+}
+
+/**
+ * Count words in text, handling CJK characters (Chinese, Japanese, Korean).
+ * CJK characters are counted individually since they don't use spaces between words.
+ * Non-CJK text is counted by splitting on whitespace.
+ */
+export function countWords(text: string): number {
+	if (!text) return 0;
+
+	let cjkCount = 0;
+	let wordCount = 0;
+	let inWord = false;
+
+	for (let i = 0; i < text.length; i++) {
+		const code = text.charCodeAt(i);
+
+		// Check for CJK character ranges (BMP only — Extension B+ are
+		// surrogate pairs and would need codePointAt, rare in practice)
+		if (
+			(code >= 0x3040 && code <= 0x309f) || // Hiragana
+			(code >= 0x30a0 && code <= 0x30ff) || // Katakana
+			(code >= 0x3400 && code <= 0x4dbf) || // CJK Extension A
+			(code >= 0x4e00 && code <= 0x9fff) || // CJK Unified Ideographs
+			(code >= 0xf900 && code <= 0xfaff) || // CJK Compatibility Ideographs
+			(code >= 0xac00 && code <= 0xd7af)    // Korean Hangul
+		) {
+			cjkCount++;
+			inWord = false;
+		} else if (code <= 32) {
+			inWord = false;
+		} else if (!inWord) {
+			wordCount++;
+			inWord = true;
+		}
+	}
+
+	return cjkCount + wordCount;
+}

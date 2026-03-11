@@ -1,4 +1,4 @@
-import { isTextNode, isElement } from '../utils';
+import { isTextNode, isElement, countWords } from '../utils';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
@@ -322,7 +322,7 @@ export const codeBlockRules = [
 					const sibTag = sib.tagName;
 					if (sibTag !== 'DIV' && sibTag !== 'SPAN') continue;
 					const sibText = (sib.textContent || '').trim();
-					const sibWords = sibText.split(/\s+/).length;
+					const sibWords = countWords(sibText);
 					if (sibWords <= 5 && !sib.querySelector('pre, code, img, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol')) {
 						sib.remove();
 					}

@@ -14,7 +14,7 @@ import {
 import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
 import { ContentScorer, ContentScore } from './scoring';
-import { getComputedStyle, textPreview } from './utils';
+import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl } from './utils/dom';
 
 interface StyleChange {
@@ -125,16 +125,16 @@ export class Defuddle {
 		// longer than what we extracted, the scorer likely picked the wrong
 		// element from a feed. Find the correct element in the DOM.
 		const schemaText = this._getSchemaText(result.schemaOrgData);
-		if (schemaText && this.countWords(schemaText) > result.wordCount) {
+		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount) {
 			const contentHtml = this._findContentBySchemaText(schemaText);
 			if (contentHtml) {
 				this._log('Found DOM content matching schema.org text');
 				result.content = contentHtml;
-				result.wordCount = this.countWords(contentHtml);
+				result.wordCount = this.countHtmlWords(contentHtml);
 			} else {
 				this._log('Using schema.org text as content (DOM element not found)');
 				result.content = schemaText;
-				result.wordCount = this.countWords(schemaText);
+				result.wordCount = this.countHtmlWords(schemaText);
 			}
 		}
 
@@ -212,7 +212,7 @@ export class Defuddle {
 		const searchPhrase = firstPara.substring(0, 100).trim();
 		if (!searchPhrase) return '';
 
-		const schemaWordCount = this.countWords(schemaText);
+		const schemaWordCount = this.countHtmlWords(schemaText);
 
 		// Find the smallest element whose text contains the search phrase
 		// and whose word count is close to the schema text's word count
@@ -224,7 +224,7 @@ export class Defuddle {
 			const elText = (el.textContent || '');
 			if (!elText.includes(searchPhrase)) continue;
 
-			const elWords = elText.trim().split(/\s+/).length;
+			const elWords = countWords(elText);
 			// Element should contain roughly the same amount of text
 			// (allow some slack for surrounding whitespace / minor extras)
 			if (elWords >= schemaWordCount * 0.8 && elWords < bestSize) {
@@ -473,7 +473,7 @@ export class Defuddle {
 				return {
 					content: fallbackContent,
 					...metadata,
-					wordCount: this.countWords(fallbackContent),
+					wordCount: this.countHtmlWords(fallbackContent),
 					parseTime: Math.round(endTime - startTime),
 					metaTags: pageMetaTags
 				};
@@ -524,7 +524,7 @@ export class Defuddle {
 			const result: DefuddleResponse = {
 				content,
 				...metadata,
-				wordCount: this.countWords(content),
+				wordCount: this.countHtmlWords(content),
 				parseTime: Math.round(endTime - startTime),
 				metaTags: pageMetaTags
 			};
@@ -544,14 +544,14 @@ export class Defuddle {
 			return {
 				content: errorContent,
 				...metadata,
-				wordCount: this.countWords(errorContent),
+				wordCount: this.countHtmlWords(errorContent),
 				parseTime: Math.round(endTime - startTime),
 				metaTags: pageMetaTags
 			};
 		}
 	}
 
-	private countWords(content: string): number {
+	private countHtmlWords(content: string): number {
 		// Strip HTML tags and decode common entities without DOM parsing
 		const text = content
 			.replace(/<[^>]*>/g, ' ')
@@ -563,22 +563,7 @@ export class Defuddle {
 			.replace(/&#\d+;/g, ' ')
 			.replace(/&\w+;/g, ' ');
 
-		const trimmed = text.trim();
-		if (!trimmed) return 0;
-
-		// Count words by splitting on whitespace
-		let count = 0;
-		let inWord = false;
-		for (let i = 0; i < trimmed.length; i++) {
-			const isSpace = trimmed.charCodeAt(i) <= 32;
-			if (!isSpace && !inWord) {
-				count++;
-				inWord = true;
-			} else if (isSpace) {
-				inWord = false;
-			}
-		}
-		return count;
+		return countWords(text);
 	}
 
 	// Make all other methods private by removing the static keyword and using private
@@ -1037,7 +1022,7 @@ export class Defuddle {
 		let best = top;
 		for (let i = 1; i < candidates.length; i++) {
 			const child = candidates[i];
-			const childWords = (child.element.textContent || '').split(/\s+/).length;
+			const childWords = countWords(child.element.textContent || '');
 			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element) && childWords > 50) {
 				// Count how many candidates share this selector index inside
 				// the top element. Use top (not best) as the stable reference
@@ -1424,7 +1409,7 @@ export class Defuddle {
 			author: extracted.variables?.author || metadata.author,
 			site: extracted.variables?.site || metadata.site,
 			schemaOrgData: metadata.schemaOrgData,
-			wordCount: this.countWords(extracted.contentHtml),
+			wordCount: this.countHtmlWords(extracted.contentHtml),
 			parseTime: Math.round(Date.now() - startTime),
 			extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
 			metaTags: pageMetaTags,
@@ -1463,7 +1448,7 @@ export class Defuddle {
 			if (el.closest('pre') || el.closest('code')) continue;
 
 			const text = el.textContent?.trim() || '';
-			const words = text.split(/\s+/).length;
+			const words = countWords(text);
 
 			// Match date + read time in short elements
 			if (words <= 15 && CONTENT_DATE_PATTERN.test(text) && CONTENT_READ_TIME_PATTERN.test(text)) {
@@ -1518,7 +1503,7 @@ export class Defuddle {
 				break;
 			}
 			const text = target.textContent?.trim() || '';
-			const words = text.split(/\s+/).length;
+			const words = countWords(text);
 			if (words > 10) continue;
 			// Check if this element is near the start or end of mainContent
 			const pos = contentText.indexOf(text);
@@ -1544,7 +1529,7 @@ export class Defuddle {
 			for (const el of shortElements) {
 				if (!el.parentNode) continue;
 				const text = el.textContent?.trim() || '';
-				const words = text.split(/\s+/).length;
+				const words = countWords(text);
 				if (words > 10) continue;
 				// Must be a leaf-ish element (no block children)
 				if (el.querySelectorAll('p, div, section, article').length > 0) continue;
@@ -1574,7 +1559,7 @@ export class Defuddle {
 		for (const el of boilerplateElements) {
 			if (!el.parentNode) continue;
 			const text = el.textContent?.trim() || '';
-			const words = text.split(/\s+/).length;
+			const words = countWords(text);
 			if (words > 50 || words < 3) continue;
 
 			for (const pattern of BOILERPLATE_PATTERNS) {

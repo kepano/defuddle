@@ -1,6 +1,6 @@
 import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from './constants';
 import { DebugRemoval } from './types';
-import { textPreview } from './utils';
+import { textPreview, countWords } from './utils';
 
 const contentIndicators = [
 	'admonition',
@@ -127,7 +127,7 @@ export class ContentScorer {
 
 		// Text density
 		const text = element.textContent || '';
-		const words = text.split(/\s+/).length;
+		const words = countWords(text);
 		score += words;
 
 		// Paragraph ratio
@@ -328,7 +328,7 @@ export class ContentScorer {
 		}
 
 		const text = element.textContent || '';
-		const words = text.split(/\s+/).length;
+		const words = countWords(text);
 
 		// Check for headings that signal non-content sections (e.g. "Related articles")
 		// even if the element has enough text/paragraphs to otherwise look like content.
@@ -429,7 +429,7 @@ export class ContentScorer {
 
 		// Get text content
 		const text = element.textContent || '';
-		const words = text.split(/\s+/).length;
+		const words = countWords(text);
 
 		// Skip very small elements
 		if (words < 3) {
@@ -529,7 +529,7 @@ export class ContentScorer {
 		if (images.length < 2) return false;
 		let headingWordCount = 0;
 		for (let i = 0; i < headings.length; i++) {
-			headingWordCount += (headings[i].textContent || '').split(/\s+/).length;
+			headingWordCount += countWords(headings[i].textContent || '');
 		}
 		const prosePerHeading = (words - headingWordCount) / headings.length;
 		return prosePerHeading < 20;

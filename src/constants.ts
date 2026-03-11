@@ -160,10 +160,9 @@ export const EXACT_SELECTORS = [
 	// hidden
 	'[hidden]',
 	'[aria-hidden="true"]:not([class*="math"])',
-	'[style*="display: none"]:not([class*="math"])',
-	'[style*="display:none"]:not([class*="math"])',
-	'[style*="visibility: hidden"]',
-	'[style*="visibility:hidden"]',
+	// Note: [style*="display: none"] removed — substring match causes false positives
+	// with CSS custom properties like --footer-display: none. The removeHiddenElements
+	// step handles inline style detection with a proper regex.
 	'.hidden',
 	'.invisible',
 
