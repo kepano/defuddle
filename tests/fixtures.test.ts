@@ -78,9 +78,11 @@ describe('Fixtures Tests', () => {
     // Load the HTML fixture
     const html = readFileSync(path, 'utf-8');
     
-    // Process with Defuddle
+    // Extract test URL from JSON frontmatter comment, fall back to filename
+    const frontmatterMatch = html.match(/<!--\s*(\{"url":.*?\})\s*-->/);
+    const frontmatter = frontmatterMatch ? JSON.parse(frontmatterMatch[1]) : {};
     const urlName = basename(path, '.html').replace(/^[a-z]+--/, '');
-    const url = `https://${urlName.replace(/:/g, '/')}`;
+    const url = frontmatter.url || `https://${urlName}`;
     const response = await Defuddle(html, url, { separateMarkdown: true });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);
