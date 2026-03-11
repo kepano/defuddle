@@ -90,6 +90,7 @@ program
 					domain: result.domain,
 					favicon: result.favicon,
 					image: result.image,
+					language: result.language,
 					metaTags: result.metaTags,
 					parseTime: result.parseTime,
 					published: result.published,

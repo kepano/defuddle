@@ -282,6 +282,9 @@ export function formatResponse(result: DefuddleResponse, sourceUrl: string): str
 	if (result.domain) {
 		frontmatter.push(`domain: "${result.domain}"`);
 	}
+	if (result.language) {
+		frontmatter.push(`language: "${result.language}"`);
+	}
 	if (result.description) {
 		frontmatter.push(`description: "${result.description.replace(/"/g, '\\"')}"`);
 	}

@@ -2,6 +2,7 @@
 title: "Obsidian October 2025"
 author: "kepano"
 source: "https://www.reddit.com/r/ObsidianMD/comments/1nvmgpp/obsidian_october_2025/"
+language: "en-US"
 word_count: 396
 ---
 
