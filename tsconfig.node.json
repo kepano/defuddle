@@ -13,6 +13,6 @@
 		"lib": ["ES2020", "DOM"],
 		"types": ["node", "jsdom"]
 	},
-	"include": ["src/node.ts", "src/cli.ts"],
+	"include": ["src/node.ts", "src/linkedom.ts", "src/cli.ts"],
 	"exclude": ["node_modules", "dist"]
 }

@@ -18,6 +18,9 @@
 			],
 			"node": [
 				"dist/node.d.ts"
+			],
+			"linkedom": [
+				"dist/linkedom.d.ts"
 			]
 		}
 	},
@@ -35,6 +38,10 @@
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"import": "./dist/node.js"
+		},
+		"./linkedom": {
+			"types": "./dist/linkedom.d.ts",
+			"import": "./dist/linkedom.js"
 		}
 	},
 	"scripts": {
@@ -72,7 +79,8 @@
 	},
 	"homepage": "https://github.com/kepano/defuddle",
 	"dependencies": {
-		"commander": "^12.1.0"
+		"commander": "^12.1.0",
+		"linkedom": "^0.18.0"
 	},
 	"optionalDependencies": {
 		"mathml-to-latex": "^1.5.0",
