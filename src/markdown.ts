@@ -704,6 +704,12 @@ export function createMarkdownContent(content: string, url: string) {
 		// But don't affect image links like ![](image.jpg)
 		markdown = markdown.replace(/\n*(?<!!)\[]\([^)]+\)\n*/g, '');
 
+		// Add a space between exclamation marks and image syntax ![
+		// e.g. "Yey!![IMG](url)" becomes "Yey! ![IMG](url)" to prevent
+		// the parser from misinterpreting the ! as part of the image markup.
+		// Also handles linked images: "Yey![![IMG](src)](href)"
+		markdown = markdown.replace(/!(?=!\[|\[!\[)/g, '! ');
+
 		// Remove any consecutive newlines more than two
 		markdown = markdown.replace(/\n{3,}/g, '\n\n');
 
