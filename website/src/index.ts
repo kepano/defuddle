@@ -23,7 +23,7 @@ export default {
 			}
 
 			// Cache static pages at the edge
-			if (request.method === 'GET' && STATIC_PAGES.has(path)) {
+			if (request.method === 'GET' && STATIC_PAGES.has(path) && !isLocal(url)) {
 				const cache = caches.default;
 				const cacheKey = new Request(url.toString(), request);
 				const cachedResponse = await cache.match(cacheKey);
@@ -31,14 +31,14 @@ export default {
 					return cachedResponse;
 				}
 
-				const response = await handleRequest(request, url, path);
+				const response = await handleRequest(request, url, path, ctx);
 				if (response.ok && response.status !== 204 && response.status !== 205) {
 					ctx.waitUntil(cache.put(cacheKey, response.clone()));
 				}
 				return response;
 			}
 
-			return await handleRequest(request, url, path);
+			return await handleRequest(request, url, path, ctx);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'An unexpected error occurred';
 			return errorResponse(message, 500);
@@ -46,7 +46,11 @@ export default {
 	},
 } satisfies ExportedHandler;
 
-async function handleRequest(request: Request, url: URL, path: string): Promise<Response> {
+function isLocal(url: URL): boolean {
+	return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+}
+
+async function handleRequest(request: Request, url: URL, path: string, ctx: ExecutionContext): Promise<Response> {
 	// Landing page
 	if (path === '/' || path === '') {
 		return new Response(getLandingPage(), {
@@ -149,16 +153,33 @@ async function handleRequest(request: Request, url: URL, path: string): Promise<
 		return errorResponse('Cannot convert this URL.', 400);
 	}
 
+	const useCache = !isLocal(url);
+
+	if (useCache) {
+		const cache = caches.default;
+		const cacheKey = new Request(new URL(targetUrl, 'https://defuddle.md').toString());
+		const cachedResponse = await cache.match(cacheKey);
+		if (cachedResponse) {
+			return cachedResponse;
+		}
+	}
+
 	try {
 		const result = await convertToMarkdown(targetUrl);
 		const markdown = formatResponse(result, targetUrl);
 
-		return new Response(markdown, {
+		const response = new Response(markdown, {
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',
 				'Access-Control-Allow-Origin': '*',
+				...(useCache && { 'Cache-Control': 'public, max-age=300' }),
 			},
 		});
+		if (useCache) {
+			const cacheKey = new Request(new URL(targetUrl, 'https://defuddle.md').toString());
+			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+		}
+		return response;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'An unexpected error occurred';
 		return errorResponse(message, 502);
