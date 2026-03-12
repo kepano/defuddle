@@ -1,0 +1,35 @@
+<!-- {"url":"https://lean-lang.org/theorem_proving_in_lean4/dependent_type_theory.html"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dependent Type Theory</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Dependent Type Theory</h1>
+      <p>
+        This fixture verifies that Verso-style Lean command and output fragments are merged into a
+        single fenced code block. It also checks that hidden hover metadata does not leak into
+        visible code text during extraction. The paragraph is intentionally verbose so content
+        detection remains stable and deterministic across environments.
+      </p>
+
+      <div class="example" id="example-1">
+        <code class="hl lean block" data-lean-context="examples"><span class="has-info information"><span class="hover-container"><span class="hover-info messages"><code class="verso-message information"><span class="text"></span><span class="highlighted"><span class="const token">Nat</span><span class="inter-text"> : Type</span></span></code></span></span><a href="#"><span class="keyword token">#check</span></a></span><span class="inter-text"> </span><span class="const token">Nat</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="const token">Nat</span><span class="inter-text"> : Type</span></span></span></pre>
+        <code class="hl lean block" data-lean-context="examples"><span class="has-info information"><span class="hover-container"><span class="hover-info messages"><code class="verso-message information"><span class="text"></span><span class="highlighted"><span class="const token">Bool</span><span class="inter-text"> : Type</span></span></code></span></span><a href="#"><span class="keyword token">#check</span></a></span><span class="inter-text"> </span><span class="const token">Bool</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="const token">Bool</span><span class="inter-text"> : Type</span></span></span></pre>
+        <code class="hl lean block" data-lean-context="examples"><span class="has-info information"><span class="hover-container"><span class="hover-info messages"><code class="verso-message information"><span class="text"></span><span class="highlighted"><span class="const token">Nat → Bool</span><span class="inter-text"> : Type</span></span></code></span></span><a href="#"><span class="keyword token">#check</span></a></span><span class="inter-text"> </span><span class="const token">Nat → Bool</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="const token">Nat → Bool</span><span class="inter-text"> : Type</span></span></span></pre>
+      </div>
+
+      <p>
+        Text after the example ensures that downstream markdown rendering keeps non-code prose
+        separate from the merged block output.
+      </p>
+    </article>
+  </main>
+</body>
+</html>

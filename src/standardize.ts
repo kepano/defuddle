@@ -914,6 +914,93 @@ function standardizeElements(element: Element, doc: Document): void {
 	});
 
 	logDebug(_debug, 'Converted embedded elements:', processedCount);
+
+	// Verso (Lean docs) emits many adjacent command/output blocks.
+	// Merge contiguous transformed blocks back into one readable block.
+	mergeAdjacentVersoCodeBlocks(element);
+}
+
+function mergeAdjacentVersoCodeBlocks(root: Element): void {
+	const getCodeNode = (pre: Element): Element | null => {
+		let code: Element | null = null;
+		for (const child of pre.children) {
+			if (child.tagName.toLowerCase() !== 'code') return null;
+			if (code) return null;
+			code = child;
+		}
+		return code;
+	};
+
+	const getLanguage = (code: Element): string => {
+		const dataLang = (code.getAttribute('data-lang') || '').toLowerCase();
+		if (dataLang) return dataLang;
+		const className = code.getAttribute('class') || '';
+		const match = className.match(/(?:^|\s)language-([a-z0-9_+-]+)(?:\s|$)/i);
+		return match?.[1]?.toLowerCase() || '';
+	};
+
+	// Only visit parents of verso code blocks, not every element in the tree
+	const candidates = root.querySelectorAll('pre[data-verso-code="true"]');
+	const parents = new Set<Element>();
+	for (const candidate of candidates) {
+		const parent = candidate.parentElement;
+		if (parent) parents.add(parent);
+	}
+
+	for (const container of parents) {
+		const children = Array.from(container.childNodes);
+		for (let i = 0; i < children.length; i++) {
+			const startNode = children[i];
+			if (!isElement(startNode) || startNode.tagName.toLowerCase() !== 'pre') continue;
+			if ((startNode as Element).getAttribute('data-verso-code') !== 'true') continue;
+
+			const startCode = getCodeNode(startNode as Element);
+			if (!startCode) continue;
+			const language = getLanguage(startCode);
+			if (language !== 'lean' && language !== 'lean4') continue;
+
+			const run: { pre: Element; code: Element }[] = [{ pre: startNode as Element, code: startCode }];
+			const betweenWhitespace: Node[] = [];
+			let j = i + 1;
+
+			while (j < children.length) {
+				const node = children[j];
+				if (isTextNode(node) && !(node.textContent || '').trim()) {
+					betweenWhitespace.push(node);
+					j++;
+					continue;
+				}
+
+				if (!isElement(node) || node.tagName.toLowerCase() !== 'pre') break;
+				const pre = node as Element;
+				if (pre.getAttribute('data-verso-code') !== 'true') break;
+				const code = getCodeNode(pre);
+				if (!code || getLanguage(code) !== language) break;
+
+				run.push({ pre, code });
+				j++;
+			}
+
+			if (run.length <= 1) continue;
+
+			const merged = run
+				.map(({ code }) => (code.textContent || '').replace(/\n+$/g, ''))
+				.filter(Boolean)
+				.join('\n');
+
+			startCode.textContent = merged;
+
+			for (let k = 1; k < run.length; k++) {
+				run[k].pre.remove();
+			}
+			for (const node of betweenWhitespace) {
+				node.parentNode?.removeChild(node);
+			}
+
+			// Continue scanning after the merged run.
+			i = j - 1;
+		}
+	}
 }
 
 function flattenWrapperElements(element: Element, doc: Document): void {
@@ -1213,4 +1300,3 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
 }
-

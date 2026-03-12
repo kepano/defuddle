@@ -1,5 +1,31 @@
 import { ALLOWED_ATTRIBUTES } from "../constants";
 
+function isPermalinkAnchor(node: Element): boolean {
+	if (node.tagName.toLowerCase() !== 'a') return false;
+	const href = node.getAttribute('href') || '';
+	const title = (node.getAttribute('title') || '').toLowerCase();
+	const className = (node.getAttribute('class') || '').toLowerCase();
+	const text = (node.textContent || '').trim();
+
+	if (href.startsWith('#') || href.includes('#')) return true;
+	if (title.includes('permalink')) return true;
+	if (className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link')) return true;
+	if (/^[#¶§🔗]$/.test(text)) return true;
+
+	return false;
+}
+
+function isHeadingNavElement(node: Element): boolean {
+	const tag = node.tagName.toLowerCase();
+	if (tag === 'button') return true;
+	if (tag === 'a' && isPermalinkAnchor(node)) return true;
+	if (node.classList.contains('anchor') || node.classList.contains('permalink-widget')) return true;
+	if ((tag === 'span' || tag === 'div') && Array.from(node.querySelectorAll('a')).some(a => isPermalinkAnchor(a))) {
+		return true;
+	}
+	return false;
+}
+
 export const headingRules = [
     // Simplify headings by removing internal navigation elements
 	{
@@ -15,7 +41,7 @@ export const headingRules = [
 
 			// Create new heading of same level
 			const newHeading = doc.createElement(el.tagName);
-			
+
 			// Copy allowed attributes from original heading
 			Array.from(el.attributes).forEach(attr => {
 				if (ALLOWED_ATTRIBUTES.has(attr.name)) {
@@ -26,66 +52,27 @@ export const headingRules = [
 			// Clone the element so we can modify it without affecting the original
 			const clone = el.cloneNode(true) as Element;
 
-			// First extract text from navigation elements before removing them
+			// Single pass: collect navigation text and build removal list
 			const navigationText = new Map<Element, string>();
-			
-			// Find all navigation elements and store their text content
+			const toRemove: Element[] = [];
+
 			Array.from(clone.querySelectorAll('*')).forEach(child => {
-				let shouldRemove = false;
-				
-				if (child.tagName.toLowerCase() === 'a') {
-					const href = child.getAttribute('href');
-					if (href?.includes('#') || href?.startsWith('#')) {
-						navigationText.set(child, child.textContent?.trim() || '');
-						shouldRemove = true;
-					}
-				}
-				if (child.classList.contains('anchor')) {
-					navigationText.set(child, child.textContent?.trim() || '');
-					shouldRemove = true;
-				}
-				if (child.tagName.toLowerCase() === 'button') {
-					shouldRemove = true;
-				}
-				if ((child.tagName.toLowerCase() === 'span' || child.tagName.toLowerCase() === 'div') && 
-					child.querySelector('a[href^="#"]')) {
-					const anchor = child.querySelector('a[href^="#"]');
-					if (anchor) {
-						navigationText.set(child, anchor.textContent?.trim() || '');
-					}
-					shouldRemove = true;
+				if (!isHeadingNavElement(child)) return;
+
+				navigationText.set(child, child.textContent?.trim() || '');
+
+				// If this element contains the only text content of its parent,
+				// store its text to be used for the parent
+				const parent = child.parentElement;
+				if (parent && parent !== clone &&
+					parent.textContent?.trim() === child.textContent?.trim()) {
+					navigationText.set(parent, child.textContent?.trim() || '');
 				}
 
-				if (shouldRemove) {
-					// If this element contains the only text content of its parent,
-					// store its text to be used for the parent
-					const parent = child.parentElement;
-					if (parent && parent !== clone && 
-						parent.textContent?.trim() === child.textContent?.trim()) {
-						navigationText.set(parent, child.textContent?.trim() || '');
-					}
-				}
+				toRemove.push(child);
 			});
 
 			// Remove navigation elements
-			const toRemove = Array.from(clone.querySelectorAll('*')).filter(child => {
-				if (child.tagName.toLowerCase() === 'a') {
-					const href = child.getAttribute('href');
-					return href?.includes('#') || href?.startsWith('#');
-				}
-				if (child.classList.contains('anchor')) {
-					return true;
-				}
-				if (child.tagName.toLowerCase() === 'button') {
-					return true;
-				}
-				if ((child.tagName.toLowerCase() === 'span' || child.tagName.toLowerCase() === 'div') && 
-					child.querySelector('a[href^="#"]')) {
-					return true;
-				}
-				return false;
-			});
-
 			toRemove.forEach(element => element.remove());
 
 			// Get the text content after removing navigation elements
@@ -98,7 +85,7 @@ export const headingRules = [
 
 			// Set the clean text content
 			newHeading.textContent = textContent;
-			
+
 			return newHeading;
 		}
 	}

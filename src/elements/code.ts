@@ -67,6 +67,7 @@ const CODE_LANGUAGES = new Set([
 	'julia',
 	'kotlin',
 	'latex',
+	'lean', 'lean4',
 	'lisp', 'elisp',
 	'livescript',
 	'lua',
@@ -134,7 +135,10 @@ export const codeBlockRules = [
 			'.highlight-source',
 			'.wp-block-syntaxhighlighter-code',
 			'.wp-block-code',
-			'div[class*="language-"]'
+			'div[class*="language-"]',
+
+			// Verso/Lean docs style highlighted code blocks
+			'code.hl.block'
 		].join(', '),
 		element: 'pre',
 		transform: (el: Element, doc: Document): Element => {
@@ -251,6 +255,12 @@ export const codeBlockRules = [
 				
 				let text = '';
 				if (isElement(element)) {
+					// Verso hover tooltips duplicate inferred types/messages;
+					// keep the visible code token stream only.
+					if (element.matches('.hover-info, .hover-container')) {
+						return '';
+					}
+
 					// Handle explicit line breaks
 					if (element.tagName === 'BR') {
 						return '\n';
@@ -332,6 +342,9 @@ export const codeBlockRules = [
 
 			// Create new pre element
 			const newPre = doc.createElement('pre');
+			if (el.matches('code.hl.block, pre.hl.lean.lean-output')) {
+				newPre.setAttribute('data-verso-code', 'true');
+			}
 
 			// Create code element
 			const code = doc.createElement('code');

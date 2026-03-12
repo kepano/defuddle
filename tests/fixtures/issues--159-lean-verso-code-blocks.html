@@ -1,0 +1,32 @@
+<!-- {"url":"https://lean-lang.org/theorem_proving_in_lean4/dependent_type_theory.html"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dependent Type Theory</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Dependent Type Theory</h1>
+      <p>
+        This fixture simulates a documentation page where highlighted code is rendered as a
+        standalone <code>code.hl.block</code> element instead of a <code>pre</code> wrapper.
+        Defuddle should preserve this as a fenced code block and should not expand internal links
+        into markdown link syntax inside code. The surrounding prose is intentionally long enough
+        to make main-content detection stable in tests and avoid scoring noise.
+      </p>
+
+      <code class="hl lean block" data-lean-context="examples">
+        <span class="keyword token">def</span><span class="inter-text"> </span><span class="const token" id="m">m</span><span class="inter-text"> : </span><a href="https://lean-lang.org/doc/reference/4.26.0/Basic-Types/Natural-Numbers/#Nat___zero"><span class="const token">Nat</span></a><span class="inter-text"> := 1       -- m is a natural number</span>
+      </code>
+
+      <p>
+        Additional text after the code block verifies that extraction continues normally and that
+        the code is treated as block content rather than inline text. This also helps ensure the
+        markdown output remains readable and that the issue does not regress in future updates.
+      </p>
+    </article>
+  </main>
+</body>
+</html>
