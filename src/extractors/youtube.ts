@@ -5,6 +5,7 @@ import { countWords } from '../utils';
 import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
+const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
 
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
@@ -551,7 +552,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	/**
 	 * Group segments by sentence boundaries for transcripts without speaker markers.
 	 * Accumulates text until a segment ends with sentence-ending punctuation (.!?),
-	 * or until a time gap >5 seconds between segments.
+	 * or until a very large time gap between segments.
 	 */
 	private groupBySentence(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
 		const groups: { start: number; text: string; speakerChange: boolean }[] = [];
@@ -571,8 +572,9 @@ export class YoutubeExtractor extends BaseExtractor {
 		};
 
 		for (const seg of segments) {
-			// Flush on a significant time gap (>5s between segments)
-			if (buffer && seg.start - lastStart > 5) {
+			// YouTube often emits sparse caption windows 10-15s apart even when the
+			// sentence is still continuing, so only treat very large gaps as breaks.
+			if (buffer && seg.start - lastStart > TRANSCRIPT_GROUP_GAP_SECONDS) {
 				flush();
 			}
 

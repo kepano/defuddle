@@ -132,6 +132,26 @@ describe('YouTube transcript parsing', () => {
 		expect(lines[1]).toBe('**0:04** · Then it ran away quickly.');
 	});
 
+	test('keeps sparse caption windows together until the sentence ends', () => {
+		const extractor = createExtractor();
+		const xml = `<timedtext><body>
+<p t="43000" d="3000"><s>Today I have the pleasure of interviewing George Church.</s></p>
+<p t="46000" d="3000"><s>I don't know how to introduce you.</s></p>
+<p t="65000" d="3000"><s>&gt;&gt; By what year would it be</s></p>
+<p t="76000" d="3000"><s>the case that, if you make it to that year, technology in bio will keep progressing to such</s></p>
+<p t="92000" d="3000"><s>an extent that your lifespan will increase by</s></p>
+<p t="103000" d="3000"><s>a year, every year, or more?</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		expect(lines[0]).toBe('**0:43** · Today I have the pleasure of interviewing George Church.');
+		expect(lines[1]).toBe('**0:46** · I don\'t know how to introduce you.');
+		expect(lines[2]).toBe('');
+		expect(lines[3]).toBe('**1:05** · By what year would it be the case that, if you make it to that year, technology in bio will keep progressing to such an extent that your lifespan will increase by a year, every year, or more?');
+	});
+
 	test('escapes HTML in output', () => {
 		const extractor = createExtractor();
 		const xml = `<timedtext><body>
