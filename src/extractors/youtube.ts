@@ -5,6 +5,7 @@ import { countWords } from '../utils';
 import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
+const QUESTION_END = /\?["'\u2019\u201D)]*\s*$/;
 const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
 const TURN_MERGE_MAX_WORDS = 80;
 const TURN_MERGE_MAX_SPAN_SECONDS = 45;
@@ -586,20 +587,22 @@ export class YoutubeExtractor extends BaseExtractor {
 		next: { start: number; text: string },
 		currentIsFirstInTurn: boolean,
 	): boolean {
-		if (this.isShortStandaloneUtterance(current.text) || this.isShortStandaloneUtterance(next.text)) {
+		const currentWords = countWords(current.text);
+		const nextWords = countWords(next.text);
+
+		if (this.isShortStandaloneUtterance(current.text, currentWords) || this.isShortStandaloneUtterance(next.text, nextWords)) {
 			return false;
 		}
 
-		if (currentIsFirstInTurn && countWords(current.text) < FIRST_GROUP_MERGE_MIN_WORDS) {
+		if (currentIsFirstInTurn && currentWords < FIRST_GROUP_MERGE_MIN_WORDS) {
 			return false;
 		}
 
-		if (this.isQuestion(current.text) || this.isQuestion(next.text)) {
+		if (QUESTION_END.test(current.text) || QUESTION_END.test(next.text)) {
 			return false;
 		}
 
-		const mergedWords = countWords(current.text) + countWords(next.text);
-		if (mergedWords > TURN_MERGE_MAX_WORDS) {
+		if (currentWords + nextWords > TURN_MERGE_MAX_WORDS) {
 			return false;
 		}
 
@@ -610,13 +613,9 @@ export class YoutubeExtractor extends BaseExtractor {
 		return true;
 	}
 
-	private isShortStandaloneUtterance(text: string): boolean {
-		const words = countWords(text);
-		return words > 0 && words <= SHORT_UTTERANCE_MAX_WORDS && SENTENCE_END.test(text);
-	}
-
-	private isQuestion(text: string): boolean {
-		return /\?["'\u2019\u201D)]*\s*$/.test(text);
+	private isShortStandaloneUtterance(text: string, words?: number): boolean {
+		const w = words ?? countWords(text);
+		return w > 0 && w <= SHORT_UTTERANCE_MAX_WORDS && SENTENCE_END.test(text);
 	}
 
 	/**
