@@ -31,8 +31,11 @@ const INNERTUBE_WEB_CONTEXT = {
 	}
 };
 
+type TranscriptResult = { html: string; text: string; languageCode: string };
+
 export class YoutubeExtractor extends BaseExtractor {
 	private videoElement: HTMLVideoElement | null;
+	private inlineJsonCache = new Map<string, any>();
 	protected override schemaOrgData: any;
 
 	constructor(document: Document, url: string, schemaOrgData?: any) {
@@ -126,7 +129,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	private buildTranscriptFromContainer(
 		container: Element,
 		chapters: { title: string; start: number }[]
-	): { html: string; text: string; languageCode: string } | undefined {
+	): TranscriptResult | undefined {
 		if (container.children.length === 0) return undefined;
 
 		const segmentElements = container.querySelectorAll('ytd-transcript-segment-renderer');
@@ -160,7 +163,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		};
 	}
 
-	private extractTranscriptFromExistingDom(): { html: string; text: string; languageCode: string } | undefined {
+	private extractTranscriptFromExistingDom(): TranscriptResult | undefined {
 		try {
 			const container = this.getTranscriptContainer();
 			if (!container) return undefined;
@@ -172,7 +175,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 	}
 
-	private buildResult(transcript?: { html: string; text: string; languageCode: string }): ExtractorResult {
+	private buildResult(transcript?: TranscriptResult): ExtractorResult {
 		const videoData = this.getVideoData();
 		const channelName = this.getChannelName(videoData);
 		const description = videoData.description || '';
@@ -288,6 +291,10 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private parseInlineJson(globalName: string): any | null {
+		if (this.inlineJsonCache.has(globalName)) {
+			return this.inlineJsonCache.get(globalName);
+		}
+
 		const scripts = Array.from(this.document.querySelectorAll('script'));
 		for (const script of scripts) {
 			const text = script.textContent || '';
@@ -306,7 +313,9 @@ export class YoutubeExtractor extends BaseExtractor {
 					if (depth === 0) {
 						const jsonText = text.slice(startIndex, i + 1);
 						try {
-							return JSON.parse(jsonText);
+							const parsed = JSON.parse(jsonText);
+							this.inlineJsonCache.set(globalName, parsed);
+							return parsed;
 						} catch (error) {
 							console.error('YoutubeExtractor: failed to parse inline JSON', error);
 							break;
@@ -319,7 +328,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		return null;
 	}
 
-	private async fetchTranscript(): Promise<{ html: string; text: string; languageCode: string } | undefined> {
+	private async fetchTranscript(): Promise<TranscriptResult | undefined> {
 		try {
 			const videoId = this.getVideoId();
 			if (!videoId) return undefined;
@@ -368,7 +377,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private async waitForTranscriptContainer(): Promise<Element | null> {
-		return await new Promise<Element | null>((resolve) => {
+		return new Promise<Element | null>((resolve) => {
 			let attempts = 0;
 			const check = () => {
 				const container = this.getTranscriptContainer();
@@ -388,7 +397,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	 * Fallback: open YouTube's transcript panel and read segments from the DOM.
 	 * Used when fetch-based extraction fails and the transcript is not already rendered.
 	 */
-	private async extractTranscriptFromOpenedDom(): Promise<{ html: string; text: string; languageCode: string } | undefined> {
+	private async extractTranscriptFromOpenedDom(): Promise<TranscriptResult | undefined> {
 		try {
 			const transcriptButton = this.document.querySelector(
 				'ytd-video-description-transcript-section-renderer button'
@@ -400,10 +409,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			const container = await this.waitForTranscriptContainer();
 			if (!container) return undefined;
 
-			const inlineChapters = this.getInlineChapters();
-			const chapters = inlineChapters.length > 0
-				? inlineChapters
-				: (this.getVideoId() ? await this.fetchChapters(this.getVideoId()) : []);
+			const videoId = this.getVideoId();
+			const chapters = videoId ? await this.fetchChapters(videoId) : this.getInlineChapters();
 
 			return this.buildTranscriptFromContainer(container, chapters);
 		} catch (error) {
@@ -526,7 +533,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		return null;
 	}
 
-	private parseTranscriptXml(xml: string, languageCode: string, chapters: { title: string; start: number }[] = []): { html: string; text: string; languageCode: string } | undefined {
+	private parseTranscriptXml(xml: string, languageCode: string, chapters: { title: string; start: number }[] = []): TranscriptResult | undefined {
 		const segments: { start: number; text: string }[] = [];
 
 		// Handle srv3 format: <p t="ms" d="ms"><s>word</s>...</p>
