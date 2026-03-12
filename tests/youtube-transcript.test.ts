@@ -1,12 +1,36 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
 import { JSDOM } from 'jsdom';
 
-function createExtractor(): YoutubeExtractor {
-	const dom = new JSDOM('<html><body></body></html>', {
+function createExtractor(html = '<html><body></body></html>'): YoutubeExtractor {
+	const dom = new JSDOM(html, {
 		url: 'https://www.youtube.com/watch?v=test123'
 	});
 	return new YoutubeExtractor(dom.window.document, 'https://www.youtube.com/watch?v=test123');
+}
+
+function getTranscriptPanelHtml() {
+	return `
+		<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+			<div id="segments-container">
+				<ytd-transcript-segment-renderer>
+					<div class="segment-timestamp">0:00</div>
+					<div class="segment-text">Hello world.</div>
+				</ytd-transcript-segment-renderer>
+				<ytd-transcript-segment-renderer>
+					<div class="segment-timestamp">0:05</div>
+					<div class="segment-text">Second line.</div>
+				</ytd-transcript-segment-renderer>
+			</div>
+			<div id="footer">
+				<yt-sort-filter-sub-menu-renderer>
+					<yt-dropdown-menu>
+						<button>English (auto-generated)</button>
+					</yt-dropdown-menu>
+				</yt-sort-filter-sub-menu-renderer>
+			</div>
+		</ytd-engagement-panel-section-list-renderer>
+	`;
 }
 
 describe('YouTube transcript parsing', () => {
@@ -198,5 +222,133 @@ describe('YouTube transcript parsing', () => {
 		expect(result.html).toContain('a &lt;script&gt; tag');
 		// Text output should have the decoded version
 		expect(result.text).toBe('**0:00** · a <script> tag');
+	});
+
+	test('extract reads an existing transcript panel without opening it', () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" }
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+					${getTranscriptPanelHtml()}
+				</body>
+			</html>
+		`);
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+
+		const result = extractor.extract();
+
+		expect(result.variables.language).toBe('en');
+		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
+		expect(clickSpy).not.toHaveBeenCalled();
+	});
+
+	test('extractAsync uses an existing transcript panel before opening it', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" }
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+					${getTranscriptPanelHtml()}
+				</body>
+			</html>
+		`);
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue(undefined);
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.language).toBe('en');
+		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
+		expect(clickSpy).not.toHaveBeenCalled();
+	});
+
+	test('falls back to transcript panel DOM and preserves language code', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" },
+											"baseUrl": "https://www.youtube.com/api/timedtext?v=test123&lang=en"
+										},
+										{
+											"languageCode": "es",
+											"name": { "simpleText": "Español" },
+											"baseUrl": "https://www.youtube.com/api/timedtext?v=test123&lang=es"
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+				</body>
+			</html>
+		`);
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+		openButton.addEventListener('click', () => {
+			if (document.querySelector('#segments-container')) return;
+			const panel = document.createElement('div');
+			panel.innerHTML = getTranscriptPanelHtml();
+			document.body.appendChild(panel.firstElementChild!);
+		});
+
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue(undefined);
+		(extractor as any).fetchChapters = vi.fn().mockResolvedValue([]);
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.language).toBe('en');
+		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
+		expect(result.content).toContain('<h2>Transcript</h2>');
+		expect(clickSpy).toHaveBeenCalledTimes(1);
 	});
 });

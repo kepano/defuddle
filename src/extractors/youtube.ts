@@ -54,12 +54,122 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	extract(): ExtractorResult {
-		return this.buildResult();
+		return this.buildResult(this.extractTranscriptFromExistingDom());
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
-		const transcript = await this.fetchTranscript();
+		const transcript = await this.fetchTranscript()
+			|| this.extractTranscriptFromExistingDom()
+			|| await this.extractTranscriptFromOpenedDom();
 		return this.buildResult(transcript);
+	}
+
+	private getCaptionTracks(playerData: any): any[] {
+		const captionTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+		return Array.isArray(captionTracks) ? captionTracks : [];
+	}
+
+	private pickCaptionTrack(captionTracks: any[]): any | undefined {
+		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
+	}
+
+	private getTrackDisplayName(track: any): string {
+		return track?.name?.simpleText
+			|| track?.name?.runs?.map((run: any) => run?.text || '').join('').trim()
+			|| '';
+	}
+
+	private normalizeLanguageLabel(label: string): string {
+		return label
+			.replace(/\s*\([^)]*\)\s*/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.toLocaleLowerCase();
+	}
+
+	private getTranscriptLanguageCodeFromDom(): string {
+		const langButton = this.document.querySelector(
+			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #footer yt-sort-filter-sub-menu-renderer yt-dropdown-menu button'
+		);
+		const selectedLabel = langButton?.textContent?.trim();
+		const captionTracks = this.getCaptionTracks(this.parseInlineJson('ytInitialPlayerResponse'));
+		const preferredTrack = this.pickCaptionTrack(captionTracks);
+
+		if (!selectedLabel) {
+			return preferredTrack?.languageCode || 'en';
+		}
+
+		const normalizedSelectedLabel = this.normalizeLanguageLabel(selectedLabel);
+		const matchingTrack = captionTracks.find((track: any) =>
+			this.normalizeLanguageLabel(this.getTrackDisplayName(track)) === normalizedSelectedLabel
+		);
+
+		return matchingTrack?.languageCode || preferredTrack?.languageCode || 'en';
+	}
+
+	private getInlineChapters(): { title: string; start: number }[] {
+		const inlineData = this.parseInlineJson('ytInitialData');
+		if (!inlineData) return [];
+
+		const chapters = this.extractChaptersFromPlayerBar(inlineData);
+		if (chapters.length > 0) return chapters;
+
+		return this.extractChaptersFromEngagementPanels(inlineData);
+	}
+
+	private getTranscriptContainer(): Element | null {
+		return this.document.querySelector(
+			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #segments-container'
+		);
+	}
+
+	private buildTranscriptFromContainer(
+		container: Element,
+		chapters: { title: string; start: number }[]
+	): { html: string; text: string; languageCode: string } | undefined {
+		if (container.children.length === 0) return undefined;
+
+		const segmentElements = container.querySelectorAll('ytd-transcript-segment-renderer');
+		if (segmentElements.length === 0) return undefined;
+
+		const segments: { start: number; text: string }[] = [];
+		for (const seg of Array.from(segmentElements)) {
+			const timestampEl = seg.querySelector('.segment-timestamp');
+			const textEl = seg.querySelector('.segment-text');
+			if (!timestampEl || !textEl) continue;
+
+			const timeStr = (timestampEl.textContent || '').trim();
+			const text = (textEl.textContent || '').trim();
+			if (!text) continue;
+
+			const seconds = this.parseTimestamp(timeStr);
+			if (seconds !== null) {
+				segments.push({ start: seconds, text });
+			}
+		}
+
+		if (segments.length === 0) return undefined;
+
+		const groups = this.groupTranscriptSegments(segments);
+		const { html, text } = buildTranscript('youtube', groups, chapters);
+
+		return {
+			html,
+			text,
+			languageCode: this.getTranscriptLanguageCodeFromDom(),
+		};
+	}
+
+	private extractTranscriptFromExistingDom(): { html: string; text: string; languageCode: string } | undefined {
+		try {
+			const container = this.getTranscriptContainer();
+			if (!container) return undefined;
+
+			return this.buildTranscriptFromContainer(container, this.getInlineChapters());
+		} catch (error) {
+			console.error('YoutubeExtractor: failed to extract transcript from existing DOM', error);
+			return undefined;
+		}
 	}
 
 	private buildResult(transcript?: { html: string; text: string; languageCode: string }): ExtractorResult {
@@ -222,13 +332,11 @@ export class YoutubeExtractor extends BaseExtractor {
 
 			if (!playerData) return undefined;
 
-			const captionTracks = playerData?.captions
-				?.playerCaptionsTracklistRenderer?.captionTracks;
-			if (!Array.isArray(captionTracks) || captionTracks.length === 0) return undefined;
+			const captionTracks = this.getCaptionTracks(playerData);
+			if (captionTracks.length === 0) return undefined;
 
 			// Prefer English, fall back to first available track
-			const track = captionTracks.find((t: any) => t.languageCode === 'en')
-				|| captionTracks[0];
+			const track = this.pickCaptionTrack(captionTracks);
 			if (!track?.baseUrl) return undefined;
 
 			// Validate URL to prevent SSRF in server-side contexts
@@ -244,9 +352,14 @@ export class YoutubeExtractor extends BaseExtractor {
 			});
 			if (!response.ok) return undefined;
 
-			const xml = await response.text();
+			let xml: string;
+			try {
+				xml = await response.text();
+			} catch (textError) {
+				console.error('YoutubeExtractor: response.text() failed:', textError);
+				return undefined;
+			}
 			if (!xml) return undefined;
-
 			return this.parseTranscriptXml(xml, track.languageCode || 'en', chapters);
 		} catch (error) {
 			console.error('YoutubeExtractor: failed to fetch transcript', error);
@@ -254,7 +367,58 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 	}
 
+	private async waitForTranscriptContainer(): Promise<Element | null> {
+		return await new Promise<Element | null>((resolve) => {
+			let attempts = 0;
+			const check = () => {
+				const container = this.getTranscriptContainer();
+				if (container && container.children.length > 0) {
+					resolve(container);
+				} else if (attempts++ < 20) {
+					setTimeout(check, 250);
+				} else {
+					resolve(null);
+				}
+			};
+			check();
+		});
+	}
+
+	/**
+	 * Fallback: open YouTube's transcript panel and read segments from the DOM.
+	 * Used when fetch-based extraction fails and the transcript is not already rendered.
+	 */
+	private async extractTranscriptFromOpenedDom(): Promise<{ html: string; text: string; languageCode: string } | undefined> {
+		try {
+			const transcriptButton = this.document.querySelector(
+				'ytd-video-description-transcript-section-renderer button'
+			) as HTMLElement | null;
+			if (!transcriptButton) return undefined;
+
+			transcriptButton.click();
+
+			const container = await this.waitForTranscriptContainer();
+			if (!container) return undefined;
+
+			const inlineChapters = this.getInlineChapters();
+			const chapters = inlineChapters.length > 0
+				? inlineChapters
+				: (this.getVideoId() ? await this.fetchChapters(this.getVideoId()) : []);
+
+			return this.buildTranscriptFromContainer(container, chapters);
+		} catch (error) {
+			console.error('YoutubeExtractor: failed to extract transcript from opened DOM', error);
+			return undefined;
+		}
+	}
+
 	private async fetchPlayerData(videoId: string): Promise<any> {
+		// Try inline page data first (avoids API call, works in restricted contexts like Safari extensions)
+		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
+		if (inlineData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+			return inlineData;
+		}
+
 		try {
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
@@ -275,6 +439,9 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private async fetchChapters(videoId: string): Promise<{ title: string; start: number }[]> {
+		const inlineChapters = this.getInlineChapters();
+		if (inlineChapters.length > 0) return inlineChapters;
+
 		try {
 			const resp = await fetch(INNERTUBE_NEXT_URL, {
 				method: 'POST',
