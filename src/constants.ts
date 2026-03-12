@@ -43,6 +43,21 @@ export const INLINE_ELEMENTS = new Set([
 ]);
 
 // Selectors to be removed
+export const HIDDEN_EXACT_SKIP_SELECTORS = [
+	'[hidden]',
+	'[aria-hidden="true"]',
+	'.hidden',
+	'.invisible',
+];
+
+export const HIDDEN_EXACT_SELECTORS = HIDDEN_EXACT_SKIP_SELECTORS.map(s =>
+	s === '[aria-hidden="true"]' ? '[aria-hidden="true"]:not([class*="math"])' : s
+);
+
+// Pre-joined selector strings (these arrays are constant)
+export const HIDDEN_EXACT_SELECTOR = HIDDEN_EXACT_SELECTORS.join(',');
+export const HIDDEN_EXACT_SKIP_SELECTOR = HIDDEN_EXACT_SKIP_SELECTORS.join(',');
+
 export const EXACT_SELECTORS = [
 	// scripts, styles
 	'noscript',
@@ -158,13 +173,10 @@ export const EXACT_SELECTORS = [
 	// 'relative-time', // see issue #136
 
 	// hidden
-	'[hidden]',
-	'[aria-hidden="true"]:not([class*="math"])',
+	...HIDDEN_EXACT_SELECTORS,
 	// Note: [style*="display: none"] removed — substring match causes false positives
 	// with CSS custom properties like --footer-display: none. The removeHiddenElements
 	// step handles inline style detection with a proper regex.
-	'.hidden',
-	'.invisible',
 
 	// iframes
 	'instaread-player',
@@ -208,6 +220,7 @@ export const EXACT_SELECTORS = [
 
 	// other
 	'.copyright',
+	'.updates-dismiss',
 	'#copyright',
 	'.licensebox',
 	'#page-info',
@@ -223,6 +236,8 @@ export const EXACT_SELECTORS = [
 	'.gh-header-sticky', // GitHub
 	'[data-testid="issue-metadata-sticky"]', // GitHub
 ];
+
+export const EXACT_SELECTORS_JOINED = EXACT_SELECTORS.join(',');
 
 // Attributes to test against for partial matches
 export const TEST_ATTRIBUTES = [

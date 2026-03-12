@@ -5,7 +5,10 @@ import { BaseExtractor } from './extractors/_base';
 import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS_SELECTOR,
-	EXACT_SELECTORS,
+	EXACT_SELECTORS_JOINED,
+	HIDDEN_EXACT_SELECTOR,
+	HIDDEN_EXACT_SKIP_SELECTOR,
+	HIDDEN_EXACT_SKIP_SELECTORS,
 	PARTIAL_SELECTORS,
 	ENTRY_POINT_ELEMENTS,
 	TEST_ATTRIBUTES,
@@ -96,6 +99,42 @@ export class Defuddle {
 			if (retryResult.wordCount > result.wordCount * 2) {
 				this._log('Retry produced more content');
 				result = retryResult;
+			}
+		}
+
+		// If still very little content, the page may be an index/listing page
+		// or a page that reveals content at runtime from a hidden wrapper.
+		// Retry once with hidden-element removal disabled.
+		if (result.wordCount < 50) {
+			this._log('Still very little content, retrying without hidden-element removal');
+			const hiddenRetry = this.parseInternal({
+				removeHiddenElements: false
+			});
+			if (hiddenRetry.wordCount > result.wordCount * 2) {
+				this._log('Hidden-element retry produced more content');
+				result = hiddenRetry;
+			}
+
+			// Try targeting the largest hidden subtree directly to avoid body-level
+			// leftovers (e.g. FPS counters) when hidden content is the real article.
+			const hiddenSelector = this.findLargestHiddenContentSelector();
+			if (hiddenSelector) {
+				this._log('Retrying with hidden content selector:', hiddenSelector);
+				const hiddenSelectorRetry = this.parseInternal({
+					removeHiddenElements: false,
+					removePartialSelectors: false,
+					contentSelector: hiddenSelector
+				});
+				if (
+					hiddenSelectorRetry.wordCount > result.wordCount ||
+					(
+						hiddenSelectorRetry.wordCount > Math.max(20, result.wordCount * 0.7) &&
+						hiddenSelectorRetry.content.length < result.content.length
+					)
+				) {
+					this._log('Hidden-selector retry produced better focused content');
+					result = hiddenSelectorRetry;
+				}
 			}
 		}
 
@@ -276,6 +315,31 @@ export class Defuddle {
 		}
 
 		return html;
+	}
+
+	private findLargestHiddenContentSelector(): string | undefined {
+		const body = this.doc.body;
+		if (!body) return undefined;
+
+		const candidates = Array.from(
+			body.querySelectorAll(HIDDEN_EXACT_SKIP_SELECTOR)
+		).filter(el => {
+			const className = el.getAttribute('class') || '';
+			return !className.includes('math');
+		});
+
+		let best: Element | null = null;
+		let bestWords = 0;
+		for (const el of candidates) {
+			const words = countWords(el.textContent || '');
+			if (words > bestWords) {
+				best = el;
+				bestWords = words;
+			}
+		}
+
+		if (!best || bestWords < 30) return undefined;
+		return this.getElementSelector(best);
 	}
 
 	/**
@@ -502,7 +566,14 @@ export class Defuddle {
 
 			// Remove clutter using selectors
 			if (options.removeExactSelectors || options.removePartialSelectors) {
-				this.removeBySelector(clone, options.removeExactSelectors, options.removePartialSelectors, mainContent, debugRemovals);
+				this.removeBySelector(
+					clone,
+					options.removeExactSelectors,
+					options.removePartialSelectors,
+					mainContent,
+					debugRemovals,
+					options.removeHiddenElements === false
+				);
 			}
 
 			// Remove elements by content patterns (read time, boilerplate, article cards)
@@ -727,7 +798,7 @@ export class Defuddle {
 			if (className) {
 				const tokens = className.split(/\s+/);
 				for (const token of tokens) {
-					if (token === 'hidden' || token.endsWith(':hidden')) {
+					if (token === 'hidden' || token.endsWith(':hidden') || token === 'invisible' || token.endsWith(':invisible')) {
 						elementsToRemove.set(element, `class:${token}`);
 						count++;
 						break;
@@ -750,7 +821,7 @@ export class Defuddle {
 		this._log('Removed hidden elements:', count);
 	}
 
-	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[]) {
+	private removeBySelector(doc: Document, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 		const startTime = Date.now();
 		let exactSelectorCount = 0;
 		let partialSelectorCount = 0;
@@ -760,9 +831,19 @@ export class Defuddle {
 
 		// First collect elements matching exact selectors
 		if (removeExact) {
-			const exactElements = doc.querySelectorAll(EXACT_SELECTORS.join(','));
+			const exactElements = doc.querySelectorAll(EXACT_SELECTORS_JOINED);
 			exactElements.forEach(el => {
 				if (el?.parentNode) {
+					if (skipHiddenExactSelectors) {
+						const hiddenAncestor = el.closest(HIDDEN_EXACT_SKIP_SELECTOR);
+						const role = (el.getAttribute('role') || '').toLowerCase();
+						if (
+							el.matches(HIDDEN_EXACT_SELECTOR) ||
+							(hiddenAncestor && role === 'dialog')
+						) {
+							return;
+						}
+					}
 					// Skip elements inside code blocks (e.g. syntax highlighting spans)
 					if (el.closest('pre, code')) {
 						return;
@@ -1111,10 +1192,16 @@ export class Defuddle {
 		if (!baseUrl) return;
 
 		const resolve = (url: string): string => {
+			// Some pages ship escaped quoted hrefs like \"mailto:...\" in server templates.
+			// Normalize these before URL resolution.
+			const normalized = url
+				.trim()
+				.replace(/^\\?["']+/, '')
+				.replace(/\\?["']+$/, '');
 			try {
-				return new URL(url, baseUrl).href;
+				return new URL(normalized, baseUrl).href;
 			} catch {
-				return url;
+				return normalized || url;
 			}
 		};
 
