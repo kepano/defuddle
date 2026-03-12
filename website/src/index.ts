@@ -8,12 +8,18 @@ const PRIMARY_HOST = 'defuddle.md';
 const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
 const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/favicon.ico']);
+const CACHE_TTL = 300; // 5 minutes
+
+function isLocal(url: URL): boolean {
+	return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+}
 
 export default {
 	async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
 		try {
 			const url = new URL(request.url);
 			const path = url.pathname;
+			const useCache = !isLocal(url);
 
 			// Redirect defuddle.dev to defuddle.md
 			if (url.hostname.includes('defuddle.dev')) {
@@ -23,7 +29,7 @@ export default {
 			}
 
 			// Cache static pages at the edge
-			if (request.method === 'GET' && STATIC_PAGES.has(path)) {
+			if (useCache && request.method === 'GET' && STATIC_PAGES.has(path)) {
 				const cache = caches.default;
 				const cacheKey = new Request(url.toString(), request);
 				const cachedResponse = await cache.match(cacheKey);
@@ -31,14 +37,14 @@ export default {
 					return cachedResponse;
 				}
 
-				const response = await handleRequest(request, url, path);
+				const response = await handleRequest(request, url, path, ctx, useCache);
 				if (response.ok && response.status !== 204 && response.status !== 205) {
 					ctx.waitUntil(cache.put(cacheKey, response.clone()));
 				}
 				return response;
 			}
 
-			return await handleRequest(request, url, path);
+			return await handleRequest(request, url, path, ctx, useCache);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'An unexpected error occurred';
 			return errorResponse(message, 500);
@@ -46,7 +52,7 @@ export default {
 	},
 } satisfies ExportedHandler;
 
-async function handleRequest(request: Request, url: URL, path: string): Promise<Response> {
+async function handleRequest(request: Request, url: URL, path: string, ctx: ExecutionContext, useCache: boolean): Promise<Response> {
 	// Landing page
 	if (path === '/' || path === '') {
 		return new Response(getLandingPage(), {
@@ -149,16 +155,40 @@ async function handleRequest(request: Request, url: URL, path: string): Promise<
 		return errorResponse('Cannot convert this URL.', 400);
 	}
 
+	// Check cache for conversion responses
+	const cacheKey = useCache
+		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
+		: null;
+
+	if (cacheKey) {
+		const cachedResponse = await caches.default.match(cacheKey);
+		if (cachedResponse) {
+			return cachedResponse;
+		}
+	}
+
 	try {
 		const result = await convertToMarkdown(targetUrl);
 		const markdown = formatResponse(result, targetUrl);
 
-		return new Response(markdown, {
+		const response = new Response(markdown, {
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',
 				'Access-Control-Allow-Origin': '*',
+				// Only set cache header for responses with real content.
+				// s-maxage controls CDN caching without affecting browser caching.
+				...(cacheKey && result.wordCount > 0 && {
+					'Cache-Control': `s-maxage=${CACHE_TTL}`,
+				}),
 			},
 		});
+
+		// Only cache responses with meaningful content
+		if (cacheKey && result.wordCount > 0) {
+			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+		}
+
+		return response;
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'An unexpected error occurred';
 		return errorResponse(message, 502);
