@@ -61,8 +61,8 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
-		const transcript = await this.fetchTranscript()
-			|| this.extractTranscriptFromExistingDom()
+		const transcript = this.extractTranscriptFromExistingDom()
+			|| await this.fetchTranscript()
 			|| await this.extractTranscriptFromOpenedDom();
 		return this.buildResult(transcript);
 	}
@@ -173,6 +173,10 @@ export class YoutubeExtractor extends BaseExtractor {
 			console.error('YoutubeExtractor: failed to extract transcript from existing DOM', error);
 			return undefined;
 		}
+	}
+
+	private canOpenTranscriptPanel(): boolean {
+		return typeof this.document.defaultView?.MutationObserver === 'function';
 	}
 
 	private buildResult(transcript?: TranscriptResult): ExtractorResult {
@@ -399,6 +403,8 @@ export class YoutubeExtractor extends BaseExtractor {
 	 */
 	private async extractTranscriptFromOpenedDom(): Promise<TranscriptResult | undefined> {
 		try {
+			if (!this.canOpenTranscriptPanel()) return undefined;
+
 			const transcriptButton = this.document.querySelector(
 				'ytd-video-description-transcript-section-renderer button'
 			) as HTMLElement | null;
@@ -420,12 +426,6 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
-		// Try inline page data first (avoids API call, works in restricted contexts like Safari extensions)
-		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
-		if (inlineData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
-			return inlineData;
-		}
-
 		try {
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
@@ -438,11 +438,22 @@ export class YoutubeExtractor extends BaseExtractor {
 					videoId,
 				})
 			});
-			if (!resp.ok) return undefined;
-			return resp.json();
+			if (resp.ok) {
+				const data = await resp.json();
+				if (this.getCaptionTracks(data).length > 0) {
+					return data;
+				}
+			}
 		} catch {
-			return undefined;
+			// Fall back to inline page data below.
 		}
+
+		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
+		if (inlineData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+			return inlineData;
+		}
+
+		return undefined;
 	}
 
 	private async fetchChapters(videoId: string): Promise<{ title: string; start: number }[]> {

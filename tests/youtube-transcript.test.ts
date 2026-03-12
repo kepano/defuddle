@@ -261,6 +261,57 @@ describe('YouTube transcript parsing', () => {
 		expect(clickSpy).not.toHaveBeenCalled();
 	});
 
+	test('fetchPlayerData prefers API caption tracks over inline player response', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" },
+											"baseUrl": "https://www.youtube.com/api/timedtext?v=test123&exp=xpe&lang=en"
+										}
+									]
+								}
+							}
+						};
+					</script>
+				</body>
+			</html>
+		`);
+
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({
+				captions: {
+					playerCaptionsTracklistRenderer: {
+						captionTracks: [
+							{
+								languageCode: 'en',
+								name: { simpleText: 'English (auto-generated)' },
+								baseUrl: 'https://www.youtube.com/api/timedtext?v=test123&lang=en&fmt=srv3',
+							},
+						],
+					},
+				},
+			}),
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		try {
+			const playerData = await (extractor as any).fetchPlayerData('test123');
+			const tracks = (extractor as any).getCaptionTracks(playerData);
+
+			expect(tracks).toHaveLength(1);
+			expect(tracks[0].baseUrl).toContain('fmt=srv3');
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	test('extractAsync uses an existing transcript panel before opening it', async () => {
 		const extractor = createExtractor(`
 			<html>
@@ -292,6 +343,35 @@ describe('YouTube transcript parsing', () => {
 		const clickSpy = vi.spyOn(openButton, 'click');
 
 		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue(undefined);
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.language).toBe('en');
+		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
+		expect(clickSpy).not.toHaveBeenCalled();
+		expect((extractor as any).fetchTranscript).not.toHaveBeenCalled();
+	});
+
+	test('extractAsync does not open the transcript panel when API transcript succeeds', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+				</body>
+			</html>
+		`);
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue({
+			html: '<div class="youtube transcript"><h2>Transcript</h2></div>',
+			text: '**0:00** · Hello world.',
+			languageCode: 'en',
+		});
 
 		const result = await extractor.extractAsync();
 
@@ -350,5 +430,34 @@ describe('YouTube transcript parsing', () => {
 		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
 		expect(result.content).toContain('<h2>Transcript</h2>');
 		expect(clickSpy).toHaveBeenCalledTimes(1);
+	});
+
+	test('extractAsync skips transcript panel opening in non-browser DOM contexts', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+				</body>
+			</html>
+		`);
+
+		const view = (extractor as any).document.defaultView as Window & { MutationObserver?: typeof MutationObserver };
+		Object.defineProperty(view, 'MutationObserver', {
+			value: undefined,
+			configurable: true,
+		});
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue(undefined);
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.transcript).toBeUndefined();
+		expect(clickSpy).not.toHaveBeenCalled();
 	});
 });
