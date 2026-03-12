@@ -310,13 +310,23 @@ export const codeBlockRules = [
 			}
 
 			// Clean up the content
-			codeContent = codeContent
-				.replace(/^\s+|\s+$/g, '')      // Trim start/end whitespace
-				.replace(/\t/g, '    ')         // Convert tabs to spaces
-				.replace(/\n{3,}/g, '\n\n')     // Normalize multiple newlines
-				.replace(/\u00a0/g, ' ')        // Replace non-breaking spaces
-				.replace(/^\n+/, '')            // Remove extra newlines at start
-				.replace(/\n+$/, '');           // Remove extra newlines at end
+			const isVersoLeanBlock = el.matches('code.hl.block');
+			if (isVersoLeanBlock) {
+				// Preserve trailing newlines for Verso blocks so section gaps survive merging.
+				codeContent = codeContent
+					.replace(/^[ \t]+|[ \t]+$/g, '') // Trim spaces/tabs at boundaries only
+					.replace(/\t/g, '    ')          // Convert tabs to spaces
+					.replace(/\u00a0/g, ' ')         // Replace non-breaking spaces
+					.replace(/^\n+/, '');            // Remove extra newlines at start
+			} else {
+				codeContent = codeContent
+					.replace(/^\s+|\s+$/g, '')      // Trim start/end whitespace
+					.replace(/\t/g, '    ')         // Convert tabs to spaces
+					.replace(/\n{3,}/g, '\n\n')     // Normalize multiple newlines
+					.replace(/\u00a0/g, ' ')        // Replace non-breaking spaces
+					.replace(/^\n+/, '')            // Remove extra newlines at start
+					.replace(/\n+$/, '');           // Remove extra newlines at end
+			}
 
 			// Remove code block header/toolbar siblings (e.g. filename labels, copy buttons)
 			// before replacing, so they don't leak into content when wrappers are flattened.

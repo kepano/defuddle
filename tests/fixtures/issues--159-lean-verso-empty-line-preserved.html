@@ -1,0 +1,32 @@
+<!-- {"url":"https://lean-lang.org/theorem_proving_in_lean4/Dependent-Type-Theory/"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dependent Type Theory</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Dependent Type Theory</h1>
+      <p>
+        This fixture ensures empty Verso code blocks are preserved as blank lines when adjacent
+        Lean command and output fragments are merged.
+      </p>
+
+      <div class="example" id="example-empty-line">
+        <code class="hl lean block" data-lean-context="examples"><span class="inter-text">#check true</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="inter-text">Bool.true : Bool</span></span></span></pre>
+        <code class="hl lean block" data-lean-context="examples"><span class="inter-text">
+</span></code>
+        <code class="hl lean block" data-lean-context="examples"><span class="inter-text">/- Evaluate -/
+
+#eval 5 * 4</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="inter-text">20</span></span></span></pre>
+      </div>
+
+      <p>Trailing prose ensures normal extraction continues.</p>
+    </article>
+  </main>
+</body>
+</html>

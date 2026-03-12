@@ -984,9 +984,10 @@ function mergeAdjacentVersoCodeBlocks(root: Element): void {
 			if (run.length <= 1) continue;
 
 			const merged = run
-				.map(({ code }) => (code.textContent || '').replace(/\n+$/g, ''))
-				.filter(Boolean)
-				.join('\n');
+				.map(({ code }) => (code.textContent || '').replace(/\r?\n$/, ''))
+				.join('\n')
+				.replace(/\n{3,}/g, '\n\n')
+				.replace(/^\n+|\n+$/g, '');
 
 			startCode.textContent = merged;
 

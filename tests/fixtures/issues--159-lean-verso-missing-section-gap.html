@@ -1,0 +1,31 @@
+<!-- {"url":"https://lean-lang.org/theorem_proving_in_lean4/Dependent-Type-Theory/"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Dependent Type Theory</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Dependent Type Theory</h1>
+      <p>
+        This fixture verifies we preserve an intentional blank line between adjacent Verso code
+        fragments when one fragment ends with an extra newline before the next section header.
+      </p>
+
+      <div class="example" id="example-section-gap">
+        <code class="hl lean block" data-lean-context="examples"><span class="inter-text">def b2 : Bool := false
+
+</span></code>
+        <code class="hl lean block" data-lean-context="examples"><span class="inter-text">/- Check their types. -/
+
+#check m</span></code>
+        <pre class="hl lean lean-output information"><span class="verso-message"><span class="highlighted"><span class="inter-text">m : Nat</span></span></span></pre>
+      </div>
+
+      <p>Trailing prose ensures extraction continues normally.</p>
+    </article>
+  </main>
+</body>
+</html>
