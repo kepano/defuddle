@@ -152,6 +152,40 @@ describe('YouTube transcript parsing', () => {
 		expect(lines[3]).toBe('**1:05** · By what year would it be the case that, if you make it to that year, technology in bio will keep progressing to such an extent that your lifespan will increase by a year, every year, or more?');
 	});
 
+	test('merges longer answers within one speaker turn into fewer timestamps', () => {
+		const extractor = createExtractor();
+		const xml = `<timedtext><body>
+<p t="0" d="3000"><s>Welcome to the show.</s></p>
+<p t="3000" d="3000"><s>&gt;&gt; I think we're gonna be in a world where the models will make mistakes much less often than humans.</s></p>
+<p t="9000" d="3000"><s>They'll be stranger mistakes.</s></p>
+<p t="13000" d="3000"><s>So we need to invent slurring for LLMs.</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		expect(lines[0]).toBe('**0:00** · Welcome to the show.');
+		expect(lines[1]).toBe('');
+		expect(lines[2]).toBe('**0:03** · I think we\'re gonna be in a world where the models will make mistakes much less often than humans. They\'ll be stranger mistakes. So we need to invent slurring for LLMs.');
+	});
+
+	test('keeps short standalone responses isolated within a speaker turn', () => {
+		const extractor = createExtractor();
+		const xml = `<timedtext><body>
+<p t="0" d="3000"><s>Can that work?</s></p>
+<p t="3000" d="3000"><s>&gt;&gt; Yes.</s></p>
+<p t="6000" d="3000"><s>I think this approach is promising in a narrow set of cases.</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		expect(lines[0]).toBe('**0:00** · Can that work?');
+		expect(lines[1]).toBe('');
+		expect(lines[2]).toBe('**0:03** · Yes.');
+		expect(lines[3]).toBe('**0:06** · I think this approach is promising in a narrow set of cases.');
+	});
+
 	test('escapes HTML in output', () => {
 		const extractor = createExtractor();
 		const xml = `<timedtext><body>

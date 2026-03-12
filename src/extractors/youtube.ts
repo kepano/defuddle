@@ -6,6 +6,10 @@ import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
 const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
+const TURN_MERGE_MAX_WORDS = 80;
+const TURN_MERGE_MAX_SPAN_SECONDS = 45;
+const SHORT_UTTERANCE_MAX_WORDS = 3;
+const FIRST_GROUP_MERGE_MIN_WORDS = 8;
 
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
@@ -481,10 +485,13 @@ export class YoutubeExtractor extends BaseExtractor {
 		// followed by longer text — the affirmative is likely the other speaker
 		this.splitAffirmativeTurns(turns);
 
-		// Second pass: split each turn into sentence groups
+		// Second pass: split each turn into sentence groups, then merge longer
+		// contiguous runs so interview answers do not get a timestamp per sentence.
 		const groups: { start: number; text: string; speakerChange: boolean; speaker?: number }[] = [];
 		for (const turn of turns) {
-			const sentenceGroups = this.groupBySentence(turn.segments);
+			const sentenceGroups = turn.speaker === undefined
+				? this.groupBySentence(turn.segments)
+				: this.mergeSentenceGroupsWithinTurn(this.groupBySentence(turn.segments));
 			for (let i = 0; i < sentenceGroups.length; i++) {
 				groups.push({
 					...sentenceGroups[i],
@@ -547,6 +554,69 @@ export class YoutubeExtractor extends BaseExtractor {
 			turns.splice(i, 1, affirmativeTurn, restTurn);
 			i++; // skip the newly inserted rest turn
 		}
+	}
+
+	private mergeSentenceGroupsWithinTurn(
+		groups: { start: number; text: string; speakerChange: boolean; speaker?: number }[],
+	): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
+		if (groups.length <= 1) return groups;
+
+		const merged: typeof groups = [];
+		let current = { ...groups[0] };
+		let currentIsFirstInTurn = true;
+
+		for (let i = 1; i < groups.length; i++) {
+			const next = groups[i];
+			if (this.shouldMergeSentenceGroups(current, next, currentIsFirstInTurn)) {
+				current.text = `${current.text} ${next.text}`;
+				continue;
+			}
+
+			merged.push(current);
+			current = { ...next };
+			currentIsFirstInTurn = false;
+		}
+
+		merged.push(current);
+		return merged;
+	}
+
+	private shouldMergeSentenceGroups(
+		current: { start: number; text: string },
+		next: { start: number; text: string },
+		currentIsFirstInTurn: boolean,
+	): boolean {
+		if (this.isShortStandaloneUtterance(current.text) || this.isShortStandaloneUtterance(next.text)) {
+			return false;
+		}
+
+		if (currentIsFirstInTurn && countWords(current.text) < FIRST_GROUP_MERGE_MIN_WORDS) {
+			return false;
+		}
+
+		if (this.isQuestion(current.text) || this.isQuestion(next.text)) {
+			return false;
+		}
+
+		const mergedWords = countWords(current.text) + countWords(next.text);
+		if (mergedWords > TURN_MERGE_MAX_WORDS) {
+			return false;
+		}
+
+		if (next.start - current.start > TURN_MERGE_MAX_SPAN_SECONDS) {
+			return false;
+		}
+
+		return true;
+	}
+
+	private isShortStandaloneUtterance(text: string): boolean {
+		const words = countWords(text);
+		return words > 0 && words <= SHORT_UTTERANCE_MAX_WORDS && SENTENCE_END.test(text);
+	}
+
+	private isQuestion(text: string): boolean {
+		return /\?["'\u2019\u201D)]*\s*$/.test(text);
 	}
 
 	/**
