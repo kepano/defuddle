@@ -220,7 +220,6 @@ export const EXACT_SELECTORS = [
 
 	// other
 	'.copyright',
-	'.updates-dismiss',
 	'#copyright',
 	'.licensebox',
 	'#page-info',
@@ -413,6 +412,7 @@ export const PARTIAL_SELECTORS = [
 	'disclosure',
 	'discussion',
 	'discuss_',
+	'-dismiss',
 	'disqus',
 	'donate',
 	'donation',
