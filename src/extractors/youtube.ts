@@ -449,7 +449,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 
 		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
-		if (inlineData?.captions?.playerCaptionsTracklistRenderer?.captionTracks) {
+		if (this.getCaptionTracks(inlineData).length > 0) {
 			return inlineData;
 		}
 
