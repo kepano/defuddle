@@ -1,19 +1,36 @@
 import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { toMarkdown } from './markdown';
+import { parseLinkedomHTML } from './utils/linkedom-compat';
 
 /**
- * Parse a Document using any DOM implementation (JSDOM, linkedom, happy-dom, etc.)
- * @param doc Document instance to parse
+ * Parse HTML content from a Document, HTML string, or JSDOM instance.
+ * Accepts any DOM Document implementation (linkedom, JSDOM, happy-dom, etc.).
+ * @param input Document instance, HTML string, or JSDOM-like object with window.document
  * @param url URL of the page being parsed
  * @param options Optional parsing options
  * @returns Promise with parsed content and metadata
  */
 export async function Defuddle(
-	doc: Document,
+	input: Document | string | { window: { document: Document; location: { href: string } } },
 	url?: string,
 	options?: DefuddleOptions
 ): Promise<DefuddleResponse> {
+	let doc: Document;
+
+	if (typeof input === 'string') {
+		// @deprecated Pass a Document instead of an HTML string.
+		// String input will be removed in the next major version.
+		doc = parseLinkedomHTML(input, url);
+	} else if ('window' in input && input.window?.document) {
+		// @deprecated Pass doc.window.document directly instead of a JSDOM instance.
+		// JSDOM instance input will be removed in the next major version.
+		doc = input.window.document;
+		url = url || input.window.location?.href;
+	} else {
+		doc = input as Document;
+	}
+
 	const pageUrl = url || (doc as any).URL || 'about:blank';
 
 	const defuddle = new DefuddleClass(doc, {
