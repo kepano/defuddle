@@ -1,7 +1,6 @@
 import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { toMarkdown } from './markdown';
-import { parseLinkedomHTML } from './utils/linkedom-compat';
 
 /**
  * Parse HTML content from a Document, HTML string, or JSDOM instance.
@@ -21,8 +20,9 @@ export async function Defuddle(
 	if (typeof input === 'string') {
 		// @deprecated Pass a Document instead of an HTML string.
 		// String input will be removed in the next major version.
+		const { parseLinkedomHTML } = await import('./utils/linkedom-compat');
 		doc = parseLinkedomHTML(input, url);
-	} else if ('window' in input && input.window?.document) {
+	} else if (typeof input === 'object' && input !== null && 'window' in input && input.window?.document) {
 		// @deprecated Pass doc.window.document directly instead of a JSDOM instance.
 		// JSDOM instance input will be removed in the next major version.
 		doc = input.window.document;

@@ -11,6 +11,8 @@ export function parseLinkedomHTML(html: string, url?: string): Document {
 	if (doc.defaultView && !doc.defaultView.getComputedStyle) {
 		doc.defaultView.getComputedStyle = () => ({ display: '' });
 	}
+	// document.URL is read-only per spec, but linkedom allows mutation.
+	// This sets the base URL for relative URL resolution and extractor matching.
 	if (url) doc.URL = url;
 	return document as unknown as Document;
 }
