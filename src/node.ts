@@ -1,47 +1,48 @@
-import { JSDOM, VirtualConsole } from 'jsdom';
 import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { toMarkdown } from './markdown';
 
 /**
- * Parse HTML content using JSDOM
- * @param htmlOrDom HTML string or JSDOM instance to parse
- * @param url Optional URL of the page being parsed
+ * Parse HTML content from a Document, HTML string, or JSDOM instance.
+ * Accepts any DOM Document implementation (linkedom, JSDOM, happy-dom, etc.).
+ * @param input Document instance, HTML string, or JSDOM-like object with window.document
+ * @param url URL of the page being parsed
  * @param options Optional parsing options
  * @returns Promise with parsed content and metadata
  */
 export async function Defuddle(
-	htmlOrDom: string | JSDOM,
+	input: Document | string | { window: { document: Document; location: { href: string } } },
 	url?: string,
 	options?: DefuddleOptions
 ): Promise<DefuddleResponse> {
-	
-	let dom: JSDOM;
-	
-	if (typeof htmlOrDom === 'string') {
-		dom = new JSDOM(htmlOrDom, {
-			url,
-			storageQuota: 10000000,
-			virtualConsole: new VirtualConsole().sendTo(console, { omitJSDOMErrors: true })
-		});
+	let doc: Document;
+
+	if (typeof input === 'string') {
+		// @deprecated Pass a Document instead of an HTML string.
+		// String input will be removed in the next major version.
+		const { parseLinkedomHTML } = await import('./utils/linkedom-compat');
+		doc = parseLinkedomHTML(input, url);
+	} else if (typeof input === 'object' && input !== null && 'window' in input && input.window?.document) {
+		// @deprecated Pass doc.window.document directly instead of a JSDOM instance.
+		// JSDOM instance input will be removed in the next major version.
+		doc = input.window.document;
+		url = url || input.window.location?.href;
 	} else {
-		dom = htmlOrDom;
+		doc = input as Document;
 	}
 
-	const pageUrl = url || dom.window.location.href;
+	const pageUrl = url || (doc as any).URL || 'about:blank';
 
-	// Create Defuddle instance with URL in options
-	const defuddle = new DefuddleClass(dom.window.document, {
+	const defuddle = new DefuddleClass(doc, {
 		...options,
 		url: pageUrl
 	});
 
 	const result = await defuddle.parseAsync();
 
-	// Convert to markdown if requested
 	toMarkdown(result, options ?? {}, pageUrl);
 
 	return result;
 }
 
-export { DefuddleClass, DefuddleOptions, DefuddleResponse }; 
+export { DefuddleClass, DefuddleOptions, DefuddleResponse };

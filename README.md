@@ -37,29 +37,30 @@ console.log(result.author);
 
 ### Node.js
 
+`defuddle/node` accepts a DOM `Document` from any implementation (JSDOM, linkedom, happy-dom, etc.).
+
+```javascript
+import { parseHTML } from 'linkedom';
+import { Defuddle } from 'defuddle/node';
+
+const { document } = parseHTML(html);
+const result = await Defuddle(document, 'https://example.com/article', {
+  markdown: true
+});
+
+console.log(result.content);
+console.log(result.title);
+console.log(result.author);
+```
+
+Or with JSDOM:
+
 ```javascript
 import { JSDOM } from 'jsdom';
 import { Defuddle } from 'defuddle/node';
 
-// Parse HTML from a string
-const html = '<html><body><article>...</article></body></html>';
-const result = await Defuddle(html);
-
-// Parse HTML from a URL
-const dom = await JSDOM.fromURL('https://example.com/article');
-const result = await Defuddle(dom);
-
-// With options
-const url = 'https://example.com/article'; // Original URL of the page
-const result = await Defuddle(dom, url, {
-  debug: true, // Enable debug mode for verbose logging
-  markdown: true // Convert content to markdown
-});
-
-// Access the content and metadata
-console.log(result.content);
-console.log(result.title);
-console.log(result.author);
+const dom = new JSDOM(html, { url: 'https://example.com/article' });
+const result = await Defuddle(dom.window.document, 'https://example.com/article');
 ```
 
 _Note: for `defuddle/node` to import properly, the module format in your `package.json` has to be set to `{ "type": "module" }`_
@@ -108,7 +109,13 @@ npx defuddle parse page.html --debug
 npm install defuddle
 ```
 
-For Node.js usage, you'll also need to install JSDOM:
+For Node.js usage, install a DOM implementation:
+
+```bash
+npm install linkedom
+```
+
+Or use JSDOM:
 
 ```bash
 npm install jsdom
@@ -156,7 +163,7 @@ Defuddle is available in three different bundles:
 
 1. Core bundle (`defuddle`): The main bundle for browser usage. No dependencies.
 2. Full bundle (`defuddle/full`): Includes additional features for math equation parsing and Markdown conversion.
-3. Node.js bundle (`defuddle/node`): Optimized for Node.js environments using JSDOM. Includes full capabilities for math and Markdown conversion.
+3. Node.js bundle (`defuddle/node`): For Node.js environments. Accepts any DOM `Document` (e.g. from linkedom, JSDOM, or happy-dom). Includes full capabilities for math and Markdown conversion.
 
 The core bundle is recommended for most use cases. It still handles math content, but doesn't include fallbacks for converting between MathML and LaTeX formats. The full bundle adds the ability to create reliable `<math>` elements using `mathml-to-latex` and `temml` libraries.
 

@@ -2,8 +2,9 @@
 
 import { Command } from 'commander';
 import { Defuddle } from './node';
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile } from 'fs/promises';
 import { resolve } from 'path';
+import { parseLinkedomHTML } from './utils/linkedom-compat';
 
 interface ParseOptions {
 	output?: string;
@@ -48,25 +49,25 @@ program
 				options.markdown = true;
 			}
 
-			let JSDOM: any;
-			try {
-				JSDOM = (await import('jsdom')).JSDOM;
-			} catch {
-				console.error(ansi.red('Error: jsdom is required for the CLI. Install it with: npm install jsdom'));
-				process.exit(1);
-			}
-
-			let dom;
+			let html: string;
+			let url: string | undefined;
 
 			// Determine if source is a URL or file path
 			if (source.startsWith('http://') || source.startsWith('https://')) {
-				dom = await JSDOM.fromURL(source);
+				url = source;
+				const response = await fetch(source);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch ${source}: ${response.status} ${response.statusText}`);
+				}
+				html = await response.text();
 			} else {
 				const filePath = resolve(process.cwd(), source);
-				dom = await JSDOM.fromFile(filePath);
+				html = await readFile(filePath, 'utf-8');
 			}
 
-			const result = await Defuddle(dom, source.startsWith('http') ? source : undefined, {
+			const doc = parseLinkedomHTML(html);
+
+			const result = await Defuddle(doc, url, {
 				debug: options.debug,
 				markdown: options.markdown
 			});

@@ -49,6 +49,7 @@
 		"dev:node": "tsc --project tsconfig.node.json --watch",
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
 		"test": "TZ=UTC vitest run",
+		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
@@ -75,12 +76,10 @@
 		"commander": "^12.1.0"
 	},
 	"optionalDependencies": {
+		"linkedom": "^0.18.12",
 		"mathml-to-latex": "^1.5.0",
 		"temml": "^0.13.1",
 		"turndown": "^7.2.0"
-	},
-	"peerDependencies": {
-		"jsdom": "^24.0.0"
 	},
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",

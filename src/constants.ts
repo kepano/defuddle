@@ -810,6 +810,12 @@ export const PARTIAL_SELECTORS = [
 //	'widget-'
 ];
 
+// Pre-compiled combined regex for PARTIAL_SELECTORS — avoids rebuilding on every parse
+export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), 'i');
+
+// Attribute selector for elements we test partial matches against
+export const TEST_ATTRIBUTES_SELECTOR = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
+
 // Selectors for footnotes and citations
 export const FOOTNOTE_INLINE_REFERENCES = [
 	'sup.reference',

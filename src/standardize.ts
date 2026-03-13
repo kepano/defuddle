@@ -488,7 +488,7 @@ function unwrapBareSpans(element: Element): void {
 	let unwrappedCount = 0;
 
 	for (const span of spans) {
-		if (!span.isConnected) continue;
+		if (!span.parentNode) continue;
 		if (span.attributes.length > 0) continue;
 
 		const parent = span.parentNode;
@@ -866,7 +866,7 @@ function standardizeElements(element: Element, doc: Document): void {
 	// Unwrap single-column layout tables (used for styling/positioning, not data)
 	const tables = Array.from(element.querySelectorAll('table'));
 	tables.forEach(table => {
-		if (!table.isConnected) return;
+		if (!table.parentNode) return;
 
 		const directCells = Array.from(table.querySelectorAll('td, th'))
 			.filter(cell => isDirectTableChild(cell, table));
@@ -1106,7 +1106,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 	// Function to process a single element
 	const processElement = (el: Element): boolean => {
 		// Skip processing if element has been removed or should be preserved
-		if (!el.isConnected || shouldPreserveElement(el)) return false;
+		if (!el.parentNode || shouldPreserveElement(el)) return false;
 		const tagName = el.tagName.toLowerCase();
 
 		// Case 1: Element is truly empty (no text content, no child elements) and not self-closing

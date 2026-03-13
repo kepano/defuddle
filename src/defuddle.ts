@@ -10,6 +10,8 @@ import {
 	HIDDEN_EXACT_SKIP_SELECTOR,
 	HIDDEN_EXACT_SKIP_SELECTORS,
 	PARTIAL_SELECTORS,
+	PARTIAL_SELECTORS_REGEX,
+	TEST_ATTRIBUTES_SELECTOR,
 	ENTRY_POINT_ELEMENTS,
 	TEST_ATTRIBUTES,
 	FOOTNOTE_LIST_SELECTORS
@@ -456,6 +458,27 @@ export class Defuddle {
 	 */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
 		const startTime = Date.now();
+
+		// Guard against empty/broken documents (e.g. empty HTML, bot-blocked pages)
+		if (!this.doc.documentElement) {
+			const url = this.options.url || '';
+			return {
+				content: '',
+				title: '',
+				description: '',
+				domain: url ? new URL(url).hostname : '',
+				favicon: '',
+				image: '',
+				language: '',
+				parseTime: Date.now() - startTime,
+				published: '',
+				author: '',
+				site: '',
+				schemaOrgData: null,
+				wordCount: 0,
+			};
+		}
+
 		const options = {
 			removeExactSelectors: true,
 			removePartialSelectors: true,
@@ -513,6 +536,10 @@ export class Defuddle {
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
+			// Merge adjacent text nodes that some DOM implementations (e.g. linkedom)
+			// create when parsing HTML entities like &#39;
+			clone.body?.normalize();
+
 			// Flatten shadow DOM content into the clone
 			this.flattenShadowRoots(this.doc, clone);
 
@@ -532,7 +559,7 @@ export class Defuddle {
 				mainContent = this.findMainContent(clone);
 			}
 			if (!mainContent) {
-				const fallbackContent = this.resolveContentUrls(serializeHTML(this.doc.body));
+				const fallbackContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
 				const endTime = Date.now();
 				return {
 					content: fallbackContent,
@@ -610,7 +637,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this.resolveContentUrls(serializeHTML(this.doc.body));
+			const errorContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
 			const endTime = Date.now();
 			return {
 				content: errorContent,
@@ -649,6 +676,8 @@ export class Defuddle {
 		const maxWidthRegex = /max-width[^:]*:\s*(\d+)/;
 
 		try {
+			if (!doc.styleSheets) return mobileStyles;
+
 			// Get all styles, including inline styles
 			const sheets = Array.from(doc.styleSheets).filter(sheet => {
 				try {
@@ -855,18 +884,13 @@ export class Defuddle {
 		}
 
 		if (removePartial) {
-			// Pre-compile regexes and combine into a single regex for better performance
-			const combinedPattern = PARTIAL_SELECTORS.join('|');
-			const partialRegex = new RegExp(combinedPattern, 'i');
-
-			// Pre-compile individual regexes for debug pattern identification
+			// Pre-compile individual regexes for debug pattern identification only
 			const individualRegexes = this.debug
 				? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
 				: null;
 
-			// Create an efficient attribute selector for elements we care about
-			const attributeSelector = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
-			const allElements = doc.querySelectorAll(attributeSelector);
+			// Use pre-built attribute selector for elements we care about
+			const allElements = doc.querySelectorAll(TEST_ATTRIBUTES_SELECTOR);
 
 			// Process elements for partial matches
 			allElements.forEach(el => {
@@ -899,7 +923,7 @@ export class Defuddle {
 				}
 
 				// Check for partial match using single regex test
-				if (partialRegex.test(attrs)) {
+				if (PARTIAL_SELECTORS_REGEX.test(attrs)) {
 					const matchedPattern = individualRegexes
 						? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 						: undefined;
@@ -1259,6 +1283,7 @@ export class Defuddle {
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
+		if (!original.body || !clone.body) return;
 		const origElements = Array.from(original.body.querySelectorAll('*'));
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)

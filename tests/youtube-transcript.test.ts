@@ -1,12 +1,10 @@
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
-import { JSDOM } from 'jsdom';
+import { parseDocument } from './helpers';
 
 function createExtractor(html = '<html><body></body></html>'): YoutubeExtractor {
-	const dom = new JSDOM(html, {
-		url: 'https://www.youtube.com/watch?v=test123'
-	});
-	return new YoutubeExtractor(dom.window.document, 'https://www.youtube.com/watch?v=test123');
+	const doc = parseDocument(html, 'https://www.youtube.com/watch?v=test123');
+	return new YoutubeExtractor(doc, 'https://www.youtube.com/watch?v=test123');
 }
 
 function getTranscriptPanelHtml() {
@@ -443,11 +441,8 @@ describe('YouTube transcript parsing', () => {
 			</html>
 		`);
 
-		const view = (extractor as any).document.defaultView as Window & { MutationObserver?: typeof MutationObserver };
-		Object.defineProperty(view, 'MutationObserver', {
-			value: undefined,
-			configurable: true,
-		});
+		// Mock canOpenTranscriptPanel to simulate a non-browser context
+		(extractor as any).canOpenTranscriptPanel = () => false;
 
 		const document = (extractor as any).document as Document;
 		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;

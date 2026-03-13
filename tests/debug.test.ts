@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Defuddle } from '../src/node';
+import { parseDocument } from './helpers';
 
 /**
  * Tests for debug options: debug info in response, pipeline toggles,
@@ -15,7 +16,7 @@ const fixtureUrl = 'https://stephango.com/buy-wisely';
 
 describe('Debug options', () => {
 	test('debug: true returns debug info with contentSelector and removals', async () => {
-		const result = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
+		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
 
 		expect(result.debug).toBeDefined();
 		expect(result.debug!.contentSelector).toBeTruthy();
@@ -23,13 +24,13 @@ describe('Debug options', () => {
 	});
 
 	test('debug: false does not include debug field', async () => {
-		const result = await Defuddle(fixtureHtml, fixtureUrl);
+		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
 
 		expect(result.debug).toBeUndefined();
 	});
 
 	test('debug removals include step and text for each entry', async () => {
-		const result = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
+		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
 		const removals = result.debug!.removals;
 
 		// There should be at least some removals on a real page
@@ -43,7 +44,7 @@ describe('Debug options', () => {
 	});
 
 	test('debug removals include expected step names', async () => {
-		const result = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
+		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
 		const steps = new Set(result.debug!.removals.map(r => r.step));
 		const validSteps = ['scoreAndRemove', 'removeBySelector', 'removeHiddenElements'];
 
@@ -55,8 +56,8 @@ describe('Debug options', () => {
 
 describe('Pipeline toggles', () => {
 	test('scoreAndRemove: false skips content scoring', async () => {
-		const withScoring = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
-		const withoutScoring = await Defuddle(fixtureHtml, fixtureUrl, {
+		const withScoring = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
+		const withoutScoring = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			debug: true,
 			removeLowScoring: false,
 		});
@@ -74,8 +75,8 @@ describe('Pipeline toggles', () => {
 	});
 
 	test('removeHiddenElements: false skips hidden element removal', async () => {
-		const withHidden = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
-		const withoutHidden = await Defuddle(fixtureHtml, fixtureUrl, {
+		const withHidden = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
+		const withoutHidden = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			debug: true,
 			removeHiddenElements: false,
 		});
@@ -87,8 +88,8 @@ describe('Pipeline toggles', () => {
 	});
 
 	test('removeSmallImages: false preserves small images', async () => {
-		const withRemoval = await Defuddle(fixtureHtml, fixtureUrl);
-		const withoutRemoval = await Defuddle(fixtureHtml, fixtureUrl, {
+		const withRemoval = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
+		const withoutRemoval = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			removeSmallImages: false,
 		});
 
@@ -99,8 +100,8 @@ describe('Pipeline toggles', () => {
 	});
 
 	test('all toggles off produces more or equal content', async () => {
-		const defaults = await Defuddle(fixtureHtml, fixtureUrl);
-		const allOff = await Defuddle(fixtureHtml, fixtureUrl, {
+		const defaults = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
+		const allOff = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			removeLowScoring: false,
 			removeHiddenElements: false,
 			removeSmallImages: false,
@@ -115,7 +116,7 @@ describe('Pipeline toggles', () => {
 describe('contentSelector', () => {
 	test('contentSelector selects the specified element', async () => {
 		// Use a broad selector that should exist in any HTML page
-		const result = await Defuddle(fixtureHtml, fixtureUrl, {
+		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			debug: true,
 			contentSelector: 'body',
 		});
@@ -125,8 +126,8 @@ describe('contentSelector', () => {
 	});
 
 	test('contentSelector falls back to auto-detection on no match', async () => {
-		const autoResult = await Defuddle(fixtureHtml, fixtureUrl, { debug: true });
-		const fallbackResult = await Defuddle(fixtureHtml, fixtureUrl, {
+		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, { debug: true });
+		const fallbackResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			debug: true,
 			contentSelector: '.nonexistent-class-xyz',
 		});
@@ -140,10 +141,10 @@ describe('contentSelector', () => {
 	});
 
 	test('contentSelector with specific element narrows content', async () => {
-		const autoResult = await Defuddle(fixtureHtml, fixtureUrl);
+		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
 
 		// Try to find an element that's a subset of the auto-detected content
-		const narrowResult = await Defuddle(fixtureHtml, fixtureUrl, {
+		const narrowResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
 			contentSelector: 'p',
 		});
 

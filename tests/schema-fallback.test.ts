@@ -1,11 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { JSDOM } from 'jsdom';
 import Defuddle from '../src/index';
-
-function createDocument(html: string): Document {
-	const dom = new JSDOM(html);
-	return dom.window.document;
-}
+import { parseDocument } from './helpers';
 
 /**
  * Tests for the schema.org text fallback path in parse().
@@ -42,7 +37,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -76,7 +71,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -107,7 +102,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -139,7 +134,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -179,7 +174,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -215,7 +210,7 @@ describe('Schema.org text fallback', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
@@ -266,7 +261,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips script tags from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<script>alert("xss")</script>');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -276,7 +271,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips event handlers from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<img src="x.jpg" onerror="alert(\'xss\')" onclick="steal()">');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -288,7 +283,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips style elements from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<style>.x { background: url("https://evil.com/steal") }</style>');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -298,7 +293,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips noscript elements from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<noscript><img src="https://evil.com/track"></noscript>');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -311,7 +306,7 @@ describe('Schema.org text fallback sanitization', () => {
 			'<iframe src="https://www.youtube.com/embed/abc123" width="560" height="315"></iframe>' +
 			'<iframe src="https://open.spotify.com/embed/track/xyz"></iframe>'
 		);
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -323,7 +318,7 @@ describe('Schema.org text fallback sanitization', () => {
 		const html = buildSchemaFallbackHtml(
 			'<iframe srcdoc="<script>alert(\'xss\')</script>"></iframe>'
 		);
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -333,7 +328,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips object and embed elements from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<object data="https://evil.com/flash.swf"></object><embed src="https://evil.com/plugin">');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -344,7 +339,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips javascript: URIs from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<a href="javascript:alert(\'xss\')">click me</a><a href="  javascript:void(0)">spaced</a>');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -353,7 +348,7 @@ describe('Schema.org text fallback sanitization', () => {
 
 	test('strips data:text/html URIs from schema fallback content', () => {
 		const html = buildSchemaFallbackHtml('<img src="data:text/html,<script>alert(1)</script>">');
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -388,7 +383,7 @@ describe('Schema.org text fallback sanitization', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		expect(result.content).toContain('full post body');
@@ -414,7 +409,7 @@ describe('Schema.org text fallback sanitization', () => {
 		</body>
 		</html>`;
 
-		const doc = createDocument(html);
+		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
 		// Raw schema text is used as content (plain text, not DOM HTML)
