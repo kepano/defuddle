@@ -458,6 +458,27 @@ export class Defuddle {
 	 */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
 		const startTime = Date.now();
+
+		// Guard against empty/broken documents (e.g. empty HTML, bot-blocked pages)
+		if (!this.doc.documentElement) {
+			const url = this.options.url || '';
+			return {
+				content: '',
+				title: '',
+				description: '',
+				domain: url ? new URL(url).hostname : '',
+				favicon: '',
+				image: '',
+				language: '',
+				parseTime: Date.now() - startTime,
+				published: '',
+				author: '',
+				site: '',
+				schemaOrgData: null,
+				wordCount: 0,
+			};
+		}
+
 		const options = {
 			removeExactSelectors: true,
 			removePartialSelectors: true,
@@ -538,7 +559,7 @@ export class Defuddle {
 				mainContent = this.findMainContent(clone);
 			}
 			if (!mainContent) {
-				const fallbackContent = this.resolveContentUrls(serializeHTML(this.doc.body));
+				const fallbackContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
 				const endTime = Date.now();
 				return {
 					content: fallbackContent,
@@ -616,7 +637,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this.resolveContentUrls(serializeHTML(this.doc.body));
+			const errorContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
 			const endTime = Date.now();
 			return {
 				content: errorContent,
@@ -655,6 +676,8 @@ export class Defuddle {
 		const maxWidthRegex = /max-width[^:]*:\s*(\d+)/;
 
 		try {
+			if (!doc.styleSheets) return mobileStyles;
+
 			// Get all styles, including inline styles
 			const sheets = Array.from(doc.styleSheets).filter(sheet => {
 				try {
@@ -1260,6 +1283,7 @@ export class Defuddle {
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
+		if (!original.body || !clone.body) return;
 		const origElements = Array.from(original.body.querySelectorAll('*'));
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
