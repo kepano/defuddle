@@ -10,6 +10,8 @@ import {
 	HIDDEN_EXACT_SKIP_SELECTOR,
 	HIDDEN_EXACT_SKIP_SELECTORS,
 	PARTIAL_SELECTORS,
+	PARTIAL_SELECTORS_REGEX,
+	TEST_ATTRIBUTES_SELECTOR,
 	ENTRY_POINT_ELEMENTS,
 	TEST_ATTRIBUTES,
 	FOOTNOTE_LIST_SELECTORS
@@ -855,18 +857,16 @@ export class Defuddle {
 		}
 
 		if (removePartial) {
-			// Pre-compile regexes and combine into a single regex for better performance
-			const combinedPattern = PARTIAL_SELECTORS.join('|');
-			const partialRegex = new RegExp(combinedPattern, 'i');
+			// Use module-level pre-compiled regex (avoids rebuilding 534-pattern regex per parse)
+			const partialRegex = PARTIAL_SELECTORS_REGEX;
 
-			// Pre-compile individual regexes for debug pattern identification
+			// Pre-compile individual regexes for debug pattern identification only
 			const individualRegexes = this.debug
 				? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
 				: null;
 
-			// Create an efficient attribute selector for elements we care about
-			const attributeSelector = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
-			const allElements = doc.querySelectorAll(attributeSelector);
+			// Use pre-built attribute selector for elements we care about
+			const allElements = doc.querySelectorAll(TEST_ATTRIBUTES_SELECTOR);
 
 			// Process elements for partial matches
 			allElements.forEach(el => {
