@@ -69,8 +69,9 @@ export class XArticleExtractor extends BaseExtractor {
 	}
 
 	private getAuthorFromUrl(): string {
-		// match username before /article/, excluding system paths like /i/
-		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/article\/\d+/);
+		// X articles can render on both /article/ and /status/ URLs.
+		// Prefer the handle from the URL when available, excluding system paths like /i/.
+		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/(?:status|article)\/\d+/);
 		return match ? `@${match[1]}` : this.getAuthorFromOgTitle();
 	}
 
