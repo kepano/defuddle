@@ -10,8 +10,8 @@
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"lib": ["ES2020", "DOM"],
-		"types": ["node", "jsdom"]
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
+		"types": ["node"]
 	},
 	"include": ["src/node.ts", "src/cli.ts"],
 	"exclude": ["node_modules", "dist"]

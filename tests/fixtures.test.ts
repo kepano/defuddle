@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { Defuddle, DefuddleResponse } from '../src/node';
-import { getFixtures, parseWithJSDOM } from './helpers';
+import { getFixtures, parseDocument } from './helpers';
 
 /**
  * Fixtures-based testing for Defuddle extractors
@@ -83,7 +83,7 @@ describe('Fixtures Tests', () => {
     const frontmatter = frontmatterMatch ? JSON.parse(frontmatterMatch[1]) : {};
     const urlName = basename(path, '.html').replace(/^[a-z]+--/, '');
     const url = frontmatter.url || `https://${urlName}`;
-    const doc = parseWithJSDOM(html, url);
+    const doc = parseDocument(html, url);
     const response = await Defuddle(doc, url, { separateMarkdown: true });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);

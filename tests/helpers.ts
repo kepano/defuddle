@@ -1,6 +1,6 @@
 import { readdirSync } from 'fs';
 import { join, basename, extname } from 'path';
-import { JSDOM, VirtualConsole } from 'jsdom';
+import { parseHTML } from 'linkedom';
 
 export function getFixtures(): Array<{ name: string; path: string }> {
 	const fixturesDir = join(__dirname, 'fixtures');
@@ -13,11 +13,13 @@ export function getFixtures(): Array<{ name: string; path: string }> {
 	});
 }
 
-export function parseWithJSDOM(html: string, url?: string): Document {
-	const dom = new JSDOM(html, {
-		url,
-		storageQuota: 10000000,
-		virtualConsole: new VirtualConsole().sendTo(console, { omitJSDOMErrors: true })
-	});
-	return dom.window.document;
+export function parseDocument(html: string, url?: string): Document {
+	const { document } = parseHTML(html);
+	const doc = document as any;
+	if (!doc.styleSheets) doc.styleSheets = [];
+	if (doc.defaultView && !doc.defaultView.getComputedStyle) {
+		doc.defaultView.getComputedStyle = () => ({ display: '' });
+	}
+	if (url) doc.URL = url;
+	return document as unknown as Document;
 }

@@ -1,11 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { JSDOM } from 'jsdom';
 import Defuddle from '../src/index.full';
-
-function createDocument(html: string): Document {
-	const dom = new JSDOM(html);
-	return dom.window.document;
-}
+import { parseDocument } from './helpers';
 
 const simpleHTML = `
 <!DOCTYPE html>
@@ -23,7 +18,7 @@ const simpleHTML = `
 
 describe('Full bundle markdown conversion', () => {
 	test('markdown: true converts content to markdown', () => {
-		const doc = createDocument(simpleHTML);
+		const doc = parseDocument(simpleHTML);
 		const defuddle = new Defuddle(doc, { markdown: true });
 		const result = defuddle.parse();
 
@@ -34,7 +29,7 @@ describe('Full bundle markdown conversion', () => {
 	});
 
 	test('separateMarkdown: true populates contentMarkdown while keeping content as HTML', () => {
-		const doc = createDocument(simpleHTML);
+		const doc = parseDocument(simpleHTML);
 		const defuddle = new Defuddle(doc, { separateMarkdown: true });
 		const result = defuddle.parse();
 
@@ -49,7 +44,7 @@ describe('Full bundle markdown conversion', () => {
 	});
 
 	test('without markdown options, no markdown conversion happens', () => {
-		const doc = createDocument(simpleHTML);
+		const doc = parseDocument(simpleHTML);
 		const defuddle = new Defuddle(doc);
 		const result = defuddle.parse();
 
