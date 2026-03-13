@@ -1,11 +1,12 @@
 import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
+import { parseWithJSDOM } from './helpers';
 
 describe('Markdown conversion', () => {
 	describe('exclamation mark before image', () => {
 		test('should add space between ! and image syntax', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Yey!<img src="https://example.com/img.png" alt="IMG"></p></article></body></html>`;
-			const result = await Defuddle(html, 'https://example.com', { separateMarkdown: true });
+			const result = await Defuddle(parseWithJSDOM(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			// The ! from "Yey!" should be separated from ![IMG](...) with a space
 			expect(result.contentMarkdown).toContain('! ![IMG]');
@@ -14,7 +15,7 @@ describe('Markdown conversion', () => {
 
 		test('should add space between ! and linked image', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Hello!<a href="https://example.com"><img src="https://example.com/img.png" alt="photo"></a></p></article></body></html>`;
-			const result = await Defuddle(html, 'https://example.com', { separateMarkdown: true });
+			const result = await Defuddle(parseWithJSDOM(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			expect(result.contentMarkdown).toContain('! [![photo]');
 			expect(result.contentMarkdown).not.toMatch(/!\[!\[/);
@@ -22,7 +23,7 @@ describe('Markdown conversion', () => {
 
 		test('should not affect normal image syntax', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Hello world</p><img src="https://example.com/img.png" alt="photo"></article></body></html>`;
-			const result = await Defuddle(html, 'https://example.com', { separateMarkdown: true });
+			const result = await Defuddle(parseWithJSDOM(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			// Normal image syntax should remain untouched
 			expect(result.contentMarkdown).toContain('![photo](https://example.com/img.png)');
@@ -30,7 +31,7 @@ describe('Markdown conversion', () => {
 
 		test('should not add space to ! that is not before image syntax', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Hello! This is great!</p></article></body></html>`;
-			const result = await Defuddle(html, 'https://example.com', { separateMarkdown: true });
+			const result = await Defuddle(parseWithJSDOM(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			expect(result.contentMarkdown).toContain('Hello! This is great!');
 		});

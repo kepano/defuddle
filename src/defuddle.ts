@@ -515,6 +515,10 @@ export class Defuddle {
 			// Clone document
 			const clone = this.doc.cloneNode(true) as Document;
 
+			// Merge adjacent text nodes that some DOM implementations (e.g. linkedom)
+			// create when parsing HTML entities like &#39;
+			clone.body?.normalize();
+
 			// Flatten shadow DOM content into the clone
 			this.flattenShadowRoots(this.doc, clone);
 

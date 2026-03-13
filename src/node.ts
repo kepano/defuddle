@@ -1,47 +1,31 @@
-import { JSDOM, VirtualConsole } from 'jsdom';
 import DefuddleClass from './index';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { toMarkdown } from './markdown';
 
 /**
- * Parse HTML content using JSDOM
- * @param htmlOrDom HTML string or JSDOM instance to parse
- * @param url Optional URL of the page being parsed
+ * Parse a Document using any DOM implementation (JSDOM, linkedom, happy-dom, etc.)
+ * @param doc Document instance to parse
+ * @param url URL of the page being parsed
  * @param options Optional parsing options
  * @returns Promise with parsed content and metadata
  */
 export async function Defuddle(
-	htmlOrDom: string | JSDOM,
+	doc: Document,
 	url?: string,
 	options?: DefuddleOptions
 ): Promise<DefuddleResponse> {
-	
-	let dom: JSDOM;
-	
-	if (typeof htmlOrDom === 'string') {
-		dom = new JSDOM(htmlOrDom, {
-			url,
-			storageQuota: 10000000,
-			virtualConsole: new VirtualConsole().sendTo(console, { omitJSDOMErrors: true })
-		});
-	} else {
-		dom = htmlOrDom;
-	}
+	const pageUrl = url || (doc as any).URL || 'about:blank';
 
-	const pageUrl = url || dom.window.location.href;
-
-	// Create Defuddle instance with URL in options
-	const defuddle = new DefuddleClass(dom.window.document, {
+	const defuddle = new DefuddleClass(doc, {
 		...options,
 		url: pageUrl
 	});
 
 	const result = await defuddle.parseAsync();
 
-	// Convert to markdown if requested
 	toMarkdown(result, options ?? {}, pageUrl);
 
 	return result;
 }
 
-export { DefuddleClass, DefuddleOptions, DefuddleResponse }; 
+export { DefuddleClass, DefuddleOptions, DefuddleResponse };

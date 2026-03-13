@@ -289,7 +289,11 @@ export function getDocsPage(): string {
 
 		<pre><code class="language-bash">npm install defuddle</code></pre>
 
-		<p>For Node.js use, you also need JSDOM:</p>
+		<p>For Node.js use, install a DOM implementation:</p>
+
+		<pre><code class="language-bash">npm install defuddle linkedom</code></pre>
+
+		<p>Or use <a href="https://github.com/jsdom/jsdom">JSDOM</a>:</p>
 
 		<pre><code class="language-bash">npm install defuddle jsdom</code></pre>
 
@@ -328,23 +332,23 @@ const result = new Defuddle(doc).parse();</code></pre>
 
 		<h2 id="node">Node.js use</h2>
 
-		<p>The Node.js API accepts an HTML string or a JSDOM instance and returns a promise.</p>
+		<p>The Node.js API accepts a DOM <code>Document</code> from any implementation (JSDOM, linkedom, happy-dom, etc.) and returns a promise.</p>
 
-<pre><code class="language-javascript">import { Defuddle } from 'defuddle/node';
+<pre><code class="language-javascript">import { parseHTML } from 'linkedom';
+import { Defuddle } from 'defuddle/node';
 
-// From an HTML string
-const result = await Defuddle(htmlString);
-
-// From a JSDOM instance
-import { JSDOM } from 'jsdom';
-const dom = await JSDOM.fromURL('https://example.com/article');
-const result = await Defuddle(dom);
-
-// With URL and options
-const result = await Defuddle(dom, 'https://example.com/article', {
-  markdown: true,
-  debug: true
+const { document } = parseHTML(htmlString);
+const result = await Defuddle(document, 'https://example.com/article', {
+  markdown: true
 });</code></pre>
+
+		<p>Or with JSDOM:</p>
+
+<pre><code class="language-javascript">import { JSDOM } from 'jsdom';
+import { Defuddle } from 'defuddle/node';
+
+const dom = new JSDOM(htmlString, { url: 'https://example.com/article' });
+const result = await Defuddle(dom.window.document, 'https://example.com/article');</code></pre>
 
 		<div class="note">
 			<strong>Note:</strong> For <code>defuddle/node</code> to import properly, your <code>package.json</code> must have <code>"type": "module"</code>.
@@ -453,7 +457,7 @@ npx defuddle parse page.html --output result.html</code></pre>
 			<tbody>
 				<tr><td>Core</td><td><code>defuddle</code></td><td>Browser usage. No dependencies. Handles math content but without MathML/LaTeX conversion fallbacks.</td></tr>
 				<tr><td>Full</td><td><code>defuddle/full</code></td><td>Includes math equation parsing (MathML ↔ LaTeX) and Markdown conversion via Turndown.</td></tr>
-				<tr><td>Node.js</td><td><code>defuddle/node</code></td><td>For Node.js with JSDOM. Includes full capabilities for math and Markdown conversion.</td></tr>
+				<tr><td>Node.js</td><td><code>defuddle/node</code></td><td>For Node.js. Accepts any DOM Document (linkedom, JSDOM, happy-dom, etc.). Includes full capabilities for math and Markdown conversion.</td></tr>
 			</tbody>
 		</table>
 

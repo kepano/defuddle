@@ -3,7 +3,6 @@ import { readFileSync } from 'fs';
 import { basename } from 'path';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import DefuddleClass from '../src/index';
-import { Defuddle } from '../src/node';
 import { getFixtures } from './helpers';
 
 describe('Performance', () => {
