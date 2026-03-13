@@ -17,9 +17,9 @@ Extracts main content from web pages as clean HTML.
 ## Environments
 
 - **Browser** (`defuddle`, `defuddle/full`) — Native DOM. Used by extensions and web apps.
-- **Node.js** (`defuddle/node`) — JSDOM. Async API.
-- **CLI** (`src/cli.ts`) — JSDOM. Supports `--markdown` and `--json` flags.
-- **Cloudflare Worker** (`website/src/convert.ts`) — linkedom polyfill, most constrained DOM.
+- **Node.js** (`defuddle/node`) — Accepts any DOM `Document` (linkedom, JSDOM, happy-dom, etc.). Async API.
+- **CLI** (`src/cli.ts`) — linkedom. Supports `--markdown` and `--json` flags.
+- **Cloudflare Worker** (`website/src/convert.ts`) — linkedom, most constrained DOM.
 
 ## Build and test
 

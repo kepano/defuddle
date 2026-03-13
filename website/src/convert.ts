@@ -1,4 +1,4 @@
-import { parseHTML } from 'linkedom';
+import { parseLinkedomHTML } from '../../src/utils/linkedom-compat';
 import { Defuddle } from '../../src/defuddle';
 import { toMarkdown } from '../../src/markdown';
 import { countWords } from '../../src/utils';
@@ -125,21 +125,8 @@ function decodeHtml(buffer: ArrayBuffer, contentType: string): string {
 }
 
 function createDefuddle(html: string, targetUrl: string) {
-	const { document } = parseHTML(html);
-
-	// linkedom doesn't implement styleSheets or getComputedStyle.
-	// Stub them so defuddle's internals proceed without throwing.
-	const doc = document as any;
-	if (!doc.styleSheets) {
-		doc.styleSheets = [];
-	}
-	if (doc.defaultView && !doc.defaultView.getComputedStyle) {
-		doc.defaultView.getComputedStyle = () => ({ display: '' });
-	}
-
-	return new Defuddle(document as unknown as Document, {
-		url: targetUrl,
-	});
+	const doc = parseLinkedomHTML(html, targetUrl);
+	return new Defuddle(doc, { url: targetUrl });
 }
 
 function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {

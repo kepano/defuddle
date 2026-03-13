@@ -1,6 +1,6 @@
 import { readdirSync } from 'fs';
 import { join, basename, extname } from 'path';
-import { parseHTML } from 'linkedom';
+import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
 
 const USE_JSDOM = process.env.DOM === 'jsdom';
 
@@ -15,17 +15,6 @@ export function getFixtures(): Array<{ name: string; path: string }> {
 	});
 }
 
-function parseWithLinkedom(html: string, url?: string): Document {
-	const { document } = parseHTML(html);
-	const doc = document as any;
-	if (!doc.styleSheets) doc.styleSheets = [];
-	if (doc.defaultView && !doc.defaultView.getComputedStyle) {
-		doc.defaultView.getComputedStyle = () => ({ display: '' });
-	}
-	if (url) doc.URL = url;
-	return document as unknown as Document;
-}
-
 function parseWithJSDOM(html: string, url?: string): Document {
 	const { JSDOM, VirtualConsole } = require('jsdom');
 	const dom = new JSDOM(html, {
@@ -36,4 +25,4 @@ function parseWithJSDOM(html: string, url?: string): Document {
 	return dom.window.document;
 }
 
-export const parseDocument = USE_JSDOM ? parseWithJSDOM : parseWithLinkedom;
+export const parseDocument = USE_JSDOM ? parseWithJSDOM : parseLinkedomHTML;

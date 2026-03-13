@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { Defuddle } from './node';
 import { writeFile, readFile } from 'fs/promises';
 import { resolve } from 'path';
-import { parseHTML } from 'linkedom';
+import { parseLinkedomHTML } from './utils/linkedom-compat';
 
 interface ParseOptions {
 	output?: string;
@@ -65,12 +65,7 @@ program
 				html = await readFile(filePath, 'utf-8');
 			}
 
-			const { document } = parseHTML(html);
-			const doc = document as any;
-			if (!doc.styleSheets) doc.styleSheets = [];
-			if (doc.defaultView && !doc.defaultView.getComputedStyle) {
-				doc.defaultView.getComputedStyle = () => ({ display: '' });
-			}
+			const doc = parseLinkedomHTML(html);
 
 			const result = await Defuddle(doc, url, {
 				debug: options.debug,
