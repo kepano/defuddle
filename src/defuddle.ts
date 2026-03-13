@@ -861,9 +861,6 @@ export class Defuddle {
 		}
 
 		if (removePartial) {
-			// Use module-level pre-compiled regex (avoids rebuilding 534-pattern regex per parse)
-			const partialRegex = PARTIAL_SELECTORS_REGEX;
-
 			// Pre-compile individual regexes for debug pattern identification only
 			const individualRegexes = this.debug
 				? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
@@ -903,7 +900,7 @@ export class Defuddle {
 				}
 
 				// Check for partial match using single regex test
-				if (partialRegex.test(attrs)) {
+				if (PARTIAL_SELECTORS_REGEX.test(attrs)) {
 					const matchedPattern = individualRegexes
 						? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 						: undefined;
