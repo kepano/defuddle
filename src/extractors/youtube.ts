@@ -631,7 +631,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	/**
 	 * Group segments by speaker turns, then by sentences within each turn.
-	 * Each ">>" marker starts a new speaker turn (with blank line separation).
+	 * Each ">>" or "- " marker starts a new speaker turn (with blank line separation).
 	 * Within a turn, text is split at sentence boundaries for readability.
 	 * Tracks alternating speaker identity (0/1).
 	 */
@@ -644,7 +644,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		let prevSegText = '';
 		for (const seg of segments) {
 			const isSpeakerChange = /^>>/.test(seg.text);
-			const cleanText = seg.text.replace(/^>>\s*/, '');
+			const cleanText = seg.text.replace(/^>>\s*/, '').replace(/^-\s+/, '');
 
 			// Only treat >> as a real speaker change if the previous segment
 			// ended at a sentence boundary — otherwise it's a mid-sentence
