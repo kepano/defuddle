@@ -270,7 +270,42 @@ export function createMarkdownContent(content: string, url: string) {
 				return `[${text}](${href})`;
 			});
 
-			return `![${alt}](${src})\n\n${caption}\n\n`;
+			let imageMarkdown = `![${alt}](${src})\n\n${caption}\n\n`;
+
+			// Preserve non-image content inside malformed figures (e.g. when an
+			// unclosed <figure> tag causes subsequent content to be nested inside it)
+			if (!hasResidualFigureContent(node as Element)) {
+				return imageMarkdown;
+			}
+
+			const clone = (node as Element).cloneNode(true) as Element;
+
+			const cloneImg = clone.querySelector('img');
+			if (cloneImg) {
+				cloneImg.remove();
+			}
+
+			const cloneFigcaption = clone.querySelector('figcaption');
+			if (cloneFigcaption) {
+				cloneFigcaption.remove();
+			}
+
+			// Remove empty wrappers left behind after stripping the image/caption.
+			Array.from(clone.querySelectorAll('a, picture, div, span')).forEach((el: Element) => {
+				if (!el.textContent?.trim() && !el.querySelector('img')) {
+					el.remove();
+				}
+			});
+
+			const remainingHTML = serializeHTML(clone).trim();
+			if (remainingHTML) {
+				const remainingMarkdown = turndownService.turndown(remainingHTML).trim();
+				if (remainingMarkdown) {
+					imageMarkdown += remainingMarkdown + '\n\n';
+				}
+			}
+
+			return imageMarkdown;
 		}
 	});
 
@@ -689,6 +724,45 @@ export function createMarkdownContent(content: string, url: string) {
 				return alttext.trim();
 		}
 		return '';
+	}
+
+	function hasResidualFigureContent(figure: Element): boolean {
+		for (const child of Array.from(figure.childNodes)) {
+			if (child.nodeType === 3 && child.textContent?.trim()) {
+				return true;
+			}
+			if (child.nodeType !== 1) {
+				continue;
+			}
+
+			if (hasResidualFigureElement(child as Element)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function hasResidualFigureElement(el: Element): boolean {
+		if (el.tagName === 'FIGCAPTION' || el.tagName === 'IMG' || el.tagName === 'SOURCE') {
+			return false;
+		}
+
+		if (el.tagName === 'A' || el.tagName === 'DIV' || el.tagName === 'SPAN' || el.tagName === 'PICTURE') {
+			for (const child of Array.from(el.childNodes)) {
+				if (child.nodeType === 3 && child.textContent?.trim()) {
+					return true;
+				}
+				if (child.nodeType !== 1) {
+					continue;
+				}
+				if (hasResidualFigureElement(child as Element)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		return true;
 	}
 
 	try {
