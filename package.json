@@ -49,6 +49,7 @@
 		"dev:node": "tsc --project tsconfig.node.json --watch",
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
 		"test": "TZ=UTC vitest run",
+		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
 		"playground": "node playground/server.js"
 	},
 	"keywords": [
@@ -81,9 +82,11 @@
 		"turndown": "^7.2.0"
 	},
 	"devDependencies": {
+		"@types/jsdom": "^21.1.6",
 		"@types/node": "^20.19.0",
 		"@types/turndown": "^5.0.5",
 		"concurrently": "^8.2.2",
+		"jsdom": "^24.0.0",
 		"terser-webpack-plugin": "^5.3.14",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
