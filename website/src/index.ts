@@ -6,6 +6,7 @@ import { getDocsPage } from './docs';
 import { getTermsPage } from './terms';
 import { getPrivacyPage } from './privacy';
 import { getPricingPage } from './pricing';
+import { getSuccessPage } from './success';
 import { convertToMarkdown, formatResponse, parseHtml } from './convert';
 
 const PRIMARY_HOST = 'defuddle.md';
@@ -304,7 +305,7 @@ async function createCheckoutFlow(
 			quantity: 1,
 		}],
 		metadata: { key_hash: keyHash, block: blockId, ...(isTopup && { topup: 'true' }) },
-		success_url: `${baseUrl}/pricing`,
+		success_url: `${baseUrl}/success?session=${sessionToken}`,
 		cancel_url: `${baseUrl}/pricing`,
 	});
 
@@ -382,6 +383,7 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	if (path === '/terms') return htmlResponse(getTermsPage());
 	if (path === '/privacy') return htmlResponse(getPrivacyPage());
 	if (path === '/pricing') return htmlResponse(getPricingPage());
+	if (path === '/success') return htmlResponse(getSuccessPage(url.searchParams.get('session') || ''));
 
 	// --- API key routes ---
 

@@ -148,33 +148,6 @@ export function getPricingPage(): string {
 			font-size: 0.85rem;
 			display: none;
 		}
-		.key-result {
-			margin-top: 1.5rem;
-			padding: 1.5rem;
-			background: #1a2a1a;
-			border: 1px solid #2a5c2a;
-			border-radius: 8px;
-			display: none;
-		}
-		.key-result strong {
-			color: #a0e5a0;
-		}
-		.key-result code {
-			display: block;
-			margin-top: 0.5rem;
-			padding: 0.75rem;
-			background: #1C1B1A;
-			border-radius: 6px;
-			font-size: 0.85rem;
-			color: #F2F0E5;
-			word-break: break-all;
-			user-select: all;
-		}
-		.key-result p {
-			margin-top: 0.75rem;
-			font-size: 0.85rem;
-			color: #878580;
-		}
 	</style>
 </head>
 <body>
@@ -241,11 +214,6 @@ curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 		</div>
 
 		<div id="error" class="error"></div>
-		<div id="keyResult" class="key-result">
-			<strong>Your API key</strong>
-			<code id="apiKey"></code>
-			<p>Save this key — it won't be shown again. Use it as <code style="display:inline; padding: 0.1rem 0.3rem;">Authorization: Bearer YOUR_KEY</code> in your requests.</p>
-		</div>
 
 		<div class="footer">
 			<a href="/">Home</a>
@@ -283,11 +251,6 @@ curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 					throw new Error(data.error || 'Something went wrong');
 				}
 
-				// Store session ID for polling when they return
-				if (data.session_id) {
-					sessionStorage.setItem('defuddle_session', data.session_id);
-				}
-
 				// Redirect to Stripe Checkout
 				if (data.checkout_url) {
 					window.location.href = data.checkout_url;
@@ -298,38 +261,6 @@ curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 			}
 		}
 
-		var pollAttempts = 0;
-		var maxPollAttempts = 30;
-
-		// Check for completed session on page load (returning from Stripe)
-		async function checkSession() {
-			var sessionId = sessionStorage.getItem('defuddle_session');
-			if (!sessionId) return;
-
-			try {
-				var res = await fetch('/api/keys/sessions/' + sessionId);
-				var data = await res.json();
-
-				if (data.status === 'completed' && data.api_key) {
-					sessionStorage.removeItem('defuddle_session');
-					document.getElementById('apiKey').textContent = data.api_key;
-					document.getElementById('keyResult').style.display = 'block';
-				} else if (data.status === 'pending') {
-					pollAttempts += 1;
-					if (pollAttempts >= maxPollAttempts) {
-						sessionStorage.removeItem('defuddle_session');
-						showError('Payment is still processing. Refresh this page in a minute if your key does not appear.');
-						return;
-					}
-					// Poll again in 2 seconds
-					setTimeout(checkSession, 2000);
-				}
-			} catch (err) {
-				// Silently fail — session may have expired
-			}
-		}
-
-		checkSession();
 	</script>
 </body>
 </html>`;
