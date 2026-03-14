@@ -192,6 +192,15 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		unwrapBareSpans(element);
 
 		// Unwrap javascript: links — keep text, remove the link
+		// Unwrap links inside inline code — markdown can't render links in backtick code
+		const codeLinks = Array.from(element.querySelectorAll('code a'));
+		codeLinks.forEach(link => {
+			while (link.firstChild) {
+				link.parentNode?.insertBefore(link.firstChild, link);
+			}
+			link.remove();
+		});
+
 		const jsLinks = Array.from(element.querySelectorAll('a[href^="javascript:"]'));
 		jsLinks.forEach(link => {
 			while (link.firstChild) {
