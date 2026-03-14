@@ -608,11 +608,15 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getVideoId(): string {
-		const url = new URL(this.url);
-		if (url.hostname === 'youtu.be') {
-			return url.pathname.slice(1);
+		try {
+			const url = new URL(this.url);
+			if (url.hostname === 'youtu.be') {
+				return url.pathname.slice(1);
+			}
+			return new URLSearchParams(url.search).get('v') || '';
+		} catch {
+			return '';
 		}
-		return new URLSearchParams(url.search).get('v') || '';
 	}
 
 	/**
