@@ -6,3 +6,13 @@ compatibility_flags = ["nodejs_compat"]
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "335cf626a6db4759b12bc6855634f3ce"
+
+[durable_objects]
+bindings = [
+	{ name = "API_KEY_BALANCES", class_name = "ApiKeyBalanceDO" },
+	{ name = "CHECKOUT_FULFILLMENTS", class_name = "CheckoutFulfillmentDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ApiKeyBalanceDO", "CheckoutFulfillmentDO"]
