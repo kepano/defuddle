@@ -193,30 +193,15 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 
 		// Unwrap javascript: links — keep text, remove the link
 		// Unwrap links inside inline code — markdown can't render links in backtick code
-		const codeLinks = Array.from(element.querySelectorAll('code a'));
-		codeLinks.forEach(link => {
-			while (link.firstChild) {
-				link.parentNode?.insertBefore(link.firstChild, link);
-			}
-			link.remove();
-		});
+		Array.from(element.querySelectorAll('code a')).forEach(unwrapElement);
 
-		const jsLinks = Array.from(element.querySelectorAll('a[href^="javascript:"]'));
-		jsLinks.forEach(link => {
-			while (link.firstChild) {
-				link.parentNode?.insertBefore(link.firstChild, link);
-			}
-			link.remove();
-		});
+		// Unwrap javascript: links — keep text, remove the link
+		Array.from(element.querySelectorAll('a[href^="javascript:"]')).forEach(unwrapElement);
 
 		// Unwrap anchor links that wrap headings (e.g. clickable section headers)
-		const headingAnchors = Array.from(element.querySelectorAll('a[href^="#"]'));
-		headingAnchors.forEach(link => {
+		Array.from(element.querySelectorAll('a[href^="#"]')).forEach(link => {
 			if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
-				while (link.firstChild) {
-					link.parentNode?.insertBefore(link.firstChild, link);
-				}
-				link.remove();
+				unwrapElement(link);
 			}
 		});
 
@@ -489,6 +474,13 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 	element.querySelectorAll('*').forEach(processElement);
 
 	logDebug(_debug, 'Stripped attributes:', attributeCount);
+}
+
+function unwrapElement(el: Element): void {
+	while (el.firstChild) {
+		el.parentNode?.insertBefore(el.firstChild, el);
+	}
+	el.remove();
 }
 
 function unwrapBareSpans(element: Element): void {
@@ -1092,7 +1084,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		if (allBlockElements) return true;
 
 		// Check for common wrapper patterns
-		const className = el.className.toLowerCase();
+		const className = (typeof el.className === 'string' ? el.className : el.getAttribute('class') || '').toLowerCase();
 		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
 		if (isWrapper) return true;
 

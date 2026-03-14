@@ -1063,7 +1063,7 @@ export class Defuddle {
 		}
 
 		const id = element.id || '';
-		const className = element.className || '';
+		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '') || '';
 		const viewBox = element.tagName.toLowerCase() === 'svg' ? element.getAttribute('viewBox') || '' : '';
 		
 		if (id) return `id:${id}`;

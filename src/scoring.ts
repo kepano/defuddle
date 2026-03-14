@@ -163,7 +163,7 @@ export class ContentScorer {
 		if (hasAuthor) score += 10;
 
 		// Check for common content classes/attributes
-		const className = element.className.toLowerCase();
+		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
 		if (className.includes('content') || className.includes('article') || className.includes('post')) {
 			score += 15;
 		}
@@ -187,7 +187,7 @@ export class ContentScorer {
 				// Only favor cells in tables that look like old-style content layouts
 				const tableWidth = parseInt(parentTable.getAttribute('width') || '0');
 				const tableAlign = parentTable.getAttribute('align') || '';
-				const tableClass = parentTable.className.toLowerCase();
+				const tableClass = (typeof parentTable.className === 'string' ? parentTable.className : parentTable.getAttribute('class') || '').toLowerCase();
 				const isTableLayout = 
 					tableWidth > 400 || // Common width for main content tables
 					tableAlign === 'center' ||
@@ -313,7 +313,7 @@ export class ContentScorer {
 		}
 
 		// Check if the element has a class or id that indicates content
-		const className = element.className.toLowerCase();
+		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
 		const id = element.id.toLowerCase();
 
 		for (const indicator of contentIndicators) {
@@ -505,7 +505,7 @@ export class ContentScorer {
 		}
 
 		// Check for specific class patterns that indicate non-content
-		const className = element.className.toLowerCase();
+		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
 		const id = element.id.toLowerCase();
 
 		for (const pattern of nonContentPatterns) {
