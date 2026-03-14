@@ -9,13 +9,14 @@ const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
 const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/favicon.ico']);
 const CACHE_TTL = 300; // 5 minutes
+const MONTHLY_RATE_LIMIT = 5000;
 
 function isLocal(url: URL): boolean {
 	return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
 }
 
 export default {
-	async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
+	async fetch(request: Request, env: { RATE_LIMIT?: KVNamespace }, ctx: ExecutionContext): Promise<Response> {
 		try {
 			const url = new URL(request.url);
 			const path = url.pathname;
@@ -37,14 +38,14 @@ export default {
 					return cachedResponse;
 				}
 
-				const response = await handleRequest(request, url, path, ctx, useCache);
+				const response = await handleRequest(request, url, path, env, ctx, useCache);
 				if (response.ok && response.status !== 204 && response.status !== 205) {
 					ctx.waitUntil(cache.put(cacheKey, response.clone()));
 				}
 				return response;
 			}
 
-			return await handleRequest(request, url, path, ctx, useCache);
+			return await handleRequest(request, url, path, env, ctx, useCache);
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'An unexpected error occurred';
 			return errorResponse(message, 500);
@@ -52,7 +53,35 @@ export default {
 	},
 } satisfies ExportedHandler;
 
-async function handleRequest(request: Request, url: URL, path: string, ctx: ExecutionContext, useCache: boolean): Promise<Response> {
+type Env = { RATE_LIMIT?: KVNamespace };
+
+function getRateLimitKey(ip: string): string {
+	const now = new Date();
+	const month = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+	return `rate:${ip}:${month}`;
+}
+
+function secondsUntilMonthEnd(): number {
+	const now = new Date();
+	const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+	return Math.ceil((nextMonth.getTime() - now.getTime()) / 1000);
+}
+
+async function checkRateLimit(kv: KVNamespace, ip: string): Promise<{ allowed: boolean; count: number }> {
+	const key = getRateLimitKey(ip);
+	const value = await kv.get(key);
+	const count = value ? parseInt(value, 10) : 0;
+	return { allowed: count < MONTHLY_RATE_LIMIT, count };
+}
+
+async function incrementRateLimit(kv: KVNamespace, ip: string): Promise<void> {
+	const key = getRateLimitKey(ip);
+	const value = await kv.get(key);
+	const count = value ? parseInt(value, 10) : 0;
+	await kv.put(key, String(count + 1), { expirationTtl: secondsUntilMonthEnd() });
+}
+
+async function handleRequest(request: Request, url: URL, path: string, env: Env, ctx: ExecutionContext, useCache: boolean): Promise<Response> {
 	// Landing page
 	if (path === '/' || path === '') {
 		return new Response(getLandingPage(), {
@@ -155,6 +184,23 @@ async function handleRequest(request: Request, url: URL, path: string, ctx: Exec
 		return errorResponse('Cannot convert this URL.', 400);
 	}
 
+	// Rate limiting
+	const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+	if (env.RATE_LIMIT) {
+		const { allowed } = await checkRateLimit(env.RATE_LIMIT, ip);
+		if (!allowed) {
+			return new Response('Error: Monthly rate limit exceeded (5,000 requests/month).', {
+				status: 429,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+					'Retry-After': String(secondsUntilMonthEnd()),
+					'X-RateLimit-Limit': String(MONTHLY_RATE_LIMIT),
+					'X-RateLimit-Remaining': '0',
+				},
+			});
+		}
+	}
+
 	// Check cache for conversion responses
 	const cacheKey = useCache
 		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
@@ -186,6 +232,11 @@ async function handleRequest(request: Request, url: URL, path: string, ctx: Exec
 		// Only cache responses with meaningful content
 		if (cacheKey && result.wordCount > 0) {
 			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+		}
+
+		// Increment rate limit counter (non-blocking)
+		if (env.RATE_LIMIT) {
+			ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
 		}
 
 		return response;

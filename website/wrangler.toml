@@ -2,3 +2,7 @@ name = "defuddle"
 main = "src/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "335cf626a6db4759b12bc6855634f3ce"
