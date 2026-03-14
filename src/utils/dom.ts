@@ -44,6 +44,14 @@ export function escapeHtml(text: string): string {
 }
 
 /**
+ * Safely get an element's class name as a string.
+ * Handles SVG elements where className is an SVGAnimatedString.
+ */
+export function getClassName(el: Element): string {
+	return typeof el.className === 'string' ? el.className : el.getAttribute('class') || '';
+}
+
+/**
  * Check if a URL uses a dangerous protocol (javascript:, data:text/html).
  * Strips whitespace and control characters before checking.
  */

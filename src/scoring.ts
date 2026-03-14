@@ -1,6 +1,7 @@
 import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from './constants';
 import { DebugRemoval } from './types';
 import { textPreview, countWords } from './utils';
+import { getClassName } from './utils/dom';
 
 const contentIndicators = [
 	'admonition',
@@ -77,6 +78,12 @@ const navigationIndicatorRegexes = navigationIndicators.map(
 const navigationHeadingPattern = new RegExp(
 	navigationIndicators.map(i => i.replace(/\s+/g, '\\s+')).join('|'), 'i'
 );
+
+// Date pattern for content scoring (extended with year)
+const contentDatePattern = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i;
+
+// Author attribution pattern for content scoring
+const contentAuthorPattern = /\b(?:by|written by|author:)\s+[A-Za-z\s]+\b/i;
 
 // Classes that indicate non-content these are elements are
 // not removed, but lower the score
@@ -156,14 +163,14 @@ export class ContentScorer {
 		}
 
 		// Content indicators
-		const hasDate = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i.test(text);
+		const hasDate = contentDatePattern.test(text);
 		if (hasDate) score += 10;
 
-		const hasAuthor = /\b(?:by|written by|author:)\s+[A-Za-z\s]+\b/i.test(text);
+		const hasAuthor = contentAuthorPattern.test(text);
 		if (hasAuthor) score += 10;
 
 		// Check for common content classes/attributes
-		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
+		const className = getClassName(element).toLowerCase();
 		if (className.includes('content') || className.includes('article') || className.includes('post')) {
 			score += 15;
 		}
@@ -187,7 +194,7 @@ export class ContentScorer {
 				// Only favor cells in tables that look like old-style content layouts
 				const tableWidth = parseInt(parentTable.getAttribute('width') || '0');
 				const tableAlign = parentTable.getAttribute('align') || '';
-				const tableClass = (typeof parentTable.className === 'string' ? parentTable.className : parentTable.getAttribute('class') || '').toLowerCase();
+				const tableClass = getClassName(parentTable).toLowerCase();
 				const isTableLayout = 
 					tableWidth > 400 || // Common width for main content tables
 					tableAlign === 'center' ||
@@ -313,7 +320,7 @@ export class ContentScorer {
 		}
 
 		// Check if the element has a class or id that indicates content
-		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
+		const className = getClassName(element).toLowerCase();
 		const id = element.id.toLowerCase();
 
 		for (const indicator of contentIndicators) {
@@ -505,7 +512,7 @@ export class ContentScorer {
 		}
 
 		// Check for specific class patterns that indicate non-content
-		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '').toLowerCase();
+		const className = getClassName(element).toLowerCase();
 		const id = element.id.toLowerCase();
 
 		for (const pattern of nonContentPatterns) {

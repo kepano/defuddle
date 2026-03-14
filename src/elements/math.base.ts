@@ -1,4 +1,4 @@
-import { parseHTML } from '../utils/dom';
+import { parseHTML, getClassName } from '../utils/dom';
 
 export interface MathData {
 	mathml: string;
@@ -138,7 +138,7 @@ export const isBlockDisplay = (el: Element): boolean => {
 	}
 
 	// Check common class names
-	const classNames = (typeof el.className === 'string' ? el.className : el.getAttribute('class') || '').toLowerCase();
+	const classNames = getClassName(el).toLowerCase();
 	if (classNames.includes('display') || classNames.includes('block')) {
 		return true;
 	}
@@ -175,10 +175,6 @@ export const isBlockDisplay = (el: Element): boolean => {
 	// Check MathJax script display attribute
 	if (el.matches('script[type="math/tex; mode=display"]')) {
 		return true;
-	}
-
-	if (el.hasAttribute('display')) {
-		return el.getAttribute('display') === 'true';
 	}
 
 	// Check parent container display attribute

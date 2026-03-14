@@ -14,7 +14,7 @@ import { codeBlockRules } from './elements/code';
 import { headingRules } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
-import { transferContent, isDirectTableChild } from './utils/dom';
+import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 
 // Module-level debug flag, set by standardizeContent for child functions
 let _debug = false;
@@ -1041,8 +1041,8 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		}
 		
 		// Check for semantic classes
-		const className = el.className;
-		if (typeof className === 'string' && className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)) {
+		const className = getClassName(el);
+		if (className && className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)) {
 			return true;
 		}
 
@@ -1051,8 +1051,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		const hasPreservedElements = children.some(child => 
 			PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
 			child.getAttribute('role') === 'article' ||
-			(child.className && typeof child.className === 'string' && 
-				child.className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/))
+			!!getClassName(child) && getClassName(child).toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)
 		);
 		if (hasPreservedElements) return true;
 		
@@ -1084,7 +1083,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		if (allBlockElements) return true;
 
 		// Check for common wrapper patterns
-		const className = (typeof el.className === 'string' ? el.className : el.getAttribute('class') || '').toLowerCase();
+		const className = getClassName(el).toLowerCase();
 		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
 		if (isWrapper) return true;
 
@@ -1138,24 +1137,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 
 		// Case 3: Wrapper element - merge up aggressively
 		if (isWrapperElement(el)) {
-			// Special case: if element only contains block elements, merge them up
-			const children = Array.from(el.children);
-			const onlyBlockElements = !children.some(child => {
-				const tag = child.tagName.toLowerCase();
-				return INLINE_ELEMENTS.has(tag);
-			});
-			
-			if (onlyBlockElements) {
-				const fragment = doc.createDocumentFragment();
-				while (el.firstChild) {
-					fragment.appendChild(el.firstChild);
-				}
-				el.replaceWith(fragment);
-				processedCount++;
-				return true;
-			}
-
-			// Otherwise handle as normal wrapper
 			const fragment = doc.createDocumentFragment();
 			while (el.firstChild) {
 				fragment.appendChild(el.firstChild);

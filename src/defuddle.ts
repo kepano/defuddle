@@ -20,7 +20,7 @@ import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -31,6 +31,8 @@ interface StyleChange {
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
 // Content pattern detection constants
+const STYLE_WIDTH_PATTERN = /width\s*:\s*(\d+)/;
+const STYLE_HEIGHT_PATTERN = /height\s*:\s*(\d+)/;
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
 const BOILERPLATE_PATTERNS = [
@@ -664,7 +666,6 @@ export class Defuddle {
 		return countWords(text);
 	}
 
-	// Make all other methods private by removing the static keyword and using private
 	private _log(...args: any[]): void {
 		if (this.debug) {
 			console.log('Defuddle:', ...args);
@@ -909,7 +910,7 @@ export class Defuddle {
 				// Get all relevant attributes and combine into a single string
 				const attrs = TEST_ATTRIBUTES.map(attr => {
 					if (attr === 'class') {
-						return el.className && typeof el.className === 'string' ? el.className : '';
+						return getClassName(el);
 					}
 					if (attr === 'id') {
 						return el.id || '';
@@ -990,8 +991,8 @@ export class Defuddle {
 
 			// Check inline style dimensions
 			const style = element.getAttribute('style') || '';
-			const styleWidth = parseInt(style.match(/width\s*:\s*(\d+)/)?.[1] || '0');
-			const styleHeight = parseInt(style.match(/height\s*:\s*(\d+)/)?.[1] || '0');
+			const styleWidth = parseInt(style.match(STYLE_WIDTH_PATTERN)?.[1] || '0');
+			const styleHeight = parseInt(style.match(STYLE_HEIGHT_PATTERN)?.[1] || '0');
 
 			// Use getComputedStyle and getBoundingClientRect only in browser
 			let computedWidth = 0, computedHeight = 0;
@@ -1063,7 +1064,7 @@ export class Defuddle {
 		}
 
 		const id = element.id || '';
-		const className = (typeof element.className === 'string' ? element.className : element.getAttribute('class') || '') || '';
+		const className = getClassName(element);
 		const viewBox = element.tagName.toLowerCase() === 'svg' ? element.getAttribute('viewBox') || '' : '';
 		
 		if (id) return `id:${id}`;
@@ -1194,8 +1195,8 @@ export class Defuddle {
 			let selector = current.tagName.toLowerCase();
 			if (current.id) {
 				selector += '#' + current.id;
-			} else if (current.className && typeof current.className === 'string') {
-				selector += '.' + current.className.trim().split(/\s+/).join('.');
+			} else if (getClassName(current)) {
+				selector += '.' + getClassName(current).trim().split(/\s+/).join('.');
 			}
 			parts.unshift(selector);
 			current = current.parentElement;
