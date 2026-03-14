@@ -570,6 +570,10 @@ export class Defuddle {
 				};
 			}
 
+			// Remove <wbr> elements — word break opportunity hints that carry no
+			// content but cause unwanted whitespace during standardization.
+			mainContent.querySelectorAll('wbr').forEach(el => el.remove());
+
 			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
 			if (options.standardize) {
 				standardizeFootnotes(mainContent);

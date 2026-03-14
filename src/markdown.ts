@@ -692,6 +692,11 @@ export function createMarkdownContent(content: string, url: string) {
 	}
 
 	try {
+		// Remove <wbr> tags before conversion — wbr is a word break opportunity
+		// hint, not actual content, and Turndown's void element whitespace
+		// preservation would otherwise insert unwanted spaces.
+		content = content.replace(/<wbr\s*\/?>/gi, '');
+
 		let markdown = turndownService.turndown(content);
 
 		// Remove the title from the beginning of the content if it exists
