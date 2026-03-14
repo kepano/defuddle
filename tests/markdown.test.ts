@@ -36,4 +36,20 @@ describe('Markdown conversion', () => {
 			expect(result.contentMarkdown).toContain('Hello! This is great!');
 		});
 	});
+
+	describe('wbr tag handling', () => {
+		test('should remove wbr tags without adding any content', async () => {
+			const html = `<html><head><title>Test</title></head><body><article><p>Super<wbr>cali<wbr>fragilistic</p></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain('Supercalifragilistic');
+		});
+
+		test('should handle wbr in links', async () => {
+			const html = `<html><head><title>Test</title></head><body><article><p><a href="https://example.com">long<wbr>word</a></p></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain('longword');
+		});
+	});
 });
