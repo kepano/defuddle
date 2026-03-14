@@ -229,9 +229,12 @@ export function getPricingPage(): string {
 		<div class="how-it-works">
 			<h2>Check usage</h2>
 			<p>Check your remaining requests at any time:</p>
-<pre><code>curl defuddle.md/api/keys/YOUR_KEY/usage</code></pre>
+<pre><code>curl -H "Authorization: Bearer YOUR_KEY" defuddle.md/api/keys/usage</code></pre>
 			<p>To top up an existing key:</p>
-<pre><code>curl -X POST defuddle.md/api/keys/YOUR_KEY/topup -d '{"block":"10000"}'</code></pre>
+<pre><code>curl -X POST defuddle.md/api/keys/topup \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"block":"10000"}'</code></pre>
 		</div>
 
 		<div id="error" class="error"></div>
@@ -292,6 +295,9 @@ export function getPricingPage(): string {
 			}
 		}
 
+		var pollAttempts = 0;
+		var maxPollAttempts = 30;
+
 		// Check for completed session on page load (returning from Stripe)
 		async function checkSession() {
 			var sessionId = sessionStorage.getItem('defuddle_session');
@@ -306,6 +312,12 @@ export function getPricingPage(): string {
 					document.getElementById('apiKey').textContent = data.api_key;
 					document.getElementById('keyResult').style.display = 'block';
 				} else if (data.status === 'pending') {
+					pollAttempts += 1;
+					if (pollAttempts >= maxPollAttempts) {
+						sessionStorage.removeItem('defuddle_session');
+						showError('Payment is still processing. Refresh this page in a minute if your key does not appear.');
+						return;
+					}
 					// Poll again in 2 seconds
 					setTimeout(checkSession, 2000);
 				}

@@ -34,7 +34,6 @@ type SessionRecord = {
 	api_key: string;
 	block: string;
 	stripe_session_id: string;
-	topup?: boolean;
 };
 
 type ApiKeyMutationResult = {
@@ -42,6 +41,10 @@ type ApiKeyMutationResult = {
 	exists: boolean;
 	remaining: number;
 };
+
+type ApiKeyAuthResult =
+	| { ok: true; apiKey: string }
+	| { ok: false; response: Response };
 
 function isLocal(url: URL): boolean {
 	return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
@@ -85,6 +88,45 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 
+// --- Shared helpers ---
+
+function toHex(bytes: Uint8Array): string {
+	return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getClientIp(request: Request): string {
+	return request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+}
+
+function htmlResponse(body: string): Response {
+	return new Response(body, {
+		headers: {
+			'Content-Type': 'text/html; charset=utf-8',
+			'Cache-Control': 'public, max-age=3600',
+		},
+	});
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+	return new Response(JSON.stringify(data), {
+		status,
+		headers: {
+			'Content-Type': 'application/json; charset=utf-8',
+			'Access-Control-Allow-Origin': '*',
+		},
+	});
+}
+
+function errorResponse(message: string, status: number): Response {
+	return new Response(JSON.stringify({ error: message }), {
+		status,
+		headers: {
+			'Content-Type': 'application/json; charset=utf-8',
+			'Access-Control-Allow-Origin': '*',
+		},
+	});
+}
+
 // --- Rate limiting ---
 
 function getRateLimitKey(ip: string): string {
@@ -120,13 +162,13 @@ const API_KEY_PATTERN = /^df_[0-9a-f]{48}$/;
 function generateApiKey(): string {
 	const bytes = new Uint8Array(24);
 	crypto.getRandomValues(bytes);
-	return 'df_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+	return 'df_' + toHex(bytes);
 }
 
 function generateSessionToken(): string {
 	const bytes = new Uint8Array(32);
 	crypto.getRandomValues(bytes);
-	return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+	return toHex(bytes);
 }
 
 function isValidApiKey(key: string): boolean {
@@ -135,7 +177,7 @@ function isValidApiKey(key: string): boolean {
 
 async function hashForMetadata(value: string): Promise<string> {
 	const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-	return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+	return toHex(new Uint8Array(hash)).slice(0, 16);
 }
 
 function getStripe(env: Env): Stripe {
@@ -150,51 +192,77 @@ function getCheckoutFulfillmentStub(env: Env, stripeSessionId: string): DurableO
 	return env.CHECKOUT_FULFILLMENTS.get(env.CHECKOUT_FULFILLMENTS.idFromName(stripeSessionId));
 }
 
-async function getApiKeyStatus(env: Env, apiKey: string): Promise<ApiKeyMutationResult> {
-	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/status', {
+async function doApiKeyFetch(
+	env: Env,
+	apiKey: string,
+	action: 'status' | 'credit' | 'consume',
+	extra?: Record<string, unknown>,
+): Promise<ApiKeyMutationResult> {
+	const response = await getApiKeyBalanceStub(env, apiKey).fetch(`https://internal/${action}`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ apiKey }),
+		body: JSON.stringify({ apiKey, ...extra }),
 	});
-	return await response.json() as ApiKeyMutationResult;
+	return response.json() as Promise<ApiKeyMutationResult>;
 }
 
-async function creditApiKey(env: Env, apiKey: string, delta: number): Promise<ApiKeyMutationResult> {
-	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/credit', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ apiKey, delta }),
-	});
-	return await response.json() as ApiKeyMutationResult;
+function getApiKeyStatus(env: Env, apiKey: string) {
+	return doApiKeyFetch(env, apiKey, 'status');
 }
 
-async function consumeApiKeyRequest(env: Env, apiKey: string): Promise<ApiKeyMutationResult> {
-	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/consume', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ apiKey }),
-	});
-	return await response.json() as ApiKeyMutationResult;
+function creditApiKey(env: Env, apiKey: string, delta: number) {
+	return doApiKeyFetch(env, apiKey, 'credit', { delta });
 }
 
-// --- Stripe webhook verification ---
+function consumeApiKeyRequest(env: Env, apiKey: string) {
+	return doApiKeyFetch(env, apiKey, 'consume');
+}
 
-async function verifyStripeWebhook(payload: string, signature: string, secret: string): Promise<boolean> {
-	const parts: Record<string, string> = {};
-	for (const part of signature.split(',')) {
-		const [k, v] = part.split('=');
-		parts[k] = v;
+function getBearerApiKey(request: Request): ApiKeyAuthResult {
+	const authHeader = request.headers.get('authorization');
+	if (!authHeader?.startsWith('Bearer ')) {
+		return { ok: false, response: errorResponse('Missing Authorization: Bearer API key.', 401) };
 	}
 
-	const timestamp = parts['t'];
-	const v1 = parts['v1'];
-	if (!timestamp || !v1) return false;
+	const apiKey = authHeader.slice(7);
+	if (!isValidApiKey(apiKey)) {
+		return { ok: false, response: errorResponse('Invalid API key format.', 401) };
+	}
 
-	// Reject signatures older than 5 minutes
-	const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
-	if (age > 300) return false;
+	return { ok: true, apiKey };
+}
 
-	const signedPayload = `${timestamp}.${payload}`;
+function constantTimeEquals(a: string, b: string): boolean {
+	if (a.length !== b.length) return false;
+	let mismatch = 0;
+	for (let i = 0; i < a.length; i++) {
+		mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+	}
+	return mismatch === 0;
+}
+
+// --- Stripe helpers ---
+
+async function verifyStripeWebhook(payload: string, signature: string, secret: string): Promise<boolean> {
+	let timestamp: string | null = null;
+	const v1Values: string[] = [];
+	for (const part of signature.split(',')) {
+		const [k, v] = part.split('=');
+		if (!k || !v) continue;
+		if (k === 't') timestamp = v;
+		if (k === 'v1') v1Values.push(v);
+	}
+
+	if (!timestamp || v1Values.length === 0) return false;
+
+	const parsedTimestamp = parseInt(timestamp, 10);
+	if (!Number.isFinite(parsedTimestamp)) return false;
+
+	// Reject signatures outside the 5 minute tolerance window.
+	const age = Math.floor(Date.now() / 1000) - parsedTimestamp;
+	if (Math.abs(age) > 300) return false;
+
+	const signedPayload = `${parsedTimestamp}.${payload}`;
 	const key = await crypto.subtle.importKey(
 		'raw',
 		new TextEncoder().encode(secret),
@@ -203,15 +271,59 @@ async function verifyStripeWebhook(payload: string, signature: string, secret: s
 		['sign'],
 	);
 	const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signedPayload));
-	const expected = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+	const expected = toHex(new Uint8Array(sig));
 
-	// Constant-time comparison to prevent timing attacks
-	if (expected.length !== v1.length) return false;
-	let mismatch = 0;
-	for (let i = 0; i < expected.length; i++) {
-		mismatch |= expected.charCodeAt(i) ^ v1.charCodeAt(i);
+	return v1Values.some(v1 => constantTimeEquals(expected, v1));
+}
+
+async function createCheckoutFlow(
+	env: Env,
+	url: URL,
+	apiKey: string,
+	blockId: string,
+	isTopup: boolean,
+): Promise<Response> {
+	const block = BLOCKS[blockId];
+	if (!block) {
+		return errorResponse(`Invalid block. Options: ${Object.keys(BLOCKS).join(', ')}`, 400);
 	}
-	return mismatch === 0;
+
+	const sessionToken = generateSessionToken();
+	const keyHash = await hashForMetadata(apiKey);
+	const stripe = getStripe(env);
+	const baseUrl = `${url.protocol}//${url.host}`;
+
+	const session = await stripe.checkout.sessions.create({
+		mode: 'payment',
+		line_items: [{
+			price_data: {
+				currency: 'usd',
+				unit_amount: block.price,
+				product_data: { name: `Defuddle API — ${block.name}${isTopup ? ' (top-up)' : ''}` },
+			},
+			quantity: 1,
+		}],
+		metadata: { key_hash: keyHash, block: blockId, ...(isTopup && { topup: 'true' }) },
+		success_url: `${baseUrl}/pricing`,
+		cancel_url: `${baseUrl}/pricing`,
+	});
+
+	await Promise.all([
+		env.RATE_LIMIT!.put(`session:${sessionToken}`, JSON.stringify({
+			status: 'pending',
+			api_key: apiKey,
+			block: blockId,
+			stripe_session_id: session.id,
+		} satisfies SessionRecord), { expirationTtl: 86400 }),
+		env.RATE_LIMIT!.put(`stripe_session:${session.id}`, sessionToken, {
+			expirationTtl: 86400,
+		}),
+	]);
+
+	return jsonResponse({
+		checkout_url: session.url,
+		session_id: sessionToken,
+	});
 }
 
 // --- Request handler ---
@@ -219,12 +331,7 @@ async function verifyStripeWebhook(payload: string, signature: string, secret: s
 async function handleRequest(request: Request, url: URL, path: string, env: Env, ctx: ExecutionContext, useCache: boolean): Promise<Response> {
 	// Landing page
 	if (path === '/' || path === '') {
-		return new Response(getLandingPage(), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
+		return htmlResponse(getLandingPage());
 	}
 
 	// Handle CORS preflight
@@ -252,12 +359,7 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 				prefillHtml = formData.get('html')?.toString() || '';
 			} catch {}
 		}
-		return new Response(getPlaygroundPage(prefillHtml), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
+		return htmlResponse(getPlaygroundPage(prefillHtml));
 	}
 
 	// API: parse HTML to markdown
@@ -275,45 +377,11 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		}
 	}
 
-	// Docs
-	if (path === '/docs') {
-		return new Response(getDocsPage(), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
-	}
-
-	// Terms
-	if (path === '/terms') {
-		return new Response(getTermsPage(), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
-	}
-
-	// Privacy
-	if (path === '/privacy') {
-		return new Response(getPrivacyPage(), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
-	}
-
-	// Pricing
-	if (path === '/pricing') {
-		return new Response(getPricingPage(), {
-			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
-				'Cache-Control': 'public, max-age=3600',
-			},
-		});
-	}
+	// Static pages
+	if (path === '/docs') return htmlResponse(getDocsPage());
+	if (path === '/terms') return htmlResponse(getTermsPage());
+	if (path === '/privacy') return htmlResponse(getPrivacyPage());
+	if (path === '/pricing') return htmlResponse(getPricingPage());
 
 	// --- API key routes ---
 
@@ -337,51 +405,8 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		}
 
 		const body = await request.json() as { block?: string };
-		const blockId = body.block || '1000';
-		const block = BLOCKS[blockId];
-		if (!block) {
-			return errorResponse(`Invalid block. Options: ${Object.keys(BLOCKS).join(', ')}`, 400);
-		}
-
 		const apiKey = generateApiKey();
-		const sessionToken = generateSessionToken();
-		const keyHash = await hashForMetadata(apiKey);
-		const stripe = getStripe(env);
-		const baseUrl = `${url.protocol}//${url.host}`;
-
-		const session = await stripe.checkout.sessions.create({
-			mode: 'payment',
-			line_items: [{
-				price_data: {
-					currency: 'usd',
-					unit_amount: block.price,
-					product_data: { name: `Defuddle API — ${block.name}` },
-				},
-				quantity: 1,
-			}],
-			// Store only a hash in Stripe metadata — the real key stays in KV only
-			metadata: { key_hash: keyHash, block: blockId },
-			success_url: `${baseUrl}/pricing`,
-			cancel_url: `${baseUrl}/pricing`,
-		});
-
-		// Store pending session for polling (keyed by our token, not the Stripe session ID)
-		await env.RATE_LIMIT.put(`session:${sessionToken}`, JSON.stringify({
-			status: 'pending',
-			api_key: apiKey,
-			block: blockId,
-			stripe_session_id: session.id,
-		}), { expirationTtl: 86400 }); // 24h TTL
-
-		// Reverse mapping: Stripe session ID → our session token (for webhook)
-		await env.RATE_LIMIT.put(`stripe_session:${session.id}`, sessionToken, {
-			expirationTtl: 86400,
-		});
-
-		return jsonResponse({
-			checkout_url: session.url,
-			session_id: sessionToken,
-		});
+		return createCheckoutFlow(env, url, apiKey, body.block || '1000', false);
 	}
 
 	// Poll for key after checkout
@@ -409,82 +434,35 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	}
 
 	// Top up existing key
-	const topupMatch = path.match(/^\/api\/keys\/([^/]+)\/topup$/);
-	if (topupMatch && request.method === 'POST') {
+	if (path === '/api/keys/topup' && request.method === 'POST') {
 		if (!env.STRIPE_SECRET_KEY || !env.RATE_LIMIT) {
 			return errorResponse('Payments not configured.', 503);
 		}
 
-		const apiKey = topupMatch[1];
-		if (!isValidApiKey(apiKey)) {
-			return errorResponse('Invalid API key format.', 400);
-		}
+		const auth = getBearerApiKey(request);
+		if (!auth.ok) return auth.response;
 
-		const keyStatus = await getApiKeyStatus(env, apiKey);
+		const keyStatus = await getApiKeyStatus(env, auth.apiKey);
 		if (!keyStatus.exists) {
 			return errorResponse('API key not found.', 404);
 		}
 
 		const body = await request.json() as { block?: string };
-		const blockId = body.block || '1000';
-		const block = BLOCKS[blockId];
-		if (!block) {
-			return errorResponse(`Invalid block. Options: ${Object.keys(BLOCKS).join(', ')}`, 400);
-		}
-
-		const sessionToken = generateSessionToken();
-		const keyHash = await hashForMetadata(apiKey);
-		const stripe = getStripe(env);
-		const baseUrl = `${url.protocol}//${url.host}`;
-
-		const session = await stripe.checkout.sessions.create({
-			mode: 'payment',
-			line_items: [{
-				price_data: {
-					currency: 'usd',
-					unit_amount: block.price,
-					product_data: { name: `Defuddle API — ${block.name} (top-up)` },
-				},
-				quantity: 1,
-			}],
-			metadata: { key_hash: keyHash, block: blockId, topup: 'true' },
-			success_url: `${baseUrl}/pricing`,
-			cancel_url: `${baseUrl}/pricing`,
-		});
-
-		await env.RATE_LIMIT.put(`session:${sessionToken}`, JSON.stringify({
-			status: 'pending',
-			api_key: apiKey,
-			block: blockId,
-			topup: true,
-			stripe_session_id: session.id,
-		}), { expirationTtl: 86400 });
-
-		await env.RATE_LIMIT.put(`stripe_session:${session.id}`, sessionToken, {
-			expirationTtl: 86400,
-		});
-
-		return jsonResponse({
-			checkout_url: session.url,
-			session_id: sessionToken,
-		});
+		return createCheckoutFlow(env, url, auth.apiKey, body.block || '1000', true);
 	}
 
 	// Check usage
-	const usageMatch = path.match(/^\/api\/keys\/([^/]+)\/usage$/);
-	if (usageMatch && request.method === 'GET') {
+	if (path === '/api/keys/usage' && request.method === 'GET') {
 		if (!env.RATE_LIMIT) return errorResponse('Not configured.', 503);
 
-		const apiKey = usageMatch[1];
-		if (!isValidApiKey(apiKey)) {
-			return errorResponse('Invalid API key format.', 400);
-		}
+		const auth = getBearerApiKey(request);
+		if (!auth.ok) return auth.response;
 
-		const keyStatus = await getApiKeyStatus(env, apiKey);
+		const keyStatus = await getApiKeyStatus(env, auth.apiKey);
 		if (!keyStatus.exists) {
 			return errorResponse('API key not found.', 404);
 		}
-		return jsonResponse({ api_key: apiKey, remaining: keyStatus.remaining });
+		return jsonResponse({ remaining: keyStatus.remaining });
 	}
 
 	// Stripe webhook
@@ -560,6 +538,11 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		return errorResponse('Cannot convert this URL.', 400);
 	}
 
+	// Build cache key before auth so we can check cache before consuming API key credits
+	const cacheKey = useCache
+		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
+		: null;
+
 	// Auth: check for API key or fall back to IP rate limit
 	const authHeader = request.headers.get('authorization');
 	let apiKey: string | null = null;
@@ -569,17 +552,24 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		if (!isValidApiKey(apiKey)) {
 			return errorResponse('Invalid API key format.', 401);
 		}
+
+		// Check cache before consuming a credit
+		if (cacheKey) {
+			const cachedResponse = await caches.default.match(cacheKey);
+			if (cachedResponse) return cachedResponse;
+		}
+
 		// Atomically decrement balance before doing work
 		const consumeResult = await consumeApiKeyRequest(env, apiKey);
 		if (!consumeResult.ok) {
 			if (!consumeResult.exists) {
 				return errorResponse('API key not found.', 404);
 			}
-			return errorResponse('API key has no remaining requests. Purchase more at /api/keys or top up at /api/keys/{key}/topup.', 402);
+			return errorResponse('API key has no remaining requests. Purchase more at /api/keys or top up at /api/keys/topup with Authorization: Bearer YOUR_KEY.', 402);
 		}
 	} else {
 		// IP-based rate limiting for unauthenticated requests
-		const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+		const ip = getClientIp(request);
 		if (env.RATE_LIMIT) {
 			const { allowed } = await checkRateLimit(env.RATE_LIMIT, ip);
 			if (!allowed) {
@@ -594,22 +584,16 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 				});
 			}
 		}
-	}
 
-	// Check cache for conversion responses (after auth so rate-limited users can't bypass via cache)
-	const cacheKey = useCache
-		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
-		: null;
-
-	if (cacheKey) {
-		const cachedResponse = await caches.default.match(cacheKey);
-		if (cachedResponse) {
-			// API key balance was already consumed above; only count IP rate limit
-			if (!apiKey && env.RATE_LIMIT) {
-				const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-				ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
+		// Check cache for unauthenticated requests (after rate limit check)
+		if (cacheKey) {
+			const cachedResponse = await caches.default.match(cacheKey);
+			if (cachedResponse) {
+				if (env.RATE_LIMIT) {
+					ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
+				}
+				return cachedResponse;
 			}
-			return cachedResponse;
 		}
 	}
 
@@ -632,10 +616,9 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
 		}
 
-		// API key balance was already consumed above; only count IP rate limit
+		// Only count IP rate limit for unauthenticated requests
 		if (!apiKey && env.RATE_LIMIT) {
-			const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-			ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
+			ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, getClientIp(request)));
 		}
 
 		return response;
@@ -645,29 +628,10 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	}
 }
 
-function jsonResponse(data: unknown, status = 200): Response {
-	return new Response(JSON.stringify(data), {
-		status,
-		headers: {
-			'Content-Type': 'application/json; charset=utf-8',
-			'Access-Control-Allow-Origin': '*',
-		},
-	});
-}
-
-function errorResponse(message: string, status: number): Response {
-	return new Response(JSON.stringify({ error: message }), {
-		status,
-		headers: {
-			'Content-Type': 'application/json; charset=utf-8',
-			'Access-Control-Allow-Origin': '*',
-		},
-	});
-}
-
 export class ApiKeyBalanceDO implements DurableObject {
 	private readonly ctx: DurableObjectState;
 	private readonly env: Env;
+	private initialized = false;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		this.ctx = ctx;
@@ -675,8 +639,13 @@ export class ApiKeyBalanceDO implements DurableObject {
 	}
 
 	private async ensureInitialized(apiKey: string): Promise<void> {
-		const initialized = await this.ctx.storage.get<boolean>('initialized');
-		if (initialized) return;
+		if (this.initialized) return;
+
+		const stored = await this.ctx.storage.get<boolean>('initialized');
+		if (stored) {
+			this.initialized = true;
+			return;
+		}
 
 		let balance = 0;
 		let exists = false;
@@ -693,6 +662,7 @@ export class ApiKeyBalanceDO implements DurableObject {
 			exists,
 			balance,
 		});
+		this.initialized = true;
 	}
 
 	private async mirrorToKv(apiKey: string, balance: number): Promise<void> {
@@ -701,16 +671,18 @@ export class ApiKeyBalanceDO implements DurableObject {
 	}
 
 	private async status(apiKey: string): Promise<ApiKeyMutationResult> {
-		await this.ensureInitialized(apiKey);
-		const [exists, balance] = await Promise.all([
-			this.ctx.storage.get<boolean>('exists'),
-			this.ctx.storage.get<number>('balance'),
-		]);
-		return {
-			ok: true,
-			exists: Boolean(exists),
-			remaining: balance ?? 0,
-		};
+		return await this.ctx.blockConcurrencyWhile(async () => {
+			await this.ensureInitialized(apiKey);
+			const [exists, balance] = await Promise.all([
+				this.ctx.storage.get<boolean>('exists'),
+				this.ctx.storage.get<number>('balance'),
+			]);
+			return {
+				ok: true,
+				exists: Boolean(exists),
+				remaining: balance ?? 0,
+			};
+		});
 	}
 
 	private async credit(apiKey: string, delta: number): Promise<ApiKeyMutationResult> {
