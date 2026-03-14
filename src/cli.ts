@@ -72,6 +72,13 @@ program
 				markdown: options.markdown
 			});
 
+			// Check if parsing produced meaningful content
+			const textContent = result.content.replace(/<[^>]*>/g, '').trim();
+			if (!textContent) {
+				console.error(ansi.red(`Error: No content could be extracted from ${source}`));
+				process.exit(1);
+			}
+
 			// Format output
 			let output: string;
 
