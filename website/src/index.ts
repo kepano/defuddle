@@ -25,6 +25,22 @@ type Env = {
 	RATE_LIMIT?: KVNamespace;
 	STRIPE_SECRET_KEY?: string;
 	STRIPE_WEBHOOK_SECRET?: string;
+	API_KEY_BALANCES: DurableObjectNamespace;
+	CHECKOUT_FULFILLMENTS: DurableObjectNamespace;
+};
+
+type SessionRecord = {
+	status: 'pending' | 'completed';
+	api_key: string;
+	block: string;
+	stripe_session_id: string;
+	topup?: boolean;
+};
+
+type ApiKeyMutationResult = {
+	ok: boolean;
+	exists: boolean;
+	remaining: number;
 };
 
 function isLocal(url: URL): boolean {
@@ -67,7 +83,7 @@ export default {
 			return errorResponse(message, 500);
 		}
 	},
-} satisfies ExportedHandler;
+} satisfies ExportedHandler<Env>;
 
 // --- Rate limiting ---
 
@@ -126,20 +142,39 @@ function getStripe(env: Env): Stripe {
 	return new Stripe(env.STRIPE_SECRET_KEY!, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion });
 }
 
-async function getKeyBalance(kv: KVNamespace, apiKey: string): Promise<number> {
-	const value = await kv.get(`key:${apiKey}`);
-	return value ? parseInt(value, 10) : 0;
+function getApiKeyBalanceStub(env: Env, apiKey: string): DurableObjectStub {
+	return env.API_KEY_BALANCES.get(env.API_KEY_BALANCES.idFromName(apiKey));
 }
 
-async function keyExists(kv: KVNamespace, apiKey: string): Promise<boolean> {
-	return (await kv.get(`key:${apiKey}`)) !== null;
+function getCheckoutFulfillmentStub(env: Env, stripeSessionId: string): DurableObjectStub {
+	return env.CHECKOUT_FULFILLMENTS.get(env.CHECKOUT_FULFILLMENTS.idFromName(stripeSessionId));
 }
 
-async function adjustKeyBalance(kv: KVNamespace, apiKey: string, delta: number): Promise<number> {
-	const current = await getKeyBalance(kv, apiKey);
-	const updated = Math.max(0, current + delta);
-	await kv.put(`key:${apiKey}`, String(updated));
-	return updated;
+async function getApiKeyStatus(env: Env, apiKey: string): Promise<ApiKeyMutationResult> {
+	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/status', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ apiKey }),
+	});
+	return await response.json() as ApiKeyMutationResult;
+}
+
+async function creditApiKey(env: Env, apiKey: string, delta: number): Promise<ApiKeyMutationResult> {
+	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/credit', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ apiKey, delta }),
+	});
+	return await response.json() as ApiKeyMutationResult;
+}
+
+async function consumeApiKeyRequest(env: Env, apiKey: string): Promise<ApiKeyMutationResult> {
+	const response = await getApiKeyBalanceStub(env, apiKey).fetch('https://internal/consume', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ apiKey }),
+	});
+	return await response.json() as ApiKeyMutationResult;
 }
 
 // --- Stripe webhook verification ---
@@ -360,12 +395,12 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			return errorResponse('Session not found.', 404);
 		}
 
-		const session = JSON.parse(data);
+		const session = JSON.parse(data) as SessionRecord;
 		if (session.status === 'pending') {
 			return jsonResponse({ status: 'pending' }, 202);
 		}
 
-		const remaining = await getKeyBalance(env.RATE_LIMIT, session.api_key);
+		const remaining = (await getApiKeyStatus(env, session.api_key)).remaining;
 		return jsonResponse({
 			status: 'completed',
 			api_key: session.api_key,
@@ -385,8 +420,8 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			return errorResponse('Invalid API key format.', 400);
 		}
 
-		const exists = await keyExists(env.RATE_LIMIT, apiKey);
-		if (!exists) {
+		const keyStatus = await getApiKeyStatus(env, apiKey);
+		if (!keyStatus.exists) {
 			return errorResponse('API key not found.', 404);
 		}
 
@@ -445,12 +480,11 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			return errorResponse('Invalid API key format.', 400);
 		}
 
-		const exists = await keyExists(env.RATE_LIMIT, apiKey);
-		if (!exists) {
+		const keyStatus = await getApiKeyStatus(env, apiKey);
+		if (!keyStatus.exists) {
 			return errorResponse('API key not found.', 404);
 		}
-		const remaining = await getKeyBalance(env.RATE_LIMIT, apiKey);
-		return jsonResponse({ api_key: apiKey, remaining });
+		return jsonResponse({ api_key: apiKey, remaining: keyStatus.remaining });
 	}
 
 	// Stripe webhook
@@ -479,22 +513,14 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			// Look up our session token from the Stripe session ID
 			const sessionToken = await env.RATE_LIMIT.get(`stripe_session:${stripeSession.id}`);
 			if (sessionToken && blockId && BLOCKS[blockId]) {
-				const sessionData = await env.RATE_LIMIT.get(`session:${sessionToken}`);
-				if (sessionData) {
-					const data = JSON.parse(sessionData);
-					const block = BLOCKS[blockId];
-
-					// Credit the API key
-					await adjustKeyBalance(env.RATE_LIMIT, data.api_key, block.requests);
-
-					// Mark session as completed for polling
-					data.status = 'completed';
-					await env.RATE_LIMIT.put(`session:${sessionToken}`, JSON.stringify(data), {
-						expirationTtl: 86400,
-					});
-
-					// Clean up reverse mapping
-					await env.RATE_LIMIT.delete(`stripe_session:${stripeSession.id}`);
+				const fulfillmentResponse = await getCheckoutFulfillmentStub(env, stripeSession.id).fetch('https://internal/process', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ sessionToken, blockId }),
+				});
+				if (!fulfillmentResponse.ok) {
+					const message = await fulfillmentResponse.text();
+					return errorResponse(message || 'Webhook fulfillment failed.', 500);
 				}
 			}
 		}
@@ -543,11 +569,13 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		if (!isValidApiKey(apiKey)) {
 			return errorResponse('Invalid API key format.', 401);
 		}
-		if (env.RATE_LIMIT) {
-			const balance = await getKeyBalance(env.RATE_LIMIT, apiKey);
-			if (balance <= 0) {
-				return errorResponse('API key has no remaining requests. Purchase more at /api/keys or top up at /api/keys/{key}/topup.', 402);
+		// Atomically decrement balance before doing work
+		const consumeResult = await consumeApiKeyRequest(env, apiKey);
+		if (!consumeResult.ok) {
+			if (!consumeResult.exists) {
+				return errorResponse('API key not found.', 404);
 			}
+			return errorResponse('API key has no remaining requests. Purchase more at /api/keys or top up at /api/keys/{key}/topup.', 402);
 		}
 	} else {
 		// IP-based rate limiting for unauthenticated requests
@@ -576,14 +604,10 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	if (cacheKey) {
 		const cachedResponse = await caches.default.match(cacheKey);
 		if (cachedResponse) {
-			// Still count the request against the user's quota
-			if (env.RATE_LIMIT) {
-				if (apiKey) {
-					ctx.waitUntil(adjustKeyBalance(env.RATE_LIMIT, apiKey, -1));
-				} else {
-					const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-					ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
-				}
+			// API key balance was already consumed above; only count IP rate limit
+			if (!apiKey && env.RATE_LIMIT) {
+				const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+				ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
 			}
 			return cachedResponse;
 		}
@@ -608,14 +632,10 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
 		}
 
-		// Decrement API key balance or increment IP rate limit
-		if (env.RATE_LIMIT) {
-			if (apiKey) {
-				ctx.waitUntil(adjustKeyBalance(env.RATE_LIMIT, apiKey, -1));
-			} else {
-				const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-				ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
-			}
+		// API key balance was already consumed above; only count IP rate limit
+		if (!apiKey && env.RATE_LIMIT) {
+			const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
+			ctx.waitUntil(incrementRateLimit(env.RATE_LIMIT, ip));
 		}
 
 		return response;
@@ -643,4 +663,181 @@ function errorResponse(message: string, status: number): Response {
 			'Access-Control-Allow-Origin': '*',
 		},
 	});
+}
+
+export class ApiKeyBalanceDO implements DurableObject {
+	private readonly ctx: DurableObjectState;
+	private readonly env: Env;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		this.ctx = ctx;
+		this.env = env;
+	}
+
+	private async ensureInitialized(apiKey: string): Promise<void> {
+		const initialized = await this.ctx.storage.get<boolean>('initialized');
+		if (initialized) return;
+
+		let balance = 0;
+		let exists = false;
+		if (this.env.RATE_LIMIT) {
+			const kvValue = await this.env.RATE_LIMIT.get(`key:${apiKey}`);
+			if (kvValue !== null) {
+				balance = parseInt(kvValue, 10) || 0;
+				exists = true;
+			}
+		}
+
+		await this.ctx.storage.put({
+			initialized: true,
+			exists,
+			balance,
+		});
+	}
+
+	private async mirrorToKv(apiKey: string, balance: number): Promise<void> {
+		if (!this.env.RATE_LIMIT) return;
+		await this.env.RATE_LIMIT.put(`key:${apiKey}`, String(balance));
+	}
+
+	private async status(apiKey: string): Promise<ApiKeyMutationResult> {
+		await this.ensureInitialized(apiKey);
+		const [exists, balance] = await Promise.all([
+			this.ctx.storage.get<boolean>('exists'),
+			this.ctx.storage.get<number>('balance'),
+		]);
+		return {
+			ok: true,
+			exists: Boolean(exists),
+			remaining: balance ?? 0,
+		};
+	}
+
+	private async credit(apiKey: string, delta: number): Promise<ApiKeyMutationResult> {
+		return await this.ctx.blockConcurrencyWhile(async () => {
+			await this.ensureInitialized(apiKey);
+			const current = (await this.ctx.storage.get<number>('balance')) ?? 0;
+			const updated = Math.max(0, current + delta);
+			await this.ctx.storage.put({
+				exists: true,
+				balance: updated,
+			});
+			await this.mirrorToKv(apiKey, updated);
+			return {
+				ok: true,
+				exists: true,
+				remaining: updated,
+			};
+		});
+	}
+
+	private async consume(apiKey: string): Promise<ApiKeyMutationResult> {
+		return await this.ctx.blockConcurrencyWhile(async () => {
+			await this.ensureInitialized(apiKey);
+			const exists = (await this.ctx.storage.get<boolean>('exists')) ?? false;
+			const current = (await this.ctx.storage.get<number>('balance')) ?? 0;
+			if (!exists) {
+				return {
+					ok: false,
+					exists: false,
+					remaining: 0,
+				};
+			}
+			if (current <= 0) {
+				return {
+					ok: false,
+					exists: true,
+					remaining: 0,
+				};
+			}
+
+			const updated = current - 1;
+			await this.ctx.storage.put('balance', updated);
+			await this.mirrorToKv(apiKey, updated);
+			return {
+				ok: true,
+				exists: true,
+				remaining: updated,
+			};
+		});
+	}
+
+	async fetch(request: Request): Promise<Response> {
+		const { pathname } = new URL(request.url);
+		const body = await request.json() as { apiKey?: string; delta?: number };
+		const apiKey = body.apiKey;
+		if (!apiKey || !isValidApiKey(apiKey)) {
+			return jsonResponse({ ok: false, exists: false, remaining: 0 }, 400);
+		}
+
+		if (pathname === '/status') {
+			return jsonResponse(await this.status(apiKey));
+		}
+		if (pathname === '/credit') {
+			return jsonResponse(await this.credit(apiKey, body.delta ?? 0));
+		}
+		if (pathname === '/consume') {
+			return jsonResponse(await this.consume(apiKey));
+		}
+		return errorResponse('Not found.', 404);
+	}
+}
+
+export class CheckoutFulfillmentDO implements DurableObject {
+	private readonly ctx: DurableObjectState;
+	private readonly env: Env;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		this.ctx = ctx;
+		this.env = env;
+	}
+
+	async fetch(request: Request): Promise<Response> {
+		const { pathname } = new URL(request.url);
+		if (pathname !== '/process' || request.method !== 'POST') {
+			return errorResponse('Not found.', 404);
+		}
+
+		const body = await request.json() as { sessionToken?: string; blockId?: string };
+		const requestedBlockId = body.blockId;
+		if (!body.sessionToken || !requestedBlockId || !BLOCKS[requestedBlockId] || !this.env.RATE_LIMIT) {
+			return errorResponse('Invalid request.', 400);
+		}
+
+		return await this.ctx.blockConcurrencyWhile(async () => {
+			const processed = await this.ctx.storage.get<boolean>('processed');
+			if (processed) {
+				return jsonResponse({ processed: true, duplicate: true });
+			}
+
+			const sessionData = await this.env.RATE_LIMIT!.get(`session:${body.sessionToken}`);
+			if (!sessionData) {
+				return errorResponse('Session not found.', 404);
+			}
+
+			const session = JSON.parse(sessionData) as SessionRecord;
+			const blockId = session.block || requestedBlockId;
+			if (!BLOCKS[blockId]) {
+				return errorResponse('Invalid block.', 400);
+			}
+			if (session.block && session.block !== requestedBlockId) {
+				return errorResponse('Block mismatch.', 409);
+			}
+
+			await creditApiKey(this.env, session.api_key, BLOCKS[blockId].requests);
+
+			session.status = 'completed';
+			await this.env.RATE_LIMIT!.put(`session:${body.sessionToken}`, JSON.stringify(session), {
+				expirationTtl: 86400,
+			});
+			await this.ctx.storage.put({
+				processed: true,
+				sessionToken: body.sessionToken,
+				apiKey: session.api_key,
+				blockId,
+			});
+
+			return jsonResponse({ processed: true, duplicate: false });
+		});
+	}
 }
