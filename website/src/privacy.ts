@@ -91,7 +91,7 @@ export function getPrivacyPage(): string {
 		<p>Defuddle is designed to be privacy-friendly. We collect minimal data and do not track you across the web.</p>
 
 		<h2>What we collect</h2>
-		<p><strong>API requests:</strong> When you use the API, we temporarily process the URL you submit in order to fetch and convert the page. IP addresses are used for rate limiting and are stored as hashed keys that expire at the end of each calendar month.</p>
+		<p><strong>API requests:</strong> When you use the API, we temporarily process the URL you submit in order to fetch and convert the page. IP addresses are used for rate limiting and stored in monthly rate-limit records that expire at the end of each calendar month.</p>
 		<p><strong>Server logs:</strong> Standard server logs may include IP addresses, timestamps, and requested URLs. These are used for debugging and abuse prevention and are not shared with third parties.</p>
 
 		<h2>What we don't collect</h2>
