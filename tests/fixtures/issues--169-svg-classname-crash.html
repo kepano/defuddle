@@ -1,0 +1,36 @@
+<!-- {"url":"https://example.org/paper/abstract"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Research Paper with SVG</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Research Paper with SVG</h1>
+      <p>
+        This paper discusses algorithms for graph traversal. The following diagram
+        illustrates the main data structure used in the analysis.
+      </p>
+      <figure>
+        <svg class="diagram" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="black" />
+          <text x="50" y="55" text-anchor="middle">Node</text>
+        </svg>
+      </figure>
+      <p>
+        The algorithm runs in O(n log n) time. We use the notation
+        <span class="katex"><math display="inline"><mi>n</mi></math></span>
+        to represent the input size. This is a standard result in computer science
+        that has been widely studied in the literature.
+      </p>
+      <p>
+        Additional content ensures stable content detection during testing.
+        The SVG element above has a class attribute which would cause a crash
+        in environments where className returns an SVGAnimatedString object.
+      </p>
+    </article>
+  </main>
+</body>
+</html>

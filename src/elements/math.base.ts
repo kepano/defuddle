@@ -138,7 +138,7 @@ export const isBlockDisplay = (el: Element): boolean => {
 	}
 
 	// Check common class names
-	const classNames = el.className.toLowerCase();
+	const classNames = (typeof el.className === 'string' ? el.className : el.getAttribute('class') || '').toLowerCase();
 	if (classNames.includes('display') || classNames.includes('block')) {
 		return true;
 	}
