@@ -1,0 +1,38 @@
+<!-- {"url":"https://example.org/docs/type-theory"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Type Theory Reference</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Type Theory Reference</h1>
+      <p>
+        This page defines helper functions for working with natural numbers.
+        The code blocks below use span elements with generated anchor IDs
+        that happen to match partial selector patterns like "next-".
+      </p>
+
+      <code class="hl lean block" data-lean-context="examples">
+        <span class="keyword token">def</span><span class="inter-text"> </span><span class="const token" data-binding="const-h1" id="f-next-next">h1</span><span class="inter-text"> (x : Nat) : Nat :=</span>
+      </code>
+
+      <p>
+        The function h1 takes a natural number and returns a natural number.
+        Below is a second definition that should also be preserved.
+      </p>
+
+      <code class="hl lean block" data-lean-context="examples">
+        <span class="keyword token">def</span><span class="inter-text"> </span><span class="const token" data-binding="const-h2" id="f-next-prev">h2</span><span class="inter-text"> (x : Nat) : Nat :=</span>
+      </code>
+
+      <p>
+        Both h1 and h2 should appear in the output. If partial selector removal
+        strips the span elements inside code, the function names will be missing.
+      </p>
+    </article>
+  </main>
+</body>
+</html>
