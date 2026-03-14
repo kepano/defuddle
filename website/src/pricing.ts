@@ -221,7 +221,10 @@ export function getPricingPage(): string {
 				<li>Buy a block of requests above</li>
 				<li>Complete payment to receive your API key</li>
 				<li>Add your API key to requests:
-<pre><code>curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
+<pre><code>curl defuddle.md/example.com?key=df_...
+
+# or with a header
+curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 				<li>Top up anytime — requests never expire</li>
 			</ol>
 		</div>

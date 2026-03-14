@@ -543,12 +543,17 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
 		: null;
 
-	// Auth: check for API key or fall back to IP rate limit
+	// Auth: check for API key (header or query param) or fall back to IP rate limit
 	const authHeader = request.headers.get('authorization');
 	let apiKey: string | null = null;
 
 	if (authHeader?.startsWith('Bearer ')) {
 		apiKey = authHeader.slice(7);
+	} else if (url.searchParams.has('key')) {
+		apiKey = url.searchParams.get('key')!;
+	}
+
+	if (apiKey) {
 		if (!isValidApiKey(apiKey)) {
 			return errorResponse('Invalid API key format.', 401);
 		}
