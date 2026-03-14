@@ -230,6 +230,8 @@ export function getLandingPage(): string {
 			&middot; <a href="/docs">Docs</a>
 			&middot; <a href="/playground">Playground</a>
 			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
+			&middot; <a href="/terms">Terms</a>
+			&middot; <a href="/privacy">Privacy</a>
 			&middot; by <a href="https://stephango.com">@kepano</a>
 		</div>
 	</div>
