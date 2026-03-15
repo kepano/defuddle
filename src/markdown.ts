@@ -229,7 +229,7 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!img || !isGenericElement(img)) return content;
 
 			const alt = img.getAttribute('alt') || '';
-			const src = img.getAttribute('src') || '';
+			const src = getBestImageSrc(img);
 			let caption = '';
 
 			if (figcaption && isGenericElement(figcaption)) {
@@ -270,7 +270,21 @@ export function createMarkdownContent(content: string, url: string) {
 				return `[${text}](${href})`;
 			});
 
-			return `![${alt}](${src})\n\n${caption}\n\n`;
+		return `![${alt}](${src})\n\n${caption}\n\n`;
+		}
+	});
+
+	// Prefer the highest-resolution image from srcset (e.g. Substack CDN images)
+	// over the small fallback URL in src.
+	turndownService.addRule('image', {
+		filter: 'img',
+		replacement: function(content, node) {
+			if (!isGenericElement(node)) return content;
+			const alt = node.getAttribute('alt') || '';
+			const src = getBestImageSrc(node);
+			const title = node.getAttribute('title') || '';
+			const titlePart = title ? ` "${title}"` : '';
+			return src ? `![${alt}](${src}${titlePart})` : '';
 		}
 	});
 
@@ -634,6 +648,44 @@ export function createMarkdownContent(content: string, url: string) {
 			return `\n> [!${type}] ${title}\n${quotedContent}\n`;
 		}
 	});
+
+	function getBestImageSrc(node: GenericElement): string {
+		const srcset = node.getAttribute('srcset');
+		if (srcset) {
+			let bestUrl = '';
+			let bestWidth = 0;
+			// Tokenize by whitespace rather than splitting on commas, because CDN
+			// image URLs (e.g. Substack) embed comma-separated transform params
+			// directly in the URL path (e.g. `w_424,c_limit,f_webp`). Splitting on
+			// commas would truncate those URLs. Instead, scan whitespace tokens and
+			// treat any token matching `Nw` or `Nw,` as a width descriptor; the
+			// preceding non-descriptor token(s) form the URL for that entry.
+			const tokens = srcset.trim().split(/\s+/);
+			let urlParts: string[] = [];
+			for (const token of tokens) {
+				const widthMatch = token.match(/^(\d+)w,?$/);
+				if (widthMatch) {
+					if (urlParts.length > 0) {
+						const width = parseInt(widthMatch[1], 10);
+						// Strip the leading entry-separator comma if present
+						const url = urlParts.join(' ').replace(/^,\s*/, '');
+						if (width > bestWidth && url) {
+							bestWidth = width;
+							bestUrl = url;
+						}
+					}
+					urlParts = [];
+				} else if (/^(\d+(?:\.\d+)?)x,?$/.test(token)) {
+					// Density descriptor (e.g. 2x) — discard, not used for selection
+					urlParts = [];
+				} else {
+					urlParts.push(token);
+				}
+			}
+			if (bestUrl) return bestUrl;
+		}
+		return node.getAttribute('src') || '';
+	}
 
 	function handleNestedEquations(element: GenericElement): string {
 		const mathElements = element.querySelectorAll('math[alttext]');
