@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getDocsPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -211,20 +213,7 @@ export function getDocsPage(): string {
 		.note strong {
 			color: #B7B5AC;
 		}
-		.footer {
-			margin-top: 4rem;
-			padding-top: 2rem;
-			border-top: 1px solid #343331;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			border: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 		.toc {
 			background: #1C1B1A;
 			border: 1px solid #343331;
@@ -561,14 +550,7 @@ const result = new Defuddle(document, { standardize: false }).parse();</code></p
   contentSelector: 'article.post-content'
 }).parse();</code></pre>
 
-		<div class="footer">
-			<a href="https://github.com/kepano/defuddle">GitHub</a>
-			&middot; <a href="https://www.npmjs.com/package/defuddle">NPM</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/playground">Playground</a>
-			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
-			&middot; by <a href="https://stephango.com">@kepano</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 	<script>hljs.highlightAll();</script>

@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getPricingPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -126,18 +128,7 @@ export function getPricingPage(): string {
 			font-size: 0.85rem;
 			color: #F2F0E5;
 		}
-		.footer {
-			margin-top: 2rem;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			text-decoration: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 		.error {
 			margin-top: 1rem;
 			padding: 1rem;
@@ -153,7 +144,7 @@ export function getPricingPage(): string {
 <body>
 	<div class="container">
 		<h1><a href="/" style="color: inherit; text-decoration: none;">Defuddle</a> <span style="color: #878580;">Pricing</span></h1>
-		<p class="subtitle">5,000 requests per month are free. Buy additional requests and use them at your own pace. No subscription required.</p>
+		<p class="subtitle">1,000 requests per month are free. Buy additional requests and use them at your own pace. No subscription required.</p>
 
 		<div class="blocks">
 			<a class="block" data-block="1000" href="#" onclick="buyBlock('1000');return false;">
@@ -215,12 +206,7 @@ curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 
 		<div id="error" class="error"></div>
 
-		<div class="footer">
-			<a href="/">Home</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/terms">Terms</a>
-			&middot; <a href="/privacy">Privacy</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 	<script>
 		function showError(msg) {

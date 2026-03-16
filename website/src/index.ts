@@ -14,7 +14,7 @@ const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
 const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/terms', '/privacy', '/pricing', '/favicon.ico']);
 const CACHE_TTL = 300; // 5 minutes
-const MONTHLY_RATE_LIMIT = 5000;
+const MONTHLY_RATE_LIMIT = 1000;
 
 const BLOCKS: Record<string, { requests: number; price: number; name: string }> = {
 	'1000': { requests: 1000, price: 500, name: '1,000 requests' },
@@ -584,7 +584,7 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		if (env.RATE_LIMIT) {
 			const { allowed } = await checkRateLimit(env.RATE_LIMIT, ip);
 			if (!allowed) {
-				return new Response('Error: Monthly rate limit exceeded (5,000 requests/month). Purchase API keys at /api/keys for higher limits.', {
+				return new Response('Error: Monthly rate limit exceeded (1,000 requests/month). Purchase API keys at /api/keys for higher limits.', {
 					status: 429,
 					headers: {
 						'Access-Control-Allow-Origin': '*',
