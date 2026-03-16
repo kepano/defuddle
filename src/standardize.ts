@@ -12,7 +12,7 @@ import {
 import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
 import { codeBlockRules } from './elements/code';
-import { headingRules } from './elements/headings';
+import { headingRules, removeHeadingAnchors } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
@@ -205,6 +205,9 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 				unwrapElement(link);
 			}
 		});
+
+		// Remove heading anchor links (e.g. <h2>Title<a href="#title">#</a></h2>)
+		removeHeadingAnchors(element);
 
 		// Remove obsolete plugin elements
 		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());

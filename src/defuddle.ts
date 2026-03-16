@@ -1,4 +1,5 @@
 import { MetadataExtractor } from './metadata';
+import { removeHeadingAnchors } from './elements/headings';
 import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import type { ExtractorOptions } from './extractors/_base';
@@ -322,6 +323,9 @@ export class Defuddle {
 				} catch {}
 			}
 		}
+
+		// Remove heading anchor links before serialization (e.g. <h2>Title<a href="#foo">#</a></h2>)
+		removeHeadingAnchors(bestMatch);
 
 		// Now resolve URLs in the text content
 		this.resolveRelativeUrls(bestMatch);

@@ -1,6 +1,18 @@
 import { ALLOWED_ATTRIBUTES } from "../constants";
 
-function isPermalinkAnchor(node: Element): boolean {
+/**
+ * Remove permalink anchors from inside heading elements.
+ * Handles symbols (#, ¶, §, 🔗), empty links, and class-based anchors.
+ */
+export function removeHeadingAnchors(element: Element): void {
+	Array.from(element.querySelectorAll('h1 a, h2 a, h3 a, h4 a, h5 a, h6 a')).forEach(link => {
+		if (isPermalinkAnchor(link)) {
+			link.remove();
+		}
+	});
+}
+
+export function isPermalinkAnchor(node: Element): boolean {
 	if (node.tagName.toLowerCase() !== 'a') return false;
 	const href = node.getAttribute('href') || '';
 	const title = (node.getAttribute('title') || '').toLowerCase();
