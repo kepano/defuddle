@@ -16,7 +16,8 @@ import {
 	TEST_ATTRIBUTES_SELECTOR,
 	ENTRY_POINT_ELEMENTS,
 	TEST_ATTRIBUTES,
-	FOOTNOTE_LIST_SELECTORS
+	FOOTNOTE_LIST_SELECTORS,
+	CONTENT_ELEMENT_SELECTOR
 } from './constants';
 import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
@@ -1690,11 +1691,63 @@ export class Defuddle {
 			target.remove();
 		}
 
+		// Remove blog post metadata lists near content boundaries.
+		// These are short <ul>/<ol> elements containing date, reading time,
+		// share buttons, etc. — identifiable by having mostly short items
+		// with SVG icons and minimal text.
+		const metadataLists = mainContent.querySelectorAll('ul, ol');
+		for (const list of metadataLists) {
+			if (!list.parentNode) continue;
+			const items = Array.from(list.children).filter(el => el.tagName === 'LI');
+			if (items.length < 2 || items.length > 8) continue;
+
+			// Must be near the start or end of content
+			const listText = list.textContent?.trim() || '';
+			const listPos = contentText.indexOf(listText);
+			const distFromEnd = contentText.length - (listPos + listText.length);
+			if (listPos > 500 && distFromEnd > 500) continue;
+
+			// Items should be short (metadata labels + values) and contain SVGs
+			let hasSvg = false;
+			let allShort = true;
+			for (const item of items) {
+				if (item.querySelector('svg')) hasSvg = true;
+				const words = countWords(item.textContent?.trim() || '');
+				if (words > 15) { allShort = false; break; }
+			}
+			if (!allShort || !hasSvg) continue;
+
+			// Total text should be very short — this is metadata, not content
+			if (countWords(listText) > 30) continue;
+
+			// Walk up to find the container to remove (e.g. a wrapper div)
+			let target: Element = list;
+			while (target.parentElement && target.parentElement !== mainContent) {
+				const parentText = target.parentElement.textContent?.trim() || '';
+				if (parentText !== listText) break;
+				target = target.parentElement;
+			}
+
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'blog metadata list',
+					text: textPreview(target)
+				});
+			}
+			target.remove();
+		}
+
 		// Remove section breadcrumbs
 		// Short elements containing a link to a parent section of the current URL.
 		const url = this.options.url || this.doc.URL || '';
 		let urlPath = '';
-		try { urlPath = new URL(url).pathname; } catch {}
+		let pageHost = '';
+		try {
+			const parsedUrl = new URL(url);
+			urlPath = parsedUrl.pathname;
+			pageHost = parsedUrl.hostname.replace(/^www\./, '');
+		} catch {}
 		if (urlPath) {
 			const shortElements = mainContent.querySelectorAll('div, span, p');
 			for (const el of shortElements) {
@@ -1719,6 +1772,117 @@ export class Defuddle {
 						el.remove();
 					}
 				} catch {}
+			}
+		}
+
+		// Remove trailing external link lists — a heading + list of purely
+		// off-site links as the last content block (affiliate picks, product
+		// roundups, etc.). Only removed when nothing meaningful follows.
+		if (pageHost) {
+			const headings = mainContent.querySelectorAll('h2, h3, h4, h5, h6');
+			for (const heading of headings) {
+				if (!heading.parentNode) continue;
+				const list = heading.nextElementSibling;
+				if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) continue;
+				const items = Array.from(list.children).filter(el => el.tagName === 'LI');
+				if (items.length < 2) continue;
+
+				// The list must be the last meaningful block — nothing after it
+				// except whitespace or empty elements. Walk up through ancestors
+				// to check siblings at each level up to mainContent.
+				let trailingContent = false;
+				let checkEl: Element | null = list;
+				while (checkEl && checkEl !== mainContent) {
+					let sibling = checkEl.nextElementSibling;
+					while (sibling) {
+						if ((sibling.textContent?.trim() || '').length > 0) {
+							trailingContent = true;
+							break;
+						}
+						sibling = sibling.nextElementSibling;
+					}
+					if (trailingContent) break;
+					checkEl = checkEl.parentElement;
+				}
+				if (trailingContent) continue;
+
+				// Every list item must be primarily a link pointing off-site
+				let allExternalLinks = true;
+				for (const item of items) {
+					const links = item.querySelectorAll('a[href]');
+					if (links.length === 0) { allExternalLinks = false; break; }
+					const itemText = item.textContent?.trim() || '';
+					let linkTextLen = 0;
+					for (const link of links) {
+						linkTextLen += (link.textContent?.trim() || '').length;
+						try {
+							const linkHost = new URL(link.getAttribute('href') || '', url).hostname.replace(/^www\./, '');
+							if (linkHost === pageHost) { allExternalLinks = false; break; }
+						} catch {}
+					}
+					if (!allExternalLinks) break;
+					if (linkTextLen < itemText.length * 0.6) { allExternalLinks = false; break; }
+				}
+				if (!allExternalLinks) continue;
+
+				if (this.debug && debugRemovals) {
+					debugRemovals.push({
+						step: 'removeByContentPattern',
+						reason: 'trailing external link list',
+						text: textPreview(heading)
+					});
+					debugRemovals.push({
+						step: 'removeByContentPattern',
+						reason: 'trailing external link list',
+						text: textPreview(list)
+					});
+				}
+				list.remove();
+				heading.remove();
+			}
+		}
+
+		// Remove trailing thin sections — the last few direct children of
+		// mainContent that contain a heading but very little prose. These are
+		// typically CTAs, newsletter prompts, or promotional sections that
+		// have been partially stripped by prior removal steps.
+		const totalWords = countWords(mainContent.textContent || '');
+		if (totalWords > 300) {
+			// Walk backwards from the last direct child of mainContent,
+			// collecting trailing elements that are thin (empty or very short prose).
+			// Exclude SVG text (path data) from word counts — it's not prose.
+			const trailingEls: Element[] = [];
+			let trailingWords = 0;
+			let child = mainContent.lastElementChild;
+			while (child) {
+				// Count prose words, excluding SVG path data which inflates word counts
+				let svgWords = 0;
+				for (const svg of child.querySelectorAll('svg')) {
+					svgWords += countWords(svg.textContent || '');
+				}
+				const words = countWords(child.textContent?.trim() || '') - svgWords;
+				if (words > 25) break;
+				trailingWords += words;
+				trailingEls.push(child);
+				child = child.previousElementSibling;
+			}
+			// Must have a heading in the trailing elements and total < 15% of content.
+			// Skip if trailing elements contain content indicators (math, code, tables, images).
+			if (trailingEls.length >= 1 && trailingWords < totalWords * 0.15) {
+				const hasHeading = trailingEls.some(el =>
+					/^H[1-6]$/.test(el.tagName) || el.querySelector('h1, h2, h3, h4, h5, h6')
+				);
+				const hasContent = trailingEls.some(el =>
+					el.querySelector(CONTENT_ELEMENT_SELECTOR)
+				);
+				if (hasHeading && !hasContent) {
+					for (const el of trailingEls) {
+						if (this.debug && debugRemovals) {
+							debugRemovals.push({ step: 'removeByContentPattern', reason: 'trailing thin section', text: textPreview(el) });
+						}
+						el.remove();
+					}
+				}
 			}
 		}
 
@@ -1770,6 +1934,7 @@ export class Defuddle {
 				}
 			}
 		}
+
 	}
 
 	/**
