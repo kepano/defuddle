@@ -103,7 +103,7 @@ export function getPrivacyPage(): string {
 		</ul>
 
 		<h2>Data retention</h2>
-		<p>Converted content is cached temporarily (up to 5 minutes) to improve performance and is not stored permanently.</p>
+		<p>Converted content is cached temporarily (24 hours or less) to improve performance and is not stored permanently.</p>
 
 		<h2>Payments</h2>
 		<p>If you purchase API keys, payments are processed by <a href="https://stripe.com/privacy">Stripe</a>. We do not store your payment details (credit card number, billing address, etc.) — these are handled entirely by Stripe. The only payment-related data we store is your API key and its remaining request balance.</p>
