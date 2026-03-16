@@ -44,7 +44,8 @@ export function getFooterHTML(): string {
 				<a href="/privacy">Privacy</a>
 			</div>
 			<div class="footer-col">
-				<a href="https://github.com/kepano/defuddle/blob/main/LICENSE" target="_blank">MIT&nbsp;Licensed</a>
+				<a href="https://github.com/kepano/defuddle" target="_blank">GitHub</a>
+				<a href="https://github.com/kepano/defuddle/blob/main/LICENSE" target="_blank">MIT&nbsp;License</a>
 				<span>by <a href="https://stephango.com">@kepano</a></span>
 			</div>
 		</div>
