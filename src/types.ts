@@ -125,6 +125,13 @@ export interface DefuddleOptions {
 	contentSelector?: string;
 
 	/**
+	 * Preferred language for content extraction (BCP 47 tag, e.g. 'en', 'fr', 'ja')
+	 * Used as Accept-Language header when fetching pages and to select
+	 * transcript language tracks in extractors like YouTube
+	 */
+	language?: string;
+
+	/**
 	 * Include replies in extracted content
 	 * - 'extractors' (default): include replies from site-specific extractors
 	 *   (e.g. Reddit, GitHub, Hacker News, Twitter/X)

@@ -100,6 +100,7 @@ npx defuddle parse page.html --debug
 | `--json` | `-j` | Output as JSON with metadata and content |
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
+| `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
 
 ## Installation
 
@@ -182,6 +183,7 @@ The core bundle is recommended for most use cases. It still handles math content
 | `standardize`            | boolean | true    | Standardize HTML (footnotes, headings, code blocks, etc.)                 |
 | `contentSelector`        | string  |         | CSS selector to use as the main content element, bypassing auto-detection |
 | `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
+| `language`               | string  |         | Preferred language (BCP 47 tag, e.g. `en`, `fr`). Sets `Accept-Language` header and selects transcript language. |
 | `includeReplies`         | boolean \| 'extractors' | 'extractors' | Include replies: `'extractors'` for site-specific extractors only, `true` for all, `false` for none. |
 
 ## HTML standardization

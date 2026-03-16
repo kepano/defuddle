@@ -2,6 +2,7 @@ import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/
 
 export interface ExtractorOptions {
 	includeReplies?: boolean | 'extractors';
+	language?: string;
 }
 
 export abstract class BaseExtractor {

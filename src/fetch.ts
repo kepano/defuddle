@@ -19,16 +19,20 @@ export function getInitialUA(targetUrl: string): string {
 	return DEFAULT_UA;
 }
 
-export async function fetchPage(targetUrl: string, userAgent: string): Promise<string> {
+export async function fetchPage(targetUrl: string, userAgent: string, language?: string): Promise<string> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
 	try {
+		const headers: Record<string, string> = {
+			'User-Agent': userAgent,
+			'Accept': 'text/html,application/xhtml+xml',
+		};
+		if (language) {
+			headers['Accept-Language'] = language;
+		}
 		const response = await fetch(targetUrl, {
-			headers: {
-				'User-Agent': userAgent,
-				'Accept': 'text/html,application/xhtml+xml',
-			},
+			headers,
 			redirect: 'follow',
 			signal: controller.signal,
 		});

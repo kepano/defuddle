@@ -73,6 +73,11 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
+		const preferredLang = this.options.language;
+		if (preferredLang) {
+			const match = captionTracks.find((track: any) => track.languageCode === preferredLang);
+			if (match) return match;
+		}
 		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
 	}
 
@@ -360,9 +365,11 @@ export class YoutubeExtractor extends BaseExtractor {
 				return undefined;
 			}
 
-			const response = await fetch(track.baseUrl, {
-				headers: { 'User-Agent': 'Mozilla/5.0' },
-			});
+			const captionHeaders: Record<string, string> = { 'User-Agent': 'Mozilla/5.0' };
+			if (this.options.language) {
+				captionHeaders['Accept-Language'] = this.options.language;
+			}
+			const response = await fetch(track.baseUrl, { headers: captionHeaders });
 			if (!response.ok) return undefined;
 
 			let xml: string;
@@ -427,12 +434,16 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
 		try {
+			const headers: Record<string, string> = {
+				'Content-Type': 'application/json',
+				'User-Agent': INNERTUBE_USER_AGENT,
+			};
+			if (this.options.language) {
+				headers['Accept-Language'] = this.options.language;
+			}
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'User-Agent': INNERTUBE_USER_AGENT,
-				},
+				headers,
 				body: JSON.stringify({
 					context: INNERTUBE_CONTEXT,
 					videoId,
@@ -461,9 +472,13 @@ export class YoutubeExtractor extends BaseExtractor {
 		if (inlineChapters.length > 0) return inlineChapters;
 
 		try {
+			const chapterHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+			if (this.options.language) {
+				chapterHeaders['Accept-Language'] = this.options.language;
+			}
 			const resp = await fetch(INNERTUBE_NEXT_URL, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: chapterHeaders,
 				body: JSON.stringify({
 					context: INNERTUBE_WEB_CONTEXT,
 					videoId,

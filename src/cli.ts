@@ -15,6 +15,7 @@ interface ParseOptions {
 	json?: boolean;
 	debug?: boolean;
 	property?: string;
+	lang?: string;
 }
 
 // ANSI color helpers (avoids chalk dependency which is ESM-only)
@@ -44,6 +45,7 @@ program
 	.option('-j, --json', 'Output as JSON with metadata and content')
 	.option('-p, --property <name>', 'Extract a specific property (e.g., title, description, domain)')
 	.option('--debug', 'Enable debug mode')
+	.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
 	.action(async (source: string, options: ParseOptions) => {
 		try {
 			// Handle --md alias
@@ -54,7 +56,8 @@ program
 			const defuddleOpts = {
 				debug: options.debug,
 				markdown: options.markdown,
-				separateMarkdown: options.markdown || options.json
+				separateMarkdown: options.markdown || options.json,
+				language: options.lang,
 			};
 
 			let html: string;
@@ -65,7 +68,7 @@ program
 			if (isUrl) {
 				url = source;
 				const initialUA = getInitialUA(source);
-				html = await fetchPage(source, initialUA);
+				html = await fetchPage(source, initialUA, options.lang);
 			} else {
 				const filePath = resolve(process.cwd(), source);
 				html = await readFile(filePath, 'utf-8');
@@ -78,7 +81,7 @@ program
 			// Some sites (e.g. Obsidian Publish) serve pre-rendered content to bots.
 			if (isUrl && result.wordCount === 0) {
 				try {
-					const botHtml = await fetchPage(source, BOT_UA);
+					const botHtml = await fetchPage(source, BOT_UA, options.lang);
 
 					// Check for raw markdown before DOM parsing destroys whitespace
 					const rawMarkdown = extractRawMarkdown(botHtml);

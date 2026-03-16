@@ -540,10 +540,14 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		return errorResponse('Cannot convert this URL.', 400);
 	}
 
+	// Extract preferred language from Accept-Language header (first tag, strip q-value)
+	const language = request.headers.get('Accept-Language')?.split(',')[0]?.split(';')[0]?.trim() || undefined;
+
 	// Build cache key before auth so we can check cache before consuming API key credits
-	const cacheKey = useCache
-		? new Request(new URL(targetUrl, 'https://defuddle.md').toString())
-		: null;
+	// Include language so different locales don't share cached results
+	const cacheUrl = new URL(targetUrl, 'https://defuddle.md');
+	if (language) cacheUrl.searchParams.set('_lang', language);
+	const cacheKey = useCache ? new Request(cacheUrl.toString()) : null;
 
 	// Auth: check for API key (header or query param) or fall back to IP rate limit
 	const authHeader = request.headers.get('authorization');
@@ -605,7 +609,7 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	}
 
 	try {
-		const result = await convertToMarkdown(targetUrl);
+		const result = await convertToMarkdown(targetUrl, language);
 		const markdown = formatResponse(result, targetUrl);
 
 		const response = new Response(markdown, {

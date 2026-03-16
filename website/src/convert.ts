@@ -3,19 +3,19 @@ import { Defuddle } from '../../src/defuddle';
 import { toMarkdown } from '../../src/markdown';
 import { countWords } from '../../src/utils';
 import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from '../../src/fetch';
-import type { DefuddleResponse } from '../../src/types';
+import type { DefuddleOptions, DefuddleResponse } from '../../src/types';
 
-function createDefuddle(html: string, targetUrl: string) {
+function createDefuddle(html: string, targetUrl: string, opts?: Partial<DefuddleOptions>) {
 	const doc = parseLinkedomHTML(html, targetUrl);
-	return new Defuddle(doc, { url: targetUrl });
+	return new Defuddle(doc, { url: targetUrl, ...opts });
 }
 
 function defuddleHtml(html: string, targetUrl: string): DefuddleResponse {
 	return createDefuddle(html, targetUrl).parse();
 }
 
-async function defuddleHtmlAsync(html: string, targetUrl: string): Promise<DefuddleResponse> {
-	return createDefuddle(html, targetUrl).parseAsync();
+async function defuddleHtmlAsync(html: string, targetUrl: string, language?: string): Promise<DefuddleResponse> {
+	return createDefuddle(html, targetUrl, { language }).parseAsync();
 }
 
 export function parseHtml(html: string, url: string): DefuddleResponse & { contentHtml?: string } {
@@ -25,28 +25,28 @@ export function parseHtml(html: string, url: string): DefuddleResponse & { conte
 	return { ...result, contentHtml };
 }
 
-export async function convertToMarkdown(targetUrl: string): Promise<DefuddleResponse> {
+export async function convertToMarkdown(targetUrl: string, language?: string): Promise<DefuddleResponse> {
 	const initialUA = getInitialUA(targetUrl);
-	const html = await fetchPage(targetUrl, initialUA);
-	let result = await defuddleHtmlAsync(html, targetUrl);
+	const html = await fetchPage(targetUrl, initialUA, language);
+	let result = await defuddleHtmlAsync(html, targetUrl, language);
 
 	// If no content was extracted, the page may be JS-rendered.
 	// Retry with a bot UA — some sites serve pre-rendered content to bots.
 	if (result.wordCount === 0 && initialUA !== BOT_UA) {
 		try {
-			const botHtml = await fetchPage(targetUrl, BOT_UA);
+			const botHtml = await fetchPage(targetUrl, BOT_UA, language);
 
 			// Check for raw markdown in the HTML before DOM parsing destroys
 			// whitespace (e.g. tab-indented lists). Some sites like Obsidian
 			// Publish embed raw markdown in a text node for bot UAs.
 			const rawMarkdown = extractRawMarkdown(botHtml);
 			if (rawMarkdown) {
-				const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
+				const botResult = await defuddleHtmlAsync(botHtml, targetUrl, language);
 				botResult.content = cleanMarkdownContent(rawMarkdown);
 				botResult.wordCount = countWords(botResult.content);
 				return botResult;
 			}
-			const botResult = await defuddleHtmlAsync(botHtml, targetUrl);
+			const botResult = await defuddleHtmlAsync(botHtml, targetUrl, language);
 			if (botResult.wordCount > 0) {
 				toMarkdown(botResult, { markdown: true }, targetUrl);
 				return botResult;
