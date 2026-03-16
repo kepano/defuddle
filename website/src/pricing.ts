@@ -144,7 +144,7 @@ export function getPricingPage(): string {
 <body>
 	<div class="container">
 		<h1><a href="/" style="color: inherit; text-decoration: none;">Defuddle</a> <span style="color: #878580;">Pricing</span></h1>
-		<p class="subtitle">1,000 requests per month are free. Buy additional requests and use them at your own pace. No subscription required.</p>
+		<p class="subtitle">1,000 free requests per month. Buy additional requests and use them at your own pace. No subscription required.</p>
 
 		<div class="blocks">
 			<a class="block" data-block="1000" href="#" onclick="buyBlock('1000');return false;">
@@ -197,7 +197,8 @@ curl -H "Authorization: Bearer df_..." defuddle.md/example.com</code></pre></li>
 			<h2>Check usage</h2>
 			<p>Check your remaining requests at any time:</p>
 <pre><code>curl -H "Authorization: Bearer YOUR_KEY" defuddle.md/api/keys/usage</code></pre>
-			<p>To top up an existing key:</p>
+<br>
+<p>To top up an existing key:</p>
 <pre><code>curl -X POST defuddle.md/api/keys/topup \
   -H "Authorization: Bearer YOUR_KEY" \
   -H "Content-Type: application/json" \
