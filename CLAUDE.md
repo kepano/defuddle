@@ -28,9 +28,18 @@ Extracts main content from web pages as clean HTML.
 
 ### Testing across environments
 
-1. **Worker**: `http://localhost:8787/https://stephango.com/saw` — run with `cd website && npx wrangler dev`
-2. **CLI**: `npx defuddle parse https://stephango.com/saw --markdown`
-3. **Vitest fixtures**: HTML files in `tests/fixtures/` with expected output in `tests/expected/`
+Always use `curl` when testing the Worker or defuddle.md — do not open URLs in a browser.
+
+1. **Worker** — run with `cd website && npx wrangler dev`, then:
+   ```bash
+   curl http://localhost:8787/https://stephango.com/saw
+   ```
+2. **defuddle.md** — same pattern against production:
+   ```bash
+   curl https://defuddle.md/https://stephango.com/saw
+   ```
+3. **CLI**: `npx defuddle parse https://stephango.com/saw --markdown`
+4. **Vitest fixtures**: HTML files in `tests/fixtures/` with expected output in `tests/expected/`
 
 ## Debugging content extraction
 
