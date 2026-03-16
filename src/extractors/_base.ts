@@ -1,14 +1,20 @@
 import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/extractors';
 
+export interface ExtractorOptions {
+	includeReplies?: boolean | 'extractors';
+}
+
 export abstract class BaseExtractor {
 	protected document: Document;
 	protected url: string;
 	protected schemaOrgData?: any;
+	protected options: ExtractorOptions;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
 		this.document = document;
 		this.url = url;
 		this.schemaOrgData = schemaOrgData;
+		this.options = options || {};
 	}
 
 	abstract canExtract(): boolean;

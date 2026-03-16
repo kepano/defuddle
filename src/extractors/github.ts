@@ -54,9 +54,9 @@ export class GitHubExtractor extends BaseExtractor {
 		const { content: postContent, author, published } = this.isPR
 			? this.getPRContent(prBody)
 			: this.getIssueContent();
-		const comments = this.isPR
-			? this.extractPRComments(prBody)
-			: this.extractComments();
+		const comments = this.options.includeReplies !== false
+			? (this.isPR ? this.extractPRComments(prBody) : this.extractComments())
+			: '';
 		const contentHtml = this.createContentHtml(postContent, comments);
 
 		return {

@@ -33,7 +33,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 	extract(): ExtractorResult {
 		const postContent = this.getPostContent();
-		const comments = this.extractComments();
+		const comments = this.options.includeReplies !== false ? this.extractComments() : '';
 
 		const contentHtml = this.createContentHtml(postContent, comments);
 		const postTitle = this.getPostTitle();

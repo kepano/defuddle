@@ -1,6 +1,7 @@
 import { MetadataExtractor } from './metadata';
 import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
+import type { ExtractorOptions } from './extractors/_base';
 import { BaseExtractor } from './extractors/_base';
 import {
 	MOBILE_WIDTH,
@@ -435,7 +436,8 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData);
+			const extractorOpts = { includeReplies: this.options.includeReplies ?? 'extractors' };
+			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
 				const extracted = await extractor.extractAsync();
@@ -449,12 +451,13 @@ export class Defuddle {
 	}
 
 	private async tryAsyncExtractor(
-		finder: (document: Document, url: string, schemaOrgData?: any) => BaseExtractor | null
+		finder: (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor | null
 	): Promise<DefuddleResponse | null> {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractor = finder(this.doc, url, schemaOrgData);
+			const extractorOpts = { includeReplies: this.options.includeReplies ?? 'extractors' };
+			const extractor = finder(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
 				const startTime = Date.now();
@@ -504,6 +507,7 @@ export class Defuddle {
 			removeSmallImages: true,
 			removeContentPatterns: true,
 			standardize: true,
+			includeReplies: 'extractors',
 			...this.options,
 			...overrideOptions
 		};
@@ -530,7 +534,8 @@ export class Defuddle {
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
-			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
+			const extractorOpts: ExtractorOptions = { includeReplies: options.includeReplies as ExtractorOptions['includeReplies'] };
+			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
 				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);

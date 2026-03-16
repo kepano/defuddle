@@ -45,7 +45,9 @@ export class TwitterExtractor extends BaseExtractor {
 
 	extract(): ExtractorResult {
 		const mainContent = this.extractTweet(this.mainTweet);
-		const threadContent = this.threadTweets.map(tweet => this.extractTweet(tweet)).join('\n<hr>\n');
+		const threadContent = this.options.includeReplies !== false
+			? this.threadTweets.map(tweet => this.extractTweet(tweet)).join('\n<hr>\n')
+			: '';
 		
 		const contentHtml = `
 			<div class="tweet-thread">

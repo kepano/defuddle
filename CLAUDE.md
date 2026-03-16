@@ -68,6 +68,7 @@ new Defuddle(document, {
   removePartialSelectors: false,
   removeContentPatterns: false,
   standardize: false,  // disables standardizeFootnotes and standardizeContent
+  includeReplies: false, // excludes replies from extractors like Reddit, HN, GitHub, Twitter/X
 }).parse();
 ```
 

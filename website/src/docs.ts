@@ -413,6 +413,7 @@ npx defuddle parse page.html --output result.html</code></pre>
 					<tr><td><code>useAsync</code></td><td>boolean</td><td>true</td><td>Allow async extractors to fetch from third-party APIs when no local content is available.</td></tr>
 					<tr><td><code>standardize</code></td><td>boolean</td><td>true</td><td>Standardize HTML (footnotes, headings, code blocks, etc.)</td></tr>
 					<tr><td><code>contentSelector</code></td><td>string</td><td></td><td>CSS selector to use as the main content element, bypassing auto-detection</td></tr>
+					<tr><td><code>includeReplies</code></td><td>boolean | 'extractors'</td><td>'extractors'</td><td>Include replies: <code>'extractors'</code> for site-specific extractors only, <code>true</code> for all, <code>false</code> for none</td></tr>
 					<tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging and return debug info in the response</td></tr>
 			</tbody>
 		</table>

@@ -123,6 +123,15 @@ export interface DefuddleOptions {
 	 * CSS selector to use as main content element, bypassing auto-detection
 	 */
 	contentSelector?: string;
+
+	/**
+	 * Include replies in extracted content
+	 * - 'extractors' (default): include replies from site-specific extractors
+	 *   (e.g. Reddit, GitHub, Hacker News, Twitter/X)
+	 * - true: include all replies, including page comment sections
+	 * - false: exclude all replies
+	 */
+	includeReplies?: boolean | 'extractors';
 }
 
 export interface ExtractorVariables {

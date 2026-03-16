@@ -68,7 +68,7 @@ export class RedditExtractor extends BaseExtractor {
 		}
 
 		const postContent = this.getPostContent();
-		const comments = this.extractComments();
+		const comments = this.options.includeReplies !== false ? this.extractComments() : '';
 
 		const contentHtml = this.createContentHtml(postContent, comments);
 		const postTitle = this.document.querySelector('h1')?.textContent?.trim() || '';
@@ -101,9 +101,12 @@ export class RedditExtractor extends BaseExtractor {
 		const postBodyEl = thingLink?.querySelector('.usertext-body .md');
 		const postBody = postBodyEl ? serializeHTML(postBodyEl) : '';
 
-		const commentArea = root.querySelector('.commentarea .sitetable');
-		const commentData = commentArea ? this.collectOldRedditComments(commentArea) : [];
-		const comments = commentData.length > 0 ? buildCommentTree(commentData) : '';
+		let comments = '';
+		if (this.options.includeReplies !== false) {
+			const commentArea = root.querySelector('.commentarea .sitetable');
+			const commentData = commentArea ? this.collectOldRedditComments(commentArea) : [];
+			comments = commentData.length > 0 ? buildCommentTree(commentData) : '';
+		}
 
 		const contentHtml = this.createContentHtml(postBody, comments);
 		const description = this.createDescription(postBody);
