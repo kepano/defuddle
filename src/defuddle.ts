@@ -1694,9 +1694,10 @@ export class Defuddle {
 		}
 
 		// Remove blog post metadata lists near content boundaries.
-		// These are short <ul>/<ol> elements containing date, reading time,
-		// share buttons, etc. — identifiable by having mostly short items
-		// with SVG icons and minimal text.
+		// These are short <ul>/<ol> elements where every item is a brief
+		// label + value pair (date, reading time, share, etc.) with no
+		// prose sentences. Detected structurally: all items are very short,
+		// none contain sentence-ending punctuation, and the total text is minimal.
 		const metadataLists = mainContent.querySelectorAll('ul, ol');
 		for (const list of metadataLists) {
 			if (!list.parentNode) continue;
@@ -1709,15 +1710,24 @@ export class Defuddle {
 			const distFromEnd = contentText.length - (listPos + listText.length);
 			if (listPos > 500 && distFromEnd > 500) continue;
 
-			// Items should be short (metadata labels + values) and contain SVGs
-			let hasSvg = false;
-			let allShort = true;
-			for (const item of items) {
-				if (item.querySelector('svg')) hasSvg = true;
-				const words = countWords(item.textContent?.trim() || '');
-				if (words > 15) { allShort = false; break; }
+			// Skip lists introduced by a preceding paragraph (e.g. "Features include:")
+			// — those are content lists, not standalone metadata
+			const prevSibling = list.previousElementSibling;
+			if (prevSibling) {
+				const prevText = prevSibling.textContent?.trim() || '';
+				if (prevText.endsWith(':')) continue;
 			}
-			if (!allShort || !hasSvg) continue;
+
+			// Every item must be very short (label + value) with no prose
+			let isMetadata = true;
+			for (const item of items) {
+				const text = item.textContent?.trim() || '';
+				const words = countWords(text);
+				if (words > 8) { isMetadata = false; break; }
+				// Prose has sentence-ending punctuation; metadata doesn't
+				if (/[.!?]$/.test(text)) { isMetadata = false; break; }
+			}
+			if (!isMetadata) continue;
 
 			// Total text should be very short — this is metadata, not content
 			if (countWords(listText) > 30) continue;
