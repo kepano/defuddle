@@ -54,6 +54,22 @@ export const INLINE_ELEMENTS = new Set([
 	'font'
 ]);
 
+// Content element selectors — elements whose presence indicates real article
+// content rather than navigation, promotional, or decorative material.
+// Used to protect legitimate content from removal by scoring, content pattern
+// detection, and other heuristics.
+export const CONTENT_ELEMENT_SELECTOR = [
+	'math', '[data-mathml]',
+	'.katex', '.katex-mathml', '.katex-display',
+	'.MathJax', '.MathJax_Display', '.MathJax_SVG',
+	'mjx-container',
+	'pre', 'code',
+	'table',
+	'img', 'picture', 'video',
+	'blockquote',
+	'figure',
+].join(', ');
+
 // Selectors to be removed
 export const HIDDEN_EXACT_SKIP_SELECTORS = [
 	'[hidden]',
@@ -383,7 +399,7 @@ export const PARTIAL_SELECTORS = [
 	'chapter-list', // The Economist
 	'collections',
 	'comments',
-//	'-comment', Syntax highlighting
+	'-comment', // comments in code blocks are skipped in removeBySelector
 	'commentbox',
 	'comment-button',
 	'commentcomp',
