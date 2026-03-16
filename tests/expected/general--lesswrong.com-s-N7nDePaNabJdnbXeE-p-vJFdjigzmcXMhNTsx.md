@@ -11,7 +11,7 @@
 
 *This work was carried out while at* [*Conjecture*](https://www.conjecture.dev/)*.*
 
-![](https://res.cloudinary.com/lesswrong-2-0/image/upload/v1674094431/mirroredImages/vJFdjigzmcXMhNTsx/mal6l24rfuoinreeemia.png)
+![](https://res.cloudinary.com/lesswrong-2-0/image/upload/v1674094431/mirroredImages/vJFdjigzmcXMhNTsx/ytdyqqynryhcq1ysqbtk.png)
 
 *"Moebius illustration of a simulacrum living in an AI-generated story discovering it is in a simulation" by DALL-E 2*
 
