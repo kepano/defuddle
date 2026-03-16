@@ -33,6 +33,26 @@ const INNERTUBE_WEB_CONTEXT = {
 
 type TranscriptResult = { html: string; text: string; languageCode: string };
 
+interface TranscriptSelectors {
+	segments: string;
+	timestamp: string;
+	text: string;
+	chapters?: string;
+}
+
+const DESKTOP_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
+	segments: 'ytd-transcript-segment-renderer',
+	timestamp: '.segment-timestamp',
+	text: '.segment-text',
+};
+
+const MOBILE_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
+	segments: 'transcript-segment-view-model',
+	timestamp: '.ytwTranscriptSegmentViewModelTimestamp',
+	text: 'span.yt-core-attributed-string',
+	chapters: 'timeline-chapter-view-model h3',
+};
+
 export class YoutubeExtractor extends BaseExtractor {
 	private videoElement: HTMLVideoElement | null;
 	private inlineJsonCache = new Map<string, any>();
@@ -126,9 +146,26 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getTranscriptContainer(): Element | null {
-		return this.document.querySelector(
+		// Desktop YouTube
+		const desktop = this.document.querySelector(
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #segments-container'
 		);
+		if (desktop) return desktop;
+
+		// Mobile YouTube (m.youtube.com)
+		return this.document.querySelector(
+			'ytm-macro-markers-list-renderer .ytm-macro-markers-list-container'
+		);
+	}
+
+	private getTranscriptSelectors(container: Element): TranscriptSelectors | undefined {
+		if (container.querySelectorAll('ytd-transcript-segment-renderer').length > 0) {
+			return DESKTOP_TRANSCRIPT_SELECTORS;
+		}
+		if (container.querySelectorAll('transcript-segment-view-model').length > 0) {
+			return MOBILE_TRANSCRIPT_SELECTORS;
+		}
+		return undefined;
 	}
 
 	private buildTranscriptFromContainer(
@@ -137,13 +174,34 @@ export class YoutubeExtractor extends BaseExtractor {
 	): TranscriptResult | undefined {
 		if (container.children.length === 0) return undefined;
 
-		const segmentElements = container.querySelectorAll('ytd-transcript-segment-renderer');
-		if (segmentElements.length === 0) return undefined;
+		const selectors = this.getTranscriptSelectors(container);
+		if (!selectors) return undefined;
 
 		const segments: { start: number; text: string }[] = [];
-		for (const seg of Array.from(segmentElements)) {
-			const timestampEl = seg.querySelector('.segment-timestamp');
-			const textEl = seg.querySelector('.segment-text');
+
+		// Extract chapters from DOM if the format supports inline chapters
+		const domChapters: { title: string; start: number }[] = [];
+		if (selectors.chapters) {
+			const chapterEls = container.querySelectorAll(selectors.chapters);
+			for (const ch of chapterEls) {
+				const title = (ch.textContent || '').trim();
+				if (!title) continue;
+
+				// Walk up to panel item, then to next sibling to find the timestamp
+				const panelItem = ch.closest('macro-markers-panel-item-view-model');
+				const nextTimestamp = panelItem?.nextElementSibling?.querySelector(selectors.timestamp);
+				const timeStr = (nextTimestamp?.textContent || '').trim();
+				const seconds = this.parseTimestamp(timeStr);
+				if (seconds !== null) {
+					domChapters.push({ title, start: seconds });
+				}
+			}
+		}
+
+		const segmentElements = container.querySelectorAll(selectors.segments);
+		for (const seg of segmentElements) {
+			const timestampEl = seg.querySelector(selectors.timestamp);
+			const textEl = seg.querySelector(selectors.text);
 			if (!timestampEl || !textEl) continue;
 
 			const timeStr = (timestampEl.textContent || '').trim();
@@ -158,8 +216,9 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		if (segments.length === 0) return undefined;
 
+		const effectiveChapters = chapters.length > 0 ? chapters : domChapters;
 		const groups = this.groupTranscriptSegments(segments);
-		const { html, text } = buildTranscript('youtube', groups, chapters);
+		const { html, text } = buildTranscript('youtube', groups, effectiveChapters);
 
 		return {
 			html,
@@ -387,14 +446,14 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 	}
 
-	private async waitForTranscriptContainer(): Promise<Element | null> {
-		return new Promise<Element | null>((resolve) => {
+	private pollFor<T>(predicate: () => T | null, maxAttempts = 20): Promise<T | null> {
+		return new Promise<T | null>((resolve) => {
 			let attempts = 0;
 			const check = () => {
-				const container = this.getTranscriptContainer();
-				if (container && container.children.length > 0) {
-					resolve(container);
-				} else if (attempts++ < 20) {
+				const result = predicate();
+				if (result) {
+					resolve(result);
+				} else if (attempts++ < maxAttempts) {
 					setTimeout(check, 250);
 				} else {
 					resolve(null);
@@ -404,6 +463,32 @@ export class YoutubeExtractor extends BaseExtractor {
 		});
 	}
 
+	private waitForTranscriptSegments(): Promise<Element | null> {
+		return this.pollFor(() => {
+			const container = this.getTranscriptContainer();
+			if (!container || container.children.length === 0) return null;
+			return container.querySelectorAll(MOBILE_TRANSCRIPT_SELECTORS.segments).length > 0
+				? container : null;
+		});
+	}
+
+	private waitForTranscriptContainer(): Promise<Element | null> {
+		return this.pollFor(() => {
+			const container = this.getTranscriptContainer();
+			return container && container.children.length > 0 ? container : null;
+		});
+	}
+
+	private waitForElement(selector: string): Promise<HTMLElement | null> {
+		return this.pollFor(() =>
+			this.document.querySelector(selector) as HTMLElement | null
+		);
+	}
+
+	private isMobileYoutube(): boolean {
+		return !!this.document.querySelector('ytm-slim-video-metadata-section-renderer');
+	}
+
 	/**
 	 * Fallback: open YouTube's transcript panel and read segments from the DOM.
 	 * Used when fetch-based extraction fails and the transcript is not already rendered.
@@ -411,6 +496,10 @@ export class YoutubeExtractor extends BaseExtractor {
 	private async extractTranscriptFromOpenedDom(): Promise<TranscriptResult | undefined> {
 		try {
 			if (!this.canOpenTranscriptPanel()) return undefined;
+
+			if (this.isMobileYoutube()) {
+				return this.openMobileTranscriptPanel();
+			}
 
 			const transcriptButton = this.document.querySelector(
 				'ytd-video-description-transcript-section-renderer button'
@@ -428,6 +517,44 @@ export class YoutubeExtractor extends BaseExtractor {
 			return this.buildTranscriptFromContainer(container, chapters);
 		} catch (error) {
 			console.error('YoutubeExtractor: failed to extract transcript from opened DOM', error);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Mobile YouTube (m.youtube.com) transcript panel opening flow:
+	 * 1. Click "...more" to expand description
+	 * 2. Click "View all" next to Chapters to open the engagement panel
+	 * 3. Click "Timeline" tab to switch to the transcript view
+	 * 4. Wait for transcript segments to render
+	 */
+	private async openMobileTranscriptPanel(): Promise<TranscriptResult | undefined> {
+		try {
+			// Step 1: Expand description ("...more" button)
+			const moreButton = this.document.querySelector(
+				'button[aria-label="Show more"]'
+			) as HTMLElement | null;
+			if (moreButton) {
+				moreButton.click();
+			}
+
+			// Step 2: Click "View all" to open the chapters/timeline panel
+			const viewAllButton = await this.waitForElement('button[aria-label="View all"]');
+			if (!viewAllButton) return undefined;
+			viewAllButton.click();
+
+			// Step 3: Click "Timeline" tab
+			const timelineTab = await this.waitForElement('button[aria-label="Timeline"]');
+			if (!timelineTab) return undefined;
+			timelineTab.click();
+
+			// Step 4: Wait for transcript segments to render
+			const container = await this.waitForTranscriptSegments();
+			if (!container) return undefined;
+
+			return this.buildTranscriptFromContainer(container, []);
+		} catch (error) {
+			console.error('YoutubeExtractor: failed to open mobile transcript panel', error);
 			return undefined;
 		}
 	}
