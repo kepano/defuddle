@@ -69,7 +69,8 @@ program
 
 			const result = await Defuddle(doc, url, {
 				debug: options.debug,
-				markdown: options.markdown
+				markdown: options.markdown,
+				separateMarkdown: options.markdown || options.md || options.json
 			});
 
 			// Check if parsing produced meaningful content
@@ -106,6 +107,7 @@ program
 					site: result.site,
 					schemaOrgData: result.schemaOrgData,
 					wordCount: result.wordCount,
+					...(result.contentMarkdown ? { contentMarkdown: result.contentMarkdown } : {}),
 					...(result.variables ? { variables: result.variables } : {}),
 				}, null, 2);
 			} else {
