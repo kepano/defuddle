@@ -1245,8 +1245,22 @@ export class Defuddle {
 	 * Resolve relative URLs to absolute within a DOM element
 	 */
 	private resolveRelativeUrls(element: Element): void {
-		const baseUrl = this.options.url || this.doc.URL;
-		if (!baseUrl) return;
+		const docUrl = this.options.url || this.doc.URL;
+		if (!docUrl) return;
+
+		// Respect <base href> for relative URL resolution, matching browser behavior
+		let baseUrl = docUrl;
+		const baseEl = this.doc.querySelector('base[href]');
+		if (baseEl) {
+			const baseHref = baseEl.getAttribute('href');
+			if (baseHref) {
+				try {
+					baseUrl = new URL(baseHref, docUrl).href;
+				} catch {
+					// Invalid base href, fall back to document URL
+				}
+			}
+		}
 
 		const resolve = (url: string): string => {
 			// Some pages ship escaped quoted hrefs like \"mailto:...\" in server templates.

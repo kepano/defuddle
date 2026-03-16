@@ -37,6 +37,22 @@ describe('Markdown conversion', () => {
 		});
 	});
 
+	describe('base href resolution', () => {
+		test('should resolve relative URLs against base href', async () => {
+			const html = `<html><head><title>Test</title><base href="/html/2312.00752v2/"></head><body><article><p>Content</p><img src="x1.png"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://arxiv.org/html/2312.00752'), 'https://arxiv.org/html/2312.00752', { separateMarkdown: true });
+
+			expect(result.content).toContain('https://arxiv.org/html/2312.00752v2/x1.png');
+		});
+
+		test('should fall back to document URL when no base href', async () => {
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="x1.png"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://arxiv.org/html/2312.00752'), 'https://arxiv.org/html/2312.00752', { separateMarkdown: true });
+
+			expect(result.content).toContain('https://arxiv.org/html/x1.png');
+		});
+	});
+
 	describe('wbr tag handling', () => {
 		test('should remove wbr tags without adding spaces', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Super<wbr>cali<wbr>fragilistic</p></article></body></html>`;
