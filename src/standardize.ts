@@ -1,6 +1,7 @@
 import {
 	BLOCK_ELEMENTS_SET,
 	BLOCK_ELEMENTS_SELECTOR,
+	BLOCK_LEVEL_ELEMENTS,
 	PRESERVE_ELEMENTS,
 	INLINE_ELEMENTS,
 	ALLOWED_ATTRIBUTES,
@@ -1073,12 +1074,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		
 		// Check if all children are block elements
 		const allBlockElements = children.every(child => {
-			const tag = child.tagName.toLowerCase();
-			return BLOCK_ELEMENTS_SET.has(tag) || 
-				   tag === 'p' || tag === 'h1' || tag === 'h2' || 
-				   tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6' ||
-				   tag === 'ul' || tag === 'ol' || tag === 'pre' || tag === 'blockquote' ||
-				   tag === 'figure';
+			return BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase());
 		});
 		if (allBlockElements) return true;
 

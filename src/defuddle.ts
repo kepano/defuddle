@@ -187,16 +187,27 @@ export class Defuddle {
 	/**
 	 * Extract text content from schema.org data (e.g. SocialMediaPosting, Article)
 	 */
-	private _getSchemaText(schemaOrgData: any): string {
-		if (!schemaOrgData) return '';
+	private _getSchemaText(schemaOrgData: any, depth: number = 0): string {
+		if (!schemaOrgData || depth > 10) return '';
 
 		const items = Array.isArray(schemaOrgData) ? schemaOrgData : [schemaOrgData];
 		for (const item of items) {
+			// Recurse into nested arrays
+			if (Array.isArray(item)) {
+				const found = this._getSchemaText(item, depth + 1);
+				if (found) return found;
+				continue;
+			}
 			if (item?.text && typeof item.text === 'string') {
 				return item.text;
 			}
 			if (item?.articleBody && typeof item.articleBody === 'string') {
 				return item.articleBody;
+			}
+			// Traverse @graph arrays (common in JSON-LD with multiple entities)
+			if (item?.['@graph'] && Array.isArray(item['@graph'])) {
+				const found = this._getSchemaText(item['@graph'], depth + 1);
+				if (found) return found;
 			}
 		}
 		return '';
@@ -240,6 +251,37 @@ export class Defuddle {
 	}
 
 	/**
+	 * Find the smallest DOM element whose text contains the search phrase
+	 * and whose word count is at least 80% of the expected count.
+	 * Shared by _findSchemaContentElement and _findContentBySchemaText.
+	 */
+	private _findElementBySchemaText(root: Element, schemaText: string): Element | null {
+		const firstPara = schemaText.split(/\n\s*\n/)[0]?.trim() || '';
+		const searchPhrase = firstPara.substring(0, 100).trim();
+		if (!searchPhrase) return null;
+
+		const schemaWordCount = countWords(schemaText);
+		let bestMatch: Element | null = null;
+		let bestSize = Infinity;
+
+		const allElements = root.querySelectorAll('*');
+		for (const el of allElements) {
+			if (el === root) continue;
+
+			const elText = el.textContent || '';
+			if (!elText.includes(searchPhrase)) continue;
+
+			const elWords = countWords(elText);
+			if (elWords >= schemaWordCount * 0.8 && elWords < bestSize) {
+				bestSize = elWords;
+				bestMatch = el;
+			}
+		}
+
+		return bestMatch;
+	}
+
+	/**
 	 * Find a DOM element whose text matches the schema.org text content.
 	 * Used when the content scorer picked the wrong element from a feed page.
 	 * Returns the element's inner HTML including sibling media (images, etc.)
@@ -248,34 +290,7 @@ export class Defuddle {
 		const body = this.doc.body;
 		if (!body) return '';
 
-		// Use the first paragraph as the search phrase.
-		// DOM textContent concatenates <p> elements without separators,
-		// so we can't cross paragraph boundaries when matching.
-		const firstPara = schemaText.split(/\n\s*\n/)[0]?.trim() || '';
-		const searchPhrase = firstPara.substring(0, 100).trim();
-		if (!searchPhrase) return '';
-
-		const schemaWordCount = this.countHtmlWords(schemaText);
-
-		// Find the smallest element whose text contains the search phrase
-		// and whose word count is close to the schema text's word count
-		let bestMatch: Element | null = null;
-		let bestSize = Infinity;
-
-		const allElements = body.querySelectorAll('*');
-		for (const el of allElements) {
-			const elText = (el.textContent || '');
-			if (!elText.includes(searchPhrase)) continue;
-
-			const elWords = countWords(elText);
-			// Element should contain roughly the same amount of text
-			// (allow some slack for surrounding whitespace / minor extras)
-			if (elWords >= schemaWordCount * 0.8 && elWords < bestSize) {
-				bestSize = elWords;
-				bestMatch = el;
-			}
-		}
-
+		const bestMatch = this._findElementBySchemaText(body, schemaText);
 		if (!bestMatch) return '';
 
 		// Read the largest sibling image src BEFORE resolveRelativeUrls
@@ -559,6 +574,19 @@ export class Defuddle {
 			}
 			if (!mainContent) {
 				mainContent = this.findMainContent(clone);
+			}
+
+			// If we fell back to <body>, try using schema.org articleBody/text
+			// to find a more specific content element within the DOM.
+			if (mainContent && mainContent.tagName.toLowerCase() === 'body') {
+				const schemaText = this._getSchemaText(schemaOrgData);
+				if (schemaText) {
+					const schemaContent = this._findElementBySchemaText(clone.body, schemaText);
+					if (schemaContent) {
+						this._log('Found content element via schema.org text');
+						mainContent = schemaContent;
+					}
+				}
 			}
 			if (!mainContent) {
 				const fallbackContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';

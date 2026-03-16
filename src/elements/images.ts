@@ -4,6 +4,7 @@
 
 import { isElement, isTextNode } from '../utils';
 import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
@@ -209,28 +210,37 @@ export const imageRules = [
 			try {
 				const hasImage = containsImage(el);
 				if (!hasImage) {
-					return el; 
+					return el;
 				}
-				
+
+				// Skip spans that are content containers rather than image wrappers.
+				// A span with block-level children (p, h1-h6, div, etc.) is a content
+				// container that happens to contain images, not an image wrapper.
+				for (const child of el.children) {
+					if (BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase())) {
+						return el;
+					}
+				}
+
 				const imgElement = findMainImage(el);
 				if (!imgElement) {
-					return el; 
+					return el;
 				}
-				
+
 				const caption = findCaption(el);
-				
+
 				// Process the image element (might return the img itself or handle picture/source)
 				const processedImg = processImageElement(imgElement, doc);
-				
+
 				if (caption && hasMeaningfulCaption(caption)) {
 					const figure = createFigureWithCaption(processedImg, caption, doc);
 
-					// Remove the original caption element from its parent 
+					// Remove the original caption element from its parent
 					// to prevent duplication, as the span itself might remain.
 					if (caption.parentNode) {
 						caption.parentNode.removeChild(caption);
 					}
-					
+
 					return figure; // Replace the span (or its content) with the figure
 				} else {
 					// No meaningful caption, return just the processed image.
@@ -239,7 +249,7 @@ export const imageRules = [
 				}
 			} catch (error) {
 				console.warn('Error processing span with image:', error);
-				return el; 
+				return el;
 			}
 		}
 	},

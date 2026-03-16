@@ -26,6 +26,17 @@ export const BLOCK_ELEMENTS = ['div', 'section', 'article', 'main', 'aside', 'he
 export const BLOCK_ELEMENTS_SELECTOR = BLOCK_ELEMENTS.join(',');
 export const BLOCK_ELEMENTS_SET = new Set(BLOCK_ELEMENTS);
 
+// All block-level HTML elements (includes BLOCK_ELEMENTS + semantic content blocks)
+export const BLOCK_LEVEL_ELEMENTS = new Set([
+	...BLOCK_ELEMENTS,
+	'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+	'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+	'pre', 'blockquote', 'figure', 'figcaption',
+	'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+	'details', 'summary', 'address', 'hr',
+	'form', 'fieldset'
+]);
+
 // Elements that should not be unwrapped
 export const PRESERVE_ELEMENTS = new Set([
 	'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
@@ -122,6 +133,7 @@ export const EXACT_SELECTORS = [
 	'.meta',
 	'.tags',
 	'#tags',
+	'[rel="tag"]',
 	'.toc',
 	'.Toc',
 	'#toc',
