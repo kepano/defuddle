@@ -632,13 +632,9 @@ export class Defuddle {
 				this.removeHiddenElements(clone, debugRemovals);
 			}
 
-			// Remove non-content blocks by scoring
-			// Tries to find lists, navigation based on text content and link density
-			if (options.removeLowScoring) {
-				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
-			}
-
-			// Remove clutter using selectors
+			// Remove clutter using selectors — deterministic removal of known
+			// non-content elements (nav, footer, .sidebar, etc.) by class/id.
+			// Runs before scoring so the heuristic scorer sees a cleaner DOM.
 			if (options.removeExactSelectors || options.removePartialSelectors) {
 				this.removeBySelector(
 					clone,
@@ -648,6 +644,12 @@ export class Defuddle {
 					debugRemovals,
 					options.removeHiddenElements === false
 				);
+			}
+
+			// Remove non-content blocks by scoring — heuristic removal based
+			// on link density, text ratios, and navigation indicators.
+			if (options.removeLowScoring) {
+				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
 			}
 
 			// Remove elements by content patterns (read time, boilerplate, article cards)
