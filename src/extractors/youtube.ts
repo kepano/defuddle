@@ -1,8 +1,9 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
+import { DefuddleOptions } from '../types';
 import { escapeHtml } from '../utils/dom';
 import { countWords } from '../utils';
-import { buildTranscript } from '../utils/transcript';
+import { buildTranscript, TranscriptSegment } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
 const QUESTION_END = /\?["'\u2019\u201D)]*\s*$/;
@@ -38,8 +39,8 @@ export class YoutubeExtractor extends BaseExtractor {
 	private inlineJsonCache = new Map<string, any>();
 	protected override schemaOrgData: any;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
-		super(document, url, schemaOrgData);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions) {
+		super(document, url, schemaOrgData, options);
 		this.videoElement = document.querySelector('video');
 		this.schemaOrgData = schemaOrgData;
 	}
@@ -153,7 +154,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		if (segments.length === 0) return undefined;
 
-		const groups = this.groupTranscriptSegments(segments);
+		const groups = this.getTranscriptSegments(segments);
 		const { html, text } = buildTranscript('youtube', groups, chapters);
 
 		return {
@@ -589,7 +590,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		if (segments.length === 0) return undefined;
 
-		const groups = this.groupTranscriptSegments(segments);
+		const groups = this.getTranscriptSegments(segments);
 		const { html, text } = buildTranscript('youtube', groups, chapters);
 
 		return { html, text, languageCode };
@@ -613,6 +614,18 @@ export class YoutubeExtractor extends BaseExtractor {
 			return url.pathname.slice(1);
 		}
 		return new URLSearchParams(url.search).get('v') || '';
+	}
+
+	private getTranscriptSegments(segments: { start: number; text: string }[]): TranscriptSegment[] {
+		if (this.options?.extractors?.youtube?.preserveTranscriptSegments === true) {
+			return segments.map(segment => ({
+				start: segment.start,
+				text: segment.text,
+				speakerChange: false,
+			}));
+		}
+
+		return this.groupTranscriptSegments(segments);
 	}
 
 	/**

@@ -123,6 +123,19 @@ export interface DefuddleOptions {
 	 * CSS selector to use as main content element, bypassing auto-detection
 	 */
 	contentSelector?: string;
+
+	/**
+	 * Extractor-specific options
+	 */
+	extractors?: {
+		youtube?: {
+			/**
+			 * Prevent YoutubeExtractor from grouping transcript segments
+			 * Defaults to false
+			 */
+			preserveTranscriptSegments?: boolean;
+		};
+	};
 }
 
 export interface ExtractorVariables {

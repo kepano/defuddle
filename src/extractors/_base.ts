@@ -1,14 +1,17 @@
 import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/extractors';
+import { DefuddleOptions } from '../types';
 
 export abstract class BaseExtractor {
 	protected document: Document;
 	protected url: string;
 	protected schemaOrgData?: any;
+	protected options?: DefuddleOptions;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions) {
 		this.document = document;
 		this.url = url;
 		this.schemaOrgData = schemaOrgData;
+		this.options = options;
 	}
 
 	abstract canExtract(): boolean;

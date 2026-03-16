@@ -1,4 +1,5 @@
 import { BaseExtractor } from './extractors/_base';
+import { DefuddleOptions } from './types';
 
 // Extractors
 import { RedditExtractor } from './extractors/reddit';
@@ -13,7 +14,7 @@ import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
 import { XOembedExtractor } from './extractors/x-oembed';
 
-type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any) => BaseExtractor;
+type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions) => BaseExtractor;
 
 interface ExtractorMapping {
 	patterns: (string | RegExp)[];
@@ -120,20 +121,20 @@ export class ExtractorRegistry {
 		this.mappings.push(mapping);
 	}
 
-	static findExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
-		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtract());
+	static findExtractor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions): BaseExtractor | null {
+		return this.findByPredicate(document, url, schemaOrgData, options, e => e.canExtract());
 	}
 
-	static findAsyncExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
-		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtractAsync());
+	static findAsyncExtractor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions): BaseExtractor | null {
+		return this.findByPredicate(document, url, schemaOrgData, options, e => e.canExtractAsync());
 	}
 
-	static findPreferredAsyncExtractor(document: Document, url: string, schemaOrgData?: any): BaseExtractor | null {
-		return this.findByPredicate(document, url, schemaOrgData, e => e.canExtractAsync() && e.prefersAsync());
+	static findPreferredAsyncExtractor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions): BaseExtractor | null {
+		return this.findByPredicate(document, url, schemaOrgData, options, e => e.canExtractAsync() && e.prefersAsync());
 	}
 
 	private static findByPredicate(
-		document: Document, url: string, schemaOrgData: any | undefined,
+		document: Document, url: string, schemaOrgData: any | undefined, options: DefuddleOptions | undefined,
 		predicate: (instance: BaseExtractor) => boolean
 	): BaseExtractor | null {
 		try {
@@ -148,7 +149,7 @@ export class ExtractorRegistry {
 				});
 
 				if (matches) {
-					const instance = new extractor(document, url, schemaOrgData);
+					const instance = new extractor(document, url, schemaOrgData, options);
 					if (predicate(instance)) {
 						return instance;
 					}

@@ -435,7 +435,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData);
+			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData, this.options);
 
 			if (extractor) {
 				const extracted = await extractor.extractAsync();
@@ -449,12 +449,12 @@ export class Defuddle {
 	}
 
 	private async tryAsyncExtractor(
-		finder: (document: Document, url: string, schemaOrgData?: any) => BaseExtractor | null
+		finder: (document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions) => BaseExtractor | null
 	): Promise<DefuddleResponse | null> {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractor = finder(this.doc, url, schemaOrgData);
+			const extractor = finder(this.doc, url, schemaOrgData, this.options);
 
 			if (extractor) {
 				const startTime = Date.now();
@@ -530,7 +530,7 @@ export class Defuddle {
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
-			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData);
+			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, options);
 			if (extractor && extractor.canExtract()) {
 				const extracted = extractor.extract();
 				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
