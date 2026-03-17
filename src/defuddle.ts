@@ -442,10 +442,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = {
-				includeReplies: this.options.includeReplies ?? 'extractors',
-				language: this.options.language,
-				youtube: {
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, youtube: {
 					preserveTranscriptSegments: this.options.extractors?.youtube?.preserveTranscriptSegments,
 				},
 			};
@@ -468,9 +465,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = {
-				includeReplies: this.options.includeReplies ?? 'extractors',
-				language: this.options.language,
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language,
 				youtube: {
 					preserveTranscriptSegments: this.options.extractors?.youtube?.preserveTranscriptSegments,
 				},

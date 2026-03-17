@@ -3,15 +3,7 @@ import { YoutubeExtractor } from '../src/extractors/youtube';
 import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
 
-function createExtractor(
-	html = '<html><body></body></html>',
-	urlOrOptions: string | ExtractorOptions = 'https://www.youtube.com/watch?v=test123',
-	maybeOptions?: ExtractorOptions,
-): YoutubeExtractor {
-	const url = typeof urlOrOptions === 'string'
-		? urlOrOptions
-		: 'https://www.youtube.com/watch?v=test123';
-	const options = typeof urlOrOptions === 'string' ? maybeOptions : urlOrOptions;
+function createExtractor(html = '<html><body></body></html>', url = 'https://www.youtube.com/watch?v=test123', options?: ExtractorOptions): YoutubeExtractor {
 	const doc = parseDocument(html, url);
 	return new YoutubeExtractor(doc, url, undefined, options);
 }
@@ -164,7 +156,7 @@ describe('YouTube transcript parsing', () => {
 	});
 
 	test('preserves transcript segments when preserveTranscriptSegments is enabled', () => {
-		const extractor = createExtractor('<html><body></body></html>', {
+		const extractor = createExtractor('<html><body></body></html>', undefined, {
 			youtube: {
 				preserveTranscriptSegments: true,
 			}
