@@ -238,6 +238,36 @@ Math elements, including MathJax and KaTeX, are converted to standard MathML:
 </math>
 ```
 
+### Callouts
+
+Callout and alert elements from various sources are standardized to blockquotes with a `data-callout` attribute. When converting to Markdown, these become [Obsidian-style callouts](https://help.obsidian.md/Editing+and+formatting/Callouts).
+
+Supported sources:
+- GitHub markdown alerts (`div.markdown-alert`)
+- Obsidian Publish callouts (`div.callout[data-callout]`)
+- Callout asides (`aside.callout-*`)
+- Bootstrap alerts (`div.alert.alert-*`)
+
+The standardized HTML follows the [Obsidian Publish](https://help.obsidian.md/Editing+and+formatting/Callouts) format:
+
+```html
+<div data-callout="info" class="callout">
+  <div class="callout-title">
+    <div class="callout-title-inner">Info</div>
+  </div>
+  <div class="callout-content">
+    <p>This is an informational callout.</p>
+  </div>
+</div>
+```
+
+In Markdown:
+
+```markdown
+> [!info] Info
+> This is an informational callout.
+```
+
 ## Development
 
 ### Build
