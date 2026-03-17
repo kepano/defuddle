@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getDocsPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -211,20 +213,7 @@ export function getDocsPage(): string {
 		.note strong {
 			color: #B7B5AC;
 		}
-		.footer {
-			margin-top: 4rem;
-			padding-top: 2rem;
-			border-top: 1px solid #343331;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			border: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 		.toc {
 			background: #1C1B1A;
 			border: 1px solid #343331;
@@ -413,6 +402,8 @@ npx defuddle parse page.html --output result.html</code></pre>
 					<tr><td><code>useAsync</code></td><td>boolean</td><td>true</td><td>Allow async extractors to fetch from third-party APIs when no local content is available.</td></tr>
 					<tr><td><code>standardize</code></td><td>boolean</td><td>true</td><td>Standardize HTML (footnotes, headings, code blocks, etc.)</td></tr>
 					<tr><td><code>contentSelector</code></td><td>string</td><td></td><td>CSS selector to use as the main content element, bypassing auto-detection</td></tr>
+					<tr><td><code>language</code></td><td>string</td><td></td><td>Preferred language (BCP 47 tag, e.g. <code>en</code>, <code>fr</code>). Sets <code>Accept-Language</code> header and selects transcript language.</td></tr>
+					<tr><td><code>includeReplies</code></td><td>boolean | 'extractors'</td><td>'extractors'</td><td>Include replies: <code>'extractors'</code> for site-specific extractors only, <code>true</code> for all, <code>false</code> for none</td></tr>
 					<tr><td><code>debug</code></td><td>boolean</td><td>false</td><td>Enable debug logging and return debug info in the response</td></tr>
 			</tbody>
 		</table>
@@ -488,6 +479,24 @@ npx defuddle parse page.html --output result.html</code></pre>
 		<h3>Math</h3>
 		<p>Math elements, including MathJax and KaTeX, are converted to standard MathML with a <code>data-latex</code> attribute containing the original LaTeX source.</p>
 
+		<h3>Callouts</h3>
+		<p>Callout and alert elements from various sources are standardized to the <a href="https://help.obsidian.md/Editing+and+formatting/Callouts">Obsidian Publish callout format</a>. When converting to Markdown, these become Obsidian-style callouts.</p>
+		<p>Supported sources:</p>
+		<ul>
+			<li>GitHub markdown alerts (<code>div.markdown-alert</code>)</li>
+			<li>Obsidian Publish callouts (<code>div.callout[data-callout]</code>)</li>
+			<li>Callout asides (<code>aside.callout-*</code>)</li>
+			<li>Bootstrap alerts (<code>div.alert.alert-*</code>)</li>
+		</ul>
+<pre><code class="language-html">&lt;div data-callout="info" class="callout"&gt;
+  &lt;div class="callout-title"&gt;
+    &lt;div class="callout-title-inner"&gt;Info&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="callout-content"&gt;
+    &lt;p&gt;This is an informational callout.&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
 		<h2 id="debugging">Debugging</h2>
 
 		<h3>Debug mode</h3>
@@ -559,14 +568,7 @@ const result = new Defuddle(document, { standardize: false }).parse();</code></p
   contentSelector: 'article.post-content'
 }).parse();</code></pre>
 
-		<div class="footer">
-			<a href="https://github.com/kepano/defuddle">GitHub</a>
-			&middot; <a href="https://www.npmjs.com/package/defuddle">NPM</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/playground">Playground</a>
-			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
-			&middot; by <a href="https://stephango.com">@kepano</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
 	<script>hljs.highlightAll();</script>

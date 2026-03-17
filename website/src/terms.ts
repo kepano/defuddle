@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getTermsPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -68,18 +70,7 @@ export function getTermsPage(): string {
 		.back:hover {
 			color: #F2F0E5;
 		}
-		.footer {
-			margin-top: 2rem;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			text-decoration: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 	</style>
 </head>
 <body>
@@ -110,7 +101,7 @@ export function getTermsPage(): string {
 		</ul>
 
 		<h2>Free tier and rate limits</h2>
-		<p>Unauthenticated API requests are rate-limited to 5,000 requests per month per IP address. Exceeding this limit will result in temporary access restrictions. Paid API keys are limited only by their purchased request balance.</p>
+		<p>Unauthenticated API requests are rate-limited to 1,000 requests per month per IP address. Exceeding this limit will result in temporary access restrictions. Paid API keys are limited only by their purchased request balance.</p>
 
 		<h2>Availability</h2>
 		<p>We make no guarantees about service uptime or availability. The service may be modified, suspended, or discontinued at any time without notice.</p>
@@ -124,13 +115,7 @@ export function getTermsPage(): string {
 		<h2>Changes</h2>
 		<p>We may update these terms at any time. Continued use of the service constitutes acceptance of the updated terms.</p>
 
-		<div class="footer">
-			<a href="/">Home</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/terms">Terms</a>
-			&middot; <a href="/privacy">Privacy</a>
-			&middot; <a href="/pricing">Pricing</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 </body>
 </html>`;

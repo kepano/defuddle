@@ -7,6 +7,10 @@
 }
 ```
 
+[jmorrell](https://github.com/jmorrell)
+
+Contributor
+
 Example repo here: [https://github.com/jmorrell/defuddle-cloudflare-example](https://github.com/jmorrell/defuddle-cloudflare-example)
 
 I was looking forward to ditching my tenuous `readbilityjs` fork in my workers project. Defuddle ultimately does run to completion, but I ran into a couple of issues. Supporting this environment fully is likely challenging since `JSDOM` does not work within the Worker environment. I suspect the same will be true of the deno and bun runtimes.

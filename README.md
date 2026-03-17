@@ -100,6 +100,7 @@ npx defuddle parse page.html --debug
 | `--json` | `-j` | Output as JSON with metadata and content |
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
+| `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
 
 ## Installation
 
@@ -182,6 +183,8 @@ The core bundle is recommended for most use cases. It still handles math content
 | `standardize`            | boolean | true    | Standardize HTML (footnotes, headings, code blocks, etc.)                 |
 | `contentSelector`        | string  |         | CSS selector to use as the main content element, bypassing auto-detection |
 | `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
+| `language`               | string  |         | Preferred language (BCP 47 tag, e.g. `en`, `fr`). Sets `Accept-Language` header and selects transcript language. |
+| `includeReplies`         | boolean \| 'extractors' | 'extractors' | Include replies: `'extractors'` for site-specific extractors only, `true` for all, `false` for none. |
 
 ## HTML standardization
 
@@ -233,6 +236,36 @@ Math elements, including MathJax and KaTeX, are converted to standard MathML:
   <mo>≠</mo>
   <mn>0</mn>
 </math>
+```
+
+### Callouts
+
+Callout and alert elements from various sources are standardized to blockquotes with a `data-callout` attribute. When converting to Markdown, these become [Obsidian-style callouts](https://help.obsidian.md/Editing+and+formatting/Callouts).
+
+Supported sources:
+- GitHub markdown alerts (`div.markdown-alert`)
+- Obsidian Publish callouts (`div.callout[data-callout]`)
+- Callout asides (`aside.callout-*`)
+- Bootstrap alerts (`div.alert.alert-*`)
+
+The standardized HTML follows the [Obsidian Publish](https://help.obsidian.md/Editing+and+formatting/Callouts) format:
+
+```html
+<div data-callout="info" class="callout">
+  <div class="callout-title">
+    <div class="callout-title-inner">Info</div>
+  </div>
+  <div class="callout-content">
+    <p>This is an informational callout.</p>
+  </div>
+</div>
+```
+
+In Markdown:
+
+```markdown
+> [!info] Info
+> This is an informational callout.
 ```
 
 ## Development

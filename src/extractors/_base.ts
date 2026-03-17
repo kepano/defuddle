@@ -1,17 +1,24 @@
 import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/extractors';
-import { DefuddleOptions } from '../types';
+
+export interface ExtractorOptions {
+	includeReplies?: boolean | 'extractors';
+	language?: string;
+	youtube?: {
+		preserveTranscriptSegments?: boolean;
+	};
+}
 
 export abstract class BaseExtractor {
 	protected document: Document;
 	protected url: string;
 	protected schemaOrgData?: any;
-	protected options?: DefuddleOptions;
+	protected options: ExtractorOptions;
 
-	constructor(document: Document, url: string, schemaOrgData?: any, options?: DefuddleOptions) {
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
 		this.document = document;
 		this.url = url;
 		this.schemaOrgData = schemaOrgData;
-		this.options = options;
+		this.options = options || {};
 	}
 
 	abstract canExtract(): boolean;

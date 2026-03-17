@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getPrivacyPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -68,18 +70,7 @@ export function getPrivacyPage(): string {
 		.back:hover {
 			color: #F2F0E5;
 		}
-		.footer {
-			margin-top: 2rem;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			text-decoration: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 	</style>
 </head>
 <body>
@@ -118,13 +109,7 @@ export function getPrivacyPage(): string {
 		<h2>Changes</h2>
 		<p>We may update this policy as the service evolves. Changes will be reflected in the "last updated" date above.</p>
 
-		<div class="footer">
-			<a href="/">Home</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/terms">Terms</a>
-			&middot; <a href="/privacy">Privacy</a>
-			&middot; <a href="/pricing">Pricing</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 </body>
 </html>`;

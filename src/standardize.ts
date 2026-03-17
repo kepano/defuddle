@@ -12,7 +12,7 @@ import {
 import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
 import { codeBlockRules } from './elements/code';
-import { headingRules } from './elements/headings';
+import { headingRules, removeHeadingAnchors } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
@@ -33,26 +33,6 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	...codeBlockRules,
 	...headingRules,
 	...imageRules,
-
-	// Convert callout asides to blockquotes with data-callout attribute
-	{
-		selector: 'aside[class*="callout"]',
-		element: 'blockquote',
-		transform: (el: Element, doc: Document): Element => {
-			const blockquote = doc.createElement('blockquote');
-
-			// Extract callout type from class (e.g., "callout-tip" → "tip")
-			const typeClass = Array.from(el.classList).find(c => c.startsWith('callout-'));
-			const type = typeClass ? typeClass.replace('callout-', '') : 'note';
-			blockquote.setAttribute('data-callout', type);
-
-			// Get content from .callout-content div, or fall back to whole aside
-			const contentEl = el.querySelector('.callout-content');
-			transferContent(contentEl || el, blockquote);
-
-			return blockquote;
-		}
-	},
 
 	// Convert divs with paragraph role to actual paragraphs
 	{ 
@@ -205,6 +185,9 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 				unwrapElement(link);
 			}
 		});
+
+		// Remove heading anchor links (e.g. <h2>Title<a href="#title">#</a></h2>)
+		removeHeadingAnchors(element);
 
 		// Remove obsolete plugin elements
 		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());
@@ -447,7 +430,8 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 				// Preserve code block language classes and footnote backref class
 				(attrName === 'class' && (
 					(tag === 'code' && attrValue.startsWith('language-')) ||
-					attrValue === 'footnote-backref'
+					attrValue === 'footnote-backref' ||
+					/^callout(?:-|$)/.test(attrValue)
 				))
 			) {
 				return;
@@ -1031,10 +1015,13 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 
 	const shouldPreserveElement = (el: Element): boolean => {
 		const tagName = el.tagName.toLowerCase();
-		
+
 		// Check if element should be preserved
 		if (PRESERVE_ELEMENTS.has(tagName)) return true;
-		
+
+		// Preserve callout structure (div.callout[data-callout] and children)
+		if (el.getAttribute('data-callout') || el.closest?.('[data-callout]')) return true;
+
 		// Check for semantic roles
 		const role = el.getAttribute('role');
 		if (role && ['article', 'main', 'navigation', 'banner', 'contentinfo'].includes(role)) {

@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getSuccessPage(sessionId: string): string {
 	const escapedSessionId = sessionId.replace(/[&"'<>]/g, '');
 
@@ -113,18 +115,7 @@ export function getSuccessPage(sessionId: string): string {
 			color: #e5a0a0;
 			font-size: 0.9rem;
 		}
-		.footer {
-			margin-top: 2rem;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			text-decoration: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 	</style>
 </head>
 <body>
@@ -150,11 +141,7 @@ export function getSuccessPage(sessionId: string): string {
 			<a href="/pricing" style="color:#e5a0a0; margin-left: 0.25rem;">Return to pricing</a>
 		</div>
 
-		<div class="footer">
-			<a href="/">Home</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/pricing">Pricing</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 	<script>
 		var sessionId = ${JSON.stringify(escapedSessionId)};

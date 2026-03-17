@@ -1,11 +1,19 @@
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
-import { DefuddleOptions } from '../src/types';
+import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
 
-function createExtractor(html = '<html><body></body></html>', options?: DefuddleOptions): YoutubeExtractor {
-	const doc = parseDocument(html, 'https://www.youtube.com/watch?v=test123');
-	return new YoutubeExtractor(doc, 'https://www.youtube.com/watch?v=test123', undefined, options);
+function createExtractor(
+	html = '<html><body></body></html>',
+	urlOrOptions: string | ExtractorOptions = 'https://www.youtube.com/watch?v=test123',
+	maybeOptions?: ExtractorOptions,
+): YoutubeExtractor {
+	const url = typeof urlOrOptions === 'string'
+		? urlOrOptions
+		: 'https://www.youtube.com/watch?v=test123';
+	const options = typeof urlOrOptions === 'string' ? maybeOptions : urlOrOptions;
+	const doc = parseDocument(html, url);
+	return new YoutubeExtractor(doc, url, undefined, options);
 }
 
 function getTranscriptPanelHtml() {
@@ -157,10 +165,8 @@ describe('YouTube transcript parsing', () => {
 
 	test('preserves transcript segments when preserveTranscriptSegments is enabled', () => {
 		const extractor = createExtractor('<html><body></body></html>', {
-			extractors: {
-				youtube: {
-					preserveTranscriptSegments: true,
-				}
+			youtube: {
+				preserveTranscriptSegments: true,
 			}
 		});
 		const xml = `<timedtext><body>
@@ -453,6 +459,89 @@ describe('YouTube transcript parsing', () => {
 		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
 		expect(result.content).toContain('<h2>Transcript</h2>');
 		expect(clickSpy).toHaveBeenCalledTimes(1);
+	});
+
+	test('extracts transcript from mobile YouTube DOM (m.youtube.com)', () => {
+		const mobileHtml = `
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English" }
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytm-macro-markers-list-renderer class="browsing-mode">
+						<div class="ytm-macro-markers-list-container">
+							<ytm-item-section-renderer>
+								<lazy-list>
+									<macro-markers-panel-item-view-model>
+										<timeline-chapter-view-model>
+											<h3 class="ytwTimelineChapterViewModelTitle">Introduction</h3>
+										</timeline-chapter-view-model>
+									</macro-markers-panel-item-view-model>
+									<macro-markers-panel-item-view-model>
+										<timeline-item-view-model>
+											<div class="ytwTimelineItemViewModelContentItems">
+												<transcript-segment-view-model>
+													<div class="ytwTranscriptSegmentViewModelTimestamp">0:00</div>
+													<span class="yt-core-attributed-string" role="text">Hello and welcome to the show.</span>
+												</transcript-segment-view-model>
+											</div>
+										</timeline-item-view-model>
+									</macro-markers-panel-item-view-model>
+									<macro-markers-panel-item-view-model>
+										<timeline-item-view-model>
+											<div class="ytwTimelineItemViewModelContentItems">
+												<transcript-segment-view-model>
+													<div class="ytwTranscriptSegmentViewModelTimestamp">0:05</div>
+													<span class="yt-core-attributed-string" role="text">Today we discuss design.</span>
+												</transcript-segment-view-model>
+											</div>
+										</timeline-item-view-model>
+									</macro-markers-panel-item-view-model>
+									<macro-markers-panel-item-view-model>
+										<timeline-chapter-view-model>
+											<h3 class="ytwTimelineChapterViewModelTitle">Main Topic</h3>
+										</timeline-chapter-view-model>
+									</macro-markers-panel-item-view-model>
+									<macro-markers-panel-item-view-model>
+										<timeline-item-view-model>
+											<div class="ytwTimelineItemViewModelContentItems">
+												<transcript-segment-view-model>
+													<div class="ytwTranscriptSegmentViewModelTimestamp">1:00</div>
+													<span class="yt-core-attributed-string" role="text">The design process has changed.</span>
+												</transcript-segment-view-model>
+											</div>
+										</timeline-item-view-model>
+									</macro-markers-panel-item-view-model>
+								</lazy-list>
+							</ytm-item-section-renderer>
+						</div>
+					</ytm-macro-markers-list-renderer>
+				</body>
+			</html>
+		`;
+
+		const extractor = createExtractor(mobileHtml, 'https://m.youtube.com/watch?v=test123');
+		const result = extractor.extract();
+
+		expect(result.variables.language).toBe('en');
+		expect(result.variables.transcript).toContain('**0:00** · Hello and welcome to the show.');
+		expect(result.variables.transcript).toContain('**0:05** · Today we discuss design.');
+		expect(result.variables.transcript).toContain('**1:00** · The design process has changed.');
+
+		// Chapters should be extracted from mobile DOM
+		expect(result.content).toContain('Introduction');
+		expect(result.content).toContain('Main Topic');
 	});
 
 	test('extractAsync skips transcript panel opening in non-browser DOM contexts', async () => {

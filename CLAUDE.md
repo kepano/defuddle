@@ -49,13 +49,14 @@ Always use `curl` when testing the Worker or defuddle.md — do not open URLs in
 2. Resolve React streaming SSR (`resolveStreamedContent`)
 3. Find main content (auto-detection or `contentSelector`)
 4. `standardizeFootnotes` — runs before removals because CSS sidenotes use `display:none`
-5. `removeSmallImages`
-6. `removeHiddenElements`
-7. `removeLowScoring`
-8. `removeBySelector` — exact and partial selectors from `src/constants.ts`
-9. `removeByContentPattern` — content-based removal (read time, boilerplate, article cards)
-10. `standardizeContent` — HTML normalization
-11. Resolve relative URLs
+5. `standardizeCallouts` — converts GitHub alerts, Bootstrap alerts, callout asides to `blockquote[data-callout]` before selector removal strips `.alert` etc.
+6. `removeSmallImages`
+7. `removeHiddenElements`
+8. `removeLowScoring`
+9. `removeBySelector` — exact and partial selectors from `src/constants.ts`
+10. `removeByContentPattern` — content-based removal (read time, boilerplate, article cards)
+11. `standardizeContent` — HTML normalization
+12. Resolve relative URLs
 
 ### Pipeline toggles
 
@@ -68,6 +69,7 @@ new Defuddle(document, {
   removePartialSelectors: false,
   removeContentPatterns: false,
   standardize: false,  // disables standardizeFootnotes and standardizeContent
+  includeReplies: false, // excludes replies from extractors like Reddit, HN, GitHub, Twitter/X
 }).parse();
 ```
 

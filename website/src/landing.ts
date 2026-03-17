@@ -1,3 +1,5 @@
+import { getFooterCSS, getFooterHTML } from './footer';
+
 export function getLandingPage(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -166,18 +168,7 @@ export function getLandingPage(): string {
 			font-size: 0.85rem;
 			color: #B7B5AC;
 		}
-		.footer {
-			margin-top: 2rem;
-			font-size: 0.85rem;
-			color: #575653;
-		}
-		.footer a {
-			color: #878580;
-			text-decoration: none;
-		}
-		.footer a:hover {
-			color: #F2F0E5;
-		}
+		${getFooterCSS()}
 	</style>
 </head>
 <body>
@@ -224,16 +215,7 @@ export function getLandingPage(): string {
 			<p>Drag these to your bookmarks bar, then click them on any page to convert it to Markdown.</p>
 			<p style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;"><a href="javascript:void(location.href='https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,''))" style="display: inline-block; padding: 0.4rem 0.8rem; background: #343331; color: #F2F0E5; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.85rem; cursor: grab;">Defuddle</a><a href="javascript:void(fetch('https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,'')).then(r=>r.text()).then(t=>{navigator.clipboard.writeText(t);document.title='\\u2705 '+document.title;setTimeout(()=>{document.title=document.title.slice(2)},2000)}).catch(()=>{window.open('https://defuddle.md/'+location.href.replace(/^https?:\\/\\//,''))}))" style="display: inline-block; padding: 0.4rem 0.8rem; background: #343331; color: #F2F0E5; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 0.85rem; cursor: grab;">Copy as md</a></p>
 		</div>
-		<div class="footer">
-			<a href="https://github.com/kepano/defuddle">GitHub</a>
-			&middot; <a href="https://www.npmjs.com/package/defuddle">NPM</a>
-			&middot; <a href="/docs">Docs</a>
-			&middot; <a href="/playground">Playground</a>
-			&middot; <a href="https://github.com/kepano/defuddle/blob/main/LICENSE">MIT License</a>
-			&middot; <a href="/terms">Terms</a>
-			&middot; <a href="/privacy">Privacy</a>
-			&middot; by <a href="https://stephango.com">@kepano</a>
-		</div>
+		${getFooterHTML()}
 	</div>
 	<script>
 		var modeUrl = document.getElementById('modeUrl');
