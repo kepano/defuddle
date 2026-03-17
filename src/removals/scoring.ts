@@ -1,7 +1,7 @@
-import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from './constants';
-import { DebugRemoval } from './types';
-import { textPreview, countWords } from './utils';
-import { getClassName } from './utils/dom';
+import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from '../constants';
+import { DebugRemoval } from '../types';
+import { textPreview, countWords, logDebug } from '../utils';
+import { getClassName } from '../utils/dom';
 
 const contentIndicators = [
 	'admonition',
@@ -301,12 +301,10 @@ export class ContentScorer {
 		});
 
 		const endTime = Date.now();
-		if (debug) {
-			console.log('Defuddle', 'Removed non-content blocks:', {
-				count: elementsToRemove.size,
-				processingTime: `${(endTime - startTime).toFixed(2)}ms`
-			});
-		}
+		logDebug(debug, 'Removed non-content blocks:', {
+			count: elementsToRemove.size,
+			processingTime: `${(endTime - startTime).toFixed(2)}ms`
+		});
 	}
 
 	/**

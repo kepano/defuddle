@@ -1,7 +1,7 @@
 ```json
 {
   "title": "开发者 - Obsidian 中文帮助 - Obsidian Publish",
-  "author": "Obsidian 中文帮助",
+  "author": "",
   "site": "Obsidian 中文帮助",
   "published": ""
 }

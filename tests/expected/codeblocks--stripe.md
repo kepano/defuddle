@@ -1,7 +1,7 @@
 ```json
 {
   "title": "x402 payments",
-  "author": "Stripe Documentation",
+  "author": "",
   "site": "Stripe Documentation",
   "published": ""
 }

@@ -1,8 +1,8 @@
 ```json
 {
-  "title": "Array - JavaScript | MDN",
+  "title": "Array - JavaScript",
   "author": "",
-  "site": "",
+  "site": "MDN",
   "published": ""
 }
 ```

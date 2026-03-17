@@ -1,6 +1,7 @@
 ---
 title: "Post by @kepano"
 author: "@kepano"
+site: "X (Twitter)"
 source: "https://x.com/kepano/status/1675626836821409792"
 language: "en"
 word_count: 377

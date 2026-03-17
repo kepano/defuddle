@@ -1,7 +1,7 @@
 ```json
 {
-  "title": "Building Frontend UIs with Codex and Figma | Figma Blog",
-  "author": "Figma",
+  "title": "Building Frontend UIs with Codex and Figma",
+  "author": "",
   "site": "Figma",
   "published": "February 26, 2026"
 }
