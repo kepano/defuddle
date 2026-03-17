@@ -106,6 +106,62 @@ async function fileExists(path: string): Promise<boolean> {
 	}
 }
 
+const MIN_IMAGE_BYTES = 1024;
+const FETCH_RETRY_COUNT = 3;
+const FETCH_RETRY_DELAY_MS = 1500;
+
+async function fetchImageWithRetry(imageUrl: string): Promise<{ data: Buffer; ext: string } | null> {
+	let referer = '';
+	try { referer = new URL(imageUrl).origin; } catch { /* ignore */ }
+
+	const headers: Record<string, string> = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+	};
+	if (referer) headers['Referer'] = referer;
+
+	for (let attempt = 1; attempt <= FETCH_RETRY_COUNT; attempt++) {
+		try {
+			const response = await fetch(imageUrl, { method: 'GET', headers });
+
+			// 4xx: server explicitly rejected — no point retrying
+			if (response.status >= 400 && response.status < 500) {
+				return null;
+			}
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}`);
+			}
+
+			// Validate Content-Type: skip non-image responses (e.g. HTML error pages)
+			const contentType = response.headers.get('content-type') || '';
+			const isImage = contentType.startsWith('image/');
+			const isBinary = contentType.includes('application/octet-stream') || contentType === '';
+			if (!isImage && !isBinary) {
+				return null;
+			}
+
+			const arrayBuffer = await response.arrayBuffer();
+
+			// Skip tracking pixels (< 1 KB)
+			if (arrayBuffer.byteLength < MIN_IMAGE_BYTES) {
+				return null;
+			}
+
+			const finalUrl = response.url || imageUrl;
+			let ext = extname(new URL(finalUrl).pathname);
+			if (!ext) {
+				ext = extensionFromContentType(contentType || undefined);
+			}
+
+			return { data: Buffer.from(arrayBuffer), ext };
+		} catch (err) {
+			if (attempt === FETCH_RETRY_COUNT) return null;
+			await new Promise(r => setTimeout(r, FETCH_RETRY_DELAY_MS));
+		}
+	}
+	return null;
+}
+
 async function downloadImagesInMarkdown(markdown: string, outputPath: string, imageDir: string, baseUrl: string | undefined, pageName: string): Promise<string> {
 	const outputDir = dirname(outputPath);
 	const saveDir = resolve(outputDir, imageDir || 'attachments');
@@ -145,44 +201,38 @@ async function downloadImagesInMarkdown(markdown: string, outputPath: string, im
 
 		let localPath = urlToLocal.get(imageUrl);
 		if (!localPath) {
-			try {
-				const response = await fetch(imageUrl, { method: 'GET' });
-				if (!response.ok) {
-					result += fullMatch;
-					continue;
-				}
+			const fetched = await fetchImageWithRetry(imageUrl);
+			if (!fetched) {
+				result += fullMatch;
+				continue;
+			}
 
-				const finalUrl = response.url || imageUrl;
-				let ext = extname(new URL(finalUrl).pathname);
-				if (!ext) {
-					ext = extensionFromContentType(response.headers.get('content-type') || undefined);
-				}
+			const { data, ext } = fetched;
+			let candidateName = `${pageName}-${imageIndex}${ext || '.jpg'}`;
+			candidateName = sanitizeFileName(candidateName);
+			if (!extname(candidateName)) {
+				candidateName += ext || '.jpg';
+			}
 
-				let candidateName = `${pageName}-${imageIndex}${ext || '.jpg'}`;
+			let destination = resolve(saveDir, candidateName);
+			let collision = 1;
+			while (await fileExists(destination)) {
+				candidateName = `${pageName}-${imageIndex}-${collision}${ext || '.jpg'}`;
 				candidateName = sanitizeFileName(candidateName);
-				if (!extname(candidateName)) {
-					candidateName += ext || '.jpg';
-				}
+				destination = resolve(saveDir, candidateName);
+				collision += 1;
+			}
 
-				let destination = resolve(saveDir, candidateName);
-				let collision = 1;
-				while (await fileExists(destination)) {
-					candidateName = `${pageName}-${imageIndex}-${collision}${ext || '.jpg'}`;
-					candidateName = sanitizeFileName(candidateName);
-					destination = resolve(saveDir, candidateName);
-					collision += 1;
-				}
-
-				const data = Buffer.from(await response.arrayBuffer());
+			try {
 				await writeFile(destination, data);
-
-				localPath = relative(outputDir, destination).replace(/\\/g, '/');
-				urlToLocal.set(imageUrl, localPath);
-				imageIndex += 1;
 			} catch {
 				result += fullMatch;
 				continue;
 			}
+
+			localPath = relative(outputDir, destination).replace(/\\/g, '/');
+			urlToLocal.set(imageUrl, localPath);
+			imageIndex += 1;
 		}
 
 		const linkTitle = titlePart ? ` ${titlePart}` : '';
