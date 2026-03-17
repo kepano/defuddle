@@ -354,7 +354,7 @@ export class MetadataExtractor {
 	}
 
 	private static getMetaContent(metaTags: MetaTagItem[], attr: string, value: string): string {
-		return this.getMetaContents(metaTags, attr, value)[0] ?? "";
+		return this.getMetaContents(metaTags, attr, value).at(-1) ?? "";
 	}
 
 	private static getMetaContents(metaTags: MetaTagItem[], attr: string, value: string): string[] {
