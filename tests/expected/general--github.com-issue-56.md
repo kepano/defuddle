@@ -1,6 +1,6 @@
 ```json
 {
-  "title": "Defuddle on Cloudflare Workers · Issue #56 · kepano/defuddle",
+  "title": "Defuddle on Cloudflare Workers · Issue #56",
   "author": "jmorrell",
   "site": "GitHub",
   "published": "2025-05-25T20:35:48.000Z"

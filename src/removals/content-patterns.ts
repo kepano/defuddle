@@ -55,7 +55,89 @@ function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: bo
 	}
 }
 
+/**
+ * Detect and remove "hero header" blocks near the top of content.
+ * These are containers that wrap a heading (h1/h2), a <time> element,
+ * and optionally author info and a hero image — common in blog layouts.
+ * The block has very little prose; it's purely presentational metadata.
+ *
+ * Strategy: find <time> elements near the start, then walk up to find
+ * the largest ancestor that's still mostly metadata (contains h1 + time,
+ * has little prose). This handles arbitrary nesting depth.
+ */
+function removeHeroHeader(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const timeElements = mainContent.querySelectorAll('time');
+	if (timeElements.length === 0) return;
+
+	const contentText = mainContent.textContent || '';
+
+	for (const time of timeElements) {
+		// Must be near the start of content
+		const timeText = time.textContent?.trim() || '';
+		const pos = contentText.indexOf(timeText);
+		if (pos > 300) continue;
+
+		// Walk up from the <time> element to find the largest ancestor
+		// that contains both a heading and a <time>, but has little prose.
+		let bestBlock: Element | null = null;
+		let current: Element | null = time.parentElement;
+
+		while (current && current !== mainContent) {
+			// Must contain both a heading and a time element
+			const hasHeadingAndTime = current.querySelector('h1, h2') && current.querySelector('time');
+			if (hasHeadingAndTime) {
+				const blockText = current.textContent?.trim() || '';
+				const totalWords = countWords(blockText);
+
+				// Count words in metadata elements (headings, time, tagged lists).
+				// Use a Set to avoid double-counting nested elements.
+				const metadataEls = new Set<Element>();
+				for (const el of current.querySelectorAll('h1, h2, h3, time, [aria-label]')) {
+					// Skip if this element is inside another metadata element
+					let dominated = false;
+					for (const existing of metadataEls) {
+						if (existing.contains(el)) { dominated = true; break; }
+					}
+					if (!dominated) metadataEls.add(el);
+				}
+				let metadataWords = 0;
+				for (const el of metadataEls) {
+					metadataWords += countWords(el.textContent || '');
+				}
+				const proseWords = totalWords - metadataWords;
+
+				if (proseWords < 30) {
+					bestBlock = current;
+				} else {
+					// Too much prose — stop walking up
+					break;
+				}
+			}
+
+			current = current.parentElement;
+		}
+
+		if (bestBlock) {
+			if (debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'hero header block',
+					text: textPreview(bestBlock)
+				});
+			}
+			bestBlock.remove();
+			return;
+		}
+	}
+}
+
 export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, debugRemovals?: DebugRemoval[]) {
+	// Remove hero header blocks — containers near the top of content that
+	// wrap date, title heading, author, tags, and a hero image together.
+	// After individual metadata elements are stripped, these leave behind
+	// orphaned images and empty wrappers. Detect and remove the whole block.
+	removeHeroHeader(mainContent, debug, debugRemovals);
+
 	const contentText = mainContent.textContent || '';
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 

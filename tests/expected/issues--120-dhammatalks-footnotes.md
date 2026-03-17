@@ -1,8 +1,8 @@
 ```json
 {
-  "title": "MN 37 The Shorter Craving-Destruction Discourse | Cūḷa Taṇhāsaṅkhaya Sutta | sutta on dhammatalks.org",
+  "title": "MN 37 The Shorter Craving-Destruction Discourse | Cūḷa Taṇhāsaṅkhaya Sutta",
   "author": "",
-  "site": "",
+  "site": "sutta on dhammatalks.org",
   "published": ""
 }
 ```

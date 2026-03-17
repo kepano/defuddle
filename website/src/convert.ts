@@ -105,6 +105,9 @@ export function formatResponse(result: DefuddleResponse, sourceUrl: string): str
 	if (result.author) {
 		frontmatter.push(`author: "${esc(result.author)}"`);
 	}
+	if (result.site) {
+		frontmatter.push(`site: "${esc(result.site)}"`);
+	}
 	if (result.published) {
 		frontmatter.push(`published: ${result.published}`);
 	}

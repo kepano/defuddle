@@ -1,4 +1,5 @@
 import { DefuddleMetadata, MetaTagItem } from './types';
+import { countWords } from './utils';
 
 export class MetadataExtractor {
 	static extract(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): DefuddleMetadata {
@@ -40,16 +41,21 @@ export class MetadataExtractor {
 			}
 		}
 
+		const siteName = this.getSiteName(schemaOrgData, metaTags);
+		const { title, detectedSiteName } = this.cleanTitle(this.getRawTitle(doc, schemaOrgData, metaTags), siteName);
+		const author = this.getAuthor(doc, schemaOrgData, metaTags);
+		const site = siteName || detectedSiteName || author || '';
+
 		return {
-			title: this.getTitle(doc, schemaOrgData, metaTags),
+			title,
 			description: this.getDescription(doc, schemaOrgData, metaTags),
 			domain,
 			favicon: this.getFavicon(doc, url, metaTags),
 			image: this.getImage(doc, schemaOrgData, metaTags),
 			language: this.getLanguage(doc, schemaOrgData, metaTags),
 			published: this.getPublished(doc, schemaOrgData, metaTags),
-			author: this.getAuthor(doc, schemaOrgData, metaTags),
-			site: this.getSite(doc, schemaOrgData, metaTags),
+			author,
+			site,
 			schemaOrgData,
 			wordCount: 0,
 			parseTime: 0
@@ -180,8 +186,7 @@ export class MetadataExtractor {
 			}
 		}
 
-		// 5. Fall back to site name
-		return this.getSiteName(schemaOrgData, metaTags);
+		return '';
 	}
 
 	private static extractByline(el: Element): string | null {
@@ -200,9 +205,10 @@ export class MetadataExtractor {
 	}
 
 	private static getSiteName(schemaOrgData: any, metaTags: MetaTagItem[]): string {
-		return (
+		const candidate = (
 			this.getSchemaProperty(schemaOrgData, 'publisher.name') ||
 			this.getMetaContent(metaTags, "property", "og:site_name") ||
+			this.getMetaContent(metaTags, "name", "og:site_name") ||
 			this.getSchemaProperty(schemaOrgData, 'WebSite.name') ||
 			this.getSchemaProperty(schemaOrgData, 'sourceOrganization.name') ||
 			this.getMetaContent(metaTags, "name", "copyright") ||
@@ -211,18 +217,18 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "application-name") ||
 			''
 		);
+
+		// Reject candidates that are too long to be a real site name —
+		// some pages set og:site_name to the full page title.
+		if (candidate && countWords(candidate) > 6) {
+			return '';
+		}
+
+		return candidate;
 	}
 
-	private static getSite(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getRawTitle(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return (
-			this.getSiteName(schemaOrgData, metaTags) ||
-			this.getAuthor(doc, schemaOrgData, metaTags) ||
-			''
-		);
-	}
-
-	private static getTitle(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
-		const rawTitle = (
 			this.getMetaContent(metaTags, "property", "og:title") ||
 			this.getMetaContent(metaTags, "name", "twitter:title") ||
 			this.getSchemaProperty(schemaOrgData, 'headline') ||
@@ -231,29 +237,116 @@ export class MetadataExtractor {
 			doc.querySelector('title')?.textContent?.trim() ||
 			''
 		);
-
-		return this.cleanTitle(rawTitle, this.getSite(doc, schemaOrgData, metaTags));
 	}
 
-	private static cleanTitle(title: string, siteName: string): string {
-		if (!title || !siteName) return title;
+	private static cleanTitle(title: string, siteName: string): { title: string; detectedSiteName: string } {
+		if (!title) return { title, detectedSiteName: '' };
 
-		// Remove site name if it exists
-		const siteNameEscaped = siteName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const patterns = [
-			`\\s*[\\|\\-–—]\\s*${siteNameEscaped}\\s*$`, // Title | Site Name
-			`^\\s*${siteNameEscaped}\\s*[\\|\\-–—]\\s*`, // Site Name | Title
-		];
-		
-		for (const pattern of patterns) {
-			const regex = new RegExp(pattern, 'i');
-			if (regex.test(title)) {
-				title = title.replace(regex, '');
-				break;
+		const separators = '[|\\-–—/·]';
+
+		// Try site-name-based removal.
+		// Skip if the site name equals the title (broken metadata) or is too
+		// long to be a real site name (some pages set og:site_name to the title).
+		if (siteName && siteName.toLowerCase() !== title.toLowerCase() && countWords(siteName) <= 6) {
+			const siteNameLower = siteName.toLowerCase();
+
+			// First try exact match: "Title | Site Name" or "Site Name | Title"
+			const siteNameEscaped = siteName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const patterns = [
+				`\\s*${separators}\\s*${siteNameEscaped}\\s*$`,
+				`^\\s*${siteNameEscaped}\\s*${separators}\\s*`,
+			];
+
+			for (const pattern of patterns) {
+				const regex = new RegExp(pattern, 'i');
+				if (regex.test(title)) {
+					return { title: title.replace(regex, '').trim(), detectedSiteName: siteName };
+				}
+			}
+
+			// Fuzzy match: the title may use an abbreviated site name.
+			// e.g. og:site_name="MDN Web Docs" but title ends with "| MDN".
+			// Split on all separators and strip trailing/leading segments that
+			// are substrings of the known site name.
+			const allSepPattern = new RegExp(`\\s+${separators}\\s+`, 'g');
+			let sepMatch;
+			const allPositions: { index: number; length: number }[] = [];
+			while ((sepMatch = allSepPattern.exec(title)) !== null) {
+				allPositions.push({ index: sepMatch.index, length: sepMatch[0].length });
+			}
+
+			if (allPositions.length > 0) {
+				// Try suffix: if the last segment matches the site name, also strip
+				// adjacent category segments (e.g. "CORS - HTTP | MDN" → "CORS").
+				const lastPos = allPositions[allPositions.length - 1];
+				const lastSegment = title.substring(lastPos.index + lastPos.length).trim().toLowerCase();
+				if (lastSegment && siteNameLower.includes(lastSegment)) {
+					// Walk backwards to also strip category breadcrumbs
+					// (short segments between the title and the site name)
+					let cutIndex = lastPos.index;
+					for (let i = allPositions.length - 2; i >= 0; i--) {
+						const pos = allPositions[i];
+						const segment = title.substring(pos.index + pos.length, cutIndex).trim();
+						if (countWords(segment) > 3) break;
+						cutIndex = pos.index;
+					}
+					return { title: title.substring(0, cutIndex).trim(), detectedSiteName: siteName };
+				}
+
+				// Try prefix: if the first segment matches the site name, strip it
+				const firstPos = allPositions[0];
+				const prefixSegment = title.substring(0, firstPos.index).trim().toLowerCase();
+				if (prefixSegment && siteNameLower.includes(prefixSegment)) {
+					// Walk forward to strip adjacent category breadcrumbs
+					let cutIndex = firstPos.index + firstPos.length;
+					for (let i = 1; i < allPositions.length; i++) {
+						const pos = allPositions[i];
+						const segment = title.substring(cutIndex, pos.index).trim();
+						if (countWords(segment) > 3) break;
+						cutIndex = pos.index + pos.length;
+					}
+					return { title: title.substring(cutIndex).trim(), detectedSiteName: siteName };
+				}
 			}
 		}
 
-		return title.trim();
+		// Heuristic fallback: if the title contains a strong separator (|, /, ·)
+		// with a short segment on one end (likely a site name) and a longer
+		// segment on the other (the article title), strip the short segment.
+		// Handles both "Article Title | Site" and "Site | Article Title".
+		// Excludes dashes (-, –, —) which are commonly used within titles.
+		const separatorPattern = /\s+([|/·])\s+/g;
+		let match;
+		const positions: { index: number; length: number }[] = [];
+		while ((match = separatorPattern.exec(title)) !== null) {
+			positions.push({ index: match.index, length: match[0].length });
+		}
+
+		if (positions.length > 0) {
+			// Try suffix: split at last separator
+			const last = positions[positions.length - 1];
+			const suffixTitle = title.substring(0, last.index).trim();
+			const suffixSite = title.substring(last.index + last.length).trim();
+			const suffixTitleWords = countWords(suffixTitle);
+			const suffixSiteWords = countWords(suffixSite);
+
+			if (suffixSiteWords <= 3 && suffixTitleWords >= 3 && suffixTitleWords >= suffixSiteWords * 2) {
+				return { title: suffixTitle, detectedSiteName: suffixSite };
+			}
+
+			// Try prefix: split at first separator
+			const first = positions[0];
+			const prefixSite = title.substring(0, first.index).trim();
+			const prefixTitle = title.substring(first.index + first.length).trim();
+			const prefixSiteWords = countWords(prefixSite);
+			const prefixTitleWords = countWords(prefixTitle);
+
+			if (prefixSiteWords <= 3 && prefixTitleWords >= 3 && prefixTitleWords >= prefixSiteWords * 2) {
+				return { title: prefixTitle, detectedSiteName: prefixSite };
+			}
+		}
+
+		return { title: title.trim(), detectedSiteName: '' };
 	}
 
 	private static getDescription(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
