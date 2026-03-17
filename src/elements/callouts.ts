@@ -1,16 +1,7 @@
 import { transferContent } from '../utils/dom';
 
 /**
- * Create a standardized callout element matching the Obsidian Publish format:
- *
- * <div data-callout="type" class="callout">
- *   <div class="callout-title">
- *     <div class="callout-title-inner">Title</div>
- *   </div>
- *   <div class="callout-content">
- *     <p>Content</p>
- *   </div>
- * </div>
+ * Create a standardized callout element.
  */
 function createCallout(doc: Document, type: string, title: string, contentSource: Element): Element {
 	const callout = doc.createElement('div');
@@ -36,8 +27,8 @@ function createCallout(doc: Document, type: string, title: string, contentSource
 }
 
 /**
- * Standardize callout elements from various sources into the Obsidian Publish
- * format. Runs early in the pipeline (before selector removal) so `.alert`
+ * Standardize callout elements from various sources.
+ * Runs early in the pipeline (before selector removal) so `.alert`
  * and similar classes don't get stripped.
  */
 export function standardizeCallouts(element: Element): void {
