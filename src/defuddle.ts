@@ -10,7 +10,6 @@ import {
 	EXACT_SELECTORS_JOINED,
 	HIDDEN_EXACT_SELECTOR,
 	HIDDEN_EXACT_SKIP_SELECTOR,
-	HIDDEN_EXACT_SKIP_SELECTORS,
 	PARTIAL_SELECTORS,
 	PARTIAL_SELECTORS_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
@@ -39,17 +38,29 @@ const STYLE_WIDTH_PATTERN = /width\s*:\s*(\d+)/;
 const STYLE_HEIGHT_PATTERN = /height\s*:\s*(\d+)/;
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
+const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const BOILERPLATE_PATTERNS = [
 	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
 	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
 ];
-const METADATA_STRIP_PATTERNS = [
+// Shared date/number patterns for stripping metadata text.
+const METADATA_STRIP_BASE = [
 	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
 	/\b\d+(?:st|nd|rd|th)?\b/g,
+];
+// Read-time: strip everything including whitespace (expect empty residual)
+const READ_TIME_STRIP_PATTERNS = [
+	...METADATA_STRIP_BASE,
 	/\bmin(?:ute)?s?\b/gi,
 	/\bread\b/gi,
-	/[|·•—–\-,.\s]/g,
+	/[/|·•—–\-,.\s]+/g,
+];
+// Byline: preserve spaces so name words can be split
+const BYLINE_STRIP_PATTERNS = [
+	...METADATA_STRIP_BASE,
+	/\bby\b/gi,
+	/[/|·•—–\-,]+/g,
 ];
 
 export class Defuddle {
@@ -1615,10 +1626,12 @@ export class Defuddle {
 	 * CSS selectors (e.g. Tailwind/CSS-in-JS sites with non-semantic class names).
 	 */
 	private removeByContentPattern(mainContent: Element, debugRemovals?: DebugRemoval[]) {
+		const contentText = mainContent.textContent || '';
+		const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
+
 		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
 		// Only removes leaf elements whose text is PURELY date + read time,
 		// not mixed with other meaningful content like tag names.
-		const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 		for (const el of candidates) {
 			if (!el.parentNode) continue;
 			if (el.closest('pre') || el.closest('code')) continue;
@@ -1633,7 +1646,7 @@ export class Defuddle {
 					// Verify the text is ONLY date + read time metadata
 					// by stripping all date/time words and checking nothing remains
 					let cleaned = text;
-					for (const pattern of METADATA_STRIP_PATTERNS) {
+					for (const pattern of READ_TIME_STRIP_PATTERNS) {
 						cleaned = cleaned.replace(pattern, '');
 					}
 					if (cleaned.trim().length > 0) continue;
@@ -1650,11 +1663,61 @@ export class Defuddle {
 			}
 		}
 
+		// Remove author + date bylines near the start of content.
+		// Short elements whose text is ONLY a person name + date + separators,
+		// in any order. Catches Tailwind/CSS-in-JS sites with non-semantic
+		// class names that can't be matched by selector removal.
+		for (const el of candidates) {
+			if (!el.parentNode) continue;
+			if (el.closest('pre') || el.closest('code')) continue;
+
+			const text = el.textContent?.trim() || '';
+			const words = countWords(text);
+			if (words > 10 || words < 2) continue;
+
+			// Must contain a date — without one, short capitalized text
+			// could be a heading or label, not a byline.
+			if (!CONTENT_DATE_PATTERN.test(text)) continue;
+
+			// Strip date, year, separators, and "by" — if only
+			// capitalized name-like words remain, this is a byline.
+			let residual = text;
+			for (const pattern of BYLINE_STRIP_PATTERNS) {
+				residual = residual.replace(pattern, '');
+			}
+			residual = residual.trim();
+			if (!residual) continue;
+			const nameWords = residual.split(/\s+/).filter(w => w.length > 0);
+			if (nameWords.length === 0 || nameWords.length > 4) continue;
+			if (!nameWords.every(w => BYLINE_UPPERCASE_PATTERN.test(w))) continue;
+
+			// Must be near the start of content
+			const pos = contentText.indexOf(text);
+			if (pos > 500) continue;
+
+			// Walk up through wrappers whose only text content matches
+			let target: Element = el;
+			while (target.parentElement && target.parentElement !== mainContent) {
+				const parentText = target.parentElement.textContent?.trim() || '';
+				if (parentText !== text) break;
+				target = target.parentElement;
+			}
+
+			if (this.debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'author date metadata',
+					text: textPreview(target)
+				});
+			}
+			target.remove();
+			break;
+		}
+
 		// Remove standalone time/date elements near the start or end of content.
 		// A <time> in its own paragraph at the boundary is metadata (publish date),
 		// but <time> inline within prose should be preserved (see issue #136).
 		const timeElements = Array.from(mainContent.querySelectorAll('time'));
-		const contentText = mainContent.textContent || '';
 		for (const time of timeElements) {
 			if (!time.parentNode) continue;
 			// Walk up through inline/formatting wrappers only (i, em, span, b, strong)

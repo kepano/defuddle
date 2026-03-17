@@ -71,14 +71,14 @@ export const CONTENT_ELEMENT_SELECTOR = [
 ].join(', ');
 
 // Selectors to be removed
-export const HIDDEN_EXACT_SKIP_SELECTORS = [
+const HIDDEN_EXACT_SKIP_SELECTORS = [
 	'[hidden]',
 	'[aria-hidden="true"]',
 	'.hidden',
 	'.invisible',
 ];
 
-export const HIDDEN_EXACT_SELECTORS = HIDDEN_EXACT_SKIP_SELECTORS.map(s =>
+const HIDDEN_EXACT_SELECTORS = HIDDEN_EXACT_SKIP_SELECTORS.map(s =>
 	s === '[aria-hidden="true"]' ? '[aria-hidden="true"]:not([class*="math"])' : s
 );
 
