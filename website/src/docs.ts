@@ -479,6 +479,24 @@ npx defuddle parse page.html --output result.html</code></pre>
 		<h3>Math</h3>
 		<p>Math elements, including MathJax and KaTeX, are converted to standard MathML with a <code>data-latex</code> attribute containing the original LaTeX source.</p>
 
+		<h3>Callouts</h3>
+		<p>Callout and alert elements from various sources are standardized to the <a href="https://help.obsidian.md/Editing+and+formatting/Callouts">Obsidian Publish callout format</a>. When converting to Markdown, these become Obsidian-style callouts.</p>
+		<p>Supported sources:</p>
+		<ul>
+			<li>GitHub markdown alerts (<code>div.markdown-alert</code>)</li>
+			<li>Obsidian Publish callouts (<code>div.callout[data-callout]</code>)</li>
+			<li>Callout asides (<code>aside.callout-*</code>)</li>
+			<li>Bootstrap alerts (<code>div.alert.alert-*</code>)</li>
+		</ul>
+<pre><code class="language-html">&lt;div data-callout="info" class="callout"&gt;
+  &lt;div class="callout-title"&gt;
+    &lt;div class="callout-title-inner"&gt;Info&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div class="callout-content"&gt;
+    &lt;p&gt;This is an informational callout.&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
 		<h2 id="debugging">Debugging</h2>
 
 		<h3>Debug mode</h3>

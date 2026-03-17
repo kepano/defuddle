@@ -21,6 +21,7 @@ import {
 } from './constants';
 import { standardizeContent } from './standardize';
 import { standardizeFootnotes } from './elements/footnotes';
+import { standardizeCallouts } from './elements/callouts';
 import { ContentScorer, ContentScore } from './scoring';
 import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
@@ -620,6 +621,7 @@ export class Defuddle {
 			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
 			if (options.standardize) {
 				standardizeFootnotes(mainContent);
+				standardizeCallouts(mainContent);
 			}
 
 			// Remove small images

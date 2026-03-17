@@ -945,6 +945,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'data-src',
 	'data-srcset',
 	'data-callout',
+	'data-callout-title',
 	'data-lang',
 	'dir',
 	'display',

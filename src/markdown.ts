@@ -634,55 +634,40 @@ export function createMarkdownContent(content: string, url: string) {
 		}
 	});
 
+	// All callout types (GitHub alerts, Bootstrap alerts, callout asides) are
+	// standardized to div.callout[data-callout] in callouts.ts
 	turndownService.addRule('callout', {
 		filter: (node) => {
 			return (
-				node.nodeName.toLowerCase() === 'div' &&
 				isGenericElement(node) &&
-				node.classList?.contains('markdown-alert')
-			);
-		},
-		replacement: (content, node) => {
-			if (!isGenericElement(node)) return content;
-
-			// Get alert type from the class (e.g., markdown-alert-note -> NOTE)
-			const alertClasses = Array.from(node.classList ? Object.keys(node.classList) : []);
-			const typeClass = alertClasses.find(c => c.startsWith('markdown-alert-') && c !== 'markdown-alert');
-			const type = typeClass ? typeClass.replace('markdown-alert-', '').toUpperCase() : 'NOTE';
-
-			// Find the title element and content
-			const titleElement = node.querySelector('.markdown-alert-title');
-			const contentElement = node.querySelector('p:not(.markdown-alert-title)');
-
-			// Extract content, removing the title from it if present
-			let alertContent = content;
-			if (titleElement && isGenericElement(titleElement) && titleElement.textContent) {
-				alertContent = contentElement && isGenericElement(contentElement) ? contentElement.textContent || '' : content.replace(titleElement.textContent, '');
-			}
-
-			// Format as Obsidian callout
-			return `\n> [!${type}]\n> ${alertContent.trim().replace(/\n/g, '\n> ')}\n`;
-		}
-	});
-
-	// Callout asides (standardized to blockquote with data-callout attribute)
-	turndownService.addRule('calloutAside', {
-		filter: (node) => {
-			return (
-				node.nodeName === 'BLOCKQUOTE' &&
-				isGenericElement(node) &&
-				!!node.getAttribute('data-callout')
+				!!node.getAttribute('data-callout') &&
+				node.classList?.contains('callout')
 			);
 		},
 		replacement: (content, node) => {
 			if (!isGenericElement(node)) return content;
 			const type = node.getAttribute('data-callout') || 'note';
-			const title = type.charAt(0).toUpperCase() + type.slice(1);
 
-			const lines = content.trim().split('\n');
+			// Extract title from .callout-title-inner
+			const titleInner = node.querySelector('.callout-title-inner');
+			const title = titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
+
+			// Remove the title from the DOM so it doesn't appear in content
+			const titleDiv = node.querySelector('.callout-title');
+			if (titleDiv) {
+				titleDiv.remove();
+			}
+
+			// Re-convert without the title element
+			const contentEl = node.querySelector('.callout-content');
+			const calloutContent = contentEl
+				? turndownService.turndown(contentEl.innerHTML)
+				: turndownService.turndown(node.innerHTML);
+
+			const lines = calloutContent.trim().split('\n');
 			const quotedContent = lines.map(line => `> ${line}`).join('\n');
 
-			return `\n> [!${type}] ${title}\n${quotedContent}\n`;
+			return `\n\n> [!${type}] ${title}\n${quotedContent}\n\n`;
 		}
 	});
 
