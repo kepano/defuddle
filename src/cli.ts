@@ -2,8 +2,8 @@
 
 import { Command } from 'commander';
 import { Defuddle } from './node';
-import { writeFile, readFile } from 'fs/promises';
-import { resolve } from 'path';
+import { writeFile, readFile, mkdir, access } from 'fs/promises';
+import { resolve, dirname, basename, extname, relative } from 'path';
 import { parseLinkedomHTML } from './utils/linkedom-compat';
 import { countWords } from './utils';
 import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
@@ -13,6 +13,9 @@ interface ParseOptions {
 	markdown?: boolean;
 	md?: boolean;
 	json?: boolean;
+	downloadImages?: boolean;
+	imageDir?: string;
+	imageDirFromOutput?: boolean;
 	debug?: boolean;
 	property?: string;
 	lang?: string;
@@ -24,6 +27,171 @@ const ansi = {
 	red: (s: string) => useColor ? `\x1b[31m${s}\x1b[39m` : s,
 	green: (s: string) => useColor ? `\x1b[32m${s}\x1b[39m` : s,
 };
+
+const IMAGE_MARKDOWN_RE = /!\[([^\]]*)\]\(\s*<?([^>\s]+)>?(?:\s+(["'][^"']*["']))?\s*\)/g;
+
+const CLI_CONFIG_FILES = ['defuddle.config.json', '.defuddlerc', '.defuddlerc.json'];
+
+async function loadDefaultCliOptions(): Promise<Partial<ParseOptions>> {
+	for (const fileName of CLI_CONFIG_FILES) {
+		const configPath = resolve(process.cwd(), fileName);
+		try {
+			const content = await readFile(configPath, 'utf-8');
+			const parsed = JSON.parse(content);
+			if (typeof parsed === 'object' && parsed !== null) {
+				return parsed as Partial<ParseOptions>;
+			}
+		} catch {
+			// ignore missing/invalid config
+		}
+	}
+	return {};
+}
+
+function hasManualCliFlags(argv: string[]): boolean {
+	// If user passed any flag (e.g. --markdown, -o), treat as manual override.
+	return argv.slice(2).some(arg => arg.startsWith('-'));
+}
+
+function sanitizeFileName(raw: string): string {
+	return raw
+		.trim()
+		.normalize('NFKC')
+		.replace(/[\/:*?"<>|]+/g, '-')
+		.replace(/[^a-zA-Z0-9._-]+/g, '-')
+		.replace(/^-+|[-]+$/g, '')
+		|| 'image';
+}
+
+function getPageName(url?: string, outputPath?: string): string {
+	if (url) {
+		try {
+			const parsed = new URL(url);
+			let name = parsed.hostname;
+			const lastSegment = basename(parsed.pathname);
+			if (lastSegment && lastSegment !== '/') {
+				name = `${parsed.hostname}-${lastSegment}`;
+			}
+			name = sanitizeFileName(name);
+			return name || 'homepage';
+		} catch {
+			// fall through
+		}
+	}
+	if (outputPath) {
+		const outBase = basename(outputPath, extname(outputPath));
+		return sanitizeFileName(outBase) || 'page';
+	}
+	return 'homepage';
+}
+
+function extensionFromContentType(contentType?: string): string {
+	if (!contentType) return '.jpg';
+	if (contentType.includes('png')) return '.png';
+	if (contentType.includes('gif')) return '.gif';
+	if (contentType.includes('webp')) return '.webp';
+	if (contentType.includes('svg')) return '.svg';
+	if (contentType.includes('jpeg')) return '.jpg';
+	if (contentType.includes('bmp')) return '.bmp';
+	if (contentType.includes('avif')) return '.avif';
+	return '.jpg';
+}
+
+async function fileExists(path: string): Promise<boolean> {
+	try {
+		await access(path);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+async function downloadImagesInMarkdown(markdown: string, outputPath: string, imageDir: string, baseUrl: string | undefined, pageName: string): Promise<string> {
+	const outputDir = dirname(outputPath);
+	const saveDir = resolve(outputDir, imageDir || 'attachments');
+	await mkdir(saveDir, { recursive: true });
+
+	const urlToLocal = new Map<string, string>();
+	let imageIndex = 0;
+	let result = '';
+	let lastIndex = 0;
+	let match: RegExpExecArray | null;
+	IMAGE_MARKDOWN_RE.lastIndex = 0;
+
+	while ((match = IMAGE_MARKDOWN_RE.exec(markdown)) !== null) {
+		const [fullMatch, altText, rawUrl, titlePart] = match;
+		const matchStart = match.index;
+		const matchEnd = IMAGE_MARKDOWN_RE.lastIndex;
+		result += markdown.slice(lastIndex, matchStart);
+		lastIndex = matchEnd;
+
+		let imageUrl = rawUrl;
+		if (imageUrl.startsWith('//')) {
+			imageUrl = 'https:' + imageUrl;
+		}
+		if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://') && baseUrl) {
+			try {
+				imageUrl = new URL(imageUrl, baseUrl).toString();
+			} catch {
+				// leave as-is
+			}
+		}
+
+		const isRemote = imageUrl.startsWith('http://') || imageUrl.startsWith('https://');
+		if (!isRemote || imageUrl.startsWith('data:')) {
+			result += fullMatch;
+			continue;
+		}
+
+		let localPath = urlToLocal.get(imageUrl);
+		if (!localPath) {
+			try {
+				const response = await fetch(imageUrl, { method: 'GET' });
+				if (!response.ok) {
+					result += fullMatch;
+					continue;
+				}
+
+				const finalUrl = response.url || imageUrl;
+				let ext = extname(new URL(finalUrl).pathname);
+				if (!ext) {
+					ext = extensionFromContentType(response.headers.get('content-type') || undefined);
+				}
+
+				let candidateName = `${pageName}-${imageIndex}${ext || '.jpg'}`;
+				candidateName = sanitizeFileName(candidateName);
+				if (!extname(candidateName)) {
+					candidateName += ext || '.jpg';
+				}
+
+				let destination = resolve(saveDir, candidateName);
+				let collision = 1;
+				while (await fileExists(destination)) {
+					candidateName = `${pageName}-${imageIndex}-${collision}${ext || '.jpg'}`;
+					candidateName = sanitizeFileName(candidateName);
+					destination = resolve(saveDir, candidateName);
+					collision += 1;
+				}
+
+				const data = Buffer.from(await response.arrayBuffer());
+				await writeFile(destination, data);
+
+				localPath = relative(outputDir, destination).replace(/\\/g, '/');
+				urlToLocal.set(imageUrl, localPath);
+				imageIndex += 1;
+			} catch {
+				result += fullMatch;
+				continue;
+			}
+		}
+
+		const linkTitle = titlePart ? ` ${titlePart}` : '';
+		result += `![${altText}](${localPath}${linkTitle})`;
+	}
+
+	result += markdown.slice(lastIndex);
+	return result;
+}
 
 // Read version from package.json
 const version = require('../package.json').version;
@@ -43,6 +211,9 @@ program
 	.option('-m, --markdown', 'Convert content to markdown format')
 	.option('--md', 'Alias for --markdown')
 	.option('-j, --json', 'Output as JSON with metadata and content')
+	.option('--download-images', 'Download linked images inside markdown and rewrite markup to local paths')
+	.option('--image-dir <dir>', 'Local image directory relative to output markdown file (default: attachments)')
+	.option('--image-dir-from-output', 'Save images in a folder named after the output markdown file base name')
 	.option('-p, --property <name>', 'Extract a specific property (e.g., title, description, domain)')
 	.option('--debug', 'Enable debug mode')
 	.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
@@ -51,6 +222,15 @@ program
 			// Handle --md alias
 			if (options.md) {
 				options.markdown = true;
+			}
+
+			// Load default CLI options from configuration file if user did not provide manual flags.
+			if (!hasManualCliFlags(process.argv)) {
+				const defaults = await loadDefaultCliOptions();
+				options = {
+					...defaults,
+					...options,
+				};
 			}
 
 			const defuddleOpts = {
@@ -145,7 +325,26 @@ program
 			}
 
 			// Handle output
-			if (options.output) {
+			if (options.downloadImages && !options.markdown) {
+				console.error(ansi.red('Error: --download-images can only be used with --markdown')); 
+				process.exit(1);
+			}
+
+			if (options.downloadImages) {
+				if (!options.output) {
+					// Auto-generate output filename from URL or source when not specified
+					const autoName = getPageName(url, source) + '.md';
+					options.output = autoName;
+				}
+				const outputPath = resolve(process.cwd(), options.output);
+				const imageDir = options.imageDirFromOutput
+					? basename(outputPath, extname(outputPath))
+					: options.imageDir || 'attachments';
+				const pageName = getPageName(url, outputPath);
+				output = await downloadImagesInMarkdown(output, outputPath, imageDir, url, pageName);
+				await writeFile(outputPath, output, 'utf-8');
+				console.log(ansi.green(`Output written to ${options.output}`));
+			} else if (options.output) {
 				const outputPath = resolve(process.cwd(), options.output);
 				await writeFile(outputPath, output, 'utf-8');
 				console.log(ansi.green(`Output written to ${options.output}`));
