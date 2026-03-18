@@ -327,8 +327,16 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		target.remove();
 	}
 
-	// Remove section breadcrumbs
-	// Short elements containing a link to a parent section of the current URL.
+	// Remove section breadcrumbs and back-navigation links.
+	// Matches short elements (div, span, p) containing a link to a parent path,
+	// and bare <a> elements used as standalone back links (e.g. "← back", "↑ index").
+	// Two parent-link patterns are recognized:
+	//   1. Direct prefix: linkPath is a path prefix of the current URL
+	//      e.g. current=/blog/2024/post, link=/blog/ or /blog
+	//   2. Parent index file: link points to index.html/index.php in a parent directory
+	//      e.g. current=/articles/hensels, link=../index.html → /index.html
+	// Bare <a> elements are only matched when not embedded in flowing prose
+	// (the parent element's text must equal the link's text).
 	let urlPath = '';
 	let pageHost = '';
 	try {
@@ -337,7 +345,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		pageHost = parsedUrl.hostname.replace(/^www\./, '');
 	} catch {}
 	if (urlPath) {
-		const shortElements = mainContent.querySelectorAll('div, span, p');
+		const shortElements = mainContent.querySelectorAll('div, span, p, a[href]');
 		for (const el of shortElements) {
 			if (!el.parentNode) continue;
 			const text = el.textContent?.trim() || '';
@@ -345,11 +353,18 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			if (words > 10) continue;
 			// Must be a leaf-ish element (no block children)
 			if (el.querySelectorAll('p, div, section, article').length > 0) continue;
-			const link = el.querySelector('a[href]');
+			// For bare <a> elements, skip if embedded in flowing prose (parent has other text)
+			if (el.matches('a[href]') && el.parentElement && el.parentElement !== mainContent) {
+				if ((el.parentElement.textContent?.trim() || '') !== text) continue;
+			}
+			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');
 			if (!link) continue;
 			try {
 				const linkPath = new URL(link.getAttribute('href') || '', url).pathname;
-				if (linkPath !== '/' && linkPath !== urlPath && urlPath.startsWith(linkPath)) {
+				// Also catch index.html links to a parent directory (e.g. ../index.html)
+				const linkDir = linkPath.replace(/\/[^/]*$/, '/');
+				const isParentIndex = /^index\.(html?|php)$/i.test(linkPath.split('/').pop() || '') && urlPath.startsWith(linkDir);
+				if (linkPath !== '/' && linkPath !== urlPath && (urlPath.startsWith(linkPath) || isParentIndex)) {
 					if (debug && debugRemovals) {
 						debugRemovals.push({
 							step: 'removeByContentPattern',
