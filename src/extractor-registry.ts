@@ -12,6 +12,7 @@ import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
 import { XOembedExtractor } from './extractors/x-oembed';
+import { BbcodeDataExtractor } from './extractors/bbcode-data';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -113,6 +114,11 @@ export class ExtractorRegistry {
 				/^https?:\/\/github\.com\/.*/
 			],
 			extractor: GitHubExtractor
+		});
+
+		this.register({
+			patterns: [/.*/],
+			extractor: BbcodeDataExtractor
 		});
 	}
 
