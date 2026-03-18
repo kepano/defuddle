@@ -204,7 +204,7 @@ class FootnoteHandler {
 			if (candidateRefs.size >= 2) {
 				// Step 2: Find a container where multiple children have IDs matching our fragments
 				const fragmentSet = new Set(candidateRefs.keys());
-				const containers = element.querySelectorAll('div, section, aside, footer');
+				const containers = element.querySelectorAll('div, section, aside, footer, ol, ul');
 				let bestContainer: any = null;
 				let bestMatchCount = 0;
 
@@ -212,14 +212,7 @@ class FootnoteHandler {
 					// Skip containers that are the main content element itself
 					if (container === element) return;
 
-					const children = container.querySelectorAll('p[id], li[id], div[id]');
-					let matchCount = 0;
-					children.forEach((child: any) => {
-						if (fragmentSet.has(child.id.toLowerCase())) {
-							matchCount++;
-						}
-					});
-
+					const matchCount = this.findMatchingFootnoteElements(container, fragmentSet).length;
 					if (matchCount >= 2 && matchCount >= bestMatchCount) {
 						bestMatchCount = matchCount;
 						bestContainer = container;
@@ -227,34 +220,42 @@ class FootnoteHandler {
 				});
 
 				if (bestContainer) {
-					// Step 3: Extract footnotes from the container
-					const idElements = bestContainer.querySelectorAll('p[id], li[id], div[id]');
-					const orderedElements: any[] = [];
-
-					idElements.forEach((el: any) => {
-						if (fragmentSet.has(el.id.toLowerCase())) {
-							orderedElements.push(el);
-						}
-					});
+					// Step 3: Extract footnotes from the container in document order
+					const orderedElements = this.findMatchingFootnoteElements(bestContainer, fragmentSet);
 
 					// Step 4: Handle multi-paragraph footnotes (group consecutive non-ID elements)
-					orderedElements.forEach((el: any) => {
-						const id = el.id.toLowerCase();
+					orderedElements.forEach(({ el, id }) => {
 						if (processedIds.has(id)) return;
 
 						const contentDiv = element.ownerDocument.createElement('div');
 						// Clone the element content
 						const clone = el.cloneNode(true);
+
+						// Remove any empty child anchor used as an ID marker (e.g. <a id="r1"></a>)
+						const idAnchor = clone.querySelector(`a[id="${id}"]`);
+						if (idAnchor && !idAnchor.textContent?.trim()) {
+							idAnchor.remove();
+						}
+
 						// Strip leading footnote number (e.g. "1. " or "1 ")
 						const firstText = clone.childNodes[0];
 						if (firstText && firstText.nodeType === 3) {
 							firstText.textContent = firstText.textContent.replace(/^\d+\.\s*/, '');
 						}
-						contentDiv.appendChild(clone);
+
+						// For list items, extract children into contentDiv to avoid <p><li>...</li></p> nesting
+						if (clone.matches('li')) {
+							transferContent(clone, contentDiv);
+						} else {
+							contentDiv.appendChild(clone);
+						}
 
 						// Check for consecutive siblings without IDs (multi-paragraph footnotes)
 						let sibling = el.nextElementSibling;
 						while (sibling && !sibling.id) {
+							// Stop if this sibling starts a new anchored footnote
+							const sibAnchor = sibling.querySelector('a[id]');
+							if (sibAnchor && fragmentSet.has(sibAnchor.id.toLowerCase())) break;
 							const sibClone = sibling.cloneNode(true);
 							contentDiv.appendChild(sibClone);
 							sibling = sibling.nextElementSibling;
@@ -295,6 +296,29 @@ class FootnoteHandler {
 				break;
 			}
 		}
+	}
+
+	// Returns elements within container whose IDs (direct or via child anchor) are in fragmentSet,
+	// in document order, deduplicated.
+	findMatchingFootnoteElements(container: any, fragmentSet: Set<string>): Array<{el: any, id: string}> {
+		const results: Array<{el: any, id: string}> = [];
+		const seen = new Set<string>();
+		container.querySelectorAll('li, p, div').forEach((el: any) => {
+			let id = '';
+			if (el.id && fragmentSet.has(el.id.toLowerCase())) {
+				id = el.id.toLowerCase();
+			} else if (!el.id) {
+				const anchor = el.querySelector('a[id]');
+				if (anchor && fragmentSet.has(anchor.id.toLowerCase())) {
+					id = anchor.id.toLowerCase();
+				}
+			}
+			if (id && !seen.has(id)) {
+				results.push({ el, id });
+				seen.add(id);
+			}
+		});
+		return results;
 	}
 
 	findOuterFootnoteContainer(el: any): any {
