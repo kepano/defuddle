@@ -120,7 +120,10 @@ export class YoutubeExtractor extends BaseExtractor {
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #footer yt-sort-filter-sub-menu-renderer yt-dropdown-menu button'
 		);
 		const selectedLabel = langButton?.textContent?.trim();
-		const captionTracks = this.getCaptionTracks(this.parseInlineJson('ytInitialPlayerResponse'));
+		const playerData = this.parseInlineJson('ytInitialPlayerResponse');
+		const captionTracks = this.isPlayerResponseForCurrentVideo(playerData)
+			? this.getCaptionTracks(playerData)
+			: [];
 		const preferredTrack = this.pickCaptionTrack(captionTracks);
 
 		if (!selectedLabel) {
@@ -138,6 +141,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	private getInlineChapters(): { title: string; start: number }[] {
 		const inlineData = this.parseInlineJson('ytInitialData');
 		if (!inlineData) return [];
+		if (!this.isInitialDataForCurrentVideo(inlineData)) return [];
 
 		const chapters = this.extractChaptersFromPlayerBar(inlineData);
 		if (chapters.length > 0) return chapters;
@@ -286,14 +290,114 @@ export class YoutubeExtractor extends BaseExtractor {
 		return `<p>${description.replace(/\n/g, '<br>')}</p>`;
 	}
 
+	private isUsableVideoDataValue(value: unknown): boolean {
+		if (Array.isArray(value)) return value.length > 0;
+		if (typeof value === 'string') return value.trim().length > 0;
+		return value !== undefined && value !== null;
+	}
+
+	private getVideoDataFromLdJson(): any {
+		const videoId = this.getVideoId();
+		if (!videoId) return {};
+
+		// YouTube include multiple ld+json blocks with different types of content. We want to find the one(s) with "@type": "VideoObject" and matching video ID.
+		const scripts = this.document.querySelectorAll(
+			'player-microformat-renderer script[type="application/ld+json"], #microformat script[type="application/ld+json"], script[type="application/ld+json"]'
+		);
+		for (const script of scripts) {
+			const raw = script.textContent?.trim();
+			if (!raw) continue;
+
+			try {
+				const parsed = JSON.parse(raw);
+				const candidates = Array.isArray(parsed) ? parsed : [parsed];
+				for (const entry of candidates) {
+					if (!entry || entry['@type'] !== 'VideoObject') continue;
+
+					const idOrUrl = `${entry['@id'] || ''} ${entry.url || ''} ${entry.embedUrl || ''}`;
+					if (!idOrUrl.includes(videoId)) continue;
+
+					return {
+						name: entry?.name || '',
+						description: entry?.description || '',
+						uploadDate: entry?.uploadDate || '',
+						thumbnailUrl: Array.isArray(entry?.thumbnailUrl) ? entry.thumbnailUrl[0] || '' : '',
+						author: entry?.author || '',
+					};
+				}
+			} catch {
+				// Ignore malformed ld+json blocks.
+			}
+		}
+
+		return {};
+	}
+
+	private getVideoDataFromPlayerResponse(): any {
+		const data = this.parseInlineJson('ytInitialPlayerResponse');
+		if (!this.isPlayerResponseForCurrentVideo(data)) return {};
+
+		// The player response contains two main sections with overlapping metadata: videoDetails and microformat.playerMicroformatRenderer. 
+		const videoDetails = data?.videoDetails;
+		const microformat = data?.microformat?.playerMicroformatRenderer;
+
+		return {
+			name: videoDetails?.title || microformat?.title?.simpleText || '',
+			description: microformat?.description?.simpleText || videoDetails?.shortDescription || '',
+			uploadDate: microformat?.uploadDate || microformat?.publishDate || '',
+			thumbnailUrl: '',
+			author: videoDetails?.author || videoDetails?.ownerChannelName || microformat?.ownerChannelName || '',
+		};
+	}
+	
+	private getVideoDataFromMicroformats(): any {
+		// Validate that the og:url corresponds to the current video ID to avoid extracting metadata from a previous video after client-side navigation.
+		const videoId = this.getVideoId();
+		const ogUrl = this.document.querySelector('meta[property="og:url"]')?.getAttribute('content')?.trim() || '';
+		if (ogUrl && videoId && !ogUrl.includes(videoId)) return {};
+
+		const schemaVideoData = Array.isArray(this.schemaOrgData)
+			? this.schemaOrgData.find(item => item?.['@type'] === 'VideoObject')
+			: this.schemaOrgData?.['@type'] === 'VideoObject' ? this.schemaOrgData : null;
+
+		const ogTitle = this.document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
+		const ogDescription = this.document.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim() || '';
+		const itempropDescription = this.document.querySelector('meta[itemprop="description"]')?.getAttribute('content')?.trim() || '';
+		const itempropUploadDate = this.document.querySelector('meta[itemprop="uploadDate"]')?.getAttribute('content')?.trim() || '';
+		const itempropAuthor = this.document.querySelector('meta[itemprop="name"]')?.getAttribute('content')?.trim() || '';
+		const ogImage = this.document.querySelector('meta[property="og:image"]')?.getAttribute('content')?.trim() || '';
+
+		return {
+			name: schemaVideoData?.name || ogTitle || '',
+			description: schemaVideoData?.description || itempropDescription || ogDescription || '',
+			uploadDate: schemaVideoData?.uploadDate || itempropUploadDate || '',
+			thumbnailUrl: schemaVideoData?.thumbnailUrl || ogImage || '',
+			author: schemaVideoData?.author || itempropAuthor || '',
+		};
+	}
+
 	private getVideoData(): any {
-		if (!this.schemaOrgData) return {};
+		const merged: Record<string, any> = {};
+		// Video data can be scattered across multiple sources on the page, and some values may be missing or incomplete in certain sources.
+		// The order of precedence is based on reliability, freshness, and completeness:
+		// ld+json is the most reliable source for updated metadata, expecially after client-side navigation (from video to video) when the player response may not be fully updated;
+		// player response and microformats can fill in missing pieces, especially for older videos or those with limited metadata.
+		const sources = [
+			this.getVideoDataFromLdJson(),
+			this.getVideoDataFromPlayerResponse(),
+			this.getVideoDataFromMicroformats(),
+		];
 
-		const videoData = Array.isArray(this.schemaOrgData)
-			? this.schemaOrgData.find(item => item['@type'] === 'VideoObject')
-			: this.schemaOrgData['@type'] === 'VideoObject' ? this.schemaOrgData : null;
+		for (const source of sources) {
+			if (!source || typeof source !== 'object') continue;
+			for (const key of ['name', 'description', 'uploadDate', 'thumbnailUrl', 'author']) {
+				if (this.isUsableVideoDataValue(merged[key])) continue;
+				if (!this.isUsableVideoDataValue(source[key])) continue;
+				merged[key] = source[key];
+			}
+		}
 
-		return videoData || {};
+		return merged;
 	}
 
 	private getChannelName(videoData: any): string {
@@ -347,7 +451,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	private getChannelNameFromPlayerResponse(): string {
 		const data = this.parseInlineJson('ytInitialPlayerResponse');
-		if (!data) return '';
+		if (!this.isPlayerResponseForCurrentVideo(data)) return '';
 
 		const fromVideoDetails = data?.videoDetails?.author || data?.videoDetails?.ownerChannelName;
 		if (fromVideoDetails) {
@@ -394,6 +498,24 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 
 		return null;
+	}
+
+	private isInitialDataForCurrentVideo(data: any): boolean {
+		const videoId = this.getVideoId();
+		if (!videoId) return false;
+
+		const currentVideoId = data?.currentVideoEndpoint?.watchEndpoint?.videoId;
+		const endpointVideoId = data?.endpoint?.watchEndpoint?.videoId;
+		return currentVideoId === videoId || endpointVideoId === videoId;
+	}
+
+	private isPlayerResponseForCurrentVideo(data: any): boolean {
+		const videoId = this.getVideoId();
+		if (!videoId || !data) return false;
+
+		const detailVideoId = data?.videoDetails?.videoId;
+		const microformatVideoId = data?.microformat?.playerMicroformatRenderer?.externalVideoId;
+		return detailVideoId === videoId || microformatVideoId === videoId;
 	}
 
 	private async fetchTranscript(): Promise<TranscriptResult | undefined> {
@@ -587,7 +709,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 
 		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
-		if (this.getCaptionTracks(inlineData).length > 0) {
+		if (this.isPlayerResponseForCurrentVideo(inlineData) && this.getCaptionTracks(inlineData).length > 0) {
 			return inlineData;
 		}
 
