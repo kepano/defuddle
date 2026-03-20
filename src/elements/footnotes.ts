@@ -351,20 +351,23 @@ class FootnoteHandler {
 
 	/**
 	 * Handle CSS sidenote footnotes where content is embedded inline in the text.
-	 * Pattern: <span class="footnote-container">
+	 * Pattern 1 (Tufte-style): <span class="footnote-container">
 	 *            <label class="footnote-number"></label>
 	 *            <input class="margin-toggle">
 	 *            <span class="footnote">Content...</span>
 	 *          </span>
+	 * Pattern 2 (inline-footnote): <span class="inline-footnote">N
+	 *            <span class="footnoteContent" style="display:none;">Content...</span>
+	 *          </span>
 	 */
 	collectInlineSidenotes(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
-		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container');
+		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container, span.inline-footnote');
 		if (containers.length === 0) return footnotes;
 
 		let footnoteCount = 1;
 		containers.forEach((container: any) => {
-			const content = container.querySelector('span.footnote, span.sidenote');
+			const content = container.querySelector('span.footnote, span.sidenote, span.footnoteContent');
 			if (!content) return;
 
 			// Clone content so we can manipulate it without affecting the DOM

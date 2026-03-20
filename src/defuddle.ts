@@ -965,6 +965,8 @@ export class Defuddle {
 				.trim()
 				.replace(/^\\?["']+/, '')
 				.replace(/\\?["']+$/, '');
+			// Fragment-only hrefs reference anchors within the same document — keep them relative.
+			if (normalized.startsWith('#')) return normalized;
 			try {
 				return new URL(normalized, baseUrl).href;
 			} catch {
