@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "defuddle"
+version = "0.1.0"
+description = "Official Python SDK for Defuddle, the fast and reliable web content extractor."
+readme = "README.md"
+authors = [
+    { name = "Talha Sari", email = "talhasari@example.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-httpx>=0.22.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "types-PyYAML"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/defuddle"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B904"]
+
+[tool.mypy]
+strict = true
