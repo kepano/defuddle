@@ -525,6 +525,8 @@ function removeEmptyElements(element: Element): void {
 		const childNodes = el.childNodes;
 		for (let i = 0; i < childNodes.length; i++) {
 			const node = childNodes[i];
+			// <br> elements are non-content spacers — treat them as empty
+			if (isElement(node) && node.tagName.toLowerCase() === 'br') continue;
 			if (!isTextNode(node)) return false;
 			const nodeText = node.textContent || '';
 			if (nodeText.trim().length > 0 || nodeText.includes('\u00A0')) return false;
