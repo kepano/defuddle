@@ -1,6 +1,6 @@
 # Defuddle Python SDK
 
-This is the official Python client for [Defuddle](https://github.com/kepano/defuddle), designed to extract the main content from web pages using either a local Node.js CLI or a serverless HTTP API.
+Official Python client for [Defuddle](https://github.com/kepano/defuddle). It extracts readable content from web pages using either the local Defuddle CLI or the hosted `defuddle.md` API.
 
 ## Installation
 
@@ -8,30 +8,66 @@ This is the official Python client for [Defuddle](https://github.com/kepano/defu
 pip install defuddle
 ```
 
+## Choose a Backend
+
+- `backend="local"`: default and recommended. Runs `npx -y defuddle parse ... --json` on your machine. Best for repeated parsing and higher-volume usage. Requires Node.js.
+- `backend="api"`: calls `https://defuddle.md/<url>`. Good fallback when Node.js is not available.
+
 ## Quick Start
 
-The SDK uses a **Hybrid Backend** strategy. You must explicitly choose your execution context:
+```python
+from defuddle import DefuddleClient
+
+client = DefuddleClient(backend="local")
+article = client.parse("https://example.com")
+
+print(article.title)
+print(article.content)
+print(article.word_count)
+```
+
+Use `backend="api"` if you want the hosted service instead:
+
+```python
+client = DefuddleClient(backend="api")
+article = client.parse("https://example.com")
+```
+
+## Async Usage
 
 ```python
 import asyncio
 from defuddle import DefuddleClient
 
-async def main():
-    # 1. LOCAL BACKEND (Default & Recommended)
-    # Uses `subprocess` to call `npx defuddle` on your local CPU.
-    # Zero network latency, perfect for high-volume scraping.
-    local_client = DefuddleClient(backend="local")
-    article = await local_client.parse_async("https://example.com")
-    
-    # 2. API BACKEND (Serverless / Fallback)
-    # Uses `httpx` to call https://defuddle.md/
-    # Best for lightweight environments where Node.js cannot be installed.
-    api_client = DefuddleClient(backend="api")
-    article_from_api = await api_client.parse_async("https://example.com")
-    
-    print(article.title)
-    print(article.content)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+async def main():
+    client = DefuddleClient(backend="local")
+    article = await client.parse_async("https://example.com")
+    print(article.title)
+
+
+asyncio.run(main())
+```
+
+## Response
+
+`parse()` and `parse_async()` both return `DefuddleResponse`, which includes:
+
+- `content`: extracted article body
+- `title`, `author`, `description`, `site`
+- `source`, `domain`, `language`, `published`
+- `word_count`, `parse_time`
+- `meta_tags`, `schema_org_data`, and other backend-specific metadata when available
+
+## Errors
+
+```python
+from defuddle import DefuddleAPIError, DefuddleClient, DefuddleLocalError
+
+try:
+    article = DefuddleClient(backend="local").parse("https://example.com")
+except DefuddleLocalError:
+    print("Local CLI execution failed.")
+except DefuddleAPIError:
+    print("API request failed.")
 ```
