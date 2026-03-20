@@ -1,0 +1,24 @@
+<!-- {"url":"https://x.com/sample_user/status/1234567890123456789"} -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta property="og:title" content="X 上的 Sample Name：“Localized author fallback example” / X">
+    <title>X 上的 Sample Name：“Localized author fallback example” / X</title>
+</head>
+<body>
+    <div data-testid="twitter-article-title">Localized author fallback example</div>
+    <div data-testid="twitterArticleRichTextView">
+        <div class="longform-unstyled">
+            <div class="public-DraftStyleDefault-block" data-offset-key="abc123">
+                This fixture simulates an X article rendered on a status URL without an inline author block.
+            </div>
+        </div>
+        <div class="longform-unstyled">
+            <div class="public-DraftStyleDefault-block" data-offset-key="def456">
+                The author should fall back to the handle embedded in the page URL.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
