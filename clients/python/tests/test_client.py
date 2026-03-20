@@ -38,6 +38,26 @@ This domain is for use in documentation examples."""
     assert result.content == "This domain is for use in documentation examples."
 
 
+def test_api_parse_sync_with_published_timestamp(
+    api_client: DefuddleClient, httpx_mock: HTTPXMock
+) -> None:
+    mock_response = """---
+title: "Timestamped Article"
+published: 2025-10-20T00:00:00+00:00
+---
+
+Timestamped content"""
+
+    httpx_mock.add_response(
+        url="https://defuddle.md/https://timestamped.com", text=mock_response
+    )
+
+    result = api_client.parse("https://timestamped.com")
+    assert result.title == "Timestamped Article"
+    assert result.published == "2025-10-20T00:00:00+00:00"
+    assert result.content == "Timestamped content"
+
+
 @pytest.mark.asyncio
 async def test_api_parse_async(api_client: DefuddleClient, httpx_mock: HTTPXMock) -> None:
     mock_response = """---
@@ -64,6 +84,30 @@ def test_local_parse_sync(mock_run: MagicMock, local_client: DefuddleClient) -> 
     assert result.title == "Local Title"
     assert result.content == "Local Content"
     assert result.word_count == 10
+
+
+@patch("subprocess.run")
+def test_local_parse_sync_with_cli_metadata(
+    mock_run: MagicMock, local_client: DefuddleClient
+) -> None:
+    mock_result = MagicMock()
+    mock_result.stdout = """{
+  "title": "Local Title",
+  "content": "Local Content",
+  "wordCount": 10,
+  "metaTags": [{"name": "description", "property": null, "content": "Summary"}],
+  "schemaOrgData": []
+}"""
+    mock_run.return_value = mock_result
+
+    result = local_client.parse("https://local.com")
+    assert result.title == "Local Title"
+    assert result.content == "Local Content"
+    assert result.word_count == 10
+    assert result.meta_tags == [
+        {"name": "description", "property": None, "content": "Summary"}
+    ]
+    assert result.schema_org_data == []
 
 
 @pytest.mark.asyncio
