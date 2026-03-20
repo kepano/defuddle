@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Loose footnotes: strong-numbered after hr</title>
+</head>
+<body>
+  <!--
+    Pattern: inline <sup>N</sup> references in body, definitions after <hr>
+    as <p><strong>N</strong> text</p> — used by pfrazee.com/practical-decentralization
+    style blogs. Footnotes can span multiple block elements.
+  -->
+  <article>
+    <h1>Loose footnotes: strong-numbered after hr</h1>
+
+    <p>The first concept is well-established. <sup>1</sup></p>
+
+    <p>The second concept is more nuanced.<sup>2</sup></p>
+
+    <p>Concluding thoughts.</p>
+
+    <hr/>
+
+    <p><strong>1</strong> First footnote explanation.</p>
+    <ul>
+      <li>Supporting point A.</li>
+      <li>Supporting point B.</li>
+    </ul>
+
+    <p><strong>2</strong> Second footnote with additional context.</p>
+
+  </article>
+</body>
+</html>
