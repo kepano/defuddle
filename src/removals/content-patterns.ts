@@ -271,15 +271,23 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	}
 
 	// Remove blog post metadata lists near content boundaries.
-	// These are short <ul>/<ol> elements where every item is a brief
-	// label + value pair (date, reading time, share, etc.) with no
+	// These are short <ul>/<ol>/<dl> elements where every item is a brief
+	// label + value pair (date, reading time, author, share, etc.) with no
 	// prose sentences. Detected structurally: all items are very short,
 	// none contain sentence-ending punctuation, and the total text is minimal.
-	const metadataLists = mainContent.querySelectorAll('ul, ol');
+	// <dl> elements are also checked: they often appear as author metadata
+	// blocks in Next.js/Tailwind blog templates (avatar + name + social handle).
+	const metadataLists = mainContent.querySelectorAll('ul, ol, dl');
 	for (const list of metadataLists) {
 		if (!list.parentNode) continue;
-		const items = Array.from(list.children).filter(el => el.tagName === 'LI');
-		if (items.length < 2 || items.length > 8) continue;
+		const isDl = list.tagName === 'DL';
+		const items = Array.from(list.children).filter(el =>
+			isDl ? el.tagName === 'DD' : el.tagName === 'LI'
+		);
+		// For description lists, allow single-item (e.g. one author block);
+		// for ul/ol require at least 2 items to avoid removing single-item content lists.
+		const minItems = isDl ? 1 : 2;
+		if (items.length < minItems || items.length > 8) continue;
 
 		// Must be near the start or end of content
 		const listText = list.textContent?.trim() || '';

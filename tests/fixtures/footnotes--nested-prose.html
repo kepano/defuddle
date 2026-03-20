@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Loose footnotes: nested prose div</title>
+</head>
+<body>
+  <!--
+    Pattern: the article's direct children are structural wrapper divs, not
+    paragraphs. The actual content (including the footnotes) lives inside a
+    deeply nested <div class="prose">. The content element selected by
+    defuddle is <article>, so collectFootnotes must find the innermost
+    container (via lastP.parentElement) before scanning.
+  -->
+  <article>
+    <div class="layout">
+      <div class="prose">
+        <h1>Loose footnotes: nested prose div</h1>
+
+        <p>The first claim is well-established.<sup>1</sup></p>
+
+        <p>The second claim is more contested.<sup>2</sup></p>
+
+        <p>The conclusion follows from both claims.</p>
+
+        <hr/>
+
+        <p><sup>1</sup> Supporting evidence for the first claim.</p>
+
+        <p><sup>2</sup> Counterarguments and rebuttal for the second claim.</p>
+      </div>
+    </div>
+  </article>
+</body>
+</html>

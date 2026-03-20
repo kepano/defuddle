@@ -40,21 +40,27 @@ class FootnoteHandler {
 			paragraph.appendChild(parseHTML(doc, content));
 			newItem.appendChild(paragraph);
 		} else {
-			// Get all paragraphs from the content
-			const paragraphs = Array.from(content.querySelectorAll('p'));
-			if (paragraphs.length === 0) {
-				// If no paragraphs, wrap content in a paragraph
+			const children = Array.from(content.children) as any[];
+			const hasParagraphs = children.some((c: any) => c.tagName.toLowerCase() === 'p');
+			if (!hasParagraphs) {
+				// No paragraph structure — wrap all content (including text nodes) in a single paragraph
 				const paragraph = doc.createElement('p');
 				transferContent(content, paragraph);
 				this.removeBackrefs(paragraph);
 				newItem.appendChild(paragraph);
 			} else {
-				// Copy existing paragraphs
-				paragraphs.forEach((p: any) => {
-					const newP = doc.createElement('p');
-					transferContent(p, newP);
-					this.removeBackrefs(newP);
-					newItem.appendChild(newP);
+				// Copy direct children in order, preserving non-paragraph elements (lists, blockquotes, etc.)
+				children.forEach((child: any) => {
+					if (child.tagName.toLowerCase() === 'p') {
+						const newP = doc.createElement('p');
+						transferContent(child, newP);
+						this.removeBackrefs(newP);
+						newItem.appendChild(newP);
+					} else {
+						const clone = child.cloneNode(true);
+						this.removeBackrefs(clone);
+						newItem.appendChild(clone);
+					}
 				});
 			}
 		}
@@ -337,25 +343,62 @@ class FootnoteHandler {
 		return !isNaN(num) && num >= 1 && String(num) === numText ? num : null;
 	}
 
-	// Scans backwards from the end of the content to find trailing numbered paragraphs,
-	// then cross-validates against bare <sup>N</sup> inline refs in the body.
-	// No delimiter required; an orphaned <hr> or footnote heading before the first
-	// footnote paragraph is included in toRemove if present.
+	// Returns true if at least 2 of the paragraph numbers appear as bare <sup>N</sup>
+	// inline refs in element (outside the footnote paragraphs themselves).
+	crossValidate(element: any, paragraphs: Array<{num: number; el: any}>): boolean {
+		const numberedNums = new Set(paragraphs.map(p => p.num));
+		const matchedNums = new Set<number>();
+		element.querySelectorAll('sup').forEach((sup: any) => {
+			if (paragraphs.some(fn => fn.el.contains(sup))) return;
+			if (sup.querySelector('a')) return; // already standardized or linked
+			const text = sup.textContent?.trim() || '';
+			const n = parseInt(text, 10);
+			if (!isNaN(n) && n >= 1 && String(n) === text && numberedNums.has(n)) {
+				matchedNums.add(n);
+			}
+		});
+		return matchedNums.size >= 2;
+	}
+
+	// Finds the footnote section in `element` using two methods:
+	// Method 1 (<hr> boundary): scans forward from after the last <hr>, collecting
+	//   numbered paragraphs. Correctly handles footnotes with continuation paragraphs
+	//   or embedded lists between definitions.
+	// Method 2 (backwards scan): for articles without <hr>, scans backwards from the
+	//   end for trailing numbered <p>s (tolerating lists between them). Falls back to
+	//   a heading delimiter if present.
+	// Both methods cross-validate against bare <sup>N</sup> inline refs in the body.
 	// Returns null if nothing found, or { paragraphs, toRemove } on match.
 	findLooseFootnoteParagraphs(
 		element: any
 	): { paragraphs: Array<{num: number; el: any}>; toRemove: any[] } | null {
 		// For nested article layouts (e.g. Next.js blogs), the footnote <p> elements may not
 		// be direct children of `element` — they live inside a deeply nested content div.
-		// Use the parent of the last <p> descendant as the scan container, which is the
-		// innermost element that directly holds the content paragraphs and footnotes.
+		// Use the parent of the last <p> descendant as the scan container.
 		const allPs = Array.from(element.querySelectorAll('p')) as any[];
 		const container = allPs.length > 0 ? (allPs[allPs.length - 1].parentElement ?? element) : element;
 		const children = Array.from(container.children) as any[];
 
-		// Strategy 1: trailing numbered paragraphs validated by inline <sup>N</sup> refs.
-		// Scan backwards, tolerating <ul>/<ol>/<blockquote> between numbered paragraphs
-		// (footnotes can span multiple block elements, e.g. a <p> followed by a <ul>).
+		// Method 1: <hr> section boundary.
+		// Forward-scan everything after the last <hr> for numbered paragraphs.
+		// This correctly handles footnotes that include continuation paragraphs or lists.
+		for (let i = children.length - 1; i >= 0; i--) {
+			if (children[i].tagName.toLowerCase() !== 'hr') continue;
+
+			const paragraphs: Array<{num: number; el: any}> = [];
+			for (let j = i + 1; j < children.length; j++) {
+				const num = this.parseFootnoteNum(children[j]);
+				if (num !== null) paragraphs.push({ num, el: children[j] });
+			}
+
+			if (paragraphs.length >= 2 && this.crossValidate(element, paragraphs)) {
+				return { paragraphs, toRemove: children.slice(i) };
+			}
+			break; // only check the last <hr>
+		}
+
+		// Method 2: backwards scan for trailing numbered paragraphs (no <hr> delimiter).
+		// Works when each footnote is a single paragraph; tolerates lists between them.
 		const trailingNumbered: Array<{num: number; el: any}> = [];
 		let firstFootnoteIdx = -1;
 		for (let i = children.length - 1; i >= 0; i--) {
@@ -372,45 +415,23 @@ class FootnoteHandler {
 				break; // non-numbered paragraph — stop
 			}
 
-			// Lists and blockquotes may be footnote content between numbered paragraphs
 			if (tag === 'ul' || tag === 'ol' || tag === 'blockquote') continue;
-
-			break; // any other element (hr, heading, div, ...) — stop
+			break; // any other element (heading, div, ...) — stop
 		}
 
-		if (trailingNumbered.length >= 2) {
-			// Cross-validate: at least 2 footnote numbers must appear as bare <sup>N</sup>
-			// inline refs in the body (outside the footnote paragraphs themselves).
-			// This distinguishes real footnotes from numbered sections or step-lists.
-			const numberedNums = new Set(trailingNumbered.map(p => p.num));
-			const matchedNums = new Set<number>();
+		if (trailingNumbered.length >= 2 && this.crossValidate(element, trailingNumbered)) {
+			const toRemove: any[] = children.slice(firstFootnoteIdx);
 
-			element.querySelectorAll('sup').forEach((sup: any) => {
-				if (trailingNumbered.some(fn => fn.el.contains(sup))) return;
-				if (sup.querySelector('a')) return; // already standardized or linked
-				const text = sup.textContent?.trim() || '';
-				const n = parseInt(text, 10);
-				if (!isNaN(n) && n >= 1 && String(n) === text && numberedNums.has(n)) {
-					matchedNums.add(n);
+			// Also remove an orphaned footnote-section heading immediately before
+			const prev = trailingNumbered[0].el.previousElementSibling;
+			if (prev) {
+				const prevTag = prev.tagName.toLowerCase();
+				if (/^h[1-6]$/.test(prevTag) && FOOTNOTE_SECTION_RE.test(prev.textContent?.trim() || '')) {
+					toRemove.unshift(prev);
 				}
-			});
-
-			if (matchedNums.size >= 2) {
-				// toRemove: all children from the first footnote paragraph to the end,
-				// including any interspersed lists that are part of footnote content.
-				const toRemove: any[] = children.slice(firstFootnoteIdx);
-
-				// Also remove an orphaned <hr> or footnote-section heading immediately before
-				const prev = trailingNumbered[0].el.previousElementSibling;
-				if (prev) {
-					const prevTag = prev.tagName.toLowerCase();
-					if (prevTag === 'hr' || (/^h[1-6]$/.test(prevTag) && FOOTNOTE_SECTION_RE.test(prev.textContent?.trim() || ''))) {
-						toRemove.unshift(prev);
-					}
-				}
-
-				return { paragraphs: trailingNumbered, toRemove };
 			}
+
+			return { paragraphs: trailingNumbered, toRemove };
 		}
 
 		return null;

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Loose footnotes: continuation paragraphs</title>
+</head>
+<body>
+  <!--
+    Pattern: footnotes after <hr> where each definition spans multiple block
+    elements — a <p> opener, an optional <ul>, and a continuation <p>.
+    The last element is a continuation paragraph, not a numbered one, so the
+    backwards scan fails; Method 1 (hr boundary + forward scan) is required.
+  -->
+  <article>
+    <h1>Loose footnotes: continuation paragraphs</h1>
+
+    <p>The first approach has notable trade-offs.<sup>1</sup></p>
+
+    <p>The second approach handles scale differently.<sup>2</sup></p>
+
+    <p>Both have merit depending on context.</p>
+
+    <hr/>
+
+    <p><strong>1</strong> The first approach introduces complexity:</p>
+    <ul>
+      <li>Higher operational overhead.</li>
+      <li>More failure modes to handle.</li>
+    </ul>
+    <p>Despite this, teams often prefer it for its flexibility.</p>
+
+    <p><strong>2</strong> The second approach favors simplicity at the cost of expressiveness.</p>
+    <p>It performs well under load but limits customization.</p>
+
+  </article>
+</body>
+</html>
