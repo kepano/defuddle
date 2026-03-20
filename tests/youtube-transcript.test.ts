@@ -1,10 +1,11 @@
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
+import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
 
-function createExtractor(html = '<html><body></body></html>', url = 'https://www.youtube.com/watch?v=test123'): YoutubeExtractor {
+function createExtractor(html = '<html><body></body></html>', url = 'https://www.youtube.com/watch?v=test123', options?: ExtractorOptions): YoutubeExtractor {
 	const doc = parseDocument(html, url);
-	return new YoutubeExtractor(doc, url);
+	return new YoutubeExtractor(doc, url, undefined, options);
 }
 
 function getTranscriptPanelHtml() {
@@ -152,6 +153,28 @@ describe('YouTube transcript parsing', () => {
 		// Sentences grouped together
 		expect(lines[0]).toBe('**0:00** · The quick brown fox jumps over the lazy dog.');
 		expect(lines[1]).toBe('**0:04** · Then it ran away quickly.');
+	});
+
+	test('preserves transcript segments when preserveTranscriptSegments is enabled', () => {
+		const extractor = createExtractor('<html><body></body></html>', undefined, {
+			youtube: {
+				preserveTranscriptSegments: true,
+			}
+		});
+		const xml = `<timedtext><body>
+<p t="0" d="2000"><s>The quick brown</s></p>
+<p t="2000" d="2000"><s>fox jumps over the lazy dog.</s></p>
+<p t="4000" d="2000"><s>Then it ran</s></p>
+<p t="6000" d="2000"><s>away quickly.</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		expect(lines[0]).toBe('**0:00** · The quick brown');
+		expect(lines[1]).toBe('**0:02** · fox jumps over the lazy dog.');
+		expect(lines[2]).toBe('**0:04** · Then it ran');
+		expect(lines[3]).toBe('**0:06** · away quickly.');
 	});
 
 	test('keeps sparse caption windows together until the sentence ends', () => {

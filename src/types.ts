@@ -139,6 +139,19 @@ export interface DefuddleOptions {
 	 * - false: exclude all replies
 	 */
 	includeReplies?: boolean | 'extractors';
+
+	/**
+	 * Extractor-specific options
+	 */
+	extractors?: {
+		youtube?: {
+			/**
+			 * Prevent YoutubeExtractor from grouping transcript segments
+			 * Defaults to false
+			 */
+			preserveTranscriptSegments?: boolean;
+		};
+	};
 }
 
 export interface ExtractorVariables {
