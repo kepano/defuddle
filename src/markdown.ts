@@ -260,11 +260,25 @@ export function createMarkdownContent(content: string, url: string) {
 		filter: 'figure',
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
-			
+
 			const img = node.querySelector('img');
 			const figcaption = node.querySelector('figcaption');
-			
+
 			if (!img || !isGenericElement(img)) return content;
+
+			// If the figure contains <p> elements outside of <figcaption>, it's a
+			// content wrapper (e.g. Medium's layout), not an image figure. Let
+			// Turndown process its children normally instead of treating the whole
+			// thing as a single image.
+			const hasParagraphsOutsideFigcaption = Array.from(node.querySelectorAll('p')).some((p) => {
+				let ancestor = asGenericElement(p).parentNode;
+				while (ancestor && ancestor !== node) {
+					if (ancestor.nodeName === 'FIGCAPTION') return false;
+					ancestor = ancestor.parentNode;
+				}
+				return true;
+			});
+			if (hasParagraphsOutsideFigcaption) return content;
 
 			const alt = img.getAttribute('alt') || '';
 			const src = getBestImageSrc(img);

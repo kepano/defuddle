@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Figure Content Wrapper Test</title>
+</head>
+<body>
+  <!--
+    Reproduces the Medium-embedded-in-WordPress pattern where the entire
+    article body is wrapped in a <figure> element. The figure rule must
+    not treat this as an image figure and discard all the text.
+  -->
+  <article class="post">
+    <div class="article-header">
+      <h1>Example Article Title</h1>
+    </div>
+    <div class="article-body">
+      <!-- Outer figure wraps entire article body (Medium layout) -->
+      <figure class="paragraph-image">
+        <div class="content-wrapper">
+          <p>First paragraph with some content about the topic.</p>
+          <p>Second paragraph continuing the discussion.</p>
+
+          <!-- Individual image figure nested inside the outer figure -->
+          <figure class="inline-image">
+            <img src="https://example.com/diagram.png" alt="A diagram" width="640" height="400"/>
+          </figure>
+
+          <p>Third paragraph after the image.</p>
+          <p>Fourth paragraph wrapping up the section.</p>
+        </div>
+      </figure>
+    </div>
+    <div class="author-bio">
+      <p>Author Name</p>
+      <p>Author bio goes here.</p>
+    </div>
+  </article>
+</body>
+</html>
