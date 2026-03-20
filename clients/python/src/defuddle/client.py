@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import subprocess
+from datetime import date, datetime
 from typing import Any, Literal
 
 import httpx
@@ -145,6 +146,9 @@ class DefuddleClient:
                 frontmatter_text = parts[1]
                 content = parts[2].strip()
                 metadata = yaml.safe_load(frontmatter_text) or {}
+                published = metadata.get("published")
+                if isinstance(published, (date, datetime)):
+                    metadata["published"] = published.isoformat()
 
                 # Defuddle.md returns values like: word_count, site, title, language
                 return DefuddleResponse(content=content, **metadata)

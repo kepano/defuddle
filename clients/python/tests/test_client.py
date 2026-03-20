@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from pytest_httpx import HTTPXMock
 
 from defuddle import DefuddleClient

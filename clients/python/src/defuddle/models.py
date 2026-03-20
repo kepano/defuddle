@@ -50,8 +50,8 @@ class DefuddleResponse(BaseModel):
     )
 
     # These fields might be available depending on the backend (API vs Local)
-    schema_org_data: Optional[dict[str, Any]] = Field(
+    schema_org_data: Optional[dict[str, Any] | list[Any]] = Field(
         default=None, alias="schemaOrgData"
     )
-    meta_tags: Optional[dict[str, str]] = Field(default=None, alias="metaTags")
+    meta_tags: Optional[list[dict[str, Any]]] = Field(default=None, alias="metaTags")
     debug: Optional[dict[str, Any]] = Field(default=None)
