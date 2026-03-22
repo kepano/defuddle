@@ -266,6 +266,25 @@ export const codeBlockRules = [
 						return '\n';
 					}
 
+					// Some code viewers render each line as a flex row: first child is only digits (the
+					// line number), second child is the line text (often `flex-row` in class names).
+					// extractStructuredText() would otherwise walk those children and concatenate
+					// text with no separator, producing one token like "1AGENTS.md" instead of two
+					// lines. When the first child is all digits, keep only the second column and
+					// end the line with a newline.
+					// (If the page uses invalid `<code><pre>` wrapping, that is corrected later in
+					// markdown.ts via unwrapCodeAroundPre — a separate Turndown issue, not extraction.)
+					if (
+						element.tagName === 'DIV' &&
+						element.children.length === 2 &&
+						/\bflex-row\b/.test(element.getAttribute('class') || '')
+					) {
+						const gutter = (element.children[0].textContent || '').trim();
+						if (/^\d+$/.test(gutter)) {
+							return extractStructuredText(element.children[1]) + '\n';
+						}
+					}
+
 					// Handle common line-based code formats
 					// This covers various syntax highlighter implementations that use
 					// divs or spans to represent individual lines

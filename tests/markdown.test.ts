@@ -80,6 +80,36 @@ describe('Markdown conversion', () => {
 			expect(md.indexOf('beta')).toBeGreaterThan(md.indexOf('alpha'));
 		});
 
+		test('unwrap <code><pre> nesting so Turndown emits fenced block (not inline backticks)', () => {
+			const html =
+				'<div><code class="wrap"><pre><code>AGENTS.md\nARCHITECTURE.md</code></pre></code></div>';
+			const md = createMarkdownContent(html, 'https://example.com');
+			expect(md).toContain('AGENTS.md');
+			expect(md).toContain('ARCHITECTURE.md');
+			expect(md).toMatch(/^```\n/m);
+			expect(md).not.toMatch(/`[^`\n]*AGENTS\.md[^`\n]*ARCHITECTURE/);
+		});
+
+		test('flex-row line gutters inside pre: Defuddle pipeline does not glue line numbers to text', async () => {
+			const html = `<!DOCTYPE html><html><head><title>T</title></head><body><article>
+<h4>Plain Text</h4>
+<div><code class="snip"><pre class="flex flex-col">
+<div class="gap-2xs flex flex-row"><span>1</span><div>AGENTS.md</div></div>
+<div class="gap-2xs flex flex-row"><span>2</span><div>ARCHITECTURE.md</div></div>
+<div class="gap-2xs flex flex-row"><span>3</span><div>docs/</div></div>
+</pre></code></div>
+</article></body></html>`;
+			const result = await Defuddle(
+				parseDocument(html, 'https://example.com'),
+				'https://example.com',
+				{ separateMarkdown: true }
+			);
+			expect(result.contentMarkdown).toBeTruthy();
+			expect(result.contentMarkdown!).not.toContain('1AGENTS');
+			expect(result.contentMarkdown!).toContain('AGENTS.md');
+			expect(result.contentMarkdown!).toContain('ARCHITECTURE.md');
+		});
+
 		test('two-column line-number gutter table outputs content column only', () => {
 			const html = `<table><tbody>
 <tr><td>1</td><td>AGENTS.md</td></tr>

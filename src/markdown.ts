@@ -1,4 +1,5 @@
 import TurndownService from 'turndown';
+import { parseHTML as linkedomParseHTML } from 'linkedom';
 import { isElement, isTextNode } from './utils';
 import { parseHTML, serializeHTML, isDirectTableChild } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
@@ -84,7 +85,7 @@ function isLineNumberOnlyCell(cell: GenericElement): boolean {
 }
 
 /**
- * Tables where every row is [line number | content], e.g. OpenAI "Plain Text" blocks.
+ * Tables where every row is [line number | content] (line-number gutter + line text).
  */
 function isLineNumberGutterTable(_table: GenericElement, rowElements: any[]): boolean {
 	if (rowElements.length === 0) return false;
@@ -112,6 +113,53 @@ function extractCodePlainText(codeElement: GenericElement): string {
 		return asHtml.innerText;
 	}
 	return clone.textContent || '';
+}
+
+/**
+ * Some front ends emit invalid `<code><pre>...</pre></code>` (outer highlight wrapper
+ * around a block <pre>). Turndown treats the outer `<code>` as inline and flattens
+ * the whole block into a single backtick span. Hoist `<pre>` so we get
+ * `<pre><code>...</code></pre>`.
+ */
+function unwrapCodeAroundPre(html: string): string {
+	if (!html || !/<code[^>]*>[\s\S]*?<pre\b/i.test(html)) return html;
+	try {
+		const { document } = linkedomParseHTML(
+			`<!DOCTYPE html><html><body><div id="unwrap-root">${html}</div></body></html>`
+		);
+		const root = document.getElementById('unwrap-root');
+		if (!root) return html;
+
+		for (let n = 0; n < 5000; n++) {
+			const pre = root.querySelector('code > pre');
+			if (!pre) break;
+			const outerCode = pre.parentElement;
+			if (!outerCode || outerCode.tagName !== 'CODE') break;
+			const parent = outerCode.parentElement;
+			if (!parent) break;
+
+			const innerCode = Array.from(pre.children).find((c) => c.tagName === 'CODE') as Element | undefined;
+			if (innerCode) {
+				const ocClass = outerCode.getAttribute('class');
+				const icClass = innerCode.getAttribute('class');
+				if (ocClass) {
+					innerCode.setAttribute('class', icClass ? `${icClass} ${ocClass}` : ocClass);
+				}
+				const ocLang =
+					outerCode.getAttribute('data-lang') || outerCode.getAttribute('data-language');
+				if (ocLang && !innerCode.getAttribute('data-lang')) {
+					innerCode.setAttribute('data-lang', ocLang);
+				}
+			}
+
+			parent.insertBefore(pre, outerCode);
+			outerCode.remove();
+		}
+
+		return root.innerHTML;
+	} catch {
+		return html;
+	}
 }
 
 function getBestImageSrc(node: GenericElement): string {
@@ -195,7 +243,7 @@ export function createMarkdownContent(content: string, url: string) {
 				}
 			}
 
-			// Two-column [line number | content] tables (e.g. OpenAI Plain Text + directory tree)
+			// Two-column [line number | content] tables (gutter + directory tree / plain text)
 			const tableElEarly = node as any;
 			const rowElementsGutter: any[] = tableElEarly.rows && tableElEarly.rows.length > 0
 				? Array.from(tableElEarly.rows)
@@ -833,6 +881,10 @@ export function createMarkdownContent(content: string, url: string) {
 	}
 
 	try {
+		// Flex-row line gutters inside <pre> are normalized in elements/code.ts
+		// (extractStructuredText); this pass only fixes Turndown + invalid nesting.
+		content = unwrapCodeAroundPre(content);
+
 		// Strip <wbr> tags — word break opportunity hints that are invisible in
 		// browsers but would insert unwanted spaces during Turndown conversion.
 		content = content.replace(/<wbr\s*\/?>/gi, '');
