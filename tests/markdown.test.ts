@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { parseDocument } from './helpers';
+import { createMarkdownContent } from '../src/markdown';
 
 describe('Markdown conversion', () => {
 	describe('exclamation mark before image', () => {
@@ -66,6 +67,46 @@ describe('Markdown conversion', () => {
 			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			expect(result.contentMarkdown).toContain('longword');
+		});
+	});
+
+	describe('line-number gutters and layout tables', () => {
+		test('layout single-column table preserves row breaks', () => {
+			const html =
+				'<table><tbody><tr><td>alpha</td></tr><tr><td>beta</td></tr></tbody></table>';
+			const md = createMarkdownContent(html, 'https://example.com');
+			expect(md).toContain('alpha');
+			expect(md).toContain('beta');
+			expect(md.indexOf('beta')).toBeGreaterThan(md.indexOf('alpha'));
+		});
+
+		test('two-column line-number gutter table outputs content column only', () => {
+			const html = `<table><tbody>
+<tr><td>1</td><td>AGENTS.md</td></tr>
+<tr><td>2</td><td>docs/</td></tr>
+<tr><td>3</td><td>├── design-docs/</td></tr>
+</tbody></table>`;
+			const md = createMarkdownContent(html, 'https://example.com');
+			expect(md).not.toMatch(/\|\s*1\s*\|/);
+			expect(md).toContain('AGENTS.md');
+			expect(md).toContain('docs/');
+			expect(md).toContain('design-docs');
+			expect(md).not.toMatch(/^1\s/m);
+		});
+
+		test('pre code strips line-number spans and keeps line breaks when present', () => {
+			const html =
+				'<pre><code><span class="line-number">1</span><span>AGENTS.md</span><br/>' +
+				'<span class="line-number">2</span><span>docs/</span></code></pre>';
+			const md = createMarkdownContent(html, 'https://example.com');
+			expect(md).toContain('AGENTS.md');
+			expect(md).toContain('docs/');
+			expect(md).not.toContain('1AGENTS');
+			const fence = md.match(/```[^\n]*\n([\s\S]*?)\n```/);
+			expect(fence).toBeTruthy();
+			const body = fence![1];
+			expect(body).toContain('AGENTS.md');
+			expect(body).toContain('docs/');
 		});
 	});
 });

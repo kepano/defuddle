@@ -43,6 +43,7 @@
 		"build:js": "webpack",
 		"build:node": "tsc --project tsconfig.node.json",
 		"build": "npm run clean && npm run build:types && npm run build:node && npm run build:js",
+		"prepare": "npm run build",
 		"prepublishOnly": "npm run build",
 		"dev:types": "tsc --project tsconfig.declarations.json --watch",
 		"dev:js": "webpack --watch --mode development",

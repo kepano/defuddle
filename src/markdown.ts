@@ -41,6 +41,79 @@ export function asGenericElement(node: any): GenericElement {
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
 
+/** Selectors for gutter / IDE line-number columns inside code blocks (strip before plain text). */
+const LINE_NUMBER_SELECTORS = [
+	'[class*="line-number"]',
+	'[class*="LineNumber"]',
+	'[data-line-number]',
+	'.hljs-ln-numbers',
+	'.react-syntax-highlighter-line-number',
+	'[class*="linenumber"]',
+	'.line-numbers',
+];
+
+/** @returns how many elements were removed */
+function stripLineNumberElements(root: GenericElement): number {
+	let removed = 0;
+	if (!root.querySelectorAll) return 0;
+	for (const sel of LINE_NUMBER_SELECTORS) {
+		try {
+			root.querySelectorAll(sel).forEach((el: Element) => {
+				el.remove();
+				removed++;
+			});
+		} catch {
+			// ignore invalid selector in edge environments
+		}
+	}
+	return removed;
+}
+
+function getRowCells(row: any): any[] {
+	if (row.cells && row.cells.length > 0) {
+		return Array.from(row.cells);
+	}
+	return Array.from(row.querySelectorAll('td, th')).filter(
+		(cell: any) => cell.parentNode === row
+	);
+}
+
+function isLineNumberOnlyCell(cell: GenericElement): boolean {
+	const t = cell.textContent?.trim() ?? '';
+	return /^\d+$/.test(t);
+}
+
+/**
+ * Tables where every row is [line number | content], e.g. OpenAI "Plain Text" blocks.
+ */
+function isLineNumberGutterTable(_table: GenericElement, rowElements: any[]): boolean {
+	if (rowElements.length === 0) return false;
+	for (const row of rowElements) {
+		const cells = getRowCells(row);
+		if (cells.length !== 2) return false;
+		if (!isLineNumberOnlyCell(cells[0] as GenericElement)) return false;
+	}
+	return true;
+}
+
+/**
+ * When gutter/line-number nodes are present, strip them and prefer innerText
+ * (preserves line breaks). Otherwise keep original textContent so normal
+ * code blocks match prior behavior.
+ */
+function extractCodePlainText(codeElement: GenericElement): string {
+	const clone = codeElement.cloneNode(true) as unknown as GenericElement;
+	const removed = stripLineNumberElements(clone);
+	if (removed === 0) {
+		return codeElement.textContent || '';
+	}
+	const asHtml = clone as unknown as { innerText?: string };
+	if (typeof asHtml.innerText === 'string' && asHtml.innerText.trim().length > 0) {
+		return asHtml.innerText;
+	}
+	return clone.textContent || '';
+}
+
 function getBestImageSrc(node: GenericElement): string {
 	const srcset = node.getAttribute('srcset');
 	if (srcset) {
@@ -117,9 +190,27 @@ export function createMarkdownContent(content: string, url: string) {
 				if (isSingleColumn) {
 					// Layout table — extract content, don't convert to markdown table
 					return '\n\n' + turndownService.turndown(
-						directCells.map((cell: any) => serializeHTML(cell)).join('')
+						directCells.map((cell: any) => serializeHTML(cell)).join('\n')
 					) + '\n\n';
 				}
+			}
+
+			// Two-column [line number | content] tables (e.g. OpenAI Plain Text + directory tree)
+			const tableElEarly = node as any;
+			const rowElementsGutter: any[] = tableElEarly.rows && tableElEarly.rows.length > 0
+				? Array.from(tableElEarly.rows)
+				: Array.from(node.querySelectorAll('tr')).filter(
+					(tr: any) => isDirectTableChild(tr, node)
+				);
+			if (rowElementsGutter.length > 0 && isLineNumberGutterTable(node, rowElementsGutter)) {
+				const lines = rowElementsGutter.map((row: any) => {
+					const cellElements = getRowCells(row);
+					const contentCell = cellElements[1];
+					return turndownService.turndown(serializeHTML(contentCell))
+						.replace(/\n/g, ' ')
+						.trim();
+				});
+				return '\n\n' + lines.join('\n') + '\n\n';
 			}
 
 			// Check if the table has colspan or rowspan
@@ -554,7 +645,7 @@ export function createMarkdownContent(content: string, url: string) {
 				|| codeElement.getAttribute('class')?.match(/language-(\w+)/)?.[1]
 				|| node.getAttribute('data-language')
 				|| '';
-			const code = codeElement.textContent || '';
+			const code = extractCodePlainText(codeElement);
 			
 			// Clean up the content and escape backticks
 			const cleanCode = code
