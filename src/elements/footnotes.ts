@@ -247,10 +247,16 @@ class FootnoteHandler {
 							idAnchor.remove();
 						}
 
-						// Strip leading footnote number (e.g. "1. " or "1 ")
+						// Remove named anchor footnote marker (e.g. Gutenberg: <a name="Footnote_4">4</a>)
+						const namedAnchor = clone.querySelector('a[name]');
+						if (namedAnchor && namedAnchor.getAttribute('name')?.toLowerCase() === id) {
+							namedAnchor.remove();
+						}
+
+						// Strip leading footnote number (e.g. "1. " or "1 ") or whitespace left by removed anchor
 						const firstText = clone.childNodes[0];
 						if (firstText && firstText.nodeType === 3) {
-							firstText.textContent = firstText.textContent.replace(/^\d+\.\s*/, '');
+							firstText.textContent = firstText.textContent.replace(/^\d+\.\s*/, '').replace(/^\s+/, '');
 						}
 
 						// For list items, extract children into contentDiv to avoid <p><li>...</li></p> nesting
@@ -264,8 +270,8 @@ class FootnoteHandler {
 						let sibling = el.nextElementSibling;
 						while (sibling && !sibling.id) {
 							// Stop if this sibling starts a new anchored footnote
-							const sibAnchor = sibling.querySelector('a[id]');
-							if (sibAnchor && fragmentSet.has(sibAnchor.id.toLowerCase())) break;
+							const sibAnchorId = this.getChildAnchorId(sibling);
+							if (sibAnchorId && fragmentSet.has(sibAnchorId)) break;
 							const sibClone = sibling.cloneNode(true);
 							contentDiv.appendChild(sibClone);
 							sibling = sibling.nextElementSibling;
@@ -456,6 +462,13 @@ class FootnoteHandler {
 		}
 	}
 
+	// Returns the lowercase ID from a child anchor, checking a[id] then a[name].
+	getChildAnchorId(el: any): string {
+		const anchor = el.querySelector('a[id], a[name]');
+		if (!anchor) return '';
+		return (anchor.id || anchor.getAttribute('name') || '').toLowerCase();
+	}
+
 	// Returns elements within container whose IDs (direct or via child anchor) are in fragmentSet,
 	// in document order, deduplicated.
 	findMatchingFootnoteElements(container: any, fragmentSet: Set<string>): Array<{el: any, id: string}> {
@@ -466,10 +479,8 @@ class FootnoteHandler {
 			if (el.id && fragmentSet.has(el.id.toLowerCase())) {
 				id = el.id.toLowerCase();
 			} else if (!el.id) {
-				const anchor = el.querySelector('a[id]');
-				if (anchor && fragmentSet.has(anchor.id.toLowerCase())) {
-					id = anchor.id.toLowerCase();
-				}
+				const anchorId = this.getChildAnchorId(el);
+				if (anchorId && fragmentSet.has(anchorId)) id = anchorId;
 			}
 			if (id && !seen.has(id)) {
 				results.push({ el, id });
