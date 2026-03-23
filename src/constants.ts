@@ -94,6 +94,9 @@ export const EXACT_SELECTORS = [
 	'meta',
 	'link',
 
+	// empty media elements (src set by JS at runtime, not in raw HTML)
+	'audio:not([src])',
+
 	// ads
 	'.ad:not([class*="gradient"])',
 	'[class^="ad-" i]',

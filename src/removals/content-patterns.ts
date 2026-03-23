@@ -5,6 +5,7 @@ import { textPreview, countWords } from '../utils';
 const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
+const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
 const BOILERPLATE_PATTERNS = [
 	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
@@ -28,6 +29,15 @@ const BYLINE_STRIP_PATTERNS = [
 	/\bby\b/gi,
 	/[/|·•—–\-,]+/g,
 ];
+
+function walkUpToWrapper(el: Element, text: string, mainContent: Element): Element {
+	let target = el;
+	while (target.parentElement && target.parentElement !== mainContent) {
+		if ((target.parentElement.textContent?.trim() || '') !== text) break;
+		target = target.parentElement;
+	}
+	return target;
+}
 
 function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	let sibling = element.nextElementSibling;
@@ -141,12 +151,65 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	const contentText = mainContent.textContent || '';
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 
+	// Remove article metadata header blocks near the top of content.
+	// Catches sites that use a <div> containing only a short date string and category
+	// links instead of semantic <time> elements — common in Tailwind-based blog layouts.
+	for (const el of candidates) {
+		if (!el.parentNode) continue;
+		if (el.tagName !== 'DIV') continue;
+		if (el.closest('pre, code')) continue;
+
+		const text = el.textContent?.trim() || '';
+		const words = countWords(text);
+		if (words > 10 || words < 1) continue;
+		if (!CONTENT_DATE_PATTERN.test(text)) continue;
+		if (contentText.indexOf(text) > 400) continue;
+		if (Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) continue;
+		if (/[.!?]/.test(text)) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({
+				step: 'removeByContentPattern',
+				reason: 'article metadata header block',
+				text: textPreview(el)
+			});
+		}
+		el.remove();
+	}
+
+	// Remove standalone author bylines near the start of content.
+	// Catches "By [Name, Title]" paragraphs on sites that list author separately
+	// from the date (so the existing author+date byline removal doesn't fire).
+	for (const el of candidates) {
+		if (!el.parentNode) continue;
+		if (el.closest('pre, code')) continue;
+
+		const text = el.textContent?.trim() || '';
+		if (!STARTS_WITH_BY_PATTERN.test(text)) continue;
+
+		const words = countWords(text);
+		if (words < 2 || words > 15) continue;
+		if (contentText.indexOf(text) > 600) continue;
+		if (/[.!?]$/.test(text)) continue;
+
+		const target = walkUpToWrapper(el, text, mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({
+				step: 'removeByContentPattern',
+				reason: 'author byline',
+				text: textPreview(target)
+			});
+		}
+		target.remove();
+		break;
+	}
+
 	// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
 	// Only removes leaf elements whose text is PURELY date + read time,
 	// not mixed with other meaningful content like tag names.
 	for (const el of candidates) {
 		if (!el.parentNode) continue;
-		if (el.closest('pre') || el.closest('code')) continue;
+		if (el.closest('pre, code')) continue;
 
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
@@ -181,7 +244,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// class names that can't be matched by selector removal.
 	for (const el of candidates) {
 		if (!el.parentNode) continue;
-		if (el.closest('pre') || el.closest('code')) continue;
+		if (el.closest('pre, code')) continue;
 
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
@@ -207,14 +270,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		const pos = contentText.indexOf(text);
 		if (pos > 500) continue;
 
-		// Walk up through wrappers whose only text content matches
-		let target: Element = el;
-		while (target.parentElement && target.parentElement !== mainContent) {
-			const parentText = target.parentElement.textContent?.trim() || '';
-			if (parentText !== text) break;
-			target = target.parentElement;
-		}
-
+		const target = walkUpToWrapper(el, text, mainContent);
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeByContentPattern',
@@ -317,13 +373,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Total text should be very short — this is metadata, not content
 		if (countWords(listText) > 30) continue;
 
-		// Walk up to find the container to remove (e.g. a wrapper div)
-		let target: Element = list;
-		while (target.parentElement && target.parentElement !== mainContent) {
-			const parentText = target.parentElement.textContent?.trim() || '';
-			if (parentText !== listText) break;
-			target = target.parentElement;
-		}
+		const target = walkUpToWrapper(list, listText, mainContent);
 
 		if (debug && debugRemovals) {
 			debugRemovals.push({
