@@ -503,6 +503,48 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 	}
 
+	// Remove trailing "related posts" blocks — a container at the end of content
+	// whose children are all short, link-dense paragraphs with no prose sentences.
+	// Pattern: <section>/<div>/<aside> containing only <p> elements where each
+	// paragraph is mostly links (article title + category tags, no prose).
+	let lastChild = mainContent.lastElementChild;
+	while (lastChild && ['HR', 'BR'].includes(lastChild.tagName)) {
+		lastChild = lastChild.previousElementSibling;
+	}
+	if (lastChild && ['SECTION', 'DIV', 'ASIDE'].includes(lastChild.tagName)) {
+		const paras: Element[] = [];
+		let hasNonPara = false;
+		for (const child of lastChild.children) {
+			const text = child.textContent?.trim() || '';
+			if (!text) continue;
+			if (child.tagName === 'P') paras.push(child);
+			else if (child.tagName !== 'BR') { hasNonPara = true; break; }
+		}
+		if (paras.length >= 2 && !hasNonPara) {
+			const allLinkDense = paras.every(p => {
+				const text = (p.textContent?.trim() || '').replace(/\s+/g, ' ');
+				const links = p.querySelectorAll('a[href]');
+				if (links.length === 0) return false;
+				let linkTextLen = 0;
+				for (const link of links) linkTextLen += (link.textContent?.trim() || '').length;
+				if (linkTextLen / (text.length || 1) <= 0.6) return false;
+				let nonLinkText = text;
+				for (const link of links) nonLinkText = nonLinkText.replaceAll(link.textContent?.trim() || '', '');
+				return !/[.!?]/.test(nonLinkText);
+			});
+			if (allLinkDense) {
+				if (debug && debugRemovals) {
+					debugRemovals.push({
+						step: 'removeByContentPattern',
+						reason: 'trailing related posts block',
+						text: textPreview(lastChild)
+					});
+				}
+				lastChild.remove();
+			}
+		}
+	}
+
 	// Remove trailing thin sections — the last few direct children of
 	// mainContent that contain a heading but very little prose. These are
 	// typically CTAs, newsletter prompts, or promotional sections that
