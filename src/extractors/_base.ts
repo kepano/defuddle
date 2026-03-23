@@ -3,6 +3,9 @@ import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/
 export interface ExtractorOptions {
 	includeReplies?: boolean | 'extractors';
 	language?: string;
+	youtube?: {
+		preserveTranscriptSegments?: boolean;
+	};
 }
 
 export abstract class BaseExtractor {
