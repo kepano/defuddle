@@ -120,7 +120,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #footer yt-sort-filter-sub-menu-renderer yt-dropdown-menu button'
 		);
 		const selectedLabel = langButton?.textContent?.trim();
-		const captionTracks = this.getCaptionTracks(this.parseInlineJson('ytInitialPlayerResponse'));
+		const captionTracks = this.getCaptionTracks(this.getValidatedPlayerResponse());
 		const preferredTrack = this.pickCaptionTrack(captionTracks);
 
 		if (!selectedLabel) {
@@ -136,8 +136,17 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getInlineChapters(): { title: string; start: number }[] {
+		const videoId = this.getVideoId();
 		const inlineData = this.parseInlineJson('ytInitialData');
 		if (!inlineData) return [];
+
+		// After YouTube SPA navigation, ytInitialData is stale from the previous page load.
+		// Validate it belongs to the current video before using it.
+		if (videoId) {
+			const currentVideoId = inlineData?.currentVideoEndpoint?.watchEndpoint?.videoId;
+			const endpointVideoId = inlineData?.endpoint?.watchEndpoint?.videoId;
+			if (currentVideoId !== videoId && endpointVideoId !== videoId) return [];
+		}
 
 		const chapters = this.extractChaptersFromPlayerBar(inlineData);
 		if (chapters.length > 0) return chapters;
@@ -287,13 +296,42 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getVideoData(): any {
-		if (!this.schemaOrgData) return {};
+		const videoId = this.getVideoId();
 
-		const videoData = Array.isArray(this.schemaOrgData)
-			? this.schemaOrgData.find(item => item['@type'] === 'VideoObject')
-			: this.schemaOrgData['@type'] === 'VideoObject' ? this.schemaOrgData : null;
+		// Read ld+json directly from the DOM so we can validate it against the current video ID.
+		// schemaOrgData (passed in at construction) may be absent or stale after YouTube SPA
+		// navigation because YouTube removes the VideoObject ld+json block on client-side nav.
+		const scripts = Array.from(this.document.querySelectorAll('script[type="application/ld+json"]'));
+		for (const script of scripts) {
+			try {
+				const data = JSON.parse(script.textContent || '');
+				const items = Array.isArray(data) ? data : [data];
+				const videoObject = items.find((item: any) => {
+					if (item['@type'] !== 'VideoObject') return false;
+					if (!videoId) return true;
+					const id: string = item['@id'] || item['url'] || item['embedUrl'] || '';
+					return id.includes(videoId);
+				});
+				if (videoObject) return videoObject;
+			} catch {
+				// ignore invalid JSON
+			}
+		}
 
-		return videoData || {};
+		// Fall back to og:* meta tags. YouTube updates these after SPA navigation,
+		// so they reliably reflect the current video.
+		if (videoId) {
+			const ogUrl = this.document.querySelector('meta[property="og:url"]')?.getAttribute('content') || '';
+			if (ogUrl.includes(videoId)) {
+				return {
+					name: this.document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '',
+					description: this.document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '',
+					thumbnailUrl: this.document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '',
+				};
+			}
+		}
+
+		return {};
 	}
 
 	private getChannelName(videoData: any): string {
@@ -346,16 +384,24 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getChannelNameFromPlayerResponse(): string {
-		const data = this.parseInlineJson('ytInitialPlayerResponse');
+		const data = this.getValidatedPlayerResponse();
 		if (!data) return '';
 
-		const fromVideoDetails = data?.videoDetails?.author || data?.videoDetails?.ownerChannelName;
-		if (fromVideoDetails) {
-			return fromVideoDetails;
-		}
+		return data.videoDetails?.author
+			|| data.videoDetails?.ownerChannelName
+			|| data.microformat?.playerMicroformatRenderer?.ownerChannelName
+			|| '';
+	}
 
-		const fromMicroformat = data?.microformat?.playerMicroformatRenderer?.ownerChannelName;
-		return fromMicroformat || '';
+	/** Returns ytInitialPlayerResponse only if its video ID matches the current URL (stale after SPA navigation). */
+	private getValidatedPlayerResponse(): any | null {
+		const videoId = this.getVideoId();
+		if (!videoId) return null;
+		const data = this.parseInlineJson('ytInitialPlayerResponse');
+		if (!data) return null;
+		const detailVideoId = data.videoDetails?.videoId;
+		const microformatVideoId = data.microformat?.playerMicroformatRenderer?.externalVideoId;
+		return (detailVideoId === videoId || microformatVideoId === videoId) ? data : null;
 	}
 
 	private parseInlineJson(globalName: string): any | null {
@@ -776,12 +822,15 @@ export class YoutubeExtractor extends BaseExtractor {
 			.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
 	}
 
+	private _videoId: string | undefined;
 	private getVideoId(): string {
-		const url = new URL(this.url);
-		if (url.hostname === 'youtu.be') {
-			return url.pathname.slice(1);
+		if (this._videoId === undefined) {
+			const url = new URL(this.url);
+			this._videoId = url.hostname === 'youtu.be'
+				? url.pathname.slice(1)
+				: new URLSearchParams(url.search).get('v') || '';
 		}
-		return new URLSearchParams(url.search).get('v') || '';
+		return this._videoId;
 	}
 
 	/**
