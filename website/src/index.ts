@@ -612,18 +612,21 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		const result = await convertToMarkdown(targetUrl, language);
 		const markdown = formatResponse(result, targetUrl);
 
+		// Cache if there's meaningful text content, or if an extractor ran and got metadata
+		// (e.g. YouTube without transcript — avoids hammering InnerTube on every request)
+		const shouldCache = result.wordCount > 0 || !!result.extractorType;
+
 		const response = new Response(markdown, {
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',
 				'Access-Control-Allow-Origin': '*',
-				...(cacheKey && result.wordCount > 0 && {
+				...(cacheKey && shouldCache && {
 					'Cache-Control': `s-maxage=${CACHE_TTL}`,
 				}),
 			},
 		});
 
-		// Only cache responses with meaningful content
-		if (cacheKey && result.wordCount > 0) {
+		if (cacheKey && shouldCache) {
 			ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
 		}
 

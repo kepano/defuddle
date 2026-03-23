@@ -560,6 +560,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
+		// Try Android client first (most reliable for caption tracks)
 		try {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -573,6 +574,32 @@ export class YoutubeExtractor extends BaseExtractor {
 				headers,
 				body: JSON.stringify({
 					context: INNERTUBE_CONTEXT,
+					videoId,
+				})
+			});
+			if (resp.ok) {
+				const data = await resp.json();
+				if (this.getCaptionTracks(data).length > 0) {
+					return data;
+				}
+			}
+		} catch {
+			// Fall through to WEB client fallback.
+		}
+
+		// Try WEB client as fallback — rate-limited independently from Android client
+		try {
+			const webHeaders: Record<string, string> = {
+				'Content-Type': 'application/json',
+			};
+			if (this.options.language) {
+				webHeaders['Accept-Language'] = this.options.language;
+			}
+			const resp = await fetch(INNERTUBE_API_URL, {
+				method: 'POST',
+				headers: webHeaders,
+				body: JSON.stringify({
+					context: INNERTUBE_WEB_CONTEXT,
 					videoId,
 				})
 			});

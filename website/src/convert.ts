@@ -25,7 +25,69 @@ export function parseHtml(html: string, url: string): DefuddleResponse & { conte
 	return { ...result, contentHtml };
 }
 
+function isYouTubeUrl(url: string): boolean {
+	try {
+		const { hostname } = new URL(url);
+		return hostname === 'youtube.com' || hostname === 'www.youtube.com' || hostname === 'youtu.be';
+	} catch { return false; }
+}
+
+function getYouTubeVideoId(url: string): string {
+	try {
+		const u = new URL(url);
+		if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0];
+		return u.searchParams.get('v') || '';
+	} catch { return ''; }
+}
+
+/**
+ * Fetch YouTube content without loading the watch page.
+ * Uses oEmbed for metadata and the existing YoutubeExtractor (InnerTube API) for transcripts.
+ * This avoids 429 rate-limiting that Cloudflare IPs receive from youtube.com.
+ */
+async function fetchYouTubeContent(targetUrl: string, language?: string): Promise<DefuddleResponse> {
+	const videoId = getYouTubeVideoId(targetUrl);
+	if (!videoId) throw new Error('Could not extract YouTube video ID');
+
+	let title = '';
+	let author = '';
+	let thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+	try {
+		const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
+		const resp = await fetch(oEmbedUrl);
+		if (resp.ok) {
+			const data = await resp.json() as any;
+			title = data.title || '';
+			author = data.author_name || '';
+			thumbnailUrl = data.thumbnail_url || thumbnailUrl;
+		}
+	} catch {
+		// oEmbed failed — proceed with empty metadata; transcript may still work
+	}
+
+	// Build minimal HTML with a schema.org VideoObject so YoutubeExtractor can read metadata
+	const schemaOrg = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'VideoObject',
+		name: title,
+		author,
+		thumbnailUrl,
+	});
+	const pageTitle = title ? `${title} - YouTube` : 'YouTube';
+	const minimalHtml = `<!DOCTYPE html><html><head><title>${pageTitle}</title><script type="application/ld+json">${schemaOrg}<\/script></head><body></body></html>`;
+
+	return defuddleHtmlAsync(minimalHtml, targetUrl, language);
+}
+
 export async function convertToMarkdown(targetUrl: string, language?: string): Promise<DefuddleResponse> {
+	// YouTube: bypass page fetch — use oEmbed + InnerTube API to avoid 429 rate-limiting
+	if (isYouTubeUrl(targetUrl)) {
+		const result = await fetchYouTubeContent(targetUrl, language);
+		toMarkdown(result, { markdown: true }, targetUrl);
+		return result;
+	}
+
 	const initialUA = getInitialUA(targetUrl);
 	const html = await fetchPage(targetUrl, initialUA, language);
 	let result = await defuddleHtmlAsync(html, targetUrl, language);
