@@ -285,7 +285,7 @@ export const codeBlockRules = [
 						// 1. A dedicated code container
 						const codeContainer = element.querySelector('.code, .content, [class*="code-"], [class*="content-"]');
 						if (codeContainer) {
-							return (codeContainer.textContent || '') + '\n';
+							return (codeContainer.textContent || '').replace(/\n$/, '') + '\n';
 						}
 						
 						// 2. Line number is in a separate element
@@ -295,11 +295,11 @@ export const codeBlockRules = [
 								.filter(node => !lineNumber.contains(node))
 								.map(node => extractStructuredText(node))
 								.join('');
-							return withoutLineNum + '\n';
+							return withoutLineNum.replace(/\n$/, '') + '\n';
 						}
 						
 						// 3. Fallback to the entire line content
-						return element.textContent + '\n';
+						return (element.textContent || '').replace(/\n$/, '') + '\n';
 					}
 					
 					element.childNodes.forEach(child => {
