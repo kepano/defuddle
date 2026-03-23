@@ -794,6 +794,16 @@ function standardizeElements(element: Element, doc: Document): void {
 		});
 	});
 
+	// Fix invalid <code><pre> nesting left by sites that wrap <pre> in an outer <code>
+	// as a highlight container. After codeBlockRules transforms the inner <pre>, the outer
+	// <code> still wraps it, producing <code><pre><code>...</code></pre></code> instead of
+	// the standard <pre><code>...</code></pre>.
+	Array.from(element.querySelectorAll('code > pre')).forEach(pre => {
+		const outerCode = pre.parentElement;
+		if (!outerCode || outerCode.tagName !== 'CODE') return;
+		outerCode.replaceWith(pre);
+	});
+
 	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
 	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
 	equationTables.forEach(table => {

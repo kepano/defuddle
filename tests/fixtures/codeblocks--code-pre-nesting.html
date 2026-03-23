@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!-- {"url":"https://example.com/docs/quickstart"} -->
+<html>
+<head>
+	<title>Quickstart | Example Docs</title>
+	<meta name="description" content="Get started quickly.">
+	<meta property="og:title" content="Quickstart | Example Docs">
+	<meta property="og:site_name" content="Example Docs">
+</head>
+<body>
+	<article>
+		<h1>Quickstart</h1>
+
+		<p>Install the package and run your first job:</p>
+
+		<!-- Invalid <code><pre> nesting: some sites wrap <pre> in an outer <code>
+		     as a highlight container. Turndown treats the outer <code> as inline
+		     and collapses the fenced block into a single backtick span. -->
+		<code class="highlight-wrap">
+			<pre><code>npm install example-sdk
+
+const sdk = require('example-sdk');
+const result = await sdk.run({ task: 'hello' });
+console.log(result);</code></pre>
+		</code>
+
+		<p>You can also pass options:</p>
+
+		<code class="highlight-wrap language-typescript">
+			<pre><code class="language-typescript">interface Options {
+  task: string;
+  model?: string;
+  maxSteps?: number;
+}</code></pre>
+		</code>
+	</article>
+</body>
+</html>

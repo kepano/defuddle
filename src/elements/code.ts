@@ -266,6 +266,17 @@ export const codeBlockRules = [
 						return '\n';
 					}
 
+					// Two-child div where the first child is all-digits (line number gutter).
+					// Some code viewers render each line as a row with a numeric gutter in
+					// the first child and the actual code in the second (e.g. flex-row layout).
+					// Without this, extractStructuredText concatenates them as "1AGENTS.md".
+					if (element.tagName === 'DIV' && element.children.length === 2) {
+						const gutter = (element.children[0].textContent || '').trim();
+						if (/^\d+$/.test(gutter)) {
+							return extractStructuredText(element.children[1]) + '\n';
+						}
+					}
+
 					// Handle common line-based code formats
 					// This covers various syntax highlighter implementations that use
 					// divs or spans to represent individual lines

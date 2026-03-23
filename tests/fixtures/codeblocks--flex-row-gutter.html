@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- {"url":"https://example.com/engineering/agent-architecture"} -->
+<html>
+<head>
+	<title>Agent Architecture | Example Engineering</title>
+	<meta name="description" content="How we structured our multi-agent codebase.">
+	<meta property="og:title" content="Agent Architecture | Example Engineering">
+	<meta property="og:site_name" content="Example Engineering">
+</head>
+<body>
+	<article>
+		<h1>Agent Architecture</h1>
+
+		<p>Here is the top-level directory layout for the project:</p>
+
+		<!-- Real-world flex-row gutter pattern (Tailwind-based UI).
+		     Each line is a div.flex-row with a span (line number) and a div (code text).
+		     The outer <code> wraps the <pre>, producing invalid <code><pre> nesting. -->
+		<h4>Plain Text</h4>
+		<div dir="ltr" class="gap-2xs py-xs relative flex items-stretch overflow-auto bg-tertiary-100 style-scrollbars max-h-[31.25rem] @md:max-h-[37.75rem] pt-4xs"><code class="text-primary-100 text-code-snippet flex-1 px-0 font-mono CodeBlock_syntaxHighlight__7TRS1"><pre class="flex flex-col pe-xs"><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">1</span><div class="flex-1">AGENTS.md</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">2</span><div class="flex-1">ARCHITECTURE.md</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">3</span><div class="flex-1">docs/</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">4</span><div class="flex-1">├── design-docs/</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">5</span><div class="flex-1">│   ├── index.md</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">6</span><div class="flex-1">│   └── core-beliefs.md</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">7</span><div class="flex-1">src/</div></div><div class="gap-2xs flex flex-row"><span class="text-primary-44 ms-xs min-w-xs text-end">8</span><div class="flex-1">└── main.ts</div></div></pre></code></div>
+
+		<p>Each agent is defined in its own module under <code>src/agents/</code>.</p>
+	</article>
+</body>
+</html>
