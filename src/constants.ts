@@ -891,7 +891,8 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'ul.footnotes-list',
 	'ul.ltx_biblist',
 	'div.footnote[data-component-name="FootnoteToDOM"]', // Substack
-	'div.footnotes-footer' // Wikidot
+	'div.footnotes-footer', // Wikidot
+	'#footnotes' // standardizeFootnotes output container
 ].join(',');
 
 // Elements that are allowed to be empty
