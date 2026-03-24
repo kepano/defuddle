@@ -1,4 +1,4 @@
-import { BaseExtractor } from './_base';
+import { BaseExtractor, ExtractorOptions } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 import { countWords } from '../utils';
@@ -58,8 +58,8 @@ export class YoutubeExtractor extends BaseExtractor {
 	private inlineJsonCache = new Map<string, any>();
 	protected override schemaOrgData: any;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
-		super(document, url, schemaOrgData);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.videoElement = document.querySelector('video');
 		this.schemaOrgData = schemaOrgData;
 	}
@@ -81,10 +81,43 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
-		const transcript = this.extractTranscriptFromExistingDom()
-			|| await this.fetchTranscript()
-			|| await this.extractTranscriptFromOpenedDom();
+		const existingTranscript = this.extractTranscriptFromExistingDom();
+		const transcript = this.shouldUseExistingDomTranscript(existingTranscript)
+			? existingTranscript
+			: await this.fetchTranscript()
+				|| existingTranscript
+				|| await this.extractTranscriptFromOpenedDom();
 		return this.buildResult(transcript);
+	}
+
+	private normalizeLanguageCode(languageCode?: string): string {
+		return (languageCode || '')
+			.trim()
+			.replace(/_/g, '-')
+			.toLocaleLowerCase();
+	}
+
+	private getBaseLanguageCode(languageCode?: string): string {
+		return this.normalizeLanguageCode(languageCode).split('-')[0] || '';
+	}
+
+	private languageCodeMatchesPreference(languageCode?: string, preferredLang?: string): boolean {
+		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
+		if (!normalizedLanguageCode || !normalizedPreferredLang) return false;
+		if (normalizedLanguageCode === normalizedPreferredLang) return true;
+
+		const baseLanguageCode = this.getBaseLanguageCode(normalizedLanguageCode);
+		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
+		if (!baseLanguageCode || baseLanguageCode !== basePreferredLang) return false;
+
+		return normalizedLanguageCode === baseLanguageCode || normalizedPreferredLang === basePreferredLang;
+	}
+
+	private shouldUseExistingDomTranscript(transcript?: TranscriptResult): boolean {
+		if (!transcript) return false;
+		if (!this.options.language) return true;
+		return this.languageCodeMatchesPreference(transcript.languageCode, this.options.language);
 	}
 
 	private getCaptionTracks(playerData: any): any[] {
@@ -95,7 +128,9 @@ export class YoutubeExtractor extends BaseExtractor {
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
 		const preferredLang = this.options.language;
 		if (preferredLang) {
-			const match = captionTracks.find((track: any) => track.languageCode === preferredLang);
+			const match = captionTracks.find((track: any) =>
+				this.languageCodeMatchesPreference(track.languageCode, preferredLang)
+			);
 			if (match) return match;
 		}
 		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
