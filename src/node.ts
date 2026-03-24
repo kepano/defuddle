@@ -1,4 +1,4 @@
-import DefuddleClass from './index';
+import { Defuddle as DefuddleClass } from './defuddle';
 import type { DefuddleOptions, DefuddleResponse } from './types';
 import { toMarkdown } from './markdown';
 

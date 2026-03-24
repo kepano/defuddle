@@ -529,7 +529,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				for (const link of links) linkTextLen += (link.textContent?.trim() || '').length;
 				if (linkTextLen / (text.length || 1) <= 0.6) return false;
 				let nonLinkText = text;
-				for (const link of links) nonLinkText = nonLinkText.replaceAll(link.textContent?.trim() || '', '');
+				for (const link of links) nonLinkText = nonLinkText.split(link.textContent?.trim() || '').join('');
 				return !/[.!?]/.test(nonLinkText);
 			});
 			if (allLinkDense) {
