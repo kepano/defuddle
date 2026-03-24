@@ -13,6 +13,7 @@ import { GeminiExtractor } from './extractors/gemini';
 import { GitHubExtractor } from './extractors/github';
 import { XOembedExtractor } from './extractors/x-oembed';
 import { BbcodeDataExtractor } from './extractors/bbcode-data';
+import { C2WikiExtractor } from './extractors/c2-wiki';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -114,6 +115,13 @@ export class ExtractorRegistry {
 				/^https?:\/\/github\.com\/.*/
 			],
 			extractor: GitHubExtractor
+		});
+
+		this.register({
+			patterns: [
+				'wiki.c2.com',
+			],
+			extractor: C2WikiExtractor
 		});
 
 		this.register({
