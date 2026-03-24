@@ -1,10 +1,15 @@
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
+import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
 
-function createExtractor(html = '<html><body></body></html>', url = 'https://www.youtube.com/watch?v=test123'): YoutubeExtractor {
+function createExtractor(
+	html = '<html><body></body></html>',
+	url = 'https://www.youtube.com/watch?v=test123',
+	options?: ExtractorOptions
+): YoutubeExtractor {
 	const doc = parseDocument(html, url);
-	return new YoutubeExtractor(doc, url);
+	return new YoutubeExtractor(doc, url, undefined, options);
 }
 
 function getTranscriptPanelHtml() {
@@ -26,6 +31,19 @@ function getTranscriptPanelHtml() {
 						<button>English (auto-generated)</button>
 					</yt-dropdown-menu>
 				</yt-sort-filter-sub-menu-renderer>
+			</div>
+		</ytd-engagement-panel-section-list-renderer>
+	`;
+}
+
+function getTranscriptPanelHtmlWithoutLanguageButton() {
+	return `
+		<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+			<div id="segments-container">
+				<ytd-transcript-segment-renderer>
+					<div class="segment-timestamp">0:00</div>
+					<div class="segment-text">Hello world.</div>
+				</ytd-transcript-segment-renderer>
 			</div>
 		</ytd-engagement-panel-section-list-renderer>
 	`;
@@ -226,9 +244,10 @@ describe('YouTube transcript parsing', () => {
 		const extractor = createExtractor(`
 			<html>
 				<body>
-					<script>
-						var ytInitialPlayerResponse = {
-							"captions": {
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
 								"playerCaptionsTracklistRenderer": {
 									"captionTracks": [
 										{
@@ -263,9 +282,10 @@ describe('YouTube transcript parsing', () => {
 		const extractor = createExtractor(`
 			<html>
 				<body>
-					<script>
-						var ytInitialPlayerResponse = {
-							"captions": {
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
 								"playerCaptionsTracklistRenderer": {
 									"captionTracks": [
 										{
@@ -314,9 +334,10 @@ describe('YouTube transcript parsing', () => {
 		const extractor = createExtractor(`
 			<html>
 				<body>
-					<script>
-						var ytInitialPlayerResponse = {
-							"captions": {
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
 								"playerCaptionsTracklistRenderer": {
 									"captionTracks": [
 										{
@@ -348,6 +369,120 @@ describe('YouTube transcript parsing', () => {
 		expect(result.variables.transcript).toContain('**0:00** · Hello world.');
 		expect(clickSpy).not.toHaveBeenCalled();
 		expect((extractor as any).fetchTranscript).not.toHaveBeenCalled();
+	});
+
+	test('extractAsync prefers requested transcript language over an existing DOM transcript', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" }
+										},
+										{
+											"languageCode": "zh",
+											"name": { "simpleText": "中文" }
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+					${getTranscriptPanelHtml()}
+				</body>
+			</html>
+		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh' });
+
+		const document = (extractor as any).document as Document;
+		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
+		const clickSpy = vi.spyOn(openButton, 'click');
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue({
+			html: '<div class="youtube transcript"><h2>Transcript</h2><p class="transcript-segment"><strong><span class="timestamp" data-timestamp="0">0:00</span></strong> · 你好，世界。</p></div>',
+			text: '**0:00** · 你好，世界。',
+			languageCode: 'zh',
+		});
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.language).toBe('zh');
+		expect(result.variables.transcript).toContain('**0:00** · 你好，世界。');
+		expect((extractor as any).fetchTranscript).toHaveBeenCalledTimes(1);
+		expect(clickSpy).not.toHaveBeenCalled();
+	});
+
+	test('extractAsync does not trust DOM transcript language when no selector is present and multiple tracks exist', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"name": { "simpleText": "English (auto-generated)" }
+										},
+										{
+											"languageCode": "zh",
+											"name": { "simpleText": "中文" }
+										}
+									]
+								}
+							}
+						};
+					</script>
+					<ytd-video-description-transcript-section-renderer>
+						<button id="open-transcript">Show transcript</button>
+					</ytd-video-description-transcript-section-renderer>
+					${getTranscriptPanelHtmlWithoutLanguageButton()}
+				</body>
+			</html>
+		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh' });
+
+		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue({
+			html: '<div class="youtube transcript"><h2>Transcript</h2><p class="transcript-segment"><strong><span class="timestamp" data-timestamp="0">0:00</span></strong> · 你好，世界。</p></div>',
+			text: '**0:00** · 你好，世界。',
+			languageCode: 'zh',
+		});
+
+		const result = await extractor.extractAsync();
+
+		expect(result.variables.language).toBe('zh');
+		expect(result.variables.transcript).toContain('**0:00** · 你好，世界。');
+		expect((extractor as any).fetchTranscript).toHaveBeenCalledTimes(1);
+	});
+
+	test('pickCaptionTrack falls back from regional language tags to base language tracks', () => {
+		const extractor = createExtractor(undefined, undefined, { language: 'zh-CN' });
+		const track = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'en' },
+			{ languageCode: 'zh' },
+			{ languageCode: 'zh-Hant' },
+		]);
+
+		expect(track?.languageCode).toBe('zh');
+	});
+
+	test('pickCaptionTrack prefers an exact base-language track over earlier regional variants', () => {
+		const extractor = createExtractor(undefined, undefined, { language: 'zh' });
+		const track = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'zh-Hant' },
+			{ languageCode: 'zh' },
+			{ languageCode: 'en' },
+		]);
+
+		expect(track?.languageCode).toBe('zh');
 	});
 
 	test('extractAsync does not open the transcript panel when API transcript succeeds', async () => {
@@ -382,9 +517,10 @@ describe('YouTube transcript parsing', () => {
 		const extractor = createExtractor(`
 			<html>
 				<body>
-					<script>
-						var ytInitialPlayerResponse = {
-							"captions": {
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
 								"playerCaptionsTracklistRenderer": {
 									"captionTracks": [
 										{
@@ -434,9 +570,10 @@ describe('YouTube transcript parsing', () => {
 		const mobileHtml = `
 			<html>
 				<body>
-					<script>
-						var ytInitialPlayerResponse = {
-							"captions": {
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
 								"playerCaptionsTracklistRenderer": {
 									"captionTracks": [
 										{

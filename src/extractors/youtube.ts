@@ -1,4 +1,4 @@
-import { BaseExtractor } from './_base';
+import { BaseExtractor, ExtractorOptions } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 import { countWords } from '../utils';
@@ -31,7 +31,7 @@ const INNERTUBE_WEB_CONTEXT = {
 	}
 };
 
-type TranscriptResult = { html: string; text: string; languageCode: string };
+type TranscriptResult = { html: string; text: string; languageCode?: string };
 
 interface TranscriptSelectors {
 	segments: string;
@@ -58,8 +58,8 @@ export class YoutubeExtractor extends BaseExtractor {
 	private inlineJsonCache = new Map<string, any>();
 	protected override schemaOrgData: any;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
-		super(document, url, schemaOrgData);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.videoElement = document.querySelector('video');
 		this.schemaOrgData = schemaOrgData;
 	}
@@ -81,10 +81,49 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
-		const transcript = this.extractTranscriptFromExistingDom()
-			|| await this.fetchTranscript()
-			|| await this.extractTranscriptFromOpenedDom();
+		const existingTranscript = this.extractTranscriptFromExistingDom();
+		const transcript = this.shouldUseExistingDomTranscript(existingTranscript)
+			? existingTranscript
+			: await this.fetchTranscript()
+				|| existingTranscript
+				|| await this.extractTranscriptFromOpenedDom();
 		return this.buildResult(transcript);
+	}
+
+	private normalizeLanguageCode(languageCode?: string): string {
+		return (languageCode || '')
+			.trim()
+			.replace(/_/g, '-')
+			.toLocaleLowerCase();
+	}
+
+	private getBaseLanguageCode(languageCode?: string): string {
+		return this.normalizeLanguageCode(languageCode).split('-')[0] || '';
+	}
+
+	private isExactLanguageCodeMatch(languageCode?: string, preferredLang?: string): boolean {
+		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
+		if (!normalizedLanguageCode || !normalizedPreferredLang) return false;
+		return normalizedLanguageCode === normalizedPreferredLang;
+	}
+
+	private languageCodeMatchesPreference(languageCode?: string, preferredLang?: string): boolean {
+		if (this.isExactLanguageCodeMatch(languageCode, preferredLang)) return true;
+
+		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
+		const baseLanguageCode = this.getBaseLanguageCode(normalizedLanguageCode);
+		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
+		if (!baseLanguageCode || baseLanguageCode !== basePreferredLang) return false;
+
+		return normalizedLanguageCode === baseLanguageCode || normalizedPreferredLang === basePreferredLang;
+	}
+
+	private shouldUseExistingDomTranscript(transcript?: TranscriptResult): boolean {
+		if (!transcript) return false;
+		if (!this.options.language) return true;
+		return this.languageCodeMatchesPreference(transcript.languageCode, this.options.language);
 	}
 
 	private getCaptionTracks(playerData: any): any[] {
@@ -92,10 +131,30 @@ export class YoutubeExtractor extends BaseExtractor {
 		return Array.isArray(captionTracks) ? captionTracks : [];
 	}
 
+	private findPreferredCaptionTrack(captionTracks: any[], preferredLang?: string): any | undefined {
+		const exactMatch = captionTracks.find((track: any) =>
+			this.isExactLanguageCodeMatch(track.languageCode, preferredLang)
+		);
+		if (exactMatch) return exactMatch;
+
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
+		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
+		if (!basePreferredLang) return undefined;
+
+		const baseLanguageMatch = captionTracks.find((track: any) =>
+			this.normalizeLanguageCode(track.languageCode) === basePreferredLang
+		);
+		if (baseLanguageMatch) return baseLanguageMatch;
+
+		return captionTracks.find((track: any) =>
+			this.getBaseLanguageCode(track.languageCode) === basePreferredLang
+		);
+	}
+
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
 		const preferredLang = this.options.language;
 		if (preferredLang) {
-			const match = captionTracks.find((track: any) => track.languageCode === preferredLang);
+			const match = this.findPreferredCaptionTrack(captionTracks, preferredLang);
 			if (match) return match;
 		}
 		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
@@ -115,16 +174,16 @@ export class YoutubeExtractor extends BaseExtractor {
 			.toLocaleLowerCase();
 	}
 
-	private getTranscriptLanguageCodeFromDom(): string {
+	private getTranscriptLanguageCodeFromDom(): string | undefined {
 		const langButton = this.document.querySelector(
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #footer yt-sort-filter-sub-menu-renderer yt-dropdown-menu button'
 		);
 		const selectedLabel = langButton?.textContent?.trim();
 		const captionTracks = this.getCaptionTracks(this.getValidatedPlayerResponse());
-		const preferredTrack = this.pickCaptionTrack(captionTracks);
+		const onlyTrack = captionTracks.length === 1 ? captionTracks[0] : undefined;
 
 		if (!selectedLabel) {
-			return preferredTrack?.languageCode || 'en';
+			return onlyTrack?.languageCode;
 		}
 
 		const normalizedSelectedLabel = this.normalizeLanguageLabel(selectedLabel);
@@ -132,7 +191,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			this.normalizeLanguageLabel(this.getTrackDisplayName(track)) === normalizedSelectedLabel
 		);
 
-		return matchingTrack?.languageCode || preferredTrack?.languageCode || 'en';
+		return matchingTrack?.languageCode || onlyTrack?.languageCode;
 	}
 
 	private getInlineChapters(): { title: string; start: number }[] {
