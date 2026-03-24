@@ -2,18 +2,6 @@ import { describe, test, expect } from 'vitest';
 import Defuddle from '../src/index';
 import { parseDocument } from './helpers';
 
-/**
- * Regression test for Reddit author extraction.
- *
- * When a new-Reddit comments page has a <shreddit-post> element but no
- * <shreddit-comment> elements (lazy-loaded), the extractor's sync path
- * returns early. Previously this early return omitted `variables.author`,
- * causing fallback to the generic MetadataExtractor which picked up
- * multiple usernames from the DOM (.author class elements, logged-in user
- * badges, etc.), producing a comma-separated list instead of just the
- * original poster.
- */
-
 const REDDIT_URL = 'https://www.reddit.com/r/test/comments/abc123/test_post/';
 
 const NEW_REDDIT_NO_COMMENTS_HTML = `
@@ -73,12 +61,14 @@ const NEW_REDDIT_WITH_COMMENTS_HTML = `
 `;
 
 describe('Reddit author extraction', () => {
-	test('comments page without loaded comments returns only the post author', () => {
+	test('comments page without loaded comments returns only the post author, title, and site', () => {
 		const doc = parseDocument(NEW_REDDIT_NO_COMMENTS_HTML, REDDIT_URL);
 		const defuddle = new Defuddle(doc, { url: REDDIT_URL });
 		const result = defuddle.parse();
 
 		expect(result.author).toBe('original_poster');
+		expect(result.site).toBe('r/test');
+		expect(result.title).toBe('Test Post Title');
 	});
 
 	test('comments page with loaded comments returns only the post author', () => {
@@ -87,14 +77,5 @@ describe('Reddit author extraction', () => {
 		const result = defuddle.parse();
 
 		expect(result.author).toBe('original_poster');
-	});
-
-	test('comments page without loaded comments still populates site and title', () => {
-		const doc = parseDocument(NEW_REDDIT_NO_COMMENTS_HTML, REDDIT_URL);
-		const defuddle = new Defuddle(doc, { url: REDDIT_URL });
-		const result = defuddle.parse();
-
-		expect(result.site).toBe('r/test');
-		expect(result.title).toBe('Test Post Title');
 	});
 });
