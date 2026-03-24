@@ -112,7 +112,7 @@ export class MetadataExtractor {
 		const addDomAuthor = (value: string | null | undefined) => {
 			if (!value) return;
 			value.split(',').forEach(namePart => {
-				const cleanedName = namePart.trim().replace(/,$/, '').trim();
+				const cleanedName = namePart.replace(/\s+/g, ' ').trim().replace(/,$/, '').trim();
 				const lowerCleanedName = cleanedName.toLowerCase();
 				if (cleanedName && lowerCleanedName !== 'author' && lowerCleanedName !== 'authors') {
 					collectedAuthorsFromDOM.push(cleanedName);
@@ -137,6 +137,12 @@ export class MetadataExtractor {
 
 		if (collectedAuthorsFromDOM.length > 0) {
 			let uniqueAuthors = [...new Set(collectedAuthorsFromDOM.map(name => name.trim()).filter(Boolean))];
+			// Remove entries that are superstrings of a shorter entry already present
+			if (uniqueAuthors.length > 1) {
+				uniqueAuthors = uniqueAuthors.filter(a =>
+					!uniqueAuthors.some(b => b !== a && a.startsWith(b + ' '))
+				);
+			}
 			if (uniqueAuthors.length > 0) {
 				if (uniqueAuthors.length > 10) {
 					uniqueAuthors = uniqueAuthors.slice(0, 10);
