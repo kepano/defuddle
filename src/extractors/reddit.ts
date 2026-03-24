@@ -64,7 +64,27 @@ export class RedditExtractor extends BaseExtractor {
 		// old.reddit.com with full content.
 		const hasComments = this.document.querySelectorAll('shreddit-comment').length > 0;
 		if (this.isCommentsPage() && !hasComments) {
-			return { content: '', contentHtml: '' };
+			const postTitle = this.document.querySelector('h1')?.textContent?.trim() || '';
+			const subreddit = this.getSubreddit();
+			const postAuthor = this.getPostAuthor();
+			const postContent = this.getPostContent();
+			const description = this.createDescription(postContent);
+
+			return {
+				content: '',
+				contentHtml: '',
+				extractedContent: {
+					postId: this.getPostId(),
+					subreddit,
+					postAuthor,
+				},
+				variables: {
+					title: postTitle,
+					author: postAuthor,
+					site: `r/${subreddit}`,
+					description,
+				}
+			};
 		}
 
 		const postContent = this.getPostContent();
