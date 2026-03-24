@@ -31,7 +31,7 @@ const INNERTUBE_WEB_CONTEXT = {
 	}
 };
 
-type TranscriptResult = { html: string; text: string; languageCode: string };
+type TranscriptResult = { html: string; text: string; languageCode?: string };
 
 interface TranscriptSelectors {
 	segments: string;
@@ -101,12 +101,18 @@ export class YoutubeExtractor extends BaseExtractor {
 		return this.normalizeLanguageCode(languageCode).split('-')[0] || '';
 	}
 
-	private languageCodeMatchesPreference(languageCode?: string, preferredLang?: string): boolean {
+	private isExactLanguageCodeMatch(languageCode?: string, preferredLang?: string): boolean {
 		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
 		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
 		if (!normalizedLanguageCode || !normalizedPreferredLang) return false;
-		if (normalizedLanguageCode === normalizedPreferredLang) return true;
+		return normalizedLanguageCode === normalizedPreferredLang;
+	}
 
+	private languageCodeMatchesPreference(languageCode?: string, preferredLang?: string): boolean {
+		if (this.isExactLanguageCodeMatch(languageCode, preferredLang)) return true;
+
+		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
 		const baseLanguageCode = this.getBaseLanguageCode(normalizedLanguageCode);
 		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
 		if (!baseLanguageCode || baseLanguageCode !== basePreferredLang) return false;
@@ -125,12 +131,30 @@ export class YoutubeExtractor extends BaseExtractor {
 		return Array.isArray(captionTracks) ? captionTracks : [];
 	}
 
+	private findPreferredCaptionTrack(captionTracks: any[], preferredLang?: string): any | undefined {
+		const exactMatch = captionTracks.find((track: any) =>
+			this.isExactLanguageCodeMatch(track.languageCode, preferredLang)
+		);
+		if (exactMatch) return exactMatch;
+
+		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
+		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
+		if (!basePreferredLang) return undefined;
+
+		const baseLanguageMatch = captionTracks.find((track: any) =>
+			this.normalizeLanguageCode(track.languageCode) === basePreferredLang
+		);
+		if (baseLanguageMatch) return baseLanguageMatch;
+
+		return captionTracks.find((track: any) =>
+			this.getBaseLanguageCode(track.languageCode) === basePreferredLang
+		);
+	}
+
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
 		const preferredLang = this.options.language;
 		if (preferredLang) {
-			const match = captionTracks.find((track: any) =>
-				this.languageCodeMatchesPreference(track.languageCode, preferredLang)
-			);
+			const match = this.findPreferredCaptionTrack(captionTracks, preferredLang);
 			if (match) return match;
 		}
 		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
@@ -150,16 +174,16 @@ export class YoutubeExtractor extends BaseExtractor {
 			.toLocaleLowerCase();
 	}
 
-	private getTranscriptLanguageCodeFromDom(): string {
+	private getTranscriptLanguageCodeFromDom(): string | undefined {
 		const langButton = this.document.querySelector(
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #footer yt-sort-filter-sub-menu-renderer yt-dropdown-menu button'
 		);
 		const selectedLabel = langButton?.textContent?.trim();
 		const captionTracks = this.getCaptionTracks(this.getValidatedPlayerResponse());
-		const preferredTrack = this.pickCaptionTrack(captionTracks);
+		const onlyTrack = captionTracks.length === 1 ? captionTracks[0] : undefined;
 
 		if (!selectedLabel) {
-			return preferredTrack?.languageCode || 'en';
+			return onlyTrack?.languageCode;
 		}
 
 		const normalizedSelectedLabel = this.normalizeLanguageLabel(selectedLabel);
@@ -167,7 +191,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			this.normalizeLanguageLabel(this.getTrackDisplayName(track)) === normalizedSelectedLabel
 		);
 
-		return matchingTrack?.languageCode || preferredTrack?.languageCode || 'en';
+		return matchingTrack?.languageCode || onlyTrack?.languageCode;
 	}
 
 	private getInlineChapters(): { title: string; start: number }[] {
