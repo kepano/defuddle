@@ -10,6 +10,7 @@ const BOILERPLATE_PATTERNS = [
 	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
 	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
+	/^Any re-?use permitted\b/i,
 ];
 // Shared date/number patterns for stripping metadata text.
 const METADATA_STRIP_BASE = [
@@ -614,7 +615,22 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				// Only truncate if there's substantial content before the boilerplate
 				const targetText = target.textContent || '';
 				const targetPos = fullText.indexOf(targetText);
-				if (targetPos < 200) continue;
+				if (targetPos < 200) {
+					// Walk-up reached a high-level wrapper (targetPos ≈ 0). Can't
+					// safely truncate from there. But if the original element is a
+					// trailing orphan with no following siblings, remove it directly.
+					if (target !== el && !el.nextElementSibling) {
+						if (debug && debugRemovals) {
+							debugRemovals.push({
+								step: 'removeByContentPattern',
+								reason: 'boilerplate text',
+								text: textPreview(el)
+							});
+						}
+						el.remove();
+					}
+					continue;
+				}
 
 				// Collect ancestors before modifying the DOM
 				const ancestors: Element[] = [];

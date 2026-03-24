@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Sample Article</title></head>
+<body>
+<div id="single_post" class="c-container __post_type-post">
+
+  <!-- Breadcrumb nav (outer wrapper caught by 'breadcrumb' partial) -->
+  <div class="single_post__breadcrumbs archive__breadcrumbs">
+    <ads-breadcrumbs delimiter="/" class="breadcrumb-normalized" theme="dark">
+      <ads-breadcrumb slot="breadcrumb" label="Tech Newsroom">Tech Newsroom</ads-breadcrumb>
+      <ads-breadcrumb slot="breadcrumb" label="Blog">Blog</ads-breadcrumb>
+    </ads-breadcrumbs>
+  </div>
+
+  <!-- Article intro box: contains a second ads-breadcrumbs (tag should be removed) -->
+  <div class="single_post__intro_box ads-news-intro-box">
+    <ads-breadcrumbs delimiter="|" class="u-letter-spacing-3 u-text-bold u-text-uppercase u-font-size-125% u-margin-top-1 u-margin-bottom-1">
+      <ads-breadcrumb class="single_post__type_a" slot="breadcrumb" label="Blog">Blog</ads-breadcrumb>
+      <ads-breadcrumb class="single_post__date_a" slot="breadcrumb" label="March 1, 2026">March 1, 2026</ads-breadcrumb>
+    </ads-breadcrumbs>
+
+    <h1 class="single_post__title c-heading-1">Sample Article Title</h1>
+    <div class="single_post__excerpt">Brief subtitle describing the article.</div>
+  </div>
+
+  <!-- Article content -->
+  <div class="single_post__content">
+    <p>The company announced a new generation of processors designed specifically for large-scale artificial intelligence workloads running in data centers. The design prioritizes sustained throughput across thousands of parallel execution threads rather than peak single-thread performance.</p>
+    <p>Engineers working on the architecture chose to increase the memory bandwidth available to each core, which reduces stalls when serving inference requests that repeatedly access large model weight tensors stored in DRAM.</p>
+    <p>Early benchmark results from partner deployments suggest that a fully loaded rack of the new processors can sustain more than twice the query throughput of a comparable rack equipped with the previous generation, while remaining within standard air-cooling power envelopes.</p>
+    <p>The processor integrates a high-speed interconnect fabric that allows adjacent chips on the same blade to share data without going through main memory, cutting the latency on operations that fan out across multiple model replicas simultaneously.</p>
+    <p>Software compatibility was a stated priority throughout development. All existing workloads compiled for the previous microarchitecture run without modification, and the instruction set extensions introduced for matrix operations are exposed through the same compiler intrinsics already supported by the ecosystem toolchain.</p>
+  </div>
+
+  <!-- Bottom author box (should be removed) -->
+  <div class="single_post__final_box">
+    <div class="single_post__author">
+      <img src="author.jpg" alt="Author" class="single_post__author__avatar"/>
+      <div class="single_post__author__info">
+        <span>By <a href="/author/jane-smith">Jane Smith</a>, </span>
+        <span>Vice President, Example Division, </span>
+        <span>Example Corp</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy/share UI (should be removed) -->
+  <div class="CopyContent">
+    <div class="CopyContent__item">
+      <div class="CopyContent__item__title">Article Text</div>
+      <div class="CopyContent__item__button">
+        <button>Copy Text</button>
+      </div>
+    </div>
+  </div>
+  <p style="color:#484848;">Any re-use permitted for informational and non-commercial or personal use only.</p>
+
+  <!-- Editorial contact (should be removed) -->
+  <div class="single_post__editorial_contact">
+    <h2>Editorial Contact</h2>
+    <div class="single_post__editorial_contact__list">
+      <div class="single_post__editorial_contact__item">
+        <div class="single_post__editorial_contact__contact __name">Example PR Team</div>
+        <div class="single_post__editorial_contact__contact __email">
+          <a href="mailto:pr@example.com">pr@example.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Twitter/X social feed widget (should be removed) -->
+  <div class="TwiBlock c-container u-padding-right-1 u-padding-left-1">
+    <h2 class="Twi__title SectionTitle c-heading-2">Latest on X</h2>
+    <div id="ctf" class="ctf ctf-type-usertimeline ctf-carousel ctf-styles ctf-feed-1 ctf-boxed-style ctf-rebranded-x">
+      <div class="ctf-tweet">
+        <p>Sample tweet text about product announcements.</p>
+        <a href="https://twitter.com/intent/tweet?in_reply_to=1234567890">Reply</a>
+        <a href="https://twitter.com/intent/retweet?tweet_id=1234567890">Retweet</a>
+        <a href="https://twitter.com/intent/like?tweet_id=1234567890">Like</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

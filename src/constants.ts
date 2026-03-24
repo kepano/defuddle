@@ -118,6 +118,9 @@ export const EXACT_SELECTORS = [
 	'div[class*="cover-"]',
 	'div[id*="cover-"]',
 
+	// breadcrumbs (custom web component tag)
+	'ads-breadcrumbs',
+
 	// header, nav
 	'header',
 	'.header:not(.banner)',
@@ -417,6 +420,7 @@ export const PARTIAL_SELECTORS = [
 	'consent',
 	'contact-',
 	'content-card', // The Verge
+	'copycontent',
 	'content-topics',
 	'contentpromo',
 	'context-bar',
@@ -450,6 +454,8 @@ export const PARTIAL_SELECTORS = [
 	'donation',
 	'dropdown', // Ars Technica
 
+	'editorial_contact',
+	'editorial-contact',
 	'element-invisible',
 	'eletters',
 	'emailsignup',
@@ -630,6 +636,7 @@ export const PARTIAL_SELECTORS = [
 //	'popover',
 	'pop_stories',
 	'pop-up',
+	'post__author',
 	'post-author',
 	'post-bottom',
 	'post__category',
@@ -742,6 +749,7 @@ export const PARTIAL_SELECTORS = [
 	'share-post',
 	'share-print',
 	'share-section',
+	'sharing_',
 	'shariff-',
 	'show-for-print',
 	'sidebartitle',
@@ -830,6 +838,7 @@ export const PARTIAL_SELECTORS = [
 	'trust-badge',
 	'trust-project',
 	'twitter',
+	'twiblock',
 
 	'u-hide',
 	'upsell',
