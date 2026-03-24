@@ -558,11 +558,64 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
+	/**
+	 * Collects footnotes from asides containing numbered ordered lists.
+	 * Pattern: <aside><ol start="N"><li>Content…</li></ol></aside>
+	 * with bare <sup>N</sup> inline refs in the surrounding text.
+	 * Asides are removed from the DOM; the Pass 2 fallback in standardizeFootnotes
+	 * matches the bare <sup>N</sup> refs to the collected footnotes.
+	 */
+	collectAsideFootnotes(element: any): FootnoteCollection {
+		const footnotes: FootnoteCollection = {};
+
+		const ols = Array.from(element.querySelectorAll('aside > ol[start]')) as any[];
+		if (ols.length === 0) return footnotes;
+
+		ols.forEach((ol: any) => {
+			const aside = ol.parentElement;
+			const footnoteNumber = parseInt(ol.getAttribute('start') || '', 10);
+			if (isNaN(footnoteNumber) || footnoteNumber < 1) return;
+
+			const items = Array.from(ol.querySelectorAll('li')) as any[];
+			if (items.length === 0) return;
+
+			const contentDiv = this.doc.createElement('div');
+			if (items.length === 1) {
+				transferContent(items[0].cloneNode(true), contentDiv);
+			} else {
+				items.forEach((li: any) => {
+					const p = this.doc.createElement('p');
+					transferContent(li.cloneNode(true), p);
+					contentDiv.appendChild(p);
+				});
+			}
+
+			footnotes[footnoteNumber] = {
+				content: contentDiv,
+				originalId: String(footnoteNumber),
+				refs: []
+			};
+
+			aside.remove();
+		});
+
+		return footnotes;
+	}
+
 	standardizeFootnotes(element: any) {
 		// Handle CSS sidenote footnotes first
 		const sidenotes = this.collectInlineSidenotes(element);
 
 		const footnotes = this.collectFootnotes(element);
+
+		// Merge aside footnotes; don't overwrite footnotes already collected
+		const asideFootnotes = this.collectAsideFootnotes(element);
+		for (const [num, data] of Object.entries(asideFootnotes)) {
+			const n = parseInt(num);
+			if (!footnotes[n]) {
+				footnotes[n] = data;
+			}
+		}
 
 		// Standardize inline footnotes using the collected IDs
 		const footnoteInlineReferences = element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES);

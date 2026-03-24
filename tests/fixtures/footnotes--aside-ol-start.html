@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Article with Aside Footnotes</title>
+</head>
+<body>
+<article>
+
+<div class="with-aside"><div class="with-aside-content">
+<p>We built a new library.<sup class="aside-link">1</sup></p>
+<p>If that was enough of a pitch, <a href="https://example.com/docs">check it out here</a>.</p>
+<p>If not, let me explain why it matters.</p>
+</div><aside><ol start="1"><li>It's a philosophy joke.</li></ol></aside></div>
+
+<h2>What is property-based testing?</h2>
+
+<div class="with-aside"><div class="with-aside-content">
+<p>The main<sup class="aside-link">2</sup> benefits are:</p>
+<ul>
+<li>High-quality generators for building test inputs.</li>
+<li>Automatic shrinking to minimal failing examples.<sup class="aside-link">3</sup></li>
+<li>A test database that replays failures fast.</li>
+</ul>
+</div><aside><ol start="2"><li>There are other benefits too, but these are the ones you notice first.</li></ol></aside></div>
+
+<div class="with-aside"><div class="with-aside-content">
+<p>Shrinking is remarkably useful in practice.</p>
+</div><aside><ol start="3"><li>Shrinking finds the smallest input that triggers the bug. See <a href="https://example.com/shrinking">this post</a> for details.</li></ol></aside></div>
+
+</article>
+</body>
+</html>
