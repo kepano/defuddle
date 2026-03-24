@@ -1,5 +1,4 @@
 import { MathMLToLaTeX } from 'mathml-to-latex';
-import temml from 'temml';
 import {
 	MathData,
 	getMathMLFromElement,
@@ -47,6 +46,7 @@ export const createCleanMathEl = (mathData: MathData | null, latex: string | nul
 	// If no MathML but we have LaTeX, convert it
 	else if (latex) {
 		try {
+			const temml = require('temml');
 			const mathml = temml.renderToString(latex, {
 				displayMode: isBlock,
 				throwOnError: false

@@ -730,13 +730,22 @@ export function createMarkdownContent(content: string, url: string) {
 	}
 
 	function extractLatex(element: GenericElement): string {
-		// Check if the element is a <math> element and has an alttext attribute
 		let latex = element.getAttribute('data-latex');
-			let alttext = element.getAttribute('alttext');
-			if (latex) {
-				return latex.trim();
-			} else if (alttext) {
-				return alttext.trim();
+		const alttext = element.getAttribute('alttext');
+		if (latex) {
+			return latex.trim();
+		} else if (alttext) {
+			return alttext.trim();
+		}
+		// Fallback: convert MathML → LaTeX for renderers like MathJax SVG that embed no LaTeX.
+		// Fails silently when mathml-to-latex is unavailable (core bundle).
+		if (element.nodeName.toLowerCase() === 'math') {
+			try {
+				const { MathMLToLaTeX } = require('mathml-to-latex');
+				return MathMLToLaTeX.convert(`<math>${element.innerHTML}</math>`).trim();
+			} catch (e) {
+				// not available or conversion failed
+			}
 		}
 		return '';
 	}
