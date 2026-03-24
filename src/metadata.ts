@@ -42,7 +42,7 @@ export class MetadataExtractor {
 		}
 
 		const siteName = this.getSiteName(schemaOrgData, metaTags);
-		const { title, detectedSiteName } = this.cleanTitle(this.getRawTitle(doc, schemaOrgData, metaTags), siteName);
+		const { title, detectedSiteName } = this.cleanTitle(this.getBestTitle(doc, schemaOrgData, metaTags, domain, siteName), siteName);
 		const author = this.getAuthor(doc, schemaOrgData, metaTags);
 		const site = siteName || detectedSiteName || author || '';
 
@@ -227,16 +227,46 @@ export class MetadataExtractor {
 		return candidate;
 	}
 
-	private static getRawTitle(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
-		return (
-			this.getMetaContent(metaTags, "property", "og:title") ||
-			this.getMetaContent(metaTags, "name", "twitter:title") ||
-			this.getSchemaProperty(schemaOrgData, 'headline') ||
-			this.getMetaContent(metaTags, "name", "title") ||
-			this.getMetaContent(metaTags, "name", "sailthru.title") ||
-			doc.querySelector('title')?.textContent?.trim() ||
-			''
-		);
+	private static getBestTitle(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[], domain: string, siteName: string): string {
+		const candidates = [
+			this.getMetaContent(metaTags, "property", "og:title"),
+			this.getMetaContent(metaTags, "name", "twitter:title"),
+			this.getSchemaProperty(schemaOrgData, 'headline'),
+			this.getMetaContent(metaTags, "name", "title"),
+			this.getMetaContent(metaTags, "name", "sailthru.title"),
+			doc.querySelector('title')?.textContent?.trim() || '',
+		].filter(Boolean);
+
+		if (candidates.length === 0) return '';
+
+		const authorMeta = this.getMetaContent(metaTags, "property", "author") ||
+			this.getMetaContent(metaTags, "name", "author");
+
+		// Pre-normalize identifiers once rather than per candidate
+		const authorNorm = authorMeta.trim().toLowerCase();
+		const siteNorm = siteName.trim().toLowerCase();
+		const domainNorm = domain
+			? domain.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+			: '';
+
+		// Return the first candidate that isn't a site identifier (brand/domain name).
+		// Falls back to the first candidate if all are identifiers.
+		return candidates.find(c => !this.isSiteIdentifier(c, authorNorm, siteNorm, domainNorm))
+			?? candidates[0];
+	}
+
+	private static isSiteIdentifier(candidate: string, authorNorm: string, siteNorm: string, domainNorm: string): boolean {
+		const norm = candidate.trim().toLowerCase();
+
+		if (authorNorm && norm === authorNorm) return true;
+		if (siteNorm && norm === siteNorm) return true;
+
+		if (domainNorm) {
+			const candidateNorm = norm.replace(/[^a-z0-9]/g, '');
+			if (candidateNorm === domainNorm) return true;
+		}
+
+		return false;
 	}
 
 	private static cleanTitle(title: string, siteName: string): { title: string; detectedSiteName: string } {

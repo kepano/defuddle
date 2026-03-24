@@ -4,6 +4,7 @@ author: "kepano"
 site: "r/ObsidianMD"
 source: "https://www.reddit.com/r/ObsidianMD/comments/1nvmgpp/obsidian_october_2025/"
 language: "en-US"
+description: "Obsidian October is back! Every October, the community comes together to hack on plugins, themes, vaults, videos, and other projects. We’ll "
 word_count: 396
 ---
 
