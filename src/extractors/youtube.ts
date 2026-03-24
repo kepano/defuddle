@@ -474,7 +474,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (this.options.language) {
 				captionHeaders['Accept-Language'] = this.options.language;
 			}
-			const response = await fetch(track.baseUrl, { headers: captionHeaders });
+			const response = await fetch(track.baseUrl, { headers: captionHeaders, signal: AbortSignal.timeout(4000) });
 			if (!response.ok) return undefined;
 
 			let xml: string;
@@ -607,6 +607,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
 		// Try Android client first (most reliable for caption tracks)
+		let androidTimedOut = false;
 		try {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -618,6 +619,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
 				headers,
+				signal: AbortSignal.timeout(4000),
 				body: JSON.stringify({
 					context: INNERTUBE_CONTEXT,
 					videoId,
@@ -629,11 +631,16 @@ export class YoutubeExtractor extends BaseExtractor {
 					return data;
 				}
 			}
-		} catch {
-			// Fall through to WEB client fallback.
+		} catch (e: any) {
+			// If the Android request timed out, YouTube is likely throttling this IP.
+			// Skip the WEB fallback to avoid doubling the wait time.
+			if (e?.name === 'TimeoutError') {
+				androidTimedOut = true;
+			}
 		}
 
 		// Try WEB client as fallback — rate-limited independently from Android client
+		if (androidTimedOut) return undefined;
 		try {
 			const webHeaders: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -644,6 +651,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
 				headers: webHeaders,
+				signal: AbortSignal.timeout(4000),
 				body: JSON.stringify({
 					context: INNERTUBE_WEB_CONTEXT,
 					videoId,
@@ -679,6 +687,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const resp = await fetch(INNERTUBE_NEXT_URL, {
 				method: 'POST',
 				headers: chapterHeaders,
+				signal: AbortSignal.timeout(4000),
 				body: JSON.stringify({
 					context: INNERTUBE_WEB_CONTEXT,
 					videoId,

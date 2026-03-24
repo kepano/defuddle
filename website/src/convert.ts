@@ -55,7 +55,7 @@ async function fetchYouTubeContent(targetUrl: string, language?: string): Promis
 
 	try {
 		const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`;
-		const resp = await fetch(oEmbedUrl);
+		const resp = await fetch(oEmbedUrl, { signal: AbortSignal.timeout(4000) });
 		if (resp.ok) {
 			const data = await resp.json() as any;
 			title = data.title || '';
