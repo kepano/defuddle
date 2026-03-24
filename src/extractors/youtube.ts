@@ -90,34 +90,23 @@ export class YoutubeExtractor extends BaseExtractor {
 		return this.buildResult(transcript);
 	}
 
-	private normalizeLanguageCode(languageCode?: string): string {
-		return (languageCode || '')
-			.trim()
-			.replace(/_/g, '-')
-			.toLocaleLowerCase();
+	private normalizeLanguageCode(code?: string): string {
+		return (code || '').trim().replace(/_/g, '-').toLocaleLowerCase();
 	}
 
-	private getBaseLanguageCode(languageCode?: string): string {
-		return this.normalizeLanguageCode(languageCode).split('-')[0] || '';
-	}
-
-	private isExactLanguageCodeMatch(languageCode?: string, preferredLang?: string): boolean {
-		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
-		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
-		if (!normalizedLanguageCode || !normalizedPreferredLang) return false;
-		return normalizedLanguageCode === normalizedPreferredLang;
-	}
-
+	// True if languageCode satisfies preferredLang:
+	// - exact match (zh-CN === zh-CN), or
+	// - same base AND at least one side is just the base (zh matches zh-CN, zh-CN matches zh)
+	// Does NOT match across regional variants (zh-Hant does not satisfy zh-CN) —
+	// use findPreferredCaptionTrack for the more permissive API-path matching.
 	private languageCodeMatchesPreference(languageCode?: string, preferredLang?: string): boolean {
-		if (this.isExactLanguageCodeMatch(languageCode, preferredLang)) return true;
-
-		const normalizedLanguageCode = this.normalizeLanguageCode(languageCode);
-		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
-		const baseLanguageCode = this.getBaseLanguageCode(normalizedLanguageCode);
-		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
-		if (!baseLanguageCode || baseLanguageCode !== basePreferredLang) return false;
-
-		return normalizedLanguageCode === baseLanguageCode || normalizedPreferredLang === basePreferredLang;
+		const a = this.normalizeLanguageCode(languageCode);
+		const b = this.normalizeLanguageCode(preferredLang);
+		if (!a || !b) return false;
+		if (a === b) return true;
+		const aBase = a.split('-')[0];
+		const bBase = b.split('-')[0];
+		return aBase === bBase && (a === aBase || b === bBase);
 	}
 
 	private shouldUseExistingDomTranscript(transcript?: TranscriptResult): boolean {
@@ -131,24 +120,16 @@ export class YoutubeExtractor extends BaseExtractor {
 		return Array.isArray(captionTracks) ? captionTracks : [];
 	}
 
+	// More permissive than languageCodeMatchesPreference: also matches across regional variants
+	// (zh-Hant satisfies zh-CN) as a last resort, since any Chinese is better than English.
 	private findPreferredCaptionTrack(captionTracks: any[], preferredLang?: string): any | undefined {
-		const exactMatch = captionTracks.find((track: any) =>
-			this.isExactLanguageCodeMatch(track.languageCode, preferredLang)
-		);
-		if (exactMatch) return exactMatch;
-
-		const normalizedPreferredLang = this.normalizeLanguageCode(preferredLang);
-		const basePreferredLang = this.getBaseLanguageCode(normalizedPreferredLang);
-		if (!basePreferredLang) return undefined;
-
-		const baseLanguageMatch = captionTracks.find((track: any) =>
-			this.normalizeLanguageCode(track.languageCode) === basePreferredLang
-		);
-		if (baseLanguageMatch) return baseLanguageMatch;
-
-		return captionTracks.find((track: any) =>
-			this.getBaseLanguageCode(track.languageCode) === basePreferredLang
-		);
+		const norm = this.normalizeLanguageCode(preferredLang);
+		if (!norm) return undefined;
+		const base = norm.split('-')[0];
+		const normalized = captionTracks.map(t => ({ t, code: this.normalizeLanguageCode(t.languageCode) }));
+		return (normalized.find(({ code }) => code === norm)
+			?? normalized.find(({ code }) => code === base)
+			?? normalized.find(({ code }) => code.split('-')[0] === base))?.t;
 	}
 
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
