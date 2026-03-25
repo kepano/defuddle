@@ -277,6 +277,7 @@ export const EXACT_SELECTORS_JOINED = EXACT_SELECTORS.join(',');
 export const TEST_ATTRIBUTES = [
 	'class',
 	'id',
+	'data-component',
 	'data-test',
 	'data-testid',
 	'data-test-id',
@@ -807,6 +808,7 @@ export const PARTIAL_SELECTORS = [
 	'_tags',
 	'tags__item',
 	'tag_list',
+	'tag-list',
 	'taxonomy',
 //	'table-content',
 	'table-of-contents',
