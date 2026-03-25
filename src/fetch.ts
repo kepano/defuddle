@@ -121,12 +121,34 @@ function detectCharset(contentType: string, buffer: ArrayBuffer): string {
 	return 'utf-8';
 }
 
+function normalizeCharset(charset: string | undefined | null): string {
+	if (!charset) return 'utf-8';
+
+	const cleaned = String(charset)
+		.toLowerCase()
+		.trim()
+		.replace(/[;,]+$/g, '')
+		.replace(/^["']|["']$/g, '');
+
+	if (cleaned === 'utf8' || cleaned === 'utf_8') return 'utf-8';
+	if (cleaned === 'latin1') return 'latin1';
+	if (cleaned === 'iso-8859-1' || cleaned === 'windows-1252') return cleaned;
+
+	return cleaned || 'utf-8';
+}
+
 function decodeHtml(buffer: ArrayBuffer, contentType: string): string {
-	const charset = detectCharset(contentType, buffer);
+	const detected = detectCharset(contentType, buffer);
+	const charset = normalizeCharset(detected);
 	if (charset === 'windows-1252' || charset === 'iso-8859-1' || charset === 'latin1') {
 		return decodeWindows1252(buffer);
 	}
-	return new TextDecoder(charset).decode(buffer);
+
+	try {
+		return new TextDecoder(charset).decode(buffer);
+	} catch {
+		return new TextDecoder('utf-8').decode(buffer);
+	}
 }
 
 /**
