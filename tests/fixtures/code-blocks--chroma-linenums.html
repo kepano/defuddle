@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Sample Technical Post</title></head>
+<body>
+<article>
+  <h3>A typical solution</h3>
+
+  <p>Here is a function that processes an array:</p>
+
+  <div class="highlight"><div class="chroma">
+  <table class="lntable"><tbody><tr><td class="lntd">
+  <pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+  <td class="lntd">
+  <pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">auto</span> <span class="nf">process_values</span><span class="p">(</span><span class="kst">const</span> <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span> <span class="o">&amp;</span><span class="n">vec</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">std</span><span class="o">::</span><span class="n">count_if</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">vec</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="n">vec</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="p">[](</span><span class="kt">uint8_t</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">x</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></tbody></table>
+  </div></div>
+
+  <p>Let's look at the generated assembly:</p>
+
+  <div class="highlight"><div class="chroma">
+  <table class="lntable"><tbody><tr><td class="lntd">
+  <pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span></code></pre></td>
+  <td class="lntd">
+  <pre tabindex="0" class="chroma"><code class="language-nasm" data-lang="nasm"><span class="line"><span class="cl"><span class="nl">process_values</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">vpbroadcastb</span>    <span class="nb">xmm1</span><span class="p">,</span> <span class="kt">byte</span> <span class="kt">ptr</span> <span class="p">[</span><span class="nv">rip</span> <span class="o">+</span> <span class="nv">.LCPI0_1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">vmovd</span>   <span class="nb">xmm2</span><span class="p">,</span> <span class="kt">dword</span> <span class="kt">ptr</span> <span class="p">[</span><span class="nb">rsi</span> <span class="o">+</span> <span class="nb">rax</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">vpandn</span>  <span class="nb">xmm2</span><span class="p">,</span> <span class="nb">xmm2</span><span class="p">,</span> <span class="nb">xmm1</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">add</span>     <span class="nb">rax</span><span class="p">,</span> <span class="mi">4</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">cmp</span>     <span class="nb">r8</span><span class="p">,</span> <span class="nb">rax</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">jne</span>     <span class="nv">.LBB0_6</span>
+</span></span></code></pre></td></tr></tbody></table>
+  </div></div>
+
+  <p>The compiler generates vectorized code that processes four values at a time.</p>
+</article>
+</body>
+</html>

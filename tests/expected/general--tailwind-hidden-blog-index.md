@@ -1,8 +1,8 @@
 ```json
 {
   "title": "Blog - Acme Corp",
-  "author": "Infrastructure",
-  "site": "Infrastructure",
+  "author": "",
+  "site": "",
   "published": "2026-03-01T00:00:00+00:00"
 }
 ```

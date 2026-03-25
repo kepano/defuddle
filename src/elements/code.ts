@@ -187,19 +187,27 @@ export const codeBlockRules = [
 				return '';
 			};
 
-			// Try to get the language from the element and its ancestors
+			// Try to get the language from the element and its ancestors.
+			// Only search inside the element itself (not ancestors) to avoid
+			// picking up language from already-processed sibling code blocks.
 			let language = '';
 			let currentElement: Element | null = el;
-			
+
 			while (currentElement && !language) {
 				language = getCodeLanguage(currentElement);
-				
-				// Also check for code elements within the current element
-				const codeEl = currentElement.querySelector('code');
-				if (!language && codeEl) {
-					language = getCodeLanguage(codeEl);
+
+				if (!language && currentElement === el) {
+					// Prefer a code element that already has language attributes;
+					// fall back to the first code element if none found.
+					// (In table-based layouts like Hugo/Chroma, the first <code>
+					// is the line-number column and has no language attribute.)
+					const codeEl = currentElement.querySelector('code[data-lang], code[class*="language-"]')
+						|| currentElement.querySelector('code');
+					if (codeEl) {
+						language = getCodeLanguage(codeEl);
+					}
 				}
-				
+
 				currentElement = currentElement.parentElement;
 			}
 
@@ -261,9 +269,21 @@ export const codeBlockRules = [
 						return '';
 					}
 
-					// Handle explicit line breaks
+					// Handle explicit line breaks.
+					// Skip <br> that immediately follows a line-based span (e.g. Hexo/Highlight.js
+					// `<span class="line">CODE</span><br>`) — the line span already appended '\n'.
 					if (element.tagName === 'BR') {
+						const prev = element.previousElementSibling;
+						if (prev && prev.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
+							return '';
+						}
 						return '\n';
+					}
+
+					// Hugo/Chroma line-number spans (<span class="lnt">1\n</span>) live in a
+					// separate table column from the code; skip them entirely.
+					if (element.matches('span.lnt')) {
+						return '';
 					}
 
 					// Two-child div where the first child is all-digits (line number gutter).

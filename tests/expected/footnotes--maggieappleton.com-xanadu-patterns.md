@@ -2,7 +2,7 @@
 {
   "title": "The Pattern Language of Project Xanadu",
   "author": "",
-  "site": "",
+  "site": "maggieappleton.com",
   "published": "2024-05-24T02:20:06+00:00"
 }
 ```

@@ -44,7 +44,7 @@ export class MetadataExtractor {
 		const siteName = this.getSiteName(schemaOrgData, metaTags);
 		const { title, detectedSiteName } = this.cleanTitle(this.getBestTitle(doc, schemaOrgData, metaTags, domain, siteName), siteName);
 		const author = this.getAuthor(doc, schemaOrgData, metaTags);
-		const site = siteName || detectedSiteName || author || '';
+		const site = siteName || detectedSiteName || author || domain || '';
 
 		return {
 			title,
@@ -160,8 +160,10 @@ export class MetadataExtractor {
 				const siblingText = sibling.textContent?.trim() || '';
 				if (this.parseDateText(siblingText)) {
 					const links = sibling.querySelectorAll('a');
-					for (const link of links) {
-						const linkText = (link.textContent?.trim() || '').replace(/\u00a0/g, ' ');
+					// Only treat the link as an author if there is exactly one —
+					// multiple links indicate category/tag lists, not a byline.
+					if (links.length === 1) {
+						const linkText = (links[0].textContent?.trim() || '').replace(/\u00a0/g, ' ');
 						if (linkText.length > 0 && linkText.length < 100 && !this.parseDateText(linkText)) {
 							return linkText;
 						}

@@ -43,7 +43,7 @@ console.log(\`The salt of your vault ${vault.name} is: "${vault.salt}" with encr
 
 You should see a message containing your salt and encryption version:
 
-```js
+```
 The salt of your vault Notes is: "8II2%?YeNpddlbd@4Z)c" with encryptionVersion 0
 ```
 

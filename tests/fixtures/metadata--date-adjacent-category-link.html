@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Sample Technical Post</title>
+  <link rel="canonical" href="https://example-blog.example.com/posts/sample-post">
+</head>
+<body>
+<article>
+  <h1>Sample Technical Post</h1>
+  <!-- Date metadata with multiple links (category number + tag) — must NOT be picked up as author -->
+  <p class="post-meta"><time datetime="2025-03-08">March 8, 2025</time> · <a href="/categories/1">1</a> · <a href="/tags/libbenchmark">libbenchmark</a></p>
+
+  <h3>Introduction</h3>
+  <p>This post covers several important algorithms used in systems programming. The key insight is that modern CPUs can process multiple values simultaneously using SIMD instructions.</p>
+  <p>This allows for significant performance improvements in data-intensive workloads when the loop body can be parallelized by the compiler.</p>
+
+  <h3>Solution</h3>
+  <p>We can use auto-vectorization to achieve this. The compiler will automatically generate SIMD instructions when it detects that the loop body can be parallelized without data dependencies.</p>
+  <p>The algorithm processes four values at a time, reducing the total number of iterations. This results in a significant speedup compared to the naive single-value approach used in the baseline implementation.</p>
+</article>
+</body>
+</html>

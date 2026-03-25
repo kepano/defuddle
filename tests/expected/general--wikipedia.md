@@ -1,8 +1,8 @@
 ```json
 {
   "title": "Obsidian (software) - Wikipedia",
-  "author": "Developer(s)",
-  "site": "Developer(s)",
+  "author": "",
+  "site": "en.wikipedia.org",
   "published": "2024-01-15T00:00:00+00:00"
 }
 ```
