@@ -1,0 +1,98 @@
+<!-- {"url": "https://socket.dev/blog/introducing-socket-firewall"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Introducing Socket Firewall - Socket Blog</title>
+  <link rel="canonical" href="https://socket.dev/blog/introducing-socket-firewall">
+</head>
+<body>
+<div class="css-wrapper">
+  <!-- Announcement banner: block <a> with div child before the h1 -->
+  <a href="https://socket.dev/blog/other-event-2026" class="chakra-link css-banner">
+    <div class="css-inner">
+      <span>You're Invited:</span>
+      <span>Meet the Socket Team at a Security Conference</span>
+    </div>
+  </a>
+
+  <div class="css-layout">
+    <!-- Site header (removed by <header> selector) -->
+    <header class="css-site-header">
+      <nav>Site navigation</nav>
+    </header>
+
+    <div class="css-content">
+      <div class="css-article-container">
+        <!-- Back navigation link: embedded <a> before first h1, links to parent /blog -->
+        <a type="button" class="chakra-link chakra-button css-backlink" href="/blog">
+          <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line></svg>
+          Blog
+        </a>
+
+        <div class="css-article-stack">
+          <!-- Article content -->
+          <div class="css-article">
+            <!-- Product badge: chakra-badge class -->
+            <div class="chakra-wrap dark css-wrap">
+              <span class="chakra-badge css-badge">Product</span>
+            </div>
+            <h1>Introducing Socket Firewall</h1>
+            <p>We are excited to announce Socket Firewall, a new feature that blocks supply chain attacks before they reach your infrastructure. This post explains how it works and why we built it.</p>
+            <h2>How It Works</h2>
+            <p>Socket Firewall intercepts package installation requests and checks them against our threat intelligence database. When a package is flagged as malicious, the installation is blocked and you receive an alert with details about the threat.</p>
+            <p>The system uses a combination of static analysis, dynamic analysis, and community reports to identify malicious packages. Our team reviews flagged packages and updates the database in real time.</p>
+            <h2>Why We Built It</h2>
+            <p>Supply chain attacks have increased significantly over the past few years. Attackers publish packages with names similar to popular libraries, hoping developers will accidentally install them. Socket Firewall provides an automated defense against this class of attack.</p>
+            <p>We believe that security should be automatic and invisible. Developers should be able to install packages without worrying about supply chain attacks. Socket Firewall makes this possible.</p>
+          </div>
+
+          <!-- Newsletter signup: chakra-stack containing "Subscribe to our newsletter" text.
+               The <form> is removed by EXACT_SELECTORS; what remains has the pattern text. -->
+          <div class="chakra-stack css-newsletter">
+            <div class="css-newsletter-text">
+              <p class="css-newsletter-title">Subscribe to our newsletter</p>
+              <p class="css-newsletter-desc">Get notified when we publish new security blog posts!</p>
+            </div>
+            <div class="css-newsletter-form">
+              <form>
+                <input type="email" placeholder="Enter your email">
+                <button type="submit">Subscribe</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA section: dark themed block BEFORE related posts (matches real page structure) -->
+      <span class="chakra-theme dark css-cta">
+        <div class="css-cta-inner">
+          <p>Ready to block supply chain threats?</p>
+          <a href="/pricing">Start using Socket</a>
+        </div>
+      </span>
+
+      <!-- Related posts section: header row removed by removeLowScoring (simulating real page).
+           Card-grid detection must find these by img+heading structure alone. -->
+      <div class="css-related-container">
+        <div class="css-related-articles">
+          <article class="chakra-linkbox css-card">
+            <div class="css-card-content">
+              <img src="/blog/post-one-thumb.jpg" alt="Detecting Malicious npm Packages">
+              <h3><a href="/blog/post-one">Detecting Malicious npm Packages</a></h3>
+              <p>How Socket identifies and blocks malicious packages before they reach your codebase.</p>
+            </div>
+          </article>
+          <article class="chakra-linkbox css-card">
+            <div class="css-card-content">
+              <img src="/blog/post-two-thumb.jpg" alt="Supply Chain Security in 2025">
+              <h3><a href="/blog/post-two">Supply Chain Security in 2025</a></h3>
+              <p>An overview of the supply chain attack landscape and how to protect your organization.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

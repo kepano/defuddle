@@ -837,6 +837,7 @@ export const PARTIAL_SELECTORS = [
 	'trust-feat',
 	'trust-badge',
 	'trust-project',
+	'chakra-badge',
 	'twitter',
 	'twiblock',
 

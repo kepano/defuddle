@@ -12,6 +12,9 @@ const BOILERPLATE_PATTERNS = [
 	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
 	/^Any re-?use permitted\b/i,
 ];
+const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b/i;
+const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore))$/i;
+
 // Shared date/number patterns for stripping metadata text.
 const METADATA_STRIP_BASE = [
 	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
@@ -64,6 +67,37 @@ function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: bo
 		}
 		element.remove();
 	}
+}
+
+// Walk up from `el` toward `mainContent` as long as each level has no preceding
+// siblings with meaningful content (≤ 10 words total). Returns the highest such ancestor.
+// Used to find the outermost container that is exclusively a trailing/isolated section.
+function walkUpIsolated(el: Element, mainContent: Element): Element {
+	let target = el;
+	while (target.parentElement && target.parentElement !== mainContent) {
+		let precedingWords = 0;
+		let sib = target.previousElementSibling;
+		while (sib) {
+			precedingWords += countWords(sib.textContent || '');
+			sib = sib.previousElementSibling;
+		}
+		if (precedingWords > 10) break;
+		target = target.parentElement;
+	}
+	return target;
+}
+
+// If the element immediately preceding `target` is a thin section (< 50 words, no content
+// elements), remove it. These are typically CTA or promo blocks before related-posts sections.
+function removeThinPrecedingSection(target: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const prevSib = target.previousElementSibling;
+	if (!prevSib) return;
+	if (countWords(prevSib.textContent || '') >= 50) return;
+	if (prevSib.querySelector(CONTENT_ELEMENT_SELECTOR)) return;
+	if (debug && debugRemovals) {
+		debugRemovals.push({ step: 'removeByContentPattern', reason: 'thin CTA section', text: textPreview(prevSib) });
+	}
+	prevSib.remove();
 }
 
 /**
@@ -142,7 +176,7 @@ function removeHeroHeader(mainContent: Element, debug: boolean, debugRemovals?: 
 	}
 }
 
-// Some CMSs (e.g. beehiiv) inject a breadcrumb (Home › Posts › Title) as the first element
+// Some CMSs inject a breadcrumb (Home › Posts › Title) as the first element
 // of the article body with no semantic class — identified by internal-only links where at
 // least one targets the site root or a shallow path (/archive, /posts, /blog).
 function isBreadcrumbList(list: Element): boolean {
@@ -177,6 +211,25 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'breadcrumb navigation list', text: textPreview(target) });
 		}
 		target.remove();
+	}
+
+	// Remove promotional block <a> elements appearing before the first heading.
+	// These are announcement banners (e.g. "You're Invited: ...") injected above the article.
+	// Identified by: appears before the first <h1>, has block children (a <div>), short text.
+	const firstH1 = mainContent.querySelector('h1');
+	if (firstH1) {
+		for (const link of mainContent.querySelectorAll('a[href]')) {
+			if (!link.parentNode) continue;
+			if (!(link.compareDocumentPosition(firstH1) & 4)) continue;
+			if (!link.querySelector('div')) continue;
+			const text = link.textContent?.trim() || '';
+			if (countWords(text) > 25) continue;
+			if (/[.!?]\s/.test(text)) continue;
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'promotional banner link', text: textPreview(link) });
+			}
+			link.remove();
+		}
 	}
 
 	// Remove hero header blocks — containers near the top of content that
@@ -441,6 +494,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	} catch {}
 	if (urlPath) {
 		const shortElements = mainContent.querySelectorAll('div, span, p, a[href]');
+		const firstHeading = mainContent.querySelector('h1, h2, h3');
 		for (const el of shortElements) {
 			if (!el.parentNode) continue;
 			const text = el.textContent?.trim() || '';
@@ -448,9 +502,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			if (words > 10) continue;
 			// Must be a leaf-ish element (no block children)
 			if (el.querySelectorAll('p, div, section, article').length > 0) continue;
-			// For bare <a> elements, skip if embedded in flowing prose (parent has other text)
+			// For bare <a> elements, skip if embedded in flowing prose (parent has other text).
+			// Exception: allow embedded <a> elements that appear before the first heading —
+			// these are back-navigation links in page headers, not inline prose links.
 			if (el.matches('a[href]') && el.parentElement && el.parentElement !== mainContent) {
-				if ((el.parentElement.textContent?.trim() || '') !== text) continue;
+				if ((el.parentElement.textContent?.trim() || '') !== text) {
+					if (!firstHeading) continue;
+					if (!(el.compareDocumentPosition(firstHeading) & 4)) continue;
+				}
 			}
 			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');
 			if (!link) continue;
@@ -688,6 +747,91 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				return;
 			}
 		}
+	}
+
+	// Remove "Related posts" / "Read next" sections identified by their heading text.
+	for (const heading of mainContent.querySelectorAll('h2, h3, h4')) {
+		if (!heading.parentNode) continue;
+		const headingText = heading.textContent?.trim() || '';
+		if (!RELATED_HEADING_PATTERN.test(headingText)) continue;
+
+		// Must appear after substantial content
+		if (contentText.indexOf(headingText) < 500) continue;
+
+		const target = walkUpIsolated(heading, mainContent);
+
+		// Only remove if we walked up to a container (not the heading itself).
+		// If the heading is directly in the article body, target remains the heading — skip.
+		if (target === heading) continue;
+
+		removeThinPrecedingSection(target, debug, debugRemovals);
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content section', text: textPreview(target) });
+		}
+		removeTrailingSiblings(target, true, debug, debugRemovals);
+		break;
+	}
+
+	// Remove related post card grids that lack a detectable heading
+	// (e.g. the heading was removed by removeLowScoring before this step runs).
+	// Matches a container whose children are predominantly image-bearing cards (img + heading).
+	for (const el of mainContent.querySelectorAll('div')) {
+		if (!el.parentNode) continue;
+		if (el.children.length < 2) continue;
+		const children = Array.from(el.children);
+
+		// Each qualifying card must contain both an image and a heading
+		const cardCount = children.filter(c =>
+			c.querySelector('img, picture') && c.querySelector('h2, h3, h4')
+		).length;
+		if (cardCount < 2 || cardCount < children.length * 0.7) continue;
+
+		// Must appear after substantial content (not a top-of-page listing)
+		const firstText = children[0].textContent?.trim().substring(0, 30) || '';
+		if (firstText.length < 5 || contentText.indexOf(firstText) < 500) continue;
+
+		const target = walkUpIsolated(el, mainContent);
+		if (target === el) continue;
+
+		removeThinPrecedingSection(target, debug, debugRemovals);
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related post cards', text: textPreview(target) });
+		}
+		removeTrailingSiblings(target, true, debug, debugRemovals);
+		break;
+	}
+
+	// Remove newsletter signup sections identified by their text content.
+	// Catches signup forms whose class names are hashed (e.g. Chakra UI apps)
+	// after the <form> element itself has been removed by selector removal.
+	// Note: textContent in some DOM implementations (e.g. linkedom) concatenates adjacent
+	// element text without whitespace, so we normalize camelCase boundaries before matching.
+	for (const el of mainContent.querySelectorAll('div, section, aside')) {
+		if (!el.parentNode) continue;
+		if (el.closest('pre, code')) continue;
+		const text = el.textContent?.trim() || '';
+		const words = countWords(text);
+		if (words < 2 || words > 60) continue;
+		const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+		if (!NEWSLETTER_PATTERN.test(normalizedText)) continue;
+		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+
+		// Walk up while the parent doesn't have significantly more content
+		// (i.e. the newsletter is the only or near-only child).
+		let target: Element = el;
+		while (target.parentElement && target.parentElement !== mainContent) {
+			const parentWords = countWords(target.parentElement.textContent?.trim() || '');
+			if (parentWords > words * 2 + 15) break;
+			target = target.parentElement;
+		}
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'newsletter signup', text: textPreview(target) });
+		}
+		target.remove();
+		break;
 	}
 
 }
