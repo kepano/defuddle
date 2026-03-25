@@ -877,6 +877,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			const url = new URL(this.url);
 			this._videoId = url.hostname === 'youtu.be'
 				? url.pathname.slice(1)
+				: url.pathname.includes('/shorts/')
+					? url.pathname.split('/shorts/')[1].split('/')[0]
 				: new URLSearchParams(url.search).get('v') || '';
 		}
 		return this._videoId;
