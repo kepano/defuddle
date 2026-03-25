@@ -142,7 +142,43 @@ function removeHeroHeader(mainContent: Element, debug: boolean, debugRemovals?: 
 	}
 }
 
+// Some CMSs (e.g. beehiiv) inject a breadcrumb (Home › Posts › Title) as the first element
+// of the article body with no semantic class — identified by internal-only links where at
+// least one targets the site root or a shallow path (/archive, /posts, /blog).
+function isBreadcrumbList(list: Element): boolean {
+	const listItems = list.querySelectorAll('li');
+	if (listItems.length < 2 || listItems.length > 8) return false;
+
+	const listLinks = Array.from(list.querySelectorAll('a'));
+	if (listLinks.length < 1 || listLinks.length >= listItems.length) return false;
+	if (list.querySelector('img, p, figure, blockquote')) return false;
+
+	let allInternal = true;
+	let hasBreadcrumbLink = false;
+	let shortLinkTexts = true;
+	for (const a of listLinks) {
+		const href = a.getAttribute('href') || '';
+		if (href.startsWith('http') || href.startsWith('//')) { allInternal = false; break; }
+		if (href === '/' || /^\/[a-zA-Z0-9_-]+\/?$/.test(href)) hasBreadcrumbLink = true;
+		if (((a.textContent || '').trim().split(/\s+/).filter(Boolean).length) > 5) shortLinkTexts = false;
+	}
+	return allInternal && hasBreadcrumbLink && shortLinkTexts;
+}
+
 export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, debugRemovals?: DebugRemoval[]) {
+	const firstList = mainContent.querySelector('ul, ol');
+	if (firstList && isBreadcrumbList(firstList)) {
+		let target: Element = firstList;
+		while (target.parentElement && target.parentElement !== mainContent &&
+			   target.parentElement.children.length === 1) {
+			target = target.parentElement;
+		}
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'breadcrumb navigation list', text: textPreview(target) });
+		}
+		target.remove();
+	}
+
 	// Remove hero header blocks — containers near the top of content that
 	// wrap date, title heading, author, tags, and a hero image together.
 	// After individual metadata elements are stripped, these leave behind
