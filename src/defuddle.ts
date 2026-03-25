@@ -146,10 +146,11 @@ export class Defuddle {
 		this._stripUnsafeElements();
 
 		// If schema.org has a SocialMediaPosting with text content that is
-		// longer than what we extracted, the scorer likely picked the wrong
-		// element from a feed. Find the correct element in the DOM.
+		// significantly longer than what we extracted, the scorer likely picked
+		// the wrong element from a feed. Use a 1.5x threshold to avoid triggering
+		// when the difference is small (e.g. just related-content link text removed).
 		const schemaText = this._getSchemaText(result.schemaOrgData);
-		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount) {
+		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
 			const contentHtml = this._findContentBySchemaText(schemaText);
 			if (contentHtml) {
 				this._log('Found DOM content matching schema.org text');
