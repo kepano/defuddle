@@ -289,7 +289,7 @@ export const TEST_ATTRIBUTES = [
 // Case insensitive, partial matches allowed
 export const PARTIAL_SELECTORS = [
 	'a-statement',
-	'access-wall',
+//  'access-wall', nature.com
 	'activitypub',
 	'actioncall',
 	'addcomment',
