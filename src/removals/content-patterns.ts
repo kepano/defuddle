@@ -16,6 +16,15 @@ const BOILERPLATE_PATTERNS = [
 	/^Leave a (?:comment|reply)$/i,
 ];
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)/i;
+
+function isNewsletterElement(el: Element, maxWords: number): boolean {
+	const text = el.textContent?.trim() || '';
+	const words = countWords(text);
+	if (words < 2 || words > maxWords) return false;
+	if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) return false;
+	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+	return NEWSLETTER_PATTERN.test(normalizedText);
+}
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore))$/i;
 
 // Shared date/number patterns for stripping metadata text.
@@ -815,19 +824,15 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	for (const el of mainContent.querySelectorAll('div, section, aside')) {
 		if (!el.parentNode) continue;
 		if (el.closest('pre, code')) continue;
-		const text = el.textContent?.trim() || '';
-		const words = countWords(text);
-		if (words < 2 || words > 60) continue;
-		const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
-		if (!NEWSLETTER_PATTERN.test(normalizedText)) continue;
-		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+		if (!isNewsletterElement(el, 60)) continue;
 
 		// Walk up while the parent doesn't have significantly more content
 		// (i.e. the newsletter is the only or near-only child).
+		const elWords = countWords(el.textContent?.trim() || '');
 		let target: Element = el;
 		while (target.parentElement && target.parentElement !== mainContent) {
 			const parentWords = countWords(target.parentElement.textContent?.trim() || '');
-			if (parentWords > words * 2 + 15) break;
+			if (parentWords > elWords * 2 + 15) break;
 			target = target.parentElement;
 		}
 
@@ -843,12 +848,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// of real content so we remove the list directly without walking up.
 	for (const el of mainContent.querySelectorAll('ul')) {
 		if (!el.parentNode) continue;
-		const text = el.textContent?.trim() || '';
-		const words = countWords(text);
-		if (words < 2 || words > 30) continue;
-		const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
-		if (!NEWSLETTER_PATTERN.test(normalizedText)) continue;
-		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+		if (!isNewsletterElement(el, 30)) continue;
 
 		if (debug && debugRemovals) {
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'newsletter signup list', text: textPreview(el) });
