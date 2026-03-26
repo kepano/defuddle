@@ -289,7 +289,7 @@ export const TEST_ATTRIBUTES = [
 // Case insensitive, partial matches allowed
 export const PARTIAL_SELECTORS = [
 	'a-statement',
-//  'access-wall', nature.com
+	'(?<!main-)access-wall', // avoid matching data-test="main-access-wall" (content container)
 	'activitypub',
 	'actioncall',
 	'addcomment',
