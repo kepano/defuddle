@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, afterEach } from 'vitest';
+import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest';
 import { fetchPage, DEFAULT_UA } from '../src/fetch';
 
 const HTML = '<html><head></head><body>hello</body></html>';
@@ -12,7 +12,20 @@ function mockFetch(contentType: string) {
 	}));
 }
 
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => {
+	// Ensure fetchPage uses the mocked global fetch, not a real proxy
+	vi.stubEnv('HTTPS_PROXY', undefined as any);
+	vi.stubEnv('https_proxy', undefined as any);
+	vi.stubEnv('HTTP_PROXY', undefined as any);
+	vi.stubEnv('http_proxy', undefined as any);
+	vi.stubEnv('ALL_PROXY', undefined as any);
+	vi.stubEnv('all_proxy', undefined as any);
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.unstubAllEnvs();
+});
 
 describe('fetchPage charset handling', () => {
 	test('handles trailing comma in charset (charset=utf-8,)', async () => {

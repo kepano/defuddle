@@ -2,6 +2,7 @@ import { countWords } from './utils';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const FETCH_TIMEOUT = 10_000; // 10s
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';
 export const BOT_UA = DEFAULT_UA + ' bot';
@@ -19,18 +20,192 @@ export function getInitialUA(targetUrl: string): string {
 	return DEFAULT_UA;
 }
 
+function getProxyUrl(targetUrl: string): URL | null {
+	const isHttps = targetUrl.startsWith('https:');
+	const raw =
+		(isHttps ? (process.env.HTTPS_PROXY || process.env.https_proxy) : undefined) ||
+		process.env.HTTP_PROXY || process.env.http_proxy ||
+		process.env.ALL_PROXY || process.env.all_proxy;
+	if (!raw) return null;
+
+	// Check NO_PROXY / no_proxy exclusion list
+	const noProxy = process.env.NO_PROXY ?? process.env.no_proxy ?? '';
+	if (noProxy) {
+		const hostname = new URL(targetUrl).hostname;
+		const excluded = noProxy.split(',').map(s => s.trim()).some(pattern => {
+			if (pattern === '*') return true;
+			if (pattern.startsWith('.')) return hostname.endsWith(pattern) || hostname === pattern.slice(1);
+			return hostname === pattern || hostname.endsWith('.' + pattern);
+		});
+		if (excluded) return null;
+	}
+
+	try { return new URL(raw); } catch { return null; }
+}
+
+function validateAndDecode(contentType: string, contentLength: string | null | undefined, buffer: ArrayBuffer): string {
+	if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+		throw new Error(`Not an HTML page (content-type: ${contentType})`);
+	}
+	if (contentLength) {
+		const bytes = parseInt(contentLength);
+		if (bytes > MAX_SIZE) {
+			throw new Error(`Page too large (${Math.round(bytes / 1024 / 1024)}MB, max 5MB)`);
+		}
+	}
+	if (buffer.byteLength > MAX_SIZE) {
+		throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
+	}
+	return decodeHtml(buffer, contentType);
+}
+
+// Raw HTTP(S) GET through a proxy, returning status + headers + body buffer.
+// For HTTPS targets, establishes a CONNECT tunnel then does TLS over the socket.
+// node:http and node:tls are required lazily so this module is safe to import
+// in environments that don't support those APIs (e.g. Cloudflare Workers).
+function proxyGet(
+	targetUrl: string,
+	proxy: URL,
+	reqHeaders: Record<string, string>
+): Promise<{ status: number; resHeaders: Record<string, string | string[]>; buffer: Buffer }> {
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const http = require('node:http') as typeof import('node:http');
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const tls = require('node:tls') as typeof import('node:tls');
+
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		let activeRequest: { destroy(): void } | null = null;
+		const done = (err: Error | null, result?: any) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			if (err) reject(err);
+			else resolve(result);
+		};
+		const timer = setTimeout(() => {
+			activeRequest?.destroy();
+			done(new Error(`Timed out fetching page after ${FETCH_TIMEOUT / 1000}s`));
+		}, FETCH_TIMEOUT);
+
+		const target = new URL(targetUrl);
+		const isHttps = target.protocol === 'https:';
+		const targetPort = target.port ? Number(target.port) : (isHttps ? 443 : 80);
+		const proxyPort = proxy.port ? Number(proxy.port) : 8080;
+		const proxyAuth = proxy.username
+			? `Basic ${Buffer.from(`${decodeURIComponent(proxy.username)}:${decodeURIComponent(proxy.password)}`).toString('base64')}`
+			: undefined;
+
+		const collectResponse = (res: import('node:http').IncomingMessage) => {
+			const chunks: Buffer[] = [];
+			let size = 0;
+			res.on('data', (chunk: Buffer) => {
+				size += chunk.length;
+				if (size > MAX_SIZE) { res.destroy(); done(new Error(`Page too large (>${MAX_SIZE / 1024 / 1024}MB)`)); }
+				else chunks.push(chunk);
+			});
+			res.on('end', () => done(null, {
+				status: res.statusCode!,
+				resHeaders: res.headers as Record<string, string | string[]>,
+				buffer: Buffer.concat(chunks),
+			}));
+			res.on('error', done);
+		};
+
+		const outHeaders: Record<string, string> = { ...reqHeaders, 'Host': target.hostname };
+
+		if (isHttps) {
+			const connectHeaders: Record<string, string> = { 'Host': `${target.hostname}:${targetPort}` };
+			if (proxyAuth) connectHeaders['Proxy-Authorization'] = proxyAuth;
+
+			const connectReq = http.request({
+				host: proxy.hostname,
+				port: proxyPort,
+				method: 'CONNECT',
+				path: `${target.hostname}:${targetPort}`,
+				headers: connectHeaders,
+			});
+			activeRequest = connectReq;
+			connectReq.on('connect', (connectRes, socket) => {
+				if (connectRes.statusCode !== 200) {
+					socket.destroy();
+					return done(new Error(`Proxy CONNECT failed: ${connectRes.statusCode}`));
+				}
+				const tlsSocket = tls.connect({ socket, host: target.hostname, servername: target.hostname });
+				activeRequest = tlsSocket;
+				tlsSocket.on('error', done);
+				tlsSocket.on('secureConnect', () => {
+					const req = http.request({
+						method: 'GET',
+						path: target.pathname + target.search,
+						headers: outHeaders,
+						createConnection: () => tlsSocket as any,
+					} as any, collectResponse);
+					activeRequest = req;
+					req.on('error', done);
+					req.end();
+				});
+			});
+			connectReq.on('error', done);
+			connectReq.end();
+		} else {
+			// HTTP forward proxy: send the full target URL as the request path
+			if (proxyAuth) outHeaders['Proxy-Authorization'] = proxyAuth;
+			const req = http.request({
+				host: proxy.hostname,
+				port: proxyPort,
+				method: 'GET',
+				path: targetUrl,
+				headers: outHeaders,
+			}, collectResponse);
+			activeRequest = req;
+			req.on('error', done);
+			req.end();
+		}
+	});
+}
+
+async function fetchPageViaProxy(
+	targetUrl: string,
+	proxy: URL,
+	reqHeaders: Record<string, string>,
+	redirectsLeft = 10
+): Promise<string> {
+	const { status, resHeaders, buffer } = await proxyGet(targetUrl, proxy, reqHeaders);
+
+	const location = resHeaders['location'];
+	if (REDIRECT_STATUSES.has(status) && location && redirectsLeft > 0) {
+		const redirectUrl = new URL(Array.isArray(location) ? location[0] : location, targetUrl).href;
+		return fetchPageViaProxy(redirectUrl, proxy, reqHeaders, redirectsLeft - 1);
+	}
+
+	if (status < 200 || status >= 300) {
+		throw new Error(`Failed to fetch: ${status}`);
+	}
+	const contentType = (resHeaders['content-type'] as string) || '';
+	const contentLength = resHeaders['content-length'] as string | undefined;
+	const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+	return validateAndDecode(contentType, contentLength, ab);
+}
+
 export async function fetchPage(targetUrl: string, userAgent: string, language?: string): Promise<string> {
+	const headers: Record<string, string> = {
+		'User-Agent': userAgent,
+		'Accept': 'text/html,application/xhtml+xml',
+	};
+	if (language) {
+		headers['Accept-Language'] = language;
+	}
+
+	const proxy = getProxyUrl(targetUrl);
+	if (proxy) {
+		return fetchPageViaProxy(targetUrl, proxy, headers);
+	}
+
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
 
 	try {
-		const headers: Record<string, string> = {
-			'User-Agent': userAgent,
-			'Accept': 'text/html,application/xhtml+xml',
-		};
-		if (language) {
-			headers['Accept-Language'] = language;
-		}
 		const response = await fetch(targetUrl, {
 			headers,
 			redirect: 'follow',
@@ -45,19 +220,16 @@ export async function fetchPage(targetUrl: string, userAgent: string, language?:
 		if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
 			throw new Error(`Not an HTML page (content-type: ${contentType})`);
 		}
-
 		const contentLength = response.headers.get('content-length');
-		if (contentLength && parseInt(contentLength) > MAX_SIZE) {
-			throw new Error(`Page too large (${Math.round(parseInt(contentLength) / 1024 / 1024)}MB, max 5MB)`);
+		// check content-length before downloading to avoid fetching oversized responses
+		if (contentLength) {
+			const bytes = parseInt(contentLength);
+			if (bytes > MAX_SIZE) {
+				throw new Error(`Page too large (${Math.round(bytes / 1024 / 1024)}MB, max 5MB)`);
+			}
 		}
-
 		const buffer = await response.arrayBuffer();
-
-		if (buffer.byteLength > MAX_SIZE) {
-			throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
-		}
-
-		return decodeHtml(buffer, contentType);
+		return validateAndDecode(contentType, null, buffer);
 	} catch (err: any) {
 		if (err.name === 'AbortError') {
 			throw new Error(`Timed out fetching page after ${FETCH_TIMEOUT / 1000}s`);
