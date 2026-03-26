@@ -93,7 +93,7 @@ function decodeWindows1252(buffer: ArrayBuffer): string {
 }
 
 function detectCharset(contentType: string, buffer: ArrayBuffer): string {
-	const headerMatch = contentType.match(/charset=([^\s;]+)/i);
+	const headerMatch = contentType.match(/charset=["']?([^\s;,"']+)/i);
 	if (headerMatch) return headerMatch[1].toLowerCase();
 
 	const head = new TextDecoder('latin1').decode(buffer.slice(0, 1024));
