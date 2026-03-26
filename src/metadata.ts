@@ -143,7 +143,7 @@ export class MetadataExtractor {
 			// Remove entries that are superstrings of a shorter entry already present
 			if (uniqueAuthors.length > 1) {
 				uniqueAuthors = uniqueAuthors.filter(a =>
-					!uniqueAuthors.some(b => b !== a && a.startsWith(b + ' '))
+					!uniqueAuthors.some(b => b !== a && a.includes(b))
 				);
 			}
 			if (uniqueAuthors.length > 0) {
