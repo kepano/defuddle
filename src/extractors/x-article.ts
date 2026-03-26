@@ -108,6 +108,7 @@ export class XArticleExtractor extends BaseExtractor {
 		this.convertBoldSpans(container, ownerDoc);
 		this.convertDraftParagraphs(container, ownerDoc);
 		this.removeDraftAttributes(container);
+		this.repairSurrogatePairs(container);
 	}
 
 	private convertEmbeddedTweets(container: HTMLElement, ownerDoc: Document): void {
@@ -284,6 +285,32 @@ export class XArticleExtractor extends BaseExtractor {
 		container.querySelectorAll(SELECTORS.DRAFT_ATTRIBUTES).forEach(el => {
 			el.removeAttribute('data-offset-key');
 		});
+	}
+
+	private repairSurrogatePairs(container: Element): void {
+		const SHOW_TEXT = 4;
+		const ownerDoc = container.ownerDocument || this.document;
+		const walker = ownerDoc.createTreeWalker(container, SHOW_TEXT);
+
+		let prev: Text | null = null;
+		let node: Node | null;
+		while ((node = walker.nextNode())) {
+			const curr = node as Text;
+			if (prev) {
+				const prevText = prev.textContent || '';
+				const currText = curr.textContent || '';
+				if (prevText && currText) {
+					const lastCode = prevText.charCodeAt(prevText.length - 1);
+					const firstCode = currText.charCodeAt(0);
+					// high surrogate followed by low surrogate across a node boundary
+					if (lastCode >= 0xD800 && lastCode <= 0xDBFF && firstCode >= 0xDC00 && firstCode <= 0xDFFF) {
+						prev.textContent = prevText.slice(0, -1);
+						curr.textContent = prevText.slice(-1) + currText;
+					}
+				}
+			}
+			prev = curr;
+		}
 	}
 
 	private createDescription(): string {
