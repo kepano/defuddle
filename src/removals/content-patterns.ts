@@ -11,6 +11,9 @@ const BOILERPLATE_PATTERNS = [
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
 	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
 	/^Any re-?use permitted\b/i,
+	/^©\s*(?:Copyright\s+)?\d{4}/i,
+	/^Comments?$/i,
+	/^Leave a (?:comment|reply)$/i,
 ];
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b/i;
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore))$/i;
@@ -695,7 +698,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (!el.parentNode) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
-		if (words > 50 || words < 3) continue;
+		if (words > 50 || words < 1) continue;
 
 		for (const pattern of BOILERPLATE_PATTERNS) {
 			if (pattern.test(text)) {

@@ -92,6 +92,20 @@ export function removeSmallImages(doc: Document, smallImages: Set<string>, debug
 	['img', 'svg'].forEach(tag => {
 		const elements = doc.getElementsByTagName(tag);
 		Array.from(elements).forEach(element => {
+			// Remove images with no source information at all (broken/empty images)
+			if (tag === 'img') {
+				const hasSrc = element.getAttribute('src') ||
+					element.getAttribute('srcset') ||
+					element.getAttribute('data-src') ||
+					element.getAttribute('data-srcset') ||
+					element.getAttribute('data-lazy-src') ||
+					element.getAttribute('data-original');
+				if (!hasSrc) {
+					element.remove();
+					removedCount++;
+					return;
+				}
+			}
 			const identifier = getElementIdentifier(element);
 			if (identifier && smallImages.has(identifier)) {
 				element.remove();

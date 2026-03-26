@@ -578,6 +578,7 @@ export const PARTIAL_SELECTORS = [
 	'menu-',
 //	'meta-', syntax highlighting
 	'metadata',
+	'meta-bottom',
 	'meta-date',
 	'meta-row',
 	'might-like',
@@ -829,6 +830,7 @@ export const PARTIAL_SELECTORS = [
 //	'toolbar', prism.js
 	'tooltip-content',
 	'topbar',
+	'subnavbar',
 	'topic-authors',
 	'topic-footer',
 	'topic-list',
