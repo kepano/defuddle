@@ -1,5 +1,6 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES } from '../constants';
 import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { isElement, isTextNode } from '../utils';
 
 // Matches heading text for loose footnote section delimiters
 const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
@@ -762,8 +763,26 @@ class FootnoteHandler {
 						const group = supGroups.get(container);
 						group.push(this.createFootnoteReference(footnoteNumber, refId));
 					} else {
-						// Replace the container directly
-						container.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+						// If the container has both direct text nodes and child elements,
+						// the text nodes are meaningful visible content (e.g. a year "1799"
+						// used as anchor text) while child elements hold the hidden footnote mark.
+						// Preserve the visible text alongside the footnote reference.
+						let directText = '';
+						let hasChildElements = false;
+						for (const node of container.childNodes) {
+							if (isTextNode(node)) directText += node.textContent || '';
+							else if (isElement(node)) hasChildElements = true;
+						}
+						directText = directText.trim();
+
+						if (directText && hasChildElements) {
+							const fragment = container.ownerDocument.createDocumentFragment();
+							fragment.appendChild(container.ownerDocument.createTextNode(directText));
+							fragment.appendChild(this.createFootnoteReference(footnoteNumber, refId));
+							container.replaceWith(fragment);
+						} else {
+							container.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+						}
 					}
 				}
 			}
