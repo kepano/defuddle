@@ -354,6 +354,7 @@ export const PARTIAL_SELECTORS = [
 	'article--lede', // The Verge
 	'articlewell',
 	'associated-people',
+	'ambient-video__button',
 	'audio-card',
 //	'author', Gwern
 //	'-author',

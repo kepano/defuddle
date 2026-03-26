@@ -18,6 +18,7 @@ import { findSmallImages, removeSmallImages } from './removals/small-images';
 import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern } from './removals/content-patterns';
+import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
 
@@ -28,6 +29,7 @@ interface StyleChange {
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
+
 
 export class Defuddle {
 	private readonly doc: Document;
@@ -590,6 +592,13 @@ export class Defuddle {
 					parseTime: Math.round(endTime - startTime),
 					metaTags: pageMetaTags
 				};
+			}
+
+			// Remove h1-adjacent date/author metadata blocks from the content.
+			// These are extracted as frontmatter but also appear in the body when a
+			// wide container (e.g. <main>) is selected as the content element.
+			if (metadata.published || metadata.author) {
+				removeMetadataBlock(mainContent);
 			}
 
 			// Remove <wbr> elements — word break opportunity hints that carry no

@@ -44,7 +44,10 @@ export class MetadataExtractor {
 		const siteName = this.getSiteName(schemaOrgData, metaTags);
 		const { title, detectedSiteName } = this.cleanTitle(this.getBestTitle(doc, schemaOrgData, metaTags, domain, siteName), siteName);
 		const author = this.getAuthor(doc, schemaOrgData, metaTags);
-		const site = siteName || detectedSiteName || author || domain || '';
+		// Only use author as site fallback for short single-entity names (personal blogs);
+		// multi-author strings with commas are not suitable as site identifiers.
+		const authorAsSite = author && !author.includes(',') ? author : '';
+		const site = siteName || detectedSiteName || authorAsSite || domain || '';
 
 		return {
 			title,
@@ -158,7 +161,12 @@ export class MetadataExtractor {
 			let sibling = h1.nextElementSibling;
 			for (let i = 0; i < 3 && sibling; i++) {
 				const siblingText = sibling.textContent?.trim() || '';
-				if (this.parseDateText(siblingText)) {
+				// Check both combined text and individual children — some DOMs (e.g. linkedom)
+				// omit whitespace between elements, which breaks word-boundary matching
+				const childEls = Array.from(sibling.querySelectorAll('p, time'));
+				const hasDateChild = childEls.some(el => !!this.parseDateText(el.textContent?.trim() || ''));
+				const hasSiblingDate = !!this.parseDateText(siblingText) || hasDateChild;
+				if (hasSiblingDate) {
 					const links = sibling.querySelectorAll('a');
 					// Only treat the link as an author if there is exactly one —
 					// multiple links indicate category/tag lists, not a byline.
@@ -166,6 +174,19 @@ export class MetadataExtractor {
 						const linkText = (links[0].textContent?.trim() || '').replace(/\u00a0/g, ' ');
 						if (linkText.length > 0 && linkText.length < 100 && !this.parseDateText(linkText)) {
 							return linkText;
+						}
+					}
+					// Check for plain-text author in a non-date <p> child.
+					// Guard: the date must be in a <p>/<time> child (not just anywhere in the
+					// combined text), and the sibling must be a short metadata-only block
+					// (< 300 chars) to avoid treating article sections as author bylines.
+					if (hasDateChild && siblingText.length < 300) {
+						for (const p of childEls) {
+							if (p.tagName !== 'P') continue;
+							const pText = (p.textContent?.trim() || '').replace(/\u00a0/g, ' ');
+							if (pText.length > 0 && pText.length < 150 && !this.parseDateText(pText)) {
+								return pText;
+							}
 						}
 					}
 				}
@@ -475,6 +496,12 @@ export class MetadataExtractor {
 		if (h1) {
 			let sibling = h1.nextElementSibling;
 			for (let i = 0; i < 3 && sibling; i++) {
+				// Check individual children first — some DOMs (e.g. linkedom) omit whitespace
+				// between elements, which breaks word-boundary matching on combined text
+				for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
+					const parsed = this.parseDateText(child.textContent?.trim() || '');
+					if (parsed) return parsed;
+				}
 				const parsed = this.parseDateText(sibling.textContent?.trim() || '');
 				if (parsed) return parsed;
 				sibling = sibling.nextElementSibling;

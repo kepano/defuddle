@@ -892,6 +892,11 @@ function standardizeElements(element: Element, doc: Document): void {
 		processedCount++;
 	});
 
+	// Add controls to video elements that don't have them
+	element.querySelectorAll('video:not([controls])').forEach(el => {
+		el.setAttribute('controls', '');
+	});
+
 	// Convert lite-youtube elements
 	const liteYoutubeElements = element.querySelectorAll('lite-youtube');
 	liteYoutubeElements.forEach(el => {

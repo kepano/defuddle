@@ -79,6 +79,7 @@ function walkUpIsolated(el: Element, mainContent: Element): Element {
 		let sib = target.previousElementSibling;
 		while (sib) {
 			precedingWords += countWords(sib.textContent || '');
+			if (precedingWords > 10) break;
 			sib = sib.previousElementSibling;
 		}
 		if (precedingWords > 10) break;
