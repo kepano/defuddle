@@ -65,6 +65,12 @@ export class MetadataExtractor {
 		};
 	}
 
+	// Returns true if the string looks like an unresolved template literal
+	// e.g. "#author.fullName}" (missing opening brace), "{{author}}", etc.
+	private static isTemplateArtifact(s: string): boolean {
+		return /[{}]/.test(s) || /^#[a-zA-Z]/.test(s);
+	}
+
 	private static getAuthor(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		let authorsString: string | undefined;
 
@@ -74,12 +80,12 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString) return authorsString;
+		if (authorsString && !this.isTemplateArtifact(authorsString)) return authorsString;
 
 		// Conventions for research paper meta tags
-		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author");
+		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author").filter(s => !this.isTemplateArtifact(s));
 		if (authorsStrings.length === 0) {
-			authorsStrings = this.getMetaContents(metaTags, "property", "dc.creator");
+			authorsStrings = this.getMetaContents(metaTags, "property", "dc.creator").filter(s => !this.isTemplateArtifact(s));
 		}
 		if (authorsStrings.length > 0) {
 			authorsString = authorsStrings.map(s => {
