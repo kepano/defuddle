@@ -180,7 +180,7 @@ export class XOembedExtractor extends BaseExtractor {
 	}
 
 	private async tryExtractFxTwitter(): Promise<ExtractorResult | null> {
-		const match = this.url.match(/\/([a-zA-Z][a-zA-Z0-9_]{0,14})\/(status|article)\/(\d+)/);
+		const match = this.url.match(/\/([a-zA-Z0-9_][a-zA-Z0-9_]{0,14})\/(status|article)\/(\d+)/);
 		if (!match) return null;
 
 		try {
