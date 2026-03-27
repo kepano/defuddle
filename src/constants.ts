@@ -853,6 +853,7 @@ export const PARTIAL_SELECTORS = [
 	'upsell',
 
 	'viewbottom',
+	'view-language',
 	'yarpp-related',
 	'visually-hidden',
 	'welcomebox',

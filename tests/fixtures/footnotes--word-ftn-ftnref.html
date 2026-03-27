@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Word HTML footnotes: _ftn/_ftnref pattern</title>
+</head>
+<body>
+  <!--
+    Microsoft Word HTML export pattern: no IDs on elements.
+    Inline refs use href="#_ftn[N]", footnote list items contain
+    back-links href="//GUID#_ftnref[N]" with no id attributes.
+  -->
+  <article>
+    <h1>Word HTML footnotes: _ftn/_ftnref pattern</h1>
+
+    <p>The initiative is aligned with the Action Plan
+      <span style="font-size:12px;"><sup><a href="#_ftn1">[1]</a></sup></span>,
+      a community-led alternative to traditional publishing.</p>
+
+    <p>The consortium includes members from multiple countries
+      <span style="font-size:12px;"><sup><a href="#_ftn2">[2]</a></sup></span>.</p>
+
+    <hr/>
+
+    <p><span style="font-size:12px;"><sup><a href="//6CB562CC-4A65-4CD0-8144-1E6C10100E4E#_ftnref1">[1]</a> </sup><a href="https://example.org/action-plan/">https://example.org/action-plan/</a></span></p>
+
+    <p><span style="font-size:12px;"><sup><a href="//6CB562CC-4A65-4CD0-8144-1E6C10100E4E#_ftnref2">[2]</a> </sup>Country A, Country B, Country C.</span></p>
+
+  </article>
+</body>
+</html>

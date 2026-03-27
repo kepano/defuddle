@@ -204,6 +204,9 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		// Final pass of div flattening after cleanup operations
 		flattenWrapperElements(element, doc);
 
+		// Run again: flattening may have promoted a nested <hr> to the leading position
+		removeOrphanedDividers(element);
+
 		// Standardize consecutive br elements
 		stripExtraBrElements(element);
 
@@ -322,7 +325,7 @@ function removeTrailingHeadings(element: Element): void {
 	}
 }
 
-function removeOrphanedDividers(element: Element): void {
+export function removeOrphanedDividers(element: Element): void {
 	// Remove leading <hr> elements (skipping whitespace text nodes)
 	while (true) {
 		let node = element.firstChild;

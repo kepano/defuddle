@@ -1,6 +1,7 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES } from '../constants';
 import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
 import { isElement, isTextNode } from '../utils';
+import { removeOrphanedDividers } from '../standardize';
 
 // Matches heading text for loose footnote section delimiters
 const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
@@ -290,6 +291,53 @@ class FootnoteHandler {
 					// Step 5: Store container for later removal
 					this.genericContainer = bestContainer;
 				}
+			}
+		}
+
+		// Microsoft Word HTML export: body refs use href="#_ftn[N]",
+		// footnote list items contain back-links href="..#_ftnref[N]" (no IDs on elements).
+		if (footnoteCount === 1) {
+			const wordBackrefs = Array.from(element.querySelectorAll('a[href*="#_ftnref"]'));
+			if (wordBackrefs.length >= 2) {
+				const pairs: Array<{num: number, anchor: any}> = [];
+				wordBackrefs.forEach((anchor: any) => {
+					const href = anchor.getAttribute('href') || '';
+					const fragment = href.split('#').pop() || '';
+					const match = fragment.match(/^_ftnref(\d+)$/);
+					if (match) pairs.push({ num: parseInt(match[1]), anchor });
+				});
+				pairs.sort((a, b) => a.num - b.num);
+
+				pairs.forEach(({ num, anchor }) => {
+					const originalId = `_ftn${num}`;
+					if (processedIds.has(originalId)) return;
+
+					// Walk up to the containing block element (p, div, li)
+					let container: any = anchor.parentElement;
+					while (container && container !== element) {
+						const tag = container.tagName.toLowerCase();
+						if (tag === 'p' || tag === 'div' || tag === 'li') break;
+						container = container.parentElement;
+					}
+					if (!container || container === element) return;
+
+					// Clone and strip the back-ref marker (the sup containing the anchor)
+					const clone = container.cloneNode(true) as any;
+					const backrefAnchor = clone.querySelector('a[href*="_ftnref"]');
+					if (backrefAnchor) {
+						const wrapSup = backrefAnchor.closest('sup');
+						if (wrapSup) wrapSup.remove();
+						else backrefAnchor.remove();
+					}
+
+					const contentDiv = element.ownerDocument.createElement('div');
+					contentDiv.appendChild(clone);
+
+					footnotes[num] = { content: contentDiv, originalId, refs: [] };
+					processedIds.add(originalId);
+					if (num >= footnoteCount) footnoteCount = num + 1;
+					this.genericElements.push(container);
+				});
 			}
 		}
 
@@ -929,6 +977,10 @@ class FootnoteHandler {
 		this.genericElements.forEach((el: any) => {
 			if (el.parentNode) el.remove();
 		});
+
+		// Strip trailing <hr> left behind after footnote list removal
+		// (section separator no longer needed since we append our own standardized list)
+		removeOrphanedDividers(element);
 
 		// If we have any footnotes, add the new list to the document
 		if (orderedList.children.length > 0) {
