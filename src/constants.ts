@@ -122,7 +122,9 @@ export const EXACT_SELECTORS = [
 	'ads-breadcrumbs',
 
 	// header, nav
-	'header',
+	// Exclude headers that contain paragraph text — some sites (e.g. Webflow blogs)
+	// use <header> as the main content wrapper rather than a navigation container.
+	'header:not(:has(p))',
 	'.header:not(.banner)',
 	'#header',
 	'#Header',
@@ -814,6 +816,7 @@ export const PARTIAL_SELECTORS = [
 	'taxonomy',
 //	'table-content',
 	'table-of-contents',
+	'tblc',
 	'tabs-',
 //	'teaser', Nature
 	'terminaltout',
@@ -855,6 +858,9 @@ export const PARTIAL_SELECTORS = [
 	'welcomebox',
 	'widget_pages',
 //	'widget-'
+	// Webflow form state messages — shown after form submit, never article content
+	'w-form-done',
+	'w-form-fail',
 ];
 
 // Pre-compiled combined regex for PARTIAL_SELECTORS — avoids rebuilding on every parse

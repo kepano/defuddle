@@ -25,7 +25,7 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
-const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore))$/i;
+const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author)$/i;
 
 // Shared date/number patterns for stripping metadata text.
 const METADATA_STRIP_BASE = [
@@ -762,8 +762,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 	}
 
-	// Remove "Related posts" / "Read next" sections identified by their heading text.
-	for (const heading of mainContent.querySelectorAll('h2, h3, h4')) {
+	// Remove "Related posts" / "Read next" / "About the Author" sections identified by their heading text.
+	for (const heading of mainContent.querySelectorAll('h2, h3, h4, h5, h6')) {
 		if (!heading.parentNode) continue;
 		const headingText = heading.textContent?.trim() || '';
 		if (!RELATED_HEADING_PATTERN.test(headingText)) continue;
