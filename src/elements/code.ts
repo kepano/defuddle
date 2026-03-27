@@ -211,6 +211,21 @@ export const codeBlockRules = [
 				currentElement = currentElement.parentElement;
 			}
 
+			// Detect CodeMirror-based code blocks (e.g. ChatGPT's runnable code blocks).
+			// The language is only in the header text, not in class/data attributes.
+			const cmContent = el.querySelector('.cm-content');
+			if (cmContent && !language) {
+				const allDivs = Array.from(el.querySelectorAll('div'));
+				for (const div of allDivs) {
+					if (div.contains(cmContent)) continue; // skip code area and its ancestors
+					const text = (div.textContent || '').trim().toLowerCase();
+					if (text && CODE_LANGUAGES.has(text)) {
+						language = text;
+						break;
+					}
+				}
+			}
+
 			// Extract content from WordPress syntax highlighter
 			const extractWordPressContent = (element: Element): string => {
 				// Handle WordPress syntax highlighter table format
@@ -334,9 +349,13 @@ export const codeBlockRules = [
 			if (el.matches('.syntaxhighlighter, .wp-block-syntaxhighlighter-code')) {
 				codeContent = extractWordPressContent(el);
 			}
-			
-			// If no content extracted from WordPress format, use structured text extraction
-			if (!codeContent) {
+
+			// If no content extracted from WordPress format, use structured text extraction.
+			// For CodeMirror blocks (e.g. ChatGPT runnable snippets), only extract from
+			// .cm-content to avoid mixing in UI chrome (header, copy/run buttons).
+			if (!codeContent && cmContent) {
+				codeContent = extractStructuredText(cmContent);
+			} else if (!codeContent) {
 				codeContent = extractStructuredText(el);
 			}
 

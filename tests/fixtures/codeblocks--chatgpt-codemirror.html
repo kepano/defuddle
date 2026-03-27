@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<!-- {"url":"https://chatgpt.com/share/example-12345"} -->
+<html>
+<head>
+	<title>ChatGPT</title>
+</head>
+<body>
+	<main>
+		<h1>Fibonacci in Python</h1>
+		<p>Here is a generator-based implementation:</p>
+
+		<!-- ChatGPT runnable code block: <pre> wraps a full CodeMirror editor UI.
+		     Language label is in a header div (text node, not a class/data attribute).
+		     Code tokens are in span elements inside .cm-content, lines separated by <br>. -->
+		<pre class="overflow-visible! px-0!" data-start="613" data-end="786"><div class="relative w-full mt-4 mb-1"><div class=""><div class="relative"><div class="h-full min-h-0 min-w-0"><div class="h-full min-h-0 min-w-0" style="width: 100%; transform: none;"><div class="border border-token-border-light rounded-3xl"><div class="h-full w-full overflow-clip rounded-3xl"><div class="sticky z-2 select-none top-0"><div class="flex w-full items-center justify-between py-1.5 ps-4 pe-1.5 font-sans bg-token-bg-elevated-secondary"><div class="flex max-w-[75%] min-w-0 cursor-default items-center text-sm font-medium text-token-text-primary"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" aria-hidden="true"><use href="/cdn/assets/sprites.svg#icon" fill="currentColor"></use></svg>Python</div><div class="flex flex-row items-center gap-0.5"><button aria-label="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" aria-hidden="true"><use href="/cdn/assets/sprites.svg#copy" fill="currentColor"></use></svg></button><button aria-label="Run code" type="button"><div class="flex w-full items-center justify-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" aria-label=""><use href="/cdn/assets/sprites.svg#run" fill="currentColor"></use></svg>Run</div></button></div></div></div><div class="w-full overflow-x-hidden overflow-y-auto"><div class="relative z-0 flex max-w-full"><div id="code-block-viewer" dir="ltr" class="cm-editor"><div class="cm-scroller"><div class="cm-content cm-readonly"><span class="ͼn">def</span><span> </span><span class="ͼt">fibonacci_generator</span><span>(</span><span class="ͼt">n</span><span>):</span><br><span>    </span><span class="ͼt">a</span><span>, </span><span class="ͼt">b</span><span> </span><span class="ͼn">=</span><span> </span><span class="ͼq">0</span><span>, </span><span class="ͼq">1</span><br><span>    </span><span class="ͼn">for</span><span> </span><span class="ͼt">_</span><span> </span><span class="ͼn">in</span><span> </span><span class="ͼt">range</span><span>(</span><span class="ͼt">n</span><span>):</span><br><span>        </span><span class="ͼn">yield</span><span> </span><span class="ͼt">a</span><br><span>        </span><span class="ͼt">a</span><span>, </span><span class="ͼt">b</span><span> </span><span class="ͼn">=</span><span> </span><span class="ͼt">b</span><span>, </span><span class="ͼt">a</span><span> </span><span class="ͼn">+</span><span> </span><span class="ͼt">b</span><br><br><br><span class="ͼn">for</span><span> </span><span class="ͼt">num</span><span> </span><span class="ͼn">in</span><span> </span><span class="ͼt">fibonacci_generator</span><span>(</span><span class="ͼq">10</span><span>):</span><br><span>    </span><span class="ͼt">print</span><span>(</span><span class="ͼt">num</span><span>)</span></div></div></div></div></div></div></div></div></div></div></div></pre>
+
+		<p>This uses Python's <code>yield</code> keyword to lazily produce each number.</p>
+	</main>
+</body>
+</html>
