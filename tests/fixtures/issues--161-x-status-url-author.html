@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<!-- {"url":"https://x.com/janedoe/status/1234567890123456789"} -->
+<!-- X article rendered on a /status/:id URL with a localized og:title.
+     No itemprop="author" block is present, so author must be extracted
+     from the URL. getAuthorFromOgTitle() would return "Unknown" here
+     because the title is not in the English "Name on X: ..." format. -->
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Jane Doe さんの記事</title>
+    <meta property="og:title" content="Jane DoeさんはXを使っています：「記事のタイトル」">
+</head>
+<body>
+    <div data-testid="twitterArticleRichTextView">
+        <div data-testid="twitter-article-title">Lorem Ipsum Dolor Sit Amet</div>
+        <div class="longform-unstyled">
+            <div class="public-DraftStyleDefault-block" data-offset-key="abc123">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
