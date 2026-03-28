@@ -37,6 +37,7 @@ export interface DefuddleResponse extends DefuddleMetadata {
 	extractorType?: string;
 	metaTags?: MetaTagItem[];
 	debug?: DebugInfo;
+	profile?: Record<string, number>;
 	variables?: { [key: string]: string };
 }
 
@@ -139,6 +140,11 @@ export interface DefuddleOptions {
 	 * - false: exclude all replies
 	 */
 	includeReplies?: boolean | 'extractors';
+
+	/**
+	 * Enable per-step profiling. Timings are returned in result.profile.
+	 */
+	profile?: boolean;
 }
 
 export interface ExtractorVariables {

@@ -8,7 +8,7 @@ describe('Performance', () => {
 	const fixtures = getFixtures();
 
 	test('parse time per fixture (total including DOM parsing)', async () => {
-		const results: { name: string; parseTime: number; domTime: number; totalTime: number; size: number }[] = [];
+		const results: { name: string; parseTime: number; domTime: number; totalTime: number; size: number; profile: Record<string, number> }[] = [];
 
 		for (const { name, path } of fixtures) {
 			const html = readFileSync(path, 'utf-8');
@@ -24,7 +24,7 @@ describe('Performance', () => {
 
 			// Measure Defuddle parsing
 			const defuddleStart = performance.now();
-			const defuddle = new DefuddleClass(doc, { url });
+			const defuddle = new DefuddleClass(doc, { url, profile: true });
 			const result = await defuddle.parseAsync();
 			const defuddleTime = performance.now() - defuddleStart;
 
@@ -35,7 +35,8 @@ describe('Performance', () => {
 				parseTime: Math.round(defuddleTime),
 				domTime: Math.round(domTime),
 				totalTime: Math.round(totalTime),
-				size: html.length
+				size: html.length,
+				profile: result.profile ?? {}
 			});
 		}
 
@@ -57,5 +58,25 @@ describe('Performance', () => {
 		const totalAll = results.reduce((sum, r) => sum + r.totalTime, 0);
 		console.log(`\n  Total:  ${totalAll}ms (DOM: ${totalDom}ms, Parse: ${totalParse}ms)  Count: ${results.length}`);
 		console.log(`  DOM is ${((totalDom / totalAll) * 100).toFixed(0)}% of total time`);
+
+		// Aggregate per-step totals across all fixtures
+		const stepTotals: Record<string, number> = {};
+		for (const r of results) {
+			for (const [step, ms] of Object.entries(r.profile)) {
+				stepTotals[step] = (stepTotals[step] ?? 0) + ms;
+			}
+		}
+
+		const steps = Object.entries(stepTotals).sort((a, b) => b[1] - a[1]);
+		const profileTotal = steps.reduce((sum, [, ms]) => sum + ms, 0);
+
+		console.log('\n=== Per-Step Totals (across all fixtures) ===');
+		console.log('    ms    %   Step');
+		console.log('  ----  ---   ----');
+		for (const [step, ms] of steps) {
+			const pct = profileTotal > 0 ? ((ms / profileTotal) * 100).toFixed(0) : '0';
+			console.log(`  ${ms.toString().padStart(4)}  ${pct.toString().padStart(3)}%  ${step}`);
+		}
+		console.log(`  ${profileTotal.toString().padStart(4)}       total`);
 	});
 });

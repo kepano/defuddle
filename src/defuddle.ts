@@ -464,6 +464,15 @@ export class Defuddle {
 	 */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
 		const startTime = Date.now();
+		const profile: Record<string, number> = {};
+		const doProfile = this.options.profile ?? false;
+		const profileStep = <T>(name: string, fn: () => T): T => {
+			if (!doProfile) return fn();
+			const t = performance.now();
+			const result = fn();
+			profile[name] = Math.round(performance.now() - t);
+			return result;
+		};
 
 		// Guard against empty/broken documents (e.g. empty HTML, bot-blocked pages)
 		if (!this.doc.documentElement) {
@@ -545,43 +554,49 @@ export class Defuddle {
 			const smallImages = this._smallImages;
 
 			// Clone document
-			const clone = this.doc.cloneNode(true) as Document;
-
-			// Merge adjacent text nodes that some DOM implementations (e.g. linkedom)
-			// create when parsing HTML entities like &#39;
-			clone.body?.normalize();
+			let clone!: Document;
+			profileStep('cloneDocument', () => {
+				clone = this.doc.cloneNode(true) as Document;
+				// Merge adjacent text nodes that some DOM implementations (e.g. linkedom)
+				// create when parsing HTML entities like &#39;
+				clone.body?.normalize();
+			});
 
 			// Flatten shadow DOM content into the clone
-			this.flattenShadowRoots(this.doc, clone);
+			profileStep('flattenShadowRoots', () => this.flattenShadowRoots(this.doc, clone));
 
 			// Resolve React streaming SSR suspense boundaries
-			this.resolveStreamedContent(clone);
+			profileStep('resolveStreamedContent', () => this.resolveStreamedContent(clone));
 
 			// Apply mobile styles to clone
-			this.applyMobileStyles(clone, mobileStyles);
+			profileStep('applyMobileStyles', () => this.applyMobileStyles(clone, mobileStyles));
 
 			// Find main content
-			let mainContent: Element | null = null;
-			if (options.contentSelector) {
-				mainContent = clone.querySelector(options.contentSelector);
-				this._log('Using contentSelector:', options.contentSelector, mainContent ? 'found' : 'not found');
-			}
-			if (!mainContent) {
-				mainContent = this.findMainContent(clone);
-			}
+			const mainContent = profileStep('findMainContent', (): Element | null => {
+				let found: Element | null = null;
+				if (options.contentSelector) {
+					found = clone.querySelector(options.contentSelector);
+					this._log('Using contentSelector:', options.contentSelector, found ? 'found' : 'not found');
+				}
+				if (!found) {
+					found = this.findMainContent(clone);
+				}
 
-			// If we fell back to <body>, try using schema.org articleBody/text
-			// to find a more specific content element within the DOM.
-			if (mainContent && mainContent.tagName.toLowerCase() === 'body') {
-				const schemaText = this._getSchemaText(schemaOrgData);
-				if (schemaText) {
-					const schemaContent = this._findElementBySchemaText(clone.body, schemaText);
-					if (schemaContent) {
-						this._log('Found content element via schema.org text');
-						mainContent = schemaContent;
+				// If we fell back to <body>, try using schema.org articleBody/text
+				// to find a more specific content element within the DOM.
+				if (found && found.tagName.toLowerCase() === 'body') {
+					const schemaText = this._getSchemaText(schemaOrgData);
+					if (schemaText) {
+						const schemaContent = this._findElementBySchemaText(clone.body, schemaText);
+						if (schemaContent) {
+							this._log('Found content element via schema.org text');
+							found = schemaContent;
+						}
 					}
 				}
-			}
+				return found;
+			});
+
 			if (!mainContent) {
 				const fallbackContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
 				const endTime = Date.now();
@@ -597,64 +612,79 @@ export class Defuddle {
 			// Remove h1-adjacent date/author metadata blocks from the content.
 			// These are extracted as frontmatter but also appear in the body when a
 			// wide container (e.g. <main>) is selected as the content element.
-			if (metadata.published || metadata.author) {
-				removeMetadataBlock(mainContent);
-			}
-
-			// Remove <wbr> elements — word break opportunity hints that carry no
-			// content but cause unwanted whitespace during standardization.
-			mainContent.querySelectorAll('wbr').forEach(el => el.remove());
+			profileStep('removeMetadataBlock', () => {
+				if (metadata.published || metadata.author) {
+					removeMetadataBlock(mainContent!);
+				}
+				// Remove <wbr> elements — word break opportunity hints that carry no
+				// content but cause unwanted whitespace during standardization.
+				mainContent!.querySelectorAll('wbr').forEach(el => el.remove());
+			});
 
 			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
-			if (options.standardize) {
-				standardizeFootnotes(mainContent);
-				standardizeCallouts(mainContent);
-			}
+			profileStep('standardizeFootnotesCallouts', () => {
+				if (options.standardize) {
+					standardizeFootnotes(mainContent!);
+					standardizeCallouts(mainContent!);
+				}
+			});
 
 			// Remove small images
-			if (options.removeSmallImages) {
-				removeSmallImages(clone, smallImages, this.debug);
-			}
+			profileStep('removeSmallImages', () => {
+				if (options.removeSmallImages) {
+					removeSmallImages(clone, smallImages, this.debug);
+				}
+			});
 
 			// Remove hidden elements using computed styles
-			if (options.removeHiddenElements) {
-				removeHiddenElements(clone, this.debug, debugRemovals);
-			}
+			profileStep('removeHiddenElements', () => {
+				if (options.removeHiddenElements) {
+					removeHiddenElements(clone, this.debug, debugRemovals);
+				}
+			});
 
 			// Remove clutter using selectors — deterministic removal of known
 			// non-content elements (nav, footer, .sidebar, etc.) by class/id.
 			// Runs before scoring so the heuristic scorer sees a cleaner DOM.
-			if (options.removeExactSelectors || options.removePartialSelectors) {
-				removeBySelector(
-					clone,
-					this.debug,
-					options.removeExactSelectors,
-					options.removePartialSelectors,
-					mainContent,
-					debugRemovals,
-					options.removeHiddenElements === false
-				);
-			}
+			profileStep('removeBySelector', () => {
+				if (options.removeExactSelectors || options.removePartialSelectors) {
+					removeBySelector(
+						clone,
+						this.debug,
+						options.removeExactSelectors,
+						options.removePartialSelectors,
+						mainContent!,
+						debugRemovals,
+						options.removeHiddenElements === false
+					);
+				}
+			});
 
 			// Remove non-content blocks by scoring — heuristic removal based
 			// on link density, text ratios, and navigation indicators.
-			if (options.removeLowScoring) {
-				ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent);
-			}
+			profileStep('removeLowScoring', () => {
+				if (options.removeLowScoring) {
+					ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent!);
+				}
+			});
 
 			// Remove elements by content patterns (read time, boilerplate, article cards)
-			if (options.removeContentPatterns && mainContent) {
-				const url = this.options.url || this.doc.URL || '';
-				removeByContentPattern(mainContent, this.debug, url, debugRemovals);
-			}
+			profileStep('removeByContentPattern', () => {
+				if (options.removeContentPatterns && mainContent) {
+					const url = this.options.url || this.doc.URL || '';
+					removeByContentPattern(mainContent!, this.debug, url, debugRemovals);
+				}
+			});
 
 			// Normalize the main content
-			if (options.standardize) {
-				standardizeContent(mainContent, metadata, this.doc, this.debug);
-			}
+			profileStep('standardizeContent', () => {
+				if (options.standardize) {
+					standardizeContent(mainContent!, metadata, this.doc, this.debug);
+				}
+			});
 
 			// Resolve relative URLs to absolute
-			this.resolveRelativeUrls(mainContent);
+			profileStep('resolveRelativeUrls', () => this.resolveRelativeUrls(mainContent!));
 
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();
@@ -672,6 +702,10 @@ export class Defuddle {
 					contentSelector: this.getElementSelector(mainContent),
 					removals: debugRemovals
 				};
+			}
+
+			if (this.options.profile) {
+				result.profile = profile;
 			}
 
 			return result;
