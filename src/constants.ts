@@ -17,6 +17,7 @@ export const ENTRY_POINT_ELEMENTS = [
 	'[role="article"]',
 	'main',
 	'[role="main"]',
+	'.article-body',
 	'#content',
 	'body' // ensures there is always a match
 ];

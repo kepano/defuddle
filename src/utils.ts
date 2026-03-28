@@ -27,7 +27,7 @@ export function isCommentNode(node: Node): node is Comment {
 
 export function getComputedStyle(element: Element): CSSStyleDeclaration | null {
 	const win = getWindow(element.ownerDocument);
-	if (!win) return null;
+	if (!win || typeof win.getComputedStyle !== 'function') return null;
 	return win.getComputedStyle(element);
 }
 

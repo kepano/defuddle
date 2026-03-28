@@ -43,18 +43,28 @@ class FootnoteHandler {
 			paragraph.appendChild(parseHTML(doc, content));
 			newItem.appendChild(paragraph);
 		} else {
+			const BLOCK_TAGS = new Set(['div', 'section', 'article', 'aside', 'blockquote', 'dl', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'table', 'ul']);
 			const children = Array.from(content.children) as any[];
 			const hasParagraphs = children.some((c: any) => c.tagName.toLowerCase() === 'p');
-			if (!hasParagraphs) {
-				// No paragraph structure — wrap all content (including text nodes) in a single paragraph
+			const hasBlockChildren = children.some((c: any) => BLOCK_TAGS.has(c.tagName.toLowerCase()));
+			if (!hasParagraphs && !hasBlockChildren) {
+				// No paragraph or block structure — wrap all content (including text nodes) in a single paragraph
 				const paragraph = doc.createElement('p');
 				transferContent(content, paragraph);
 				this.removeBackrefs(paragraph);
 				newItem.appendChild(paragraph);
+			} else if (!hasParagraphs && hasBlockChildren) {
+				// Block children but no paragraphs — append directly to avoid <p><div> invalid nesting
+				children.forEach((child: any) => {
+					const clone = child.cloneNode(true);
+					this.removeBackrefs(clone);
+					newItem.appendChild(clone);
+				});
 			} else {
 				// Copy direct children in order, preserving non-paragraph elements (lists, blockquotes, etc.)
 				children.forEach((child: any) => {
 					if (child.tagName.toLowerCase() === 'p') {
+						if (!child.textContent?.trim() && !child.querySelector('img, br')) return;
 						const newP = doc.createElement('p');
 						transferContent(child, newP);
 						this.removeBackrefs(newP);
@@ -280,8 +290,9 @@ class FootnoteHandler {
 						const clone = el.cloneNode(true);
 
 						// Remove any empty child anchor used as an ID marker (e.g. <a id="r1"></a>)
+						// Also remove anchors whose text is just a numeric marker (e.g. <a id="r1">1.</a>)
 						const idAnchor = clone.querySelector(`a[id="${id}"]`);
-						if (idAnchor && !idAnchor.textContent?.trim()) {
+						if (idAnchor && (!idAnchor.textContent?.trim() || /^\d+[.)]*\s*$/.test(idAnchor.textContent.trim()))) {
 							idAnchor.remove();
 						}
 
