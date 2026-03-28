@@ -301,14 +301,27 @@ export const codeBlockRules = [
 						return '';
 					}
 
-					// Two-child div where the first child is all-digits (line number gutter).
+					// react-syntax-highlighter inline line number spans are interspersed
+					// directly in the code content; skip them.
+					if (element.matches('.react-syntax-highlighter-line-number')) {
+						return '';
+					}
+
+					// Rouge (Jekyll) line-number gutter lives in a separate table cell;
+					// skip it so only the code column is extracted.
+					if (element.matches('.rouge-gutter')) {
+						return '';
+					}
+
+					// Two-child div/span where the first child is all-digits (line number gutter).
 					// Some code viewers render each line as a row with a numeric gutter in
-					// the first child and the actual code in the second (e.g. flex-row layout).
+					// the first child and the actual code in the second (e.g. flex-row layout,
+					// or Chroma inline line numbers: <span style="display:flex"><span>N</span><span>code</span></span>).
 					// Without this, extractStructuredText concatenates them as "1AGENTS.md".
-					if (element.tagName === 'DIV' && element.children.length === 2) {
+					if ((element.tagName === 'DIV' || element.tagName === 'SPAN') && element.children.length === 2) {
 						const gutter = (element.children[0].textContent || '').trim();
 						if (/^\d+$/.test(gutter)) {
-							return extractStructuredText(element.children[1]) + '\n';
+							return extractStructuredText(element.children[1]).replace(/\n$/, '') + '\n';
 						}
 					}
 
