@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Equation cross-references should not become footnotes</title>
+</head>
+<body>
+  <!--
+    Pages with equation/theorem cross-references use bare <a href="#anchor">N</a>
+    links where the targets are named anchors scattered throughout the body.
+    These should NOT be converted to footnote markers [^N] — there is no footnote list.
+  -->
+  <article>
+    <h1>Equation cross-references should not become footnotes</h1>
+
+    <p>By the residue theorem (see <a href="#thm-residue">1</a>), the contour
+    integral can be evaluated. Combined with the Bernstein expansion
+    (<a href="#bernstein-exp">2</a>), this yields the bound.</p>
+
+    <p>A stronger result follows from the triangle inequality
+    (<a href="#triangle-ineq">3</a>) applied to the decomposition below.</p>
+
+    <h3><a name="thm-residue"></a>Theorem 1 (Residue Theorem)</h3>
+    <p>For any meromorphic function f and a contour C...</p>
+
+    <h3><a name="bernstein-exp"></a>Lemma 2 (Bernstein Expansion)</h3>
+    <p>Let P be a polynomial of degree n. Then for any z with |z| = 1...</p>
+
+    <ul>
+      <li><a name="triangle-ineq"></a>Exercise 3. Use the triangle inequality to show that...</li>
+    </ul>
+  </article>
+</body>
+</html>

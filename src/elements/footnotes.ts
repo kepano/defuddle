@@ -201,12 +201,6 @@ class FootnoteHandler {
 				const text = a.textContent?.trim() || '';
 				if (!/^\[?\(?\d{1,4}\)?\]?$/.test(text)) return;
 
-				// Must be inside a sup or span to look like a footnote ref
-				const parent = a.parentElement;
-				if (!parent) return;
-				const parentTag = parent.tagName.toLowerCase();
-				if (parentTag !== 'sup' && parentTag !== 'span' && a.tagName.toLowerCase() !== 'a') return;
-
 				if (!candidateRefs.has(fragment)) {
 					candidateRefs.set(fragment, []);
 				}
@@ -220,7 +214,7 @@ class FootnoteHandler {
 				let bestContainer: any = null;
 				let bestMatchCount = 0;
 
-				containers.forEach((container: any) => {
+					containers.forEach((container: any) => {
 					// Skip containers that are the main content element itself
 					if (container === element) return;
 
@@ -232,8 +226,21 @@ class FootnoteHandler {
 				});
 
 				if (bestContainer) {
-					// Step 3: Extract footnotes from the container in document order
+					// Validate: require >=75% of external candidate refs (anchors outside the container,
+					// i.e. not back-links) to point to footnote elements in this container.
+					// This prevents equation/theorem cross-references in the body from being
+					// mis-classified as footnotes when only a subset link to any one container.
 					const orderedElements = this.findMatchingFootnoteElements(bestContainer, fragmentSet);
+					const footnoteFragments = new Set(orderedElements.map(({ id }) => id));
+					let externalTotal = 0, externalMatch = 0;
+					candidateRefs.forEach((anchors: any[], frag: string) => {
+						if (anchors.some((a: any) => bestContainer.contains(a))) return; // back-link
+						externalTotal++;
+						if (footnoteFragments.has(frag)) externalMatch++;
+					});
+					if (externalMatch < Math.max(2, Math.ceil(externalTotal * 0.75))) bestContainer = null;
+
+					// Step 3: Extract footnotes from the container in document order
 
 					// Step 4: Handle multi-paragraph footnotes (group consecutive non-ID elements)
 					orderedElements.forEach(({ el, id }) => {
