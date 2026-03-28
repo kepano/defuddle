@@ -914,6 +914,7 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'ul.ltx_biblist',
 	'div.footnote[data-component-name="FootnoteToDOM"]', // Substack
 	'div.footnotes-footer', // Wikidot
+	'div.footnote-definitions',
 	'#footnotes' // standardizeFootnotes output container
 ].join(',');
 

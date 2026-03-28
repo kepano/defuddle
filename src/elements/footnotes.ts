@@ -21,6 +21,7 @@ class FootnoteHandler {
 	private doc: any;
 	private genericContainer: any = null;
 	private genericElements: any[] = [];
+	private extraContainersToRemove: any[] = [];
 
 	constructor(doc: any) {
 		this.doc = doc;
@@ -121,6 +122,34 @@ class FootnoteHandler {
 						}
 					}
 				});
+				return;
+			}
+
+			// Hugo/org-mode: div.footnote-definitions containing div.footnote-definition children
+			// Each child: <sup id="footnote-N"><a href="#footnote-reference-N">N</a></sup>
+			//              <div class="footnote-body"><p>content</p></div>
+			if (list.matches('div.footnote-definitions')) {
+				const defs = list.querySelectorAll('div.footnote-definition');
+				defs.forEach((def: any) => {
+					const supEl = def.querySelector('sup[id]');
+					const body = def.querySelector('.footnote-body');
+					if (!supEl || !body) return;
+					const id = (supEl.id || '').toLowerCase();
+					if (!id || processedIds.has(id)) return;
+					footnotes[footnoteCount] = {
+						content: body.cloneNode(true),
+						originalId: id,
+						refs: []
+					};
+					processedIds.add(id);
+					footnoteCount++;
+				});
+				// Also schedule the parent wrapper (e.g. div.footnotes) for removal
+				// so the <hr> separator inside it doesn't remain in the output.
+				const parent = list.parentElement;
+				if (parent && parent !== element && parent.classList?.contains('footnotes')) {
+					this.extraContainersToRemove.push(parent);
+				}
 				return;
 			}
 
@@ -588,7 +617,16 @@ class FootnoteHandler {
 	collectInlineSidenotes(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container, span.inline-footnote');
-		if (containers.length === 0) return footnotes;
+
+		// Remove standalone sidenote spans that aren't inside a handled container.
+		// These appear as siblings of footnote reference sups (e.g. Hugo/org-mode sites)
+		// and duplicate content already in the formal footnote list.
+		if (containers.length === 0) {
+			element.querySelectorAll('span.sidenote').forEach((sidenote: any) => {
+				sidenote.remove();
+			});
+			return footnotes;
+		}
 
 		let footnoteCount = 1;
 		containers.forEach((container: any) => {
@@ -982,6 +1020,12 @@ class FootnoteHandler {
 			this.genericContainer.remove();
 		}
 		this.genericElements.forEach((el: any) => {
+			if (el.parentNode) el.remove();
+		});
+
+		// Remove outer wrapper containers tracked during collection
+		// (e.g. div.footnotes wrapping a div.footnote-definitions)
+		this.extraContainersToRemove.forEach((el: any) => {
 			if (el.parentNode) el.remove();
 		});
 
