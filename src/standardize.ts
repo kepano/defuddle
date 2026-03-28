@@ -25,6 +25,8 @@ let _debug = false;
 interface StandardizationRule {
 	selector: string;
 	element: string;
+	/** Cheap querySelector guard — skip the full selector scan if this returns null */
+	fastCheck?: string;
 	transform?: (el: Element, doc: Document) => Element;
 }
 
@@ -144,79 +146,55 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	}
 ];
 
-export function standardizeContent(element: Element, metadata: DefuddleMetadata, doc: Document, debug: boolean = false): void {
+export function standardizeContent(element: Element, metadata: DefuddleMetadata, doc: Document, debug: boolean = false, subProfile?: Record<string, number>): void {
 	_debug = debug;
 
-	standardizeSpaces(element);
+	const step = subProfile
+		? <T>(name: string, fn: () => T): T => {
+			const t = performance.now();
+			const r = fn();
+			subProfile[name] = (subProfile[name] ?? 0) + Math.round(performance.now() - t);
+			return r;
+		}
+		: <T>(_: string, fn: () => T): T => fn();
 
-	// Remove HTML comments
-	removeHtmlComments(element);
+	step('standardizeSpaces', () => standardizeSpaces(element));
+	step('removeHtmlComments', () => removeHtmlComments(element));
+	step('standardizeHeadings', () => standardizeHeadings(element, metadata.title, doc));
+	step('wrapPreformattedCode', () => wrapPreformattedCode(element, doc));
+	step('standardizeElements', () => standardizeElements(element, doc, subProfile));
 
-	// Handle H1 elements - remove first one and convert others to H2
-	standardizeHeadings(element, metadata.title, doc);
-
-	// Wrap code elements with white-space: pre in <pre> before attribute stripping
-	wrapPreformattedCode(element, doc);
-
-	// Convert embedded content to standard formats
-	standardizeElements(element, doc);
-
-	// If not debug mode, do the full cleanup
 	if (!debug) {
-		// First pass of div flattening
-		flattenWrapperElements(element, doc);
+		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
+		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
+		step('unwrapBareSpans', () => unwrapBareSpans(element));
 
-		// Strip unwanted attributes
-		stripUnwantedAttributes(element, debug);
-
-		// Unwrap bare spans (no attributes remaining after stripping)
-		unwrapBareSpans(element);
-
-		// Unwrap javascript: links — keep text, remove the link
-		// Unwrap links inside inline code — markdown can't render links in backtick code
-		Array.from(element.querySelectorAll('code a')).forEach(unwrapElement);
-
-		// Unwrap javascript: links — keep text, remove the link
-		Array.from(element.querySelectorAll('a[href^="javascript:"]')).forEach(unwrapElement);
-
-		// Unwrap anchor links that wrap headings (e.g. clickable section headers)
-		Array.from(element.querySelectorAll('a[href^="#"]')).forEach(link => {
-			if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
-				unwrapElement(link);
-			}
+		step('unwrapSpecialLinks', () => {
+			// Unwrap links inside inline code — markdown can't render links in backtick code
+			Array.from(element.querySelectorAll('code a')).forEach(unwrapElement);
+			// Unwrap javascript: links — keep text, remove the link
+			Array.from(element.querySelectorAll('a[href^="javascript:"]')).forEach(unwrapElement);
+			// Unwrap anchor links that wrap headings (e.g. clickable section headers)
+			Array.from(element.querySelectorAll('a[href^="#"]')).forEach(link => {
+				if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
+					unwrapElement(link);
+				}
+			});
 		});
 
-		// Remove heading anchor links (e.g. <h2>Title<a href="#title">#</a></h2>)
-		removeHeadingAnchors(element);
-
-		// Remove obsolete plugin elements
-		element.querySelectorAll('object, embed, applet').forEach(el => el.remove());
-
-		// Remove empty elements
-		removeEmptyElements(element);
-
-		// Remove trailing headings
-		removeTrailingHeadings(element);
-
-		// Remove orphaned leading/trailing <hr> elements
-		removeOrphanedDividers(element);
-
-		// Final pass of div flattening after cleanup operations
-		flattenWrapperElements(element, doc);
-
-		// Run again: flattening may have promoted a nested <hr> to the leading position
-		removeOrphanedDividers(element);
-
-		// Standardize consecutive br elements
-		stripExtraBrElements(element);
-
-		// Clean up empty lines
-		removeEmptyLines(element, doc);
+		step('removeHeadingAnchors', () => removeHeadingAnchors(element));
+		step('removeObsoleteElements', () => element.querySelectorAll('object, embed, applet').forEach(el => el.remove()));
+		step('removeEmptyElements', () => removeEmptyElements(element));
+		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
+		step('removeOrphanedDividers[1]', () => removeOrphanedDividers(element));
+		step('flattenWrapperElements[2]', () => flattenWrapperElements(element, doc));
+		step('removeOrphanedDividers[2]', () => removeOrphanedDividers(element));
+		step('stripExtraBrElements', () => stripExtraBrElements(element));
+		step('removeEmptyLines', () => removeEmptyLines(element, doc));
 	} else {
-		// In debug mode, still do basic cleanup but preserve structure
-		stripUnwantedAttributes(element, debug);
-		removeTrailingHeadings(element);
-		stripExtraBrElements(element);
+		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
+		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
+		step('stripExtraBrElements', () => stripExtraBrElements(element));
 		logDebug(_debug, 'Debug mode: Skipping div flattening to preserve structure');
 	}
 }
@@ -774,26 +752,38 @@ function removeEmptyLines(element: Element, doc: Document): void {
 	});
 }
 
-function standardizeElements(element: Element, doc: Document): void {
+function standardizeElements(element: Element, doc: Document, subProfile?: Record<string, number>): void {
 	let processedCount = 0;
+	const stepSE = subProfile
+		? <T>(name: string, fn: () => T): T => {
+			const t = performance.now();
+			const r = fn();
+			subProfile['se:' + name] = (subProfile['se:' + name] ?? 0) + Math.round(performance.now() - t);
+			return r;
+		}
+		: <T>(_: string, fn: () => T): T => fn();
 
 	// Convert elements based on standardization rules
 	ELEMENT_STANDARDIZATION_RULES.forEach(rule => {
-		let elements: NodeListOf<Element>;
-		try {
-			elements = element.querySelectorAll(rule.selector);
-		} catch (e) {
-			// Some selectors use :has() which isn't supported by jsdom/nwsapi.
-			// Skip the rule gracefully in those environments.
-			return;
-		}
-		elements.forEach(el => {
-			if (rule.transform) {
-				// If there's a transform function, use it to create the new element
-				const transformed = rule.transform(el, doc);
-				el.replaceWith(transformed);
-				processedCount++;
+		const selectorKey = rule.selector.substring(0, 30);
+		stepSE(selectorKey, () => {
+			if (rule.fastCheck && !element.querySelector(rule.fastCheck)) return;
+			let elements: NodeListOf<Element>;
+			try {
+				elements = element.querySelectorAll(rule.selector);
+			} catch (e) {
+				// Some selectors use :has() which isn't supported by jsdom/nwsapi.
+				// Skip the rule gracefully in those environments.
+				return;
 			}
+			elements.forEach(el => {
+				if (rule.transform) {
+					// If there's a transform function, use it to create the new element
+					const transformed = rule.transform(el, doc);
+					el.replaceWith(transformed);
+					processedCount++;
+				}
+			});
 		});
 	});
 

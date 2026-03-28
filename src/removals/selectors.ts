@@ -5,7 +5,6 @@ import {
 	PARTIAL_SELECTORS,
 	PARTIAL_SELECTORS_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
-	TEST_ATTRIBUTES,
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
@@ -69,15 +68,17 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			}
 
 			// Get all relevant attributes and combine into a single string
-			const attrs = TEST_ATTRIBUTES.map(attr => {
-				if (attr === 'class') {
-					return getClassName(el);
-				}
-				if (attr === 'id') {
-					return el.id || '';
-				}
-				return el.getAttribute(attr) || '';
-			}).join(' ').toLowerCase();
+			// (Hardcoded to match TEST_ATTRIBUTES in constants.ts — avoids array allocation per element)
+			const attrs = (
+				getClassName(el) + ' ' +
+				(el.id || '') + ' ' +
+				(el.getAttribute('data-component') || '') + ' ' +
+				(el.getAttribute('data-test') || '') + ' ' +
+				(el.getAttribute('data-testid') || '') + ' ' +
+				(el.getAttribute('data-test-id') || '') + ' ' +
+				(el.getAttribute('data-qa') || '') + ' ' +
+				(el.getAttribute('data-cy') || '')
+			).toLowerCase();
 
 			// Skip if no attributes to check
 			if (!attrs.trim()) {

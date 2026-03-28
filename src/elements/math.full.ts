@@ -4,7 +4,8 @@ import {
 	getMathMLFromElement,
 	getBasicLatexFromElement,
 	isBlockDisplay,
-	mathSelectors
+	mathSelectors,
+	mathFastCheck
 } from './math.base';
 import { parseHTML, transferContent } from '../utils/dom';
 
@@ -73,6 +74,7 @@ export const mathRules = [
 	{
 		selector: mathSelectors,
 		element: 'math',
+		fastCheck: mathFastCheck,
 		transform: (el: Element): Element => {
 			if (!('classList' in el) || !('getAttribute' in el) || !('querySelector' in el)) {
 				return el;

@@ -186,6 +186,10 @@ export const isBlockDisplay = (el: Element): boolean => {
 	return false;
 };
 
+// Cheap presence check before running the full mathSelectors scan.
+// Must remain a subset of mathSelectors — every selector here should also appear there.
+export const mathFastCheck = 'math, mjx-container, .MathJax, .katex, img.latex, [data-math], [data-latex], script[type^="math/"]';
+
 // Shared selector for math elements
 export const mathSelectors = [
 	// WordPress LaTeX images
