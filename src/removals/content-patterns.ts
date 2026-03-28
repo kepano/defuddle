@@ -254,135 +254,87 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	const contentText = mainContent.textContent || '';
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 
-	// Remove article metadata header blocks near the top of content.
-	// Catches sites that use a <div> containing only a short date string and category
-	// links instead of semantic <time> elements — common in Tailwind-based blog layouts.
+	// Single pass over candidates for all metadata-removal checks.
+	// Shared work (text extraction, word count, closest check, indexOf) is computed
+	// once per element instead of once per loop per element.
+	let bylineFound = false;
+	let authorDateFound = false;
+
 	for (const el of candidates) {
 		if (!el.parentNode) continue;
-		if (el.tagName !== 'DIV') continue;
-		if (el.closest('pre, code')) continue;
-
-		const text = el.textContent?.trim() || '';
-		const words = countWords(text);
-		if (words > 10 || words < 1) continue;
-		if (!CONTENT_DATE_PATTERN.test(text)) continue;
-		if (contentText.indexOf(text) > 400) continue;
-		if (Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) continue;
-		if (/[.!?]/.test(text)) continue;
-
-		if (debug && debugRemovals) {
-			debugRemovals.push({
-				step: 'removeByContentPattern',
-				reason: 'article metadata header block',
-				text: textPreview(el)
-			});
-		}
-		el.remove();
-	}
-
-	// Remove standalone author bylines near the start of content.
-	// Catches "By [Name, Title]" paragraphs on sites that list author separately
-	// from the date (so the existing author+date byline removal doesn't fire).
-	for (const el of candidates) {
-		if (!el.parentNode) continue;
-		if (el.closest('pre, code')) continue;
-
-		const text = el.textContent?.trim() || '';
-		if (!STARTS_WITH_BY_PATTERN.test(text)) continue;
-
-		const words = countWords(text);
-		if (words < 2 || words > 15) continue;
-		if (contentText.indexOf(text) > 600) continue;
-		if (/[.!?]$/.test(text)) continue;
-
-		const target = walkUpToWrapper(el, text, mainContent);
-		if (debug && debugRemovals) {
-			debugRemovals.push({
-				step: 'removeByContentPattern',
-				reason: 'author byline',
-				text: textPreview(target)
-			});
-		}
-		target.remove();
-		break;
-	}
-
-	// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read")
-	// Only removes leaf elements whose text is PURELY date + read time,
-	// not mixed with other meaningful content like tag names.
-	for (const el of candidates) {
-		if (!el.parentNode) continue;
-		if (el.closest('pre, code')) continue;
 
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 
-		// Match date + read time in short elements
-		if (words <= 15 && CONTENT_DATE_PATTERN.test(text) && CONTENT_READ_TIME_PATTERN.test(text)) {
-			// Ensure this is a leaf-ish element, not a large container
-			if (el.querySelectorAll('p, div, section, article').length === 0) {
-				// Verify the text is ONLY date + read time metadata
-				// by stripping all date/time words and checking nothing remains
-				let cleaned = text;
-				for (const pattern of READ_TIME_STRIP_PATTERNS) {
-					cleaned = cleaned.replace(pattern, '');
-				}
-				if (cleaned.trim().length > 0) continue;
+		// All checks target short metadata elements; skip anything clearly too long.
+		if (words > 15 || words === 0) continue;
 
+		if (el.closest('pre, code')) continue;
+
+		const tag = el.tagName;
+		const hasDate = CONTENT_DATE_PATTERN.test(text);
+		// Defer indexOf — only compute when a check needs it
+		let pos = -2; // sentinel: not yet computed
+		const getPos = () => { if (pos === -2) pos = contentText.indexOf(text); return pos; };
+
+		// Remove article metadata header blocks (DIV only) near the top of content.
+		// Catches Tailwind-based blog layouts with non-semantic date+category divs.
+		if (tag === 'DIV' && words >= 1 && words <= 10 && hasDate && !/[.!?]/.test(text) && getPos() <= 400) {
+			if (!Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) {
 				if (debug && debugRemovals) {
-					debugRemovals.push({
-						step: 'removeByContentPattern',
-						reason: 'read time metadata',
-						text: textPreview(el)
-					});
+					debugRemovals.push({ step: 'removeByContentPattern', reason: 'article metadata header block', text: textPreview(el) });
 				}
 				el.remove();
+				continue;
 			}
 		}
-	}
 
-	// Remove author + date bylines near the start of content.
-	// Short elements whose text is ONLY a person name + date + separators,
-	// in any order. Catches Tailwind/CSS-in-JS sites with non-semantic
-	// class names that can't be matched by selector removal.
-	for (const el of candidates) {
-		if (!el.parentNode) continue;
-		if (el.closest('pre, code')) continue;
-
-		const text = el.textContent?.trim() || '';
-		const words = countWords(text);
-		if (words > 10 || words < 2) continue;
-
-		// Must contain a date — without one, short capitalized text
-		// could be a heading or label, not a byline.
-		if (!CONTENT_DATE_PATTERN.test(text)) continue;
-
-		// Strip date, year, separators, and "by" — if only
-		// capitalized name-like words remain, this is a byline.
-		let residual = text;
-		for (const pattern of BYLINE_STRIP_PATTERNS) {
-			residual = residual.replace(pattern, '');
+		// Remove standalone "By [Name]" author bylines near the start of content.
+		if (!bylineFound && STARTS_WITH_BY_PATTERN.test(text) && words >= 2 && !/[.!?]$/.test(text) && getPos() <= 600) {
+			const target = walkUpToWrapper(el, text, mainContent);
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'author byline', text: textPreview(target) });
+			}
+			target.remove();
+			bylineFound = true;
+			continue;
 		}
-		residual = residual.trim();
-		if (!residual) continue;
-		const nameWords = residual.split(/\s+/).filter(w => w.length > 0);
-		if (nameWords.length === 0 || nameWords.length > 4) continue;
-		if (!nameWords.every(w => BYLINE_UPPERCASE_PATTERN.test(w))) continue;
 
-		// Must be near the start of content
-		const pos = contentText.indexOf(text);
-		if (pos > 500) continue;
-
-		const target = walkUpToWrapper(el, text, mainContent);
-		if (debug && debugRemovals) {
-			debugRemovals.push({
-				step: 'removeByContentPattern',
-				reason: 'author date metadata',
-				text: textPreview(target)
-			});
+		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read").
+		if (hasDate && CONTENT_READ_TIME_PATTERN.test(text) && el.querySelectorAll('p, div, section, article').length === 0) {
+			let cleaned = text;
+			for (const pattern of READ_TIME_STRIP_PATTERNS) {
+				cleaned = cleaned.replace(pattern, '');
+			}
+			if (cleaned.trim().length === 0) {
+				if (debug && debugRemovals) {
+					debugRemovals.push({ step: 'removeByContentPattern', reason: 'read time metadata', text: textPreview(el) });
+				}
+				el.remove();
+				continue;
+			}
 		}
-		target.remove();
-		break;
+
+		// Remove author + date bylines (name + date, any order) near the start.
+		if (!authorDateFound && words >= 2 && words <= 10 && hasDate && getPos() <= 500) {
+			let residual = text;
+			for (const pattern of BYLINE_STRIP_PATTERNS) {
+				residual = residual.replace(pattern, '');
+			}
+			residual = residual.trim();
+			if (residual) {
+				const nameWords = residual.split(/\s+/).filter(w => w.length > 0);
+				if (nameWords.length >= 1 && nameWords.length <= 4 && nameWords.every(w => BYLINE_UPPERCASE_PATTERN.test(w))) {
+					const target = walkUpToWrapper(el, text, mainContent);
+					if (debug && debugRemovals) {
+						debugRemovals.push({ step: 'removeByContentPattern', reason: 'author date metadata', text: textPreview(target) });
+					}
+					target.remove();
+					authorDateFound = true;
+					continue;
+				}
+			}
+		}
 	}
 
 	// Remove standalone time/date elements near the start or end of content.

@@ -61,6 +61,12 @@ export const headingRules = [
 				}
 			});
 
+			// Fast path: no child elements means no nav elements to remove
+			if (!el.children.length) {
+				newHeading.textContent = el.textContent?.trim() || '';
+				return newHeading;
+			}
+
 			// Clone the element so we can modify it without affecting the original
 			const clone = el.cloneNode(true) as Element;
 

@@ -679,7 +679,7 @@ export class Defuddle {
 			// Normalize the main content
 			profileStep('standardizeContent', () => {
 				if (options.standardize) {
-					standardizeContent(mainContent!, metadata, this.doc, this.debug);
+					standardizeContent(mainContent!, metadata, this.doc, this.debug, doProfile ? profile : undefined);
 				}
 			});
 

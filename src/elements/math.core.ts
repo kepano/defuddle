@@ -3,7 +3,8 @@ import {
 	getMathMLFromElement,
 	getBasicLatexFromElement as getLatexFromElement,
 	isBlockDisplay,
-	mathSelectors
+	mathSelectors,
+	mathFastCheck
 } from './math.base';
 import { parseHTML, transferContent } from '../utils/dom';
 
@@ -39,6 +40,7 @@ export const mathRules = [
 	{
 		selector: mathSelectors,
 		element: 'math',
+		fastCheck: mathFastCheck,
 		transform: (el: Element, doc: Document): Element => {
 			if (!hasHTMLElementProps(el)) return el;
 
