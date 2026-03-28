@@ -38,6 +38,10 @@ function getExpectedMarkdownPath(fixtureName: string): string {
   return join(__dirname, 'expected', `${fixtureName}.md`);
 }
 
+function getExpectedHtmlPath(fixtureName: string): string {
+  return join(__dirname, 'expected', `${fixtureName}.html`);
+}
+
 function saveExpectedResult(fixtureName: string, result: string): void {
   const expectedDir = join(__dirname, 'expected');
   if (!existsSync(expectedDir)) {
@@ -52,7 +56,15 @@ function loadExpectedResult(fixtureName: string): string | null {
   if (!existsSync(expectedPath)) {
     return null;
   }
-  
+
+  return readFileSync(expectedPath, 'utf-8');
+}
+
+function loadExpectedHtml(fixtureName: string): string | null {
+  const expectedPath = getExpectedHtmlPath(fixtureName);
+  if (!existsSync(expectedPath)) {
+    return null;
+  }
   return readFileSync(expectedPath, 'utf-8');
 }
 
@@ -100,6 +112,11 @@ describe('Fixtures Tests', () => {
 
     if (expected) {
       expect(result.trim()).toEqual(expected.trim());
+    }
+
+    const expectedHtml = loadExpectedHtml(name);
+    if (expectedHtml) {
+      expect(response.content.trim()).toEqual(expectedHtml.trim());
     }
   });
 });
