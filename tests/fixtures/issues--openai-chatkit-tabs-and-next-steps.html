@@ -1,0 +1,135 @@
+<!-- {"url":"https://developers.openai.com/api/docs/guides/chatkit"} -->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>ChatKit | OpenAI API</title>
+	</head>
+	<body>
+		<article id="mainContent" class="prose prose-content">
+			<h1>ChatKit</h1>
+			<p>ChatKit is the best way to build agentic chat experiences. Whether you’re building an internal knowledge base assistant, HR onboarding helper, research companion, shopping or scheduling assistant, troubleshooting bot, financial planning advisor, or support agent, ChatKit provides a customizable chat embed to handle all user experience details.</p>
+			<p>Use ChatKit’s embeddable UI widgets, customizable prompts, tool-invocation support, file attachments, and chain-of-thought visualizations to build agents without reinventing the chat UI.</p>
+			<ol>
+				<li>
+					<p>Render ChatKit in your UI. This code fetches the client secret from your server and mounts a live chat widget, connected to your workflow as the backend.</p>
+					<div class="code-sample not-prose _root_w8837_2 light-mode">
+						<div class="_header_w8837_34">
+							<div class="_title_w8837_42 body-small">Your frontend code</div>
+							<div class="exclude-from-copy">
+								<span class="_SelectControl_16x1r_1" role="button" tabindex="0" data-selected="true" data-state="closed">
+									<span class="_TriggerText_16x1r_506">react</span>
+								</span>
+							</div>
+						</div>
+						<div class="_body_w8837_59 _bodySmall_w8837_145 _bodyWithHeader_w8837_139">
+							<div class="code-block">
+								<pre class="hljs syntax-highlighter light-mode _pre_w8837_62" data-copy-ignore="true"><code data-language="react" style="white-space:pre">import { ChatKit, useChatKit } from '@openai/chatkit-react';
+
+export function MyChat() {
+  const { control } = useChatKit({
+    api: {
+      async getClientSecret(existing) {
+        if (existing) {
+          // implement session refresh
+        }
+
+        const res = await fetch('/api/chatkit/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        const { client_secret } = await res.json();
+        return client_secret;
+      },
+    },
+  });
+
+  return &lt;ChatKit control={control} className="h-[600px] w-[320px]" /&gt;;
+}</code></pre>
+							</div>
+							<div class="code-block hidden">
+								<pre class="hljs syntax-highlighter light-mode _pre_w8837_62" data-copy-ignore="true"><code data-language="javascript" style="white-space:pre">const chatkit = document.getElementById('my-chat');
+
+chatkit.setOptions({
+  api: {
+    getClientSecret(currentClientSecret) {
+      if (!currentClientSecret) {
+        const res = await fetch('/api/chatkit/start', { method: 'POST' })
+        const { client_secret } = await res.json();
+        return client_secret
+      }
+
+      const res = await fetch('/api/chatkit/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ currentClientSecret }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const { client_secret } = await res.json();
+      return client_secret
+    }
+  },
+});</code></pre>
+							</div>
+						</div>
+					</div>
+				</li>
+			</ol>
+			<h3 id="3-build-and-iterate" class="group flex items-center gap-1 mt-7 mb-2 scroll-mt-[110px]">
+				<span class="min-w-0">3. Build and iterate</span>
+				<button type="button" data-anchor-id="3-build-and-iterate" aria-label="Copy link to 3 build and iterate" title="Copy link to 3 build and iterate">
+					<svg></svg>
+				</button>
+			</h3>
+			<p>See the <a href="/api/docs/guides/chatkit-themes">custom theming</a>, <a href="/api/docs/guides/chatkit-widgets">widgets</a>, and <a href="/api/docs/guides/chatkit-actions">actions</a> docs to learn more about how ChatKit works. Or explore the following resources to test your chat, iterate on prompts, and add widgets and tools.</p>
+			<h4 id="see-working-examples" class="group flex items-center gap-1 mt-7 mb-2 scroll-mt-[110px]">
+				<span class="min-w-0">See working examples</span>
+				<button type="button" data-anchor-id="see-working-examples" aria-label="Copy link to see working examples" title="Copy link to see working examples">
+					<svg></svg>
+				</button>
+			</h4>
+			<a href="https://github.com/openai/openai-chatkit-advanced-samples">
+				<div class="icon-item mt-2">
+					<div class="icon-item-icon">
+						<span><svg></svg></span>
+					</div>
+					<div class="icon-item-right">
+						<div class="icon-item-title not-prose">
+							<div class="icon-item-title body-large not-prose">Samples on GitHub</div>
+							<div class="pointer"><svg></svg></div>
+						</div>
+						<div class="icon-item-desc body-small not-prose">
+							<p>See working examples of ChatKit and get inspired.</p>
+						</div>
+					</div>
+				</div>
+			</a>
+			<a href="https://github.com/openai/openai-chatkit-starter-app">
+				<div class="icon-item mt-2">
+					<div class="icon-item-icon">
+						<span><svg></svg></span>
+					</div>
+					<div class="icon-item-right">
+						<div class="icon-item-title not-prose">
+							<div class="icon-item-title body-large not-prose">Starter app repo</div>
+							<div class="pointer"><svg></svg></div>
+						</div>
+						<div class="icon-item-desc body-small not-prose">
+							<p>Clone a repo to start with a fully working template.</p>
+						</div>
+					</div>
+				</div>
+			</a>
+			<h2 id="next-steps" class="group flex items-center gap-2 mt-7 mb-2 scroll-mt-[110px]">
+				<span class="min-w-0">Next steps</span>
+				<button type="button" data-anchor-id="next-steps" aria-label="Copy link to next steps" title="Copy link to next steps">
+					<svg></svg>
+				</button>
+			</h2>
+			<p>When you’re happy with your ChatKit implementation, learn how to optimize it with <a href="/api/docs/guides/agent-evals">evals</a>. To run ChatKit on your own infrastructure, see the <a href="/api/docs/guides/custom-chatkit">advanced integration docs</a>.</p>
+		</article>
+	</body>
+</html>
