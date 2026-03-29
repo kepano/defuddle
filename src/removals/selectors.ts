@@ -12,6 +12,34 @@ import { textPreview, logDebug } from '../utils';
 import { getClassName } from '../utils/dom';
 import { shouldPreserveHiddenCodeSample } from './hidden-code';
 
+function isAccessibilityOnlyHeading(element: Element): boolean {
+	if (element.hasAttribute('hidden')) {
+		return true;
+	}
+
+	const ariaHidden = (element.getAttribute('aria-hidden') || '').toLowerCase();
+	if (ariaHidden === 'true') {
+		return true;
+	}
+
+	const className = getClassName(element).toLowerCase();
+	const hasSrOnlyClass = className.split(/\s+/).some(token => {
+		return token === 'sr-only' || token === 'visually-hidden' || token.endsWith(':sr-only');
+	});
+
+	return hasSrOnlyClass;
+}
+
+function isSemanticSectionHeading(element: Element): boolean {
+	const tagName = element.tagName.toUpperCase();
+	const isSectionHeading = tagName === 'H2' || tagName === 'H3' || tagName === 'H4';
+	if (!isSectionHeading) {
+		return false;
+	}
+
+	return !isAccessibilityOnlyHeading(element);
+}
+
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
@@ -96,10 +124,8 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				const matchedPattern = individualRegexes
 					? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 					: undefined;
-				const isHeading = /^H[1-6]$/.test(tag);
-				const matchesNextSlug = attrs.includes('next-');
-				const isNextSlugHeading = isHeading && (matchedPattern === 'next-' || matchesNextSlug);
-				if (isNextSlugHeading) {
+				const isHeading = isSemanticSectionHeading(el);
+				if (isHeading) {
 					return;
 				}
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
