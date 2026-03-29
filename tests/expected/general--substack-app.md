@@ -30,5 +30,3 @@ Platforms that host these agents become more valuable when they have rich compon
 Google's already using this across some of its experimental new products and v0.8 of the protocol is now live.
 
 Read the 🧠 Knowledge Series with technical workflows, real implementation examples, and hands-on tools: [departmentofproduct.sub…](https://departmentofproduct.substack.com/p/agent-driven-user-interfaces-explained)
-
-![](https://substackcdn.com/image/fetch/$s_!4Id3!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2Fb8fae3e6-4223-44ed-8e64-508cfe1bd090_1644x2431.png)

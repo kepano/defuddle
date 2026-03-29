@@ -142,22 +142,24 @@ export class Defuddle {
 		}
 
 		// Strip dangerous elements from this.doc before any fallback paths
-		// that read from it (e.g. _findContentBySchemaText).
-		// This must happen after parseInternal, which needs script tags
-		// for schema.org extraction, site-specific extractors, and math.
+		// that read from it. This must happen after parseInternal, which needs
+		// script tags for schema.org extraction, site-specific extractors, and math.
 		this._stripUnsafeElements();
 
-		// If schema.org has a SocialMediaPosting with text content that is
-		// significantly longer than what we extracted, the scorer likely picked
-		// the wrong element from a feed. Use a 1.5x threshold to avoid triggering
-		// when the difference is small (e.g. just related-content link text removed).
+		// If schema.org has text content that is significantly longer than what we
+		// extracted, the scorer likely picked the wrong element from a feed page.
+		// Use a 1.5x threshold to avoid triggering when the difference is small
+		// (e.g. just related-content link text removed).
 		const schemaText = this._getSchemaText(result.schemaOrgData);
 		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
-			const contentHtml = this._findContentBySchemaText(schemaText);
-			if (contentHtml) {
-				this._log('Found DOM content matching schema.org text');
-				result.content = contentHtml;
-				result.wordCount = this.countHtmlWords(contentHtml);
+			const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
+			if (bestMatch) {
+				// Re-run the full pipeline with the schema-identified element as the
+				// content root so it benefits from the same cleanup as normal extraction.
+				const selector = this.getElementSelector(bestMatch);
+				this._log('Schema.org suggests a better content element, retrying with selector:', selector);
+				const schemaRetry = this.parseInternal({ contentSelector: selector });
+				result = schemaRetry;
 			} else {
 				this._log('Using schema.org text as content (DOM element not found)');
 				result.content = schemaText;
@@ -265,63 +267,6 @@ export class Defuddle {
 		return bestMatch;
 	}
 
-	/**
-	 * Find a DOM element whose text matches the schema.org text content.
-	 * Used when the content scorer picked the wrong element from a feed page.
-	 * Returns the element's inner HTML including sibling media (images, etc.)
-	 */
-	private _findContentBySchemaText(schemaText: string): string {
-		const body = this.doc.body;
-		if (!body) return '';
-
-		const bestMatch = this._findElementBySchemaText(body, schemaText);
-		if (!bestMatch) return '';
-
-		// Read the largest sibling image src BEFORE resolveRelativeUrls
-		// can mangle comma-containing CDN URLs in srcset attributes
-		let imageSrc = '';
-		let imageAlt = '';
-		const parent = bestMatch.parentElement;
-		if (parent && parent !== body) {
-			const images = parent.querySelectorAll('img');
-			let largestImg: Element | null = null;
-			let largestArea = 0;
-			for (const img of images) {
-				if (bestMatch.contains(img)) continue;
-				const w = parseInt(img.getAttribute('width') || '0', 10);
-				const h = parseInt(img.getAttribute('height') || '0', 10);
-				const area = w * h;
-				if (area > largestArea) {
-					largestArea = area;
-					largestImg = img;
-				}
-			}
-			if (largestImg) {
-				imageSrc = this._getLargestImageSrc(largestImg);
-				imageAlt = largestImg.getAttribute('alt') || '';
-				try {
-					const baseUrl = this.options.url || this.doc.URL;
-					if (baseUrl) imageSrc = new URL(imageSrc, baseUrl).href;
-				} catch {}
-			}
-		}
-
-		// Remove heading anchor links before serialization (e.g. <h2>Title<a href="#foo">#</a></h2>)
-		removeHeadingAnchors(bestMatch);
-
-		// Now resolve URLs in the text content
-		this.resolveRelativeUrls(bestMatch);
-		let html = serializeHTML(bestMatch);
-
-		if (imageSrc) {
-			const img = this.doc.createElement('img');
-			img.setAttribute('src', imageSrc);
-			img.setAttribute('alt', imageAlt);
-			html += img.outerHTML;
-		}
-
-		return html;
-	}
 
 	private findLargestHiddenContentSelector(): string | undefined {
 		const body = this.doc.body;
