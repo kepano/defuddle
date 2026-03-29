@@ -51,6 +51,23 @@ export const headingRules = [
 				return el;
 			}
 
+			const navChildren = Array.from(el.querySelectorAll('*')).filter(child => {
+				return isHeadingNavElement(child);
+			});
+			const hasNavigationChildren = navChildren.length > 0;
+			const childElements = Array.from(el.children);
+			const hasNoChildElements = childElements.length === 0;
+			const hasOnlyPlainSpanChildren = childElements.length > 0 && childElements.every(child => {
+				const tagName = child.tagName.toLowerCase();
+				const hasNestedStructure = child.querySelector('a, button, br, img, svg, picture, code') !== null;
+
+				return tagName === 'span' && !hasNestedStructure;
+			});
+			const isPlainHeading = hasNoChildElements || hasOnlyPlainSpanChildren;
+			if (!hasNavigationChildren && isPlainHeading) {
+				return el;
+			}
+
 			// Create new heading of same level
 			const newHeading = doc.createElement(el.tagName);
 
@@ -79,8 +96,6 @@ export const headingRules = [
 
 				navigationText.set(child, child.textContent?.trim() || '');
 
-				// If this element contains the only text content of its parent,
-				// store its text to be used for the parent
 				const parent = child.parentElement;
 				if (parent && parent !== clone &&
 					parent.textContent?.trim() === child.textContent?.trim()) {

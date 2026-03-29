@@ -1,5 +1,6 @@
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
+import { shouldPreserveHiddenCodeSample } from './hidden-code';
 
 export function removeHiddenElements(doc: Document, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	let count = 0;
@@ -15,6 +16,11 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 
 	const allElements = doc.querySelectorAll('*');
 	for (const element of allElements) {
+		const preserveHiddenCodeSample = shouldPreserveHiddenCodeSample(element);
+		if (preserveHiddenCodeSample) {
+			continue;
+		}
+
 		// Skip elements that contain math — sites like Wikipedia wrap MathML
 		// in display:none spans for accessibility (the visible version is an
 		// image/SVG fallback). We need to preserve these for math extraction.

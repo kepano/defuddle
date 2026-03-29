@@ -253,35 +253,98 @@ function standardizeSpaces(element: Element): void {
 function removeTrailingHeadings(element: Element): void {
 	let removedCount = 0;
 
-	const hasContentAfter = (el: Element): boolean => {
-		// Check if there's any meaningful content after this element
-		let nextContent = '';
-		let sibling = el.nextSibling;
+	const hasStructuredContent = (el: Element): boolean => {
+		const contentSelector = 'p, ul, ol, blockquote, pre, table, figure, img, video, audio, code, math';
+		const tagName = el.tagName.toLowerCase();
+		const trimmedText = (el.textContent || '').trim();
+		const hasDirectContentTag = el.matches(contentSelector);
+		const hasNestedContentTag = el.querySelector(contentSelector) !== null;
+		const hasStructuredLinkContent = tagName === 'a' && el.querySelector('p, div, section, article, figure') !== null;
+		const isHeading = /^h[1-6]$/.test(tagName);
 
-		// First check direct siblings
-		while (sibling) {
-			if (isTextNode(sibling)) { // TEXT_NODE
-				nextContent += sibling.textContent || '';
-			} else if (isElement(sibling)) { // ELEMENT_NODE
-				// If we find an element sibling, check its content
-				nextContent += (sibling as Element).textContent || '';
-			}
-			sibling = sibling.nextSibling;
+		if (isHeading) {
+			return false;
 		}
 
-		// If we found meaningful content at this level, return true
-		if (nextContent.trim()) {
+		if (hasDirectContentTag) {
 			return true;
 		}
 
-		// If no content found at this level and we have a parent,
-		// check for content after the parent
-		const parent = el.parentElement;
-		if (parent && parent !== element) {
-			return hasContentAfter(parent);
+		if (hasNestedContentTag) {
+			return true;
 		}
 
-		return false;
+		if (hasStructuredLinkContent) {
+			return true;
+		}
+
+		return trimmedText.length > 0;
+	};
+
+	const findFirstMeaningfulNode = (node: Node): Node | null => {
+		if (isTextNode(node)) {
+			const text = node.textContent || '';
+			const trimmedText = text.trim();
+			const hasText = trimmedText.length > 0;
+
+			return hasText ? node : null;
+		}
+
+		if (!isElement(node)) {
+			return null;
+		}
+
+		const currentElement = node as Element;
+		const hasOwnContent = hasStructuredContent(currentElement);
+		if (hasOwnContent) {
+			return currentElement;
+		}
+
+		const childNodes = Array.from(currentElement.childNodes);
+		for (const childNode of childNodes) {
+			const meaningfulChild = findFirstMeaningfulNode(childNode);
+			if (meaningfulChild) {
+				return meaningfulChild;
+			}
+		}
+
+		return null;
+	};
+
+	const findNextMeaningfulNode = (heading: Element): Node | null => {
+		let currentNode: Node | null = heading;
+
+		while (currentNode && currentNode !== element) {
+			let siblingNode = currentNode.nextSibling;
+			while (siblingNode) {
+				const meaningfulSibling = findFirstMeaningfulNode(siblingNode);
+				if (meaningfulSibling) {
+					return meaningfulSibling;
+				}
+				siblingNode = siblingNode.nextSibling;
+			}
+
+			currentNode = currentNode.parentNode;
+		}
+
+		return null;
+	};
+
+	const hasContentAfter = (heading: Element): boolean => {
+		const nextMeaningfulNode = findNextMeaningfulNode(heading);
+		if (!nextMeaningfulNode) {
+			return false;
+		}
+
+		if (isTextNode(nextMeaningfulNode)) {
+			return true;
+		}
+
+		if (!isElement(nextMeaningfulNode)) {
+			return false;
+		}
+
+		return hasStructuredContent(nextMeaningfulNode as Element);
 	};
 
 	// Process all headings from bottom to top
@@ -780,6 +843,11 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 				if (rule.transform) {
 					// If there's a transform function, use it to create the new element
 					const transformed = rule.transform(el, doc);
+					const isSameElement = transformed === el;
+					if (isSameElement) {
+						return;
+					}
+
 					el.replaceWith(transformed);
 					processedCount++;
 				}

@@ -10,6 +10,7 @@ import {
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName } from '../utils/dom';
+import { shouldPreserveHiddenCodeSample } from './hidden-code';
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -24,6 +25,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		const exactElements = doc.querySelectorAll(EXACT_SELECTORS_JOINED);
 		exactElements.forEach(el => {
 			if (el?.parentNode) {
+				const preserveHiddenCodeSample = shouldPreserveHiddenCodeSample(el);
+				if (preserveHiddenCodeSample) {
+					return;
+				}
+
 				if (skipHiddenExactSelectors) {
 					const hiddenAncestor = el.closest(HIDDEN_EXACT_SKIP_SELECTOR);
 					const role = (el.getAttribute('role') || '').toLowerCase();
@@ -90,6 +96,12 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				const matchedPattern = individualRegexes
 					? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 					: undefined;
+				const isHeading = /^H[1-6]$/.test(tag);
+				const matchesNextSlug = attrs.includes('next-');
+				const isNextSlugHeading = isHeading && (matchedPattern === 'next-' || matchesNextSlug);
+				if (isNextSlugHeading) {
+					return;
+				}
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 				partialSelectorCount++;
 			}
