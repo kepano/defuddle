@@ -14,6 +14,7 @@ import { GitHubExtractor } from './extractors/github';
 import { XOembedExtractor } from './extractors/x-oembed';
 import { BbcodeDataExtractor } from './extractors/bbcode-data';
 import { C2WikiExtractor } from './extractors/c2-wiki';
+import { SubstackExtractor } from './extractors/substack';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -122,6 +123,13 @@ export class ExtractorRegistry {
 				'wiki.c2.com',
 			],
 			extractor: C2WikiExtractor
+		});
+
+		this.register({
+			patterns: [
+				/^https?:\/\/substack\.com\/@[^/]+\/note\/.+/,
+			],
+			extractor: SubstackExtractor
 		});
 
 		this.register({

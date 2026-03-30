@@ -1,0 +1,65 @@
+<!-- {"url": "https://substack.com/@testuser/note/c-123456789"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Test User (@testuser): "Sample note text for testing the Substack extractor."</title>
+	<meta property="og:type" content="article">
+	<meta property="og:title" content="Test User (@testuser)">
+	<meta property="og:description" content="Sample note text for testing the Substack extractor.">
+	<meta property="og:image" content="https://example.com/image/full-res.jpg">
+	<meta property="og:site_name" content="Substack">
+	<link rel="canonical" href="https://substack.com/@testuser/note/c-123456789">
+</head>
+<body>
+<div id="entry">
+	<!-- Simulated note card structure -->
+	<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+
+		<!-- Author header row -->
+		<div class="pencraft pc-display-flex pc-gap-8 pc-alignItems-center pc-reset">
+			<a href="/@testuser">
+				<img src="https://example.com/avatar.jpg" alt="Test User's avatar" width="36" height="36">
+			</a>
+			<div>
+				<a href="/@testuser">Test User</a>
+				<a href="/@testuser/note/c-123456789">2d</a>
+			</div>
+			<button aria-label="More options">...</button>
+		</div>
+
+		<!-- feedCommentBody's parent wrapper -->
+		<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+			<!-- Text content -->
+			<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset feedCommentBody-UWho7S">
+				<div class="pencraft pc-reset feedCommentBodyInner-AOzMIC">
+					<div dir="auto" class="ProseMirror FeedProseMirror">
+						<p>Sample note text for testing the Substack extractor.</p>
+						<p>It has multiple paragraphs to verify the content is captured correctly.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Image grid (sibling of feedCommentBody's parent) -->
+		<div class="pencraft pc-display-flex pc-gap-4 pc-reset imageGrid-TadIyX size-1-rfav9C">
+			<div class="pencraft imageBubble-PUJ2WF" style="width: 520px; height: 390px;">
+				<picture>
+					<source type="image/webp" srcset="https://example.com/image/320w.webp 320w, https://example.com/image/640w.webp 640w, https://example.com/image/960w.webp 960w">
+					<img src="https://example.com/image/320w.jpg"
+						srcset="https://example.com/image/320w.jpg 320w, https://example.com/image/640w.jpg 640w, https://example.com/image/960w.jpg 960w"
+						width="520" height="390" alt="" loading="lazy" class="img-OACg1c pencraft pc-reset">
+				</picture>
+			</div>
+		</div>
+
+		<!-- Engagement buttons (should be ignored) -->
+		<div class="pencraft pc-display-flex pc-reset container-_91AK1">
+			<button aria-label="Like">42</button>
+			<button aria-label="Comment">5</button>
+		</div>
+
+	</div>
+</div>
+</body>
+</html>
