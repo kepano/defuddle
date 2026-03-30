@@ -37,6 +37,7 @@ export interface ExtractedContent {
 export interface ExtractorResult {
 	content: string;
 	contentHtml: string;
+	contentSelector?: string;
 	extractedContent?: {
 		[key: string]: string;
 	};

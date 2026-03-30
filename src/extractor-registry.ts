@@ -128,6 +128,7 @@ export class ExtractorRegistry {
 		this.register({
 			patterns: [
 				/^https?:\/\/substack\.com\/@[^/]+\/note\/.+/,
+				/^https?:\/\/substack\.com\/home\/post\/p-\d+/,
 			],
 			extractor: SubstackExtractor
 		});

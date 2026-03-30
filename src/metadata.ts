@@ -541,7 +541,7 @@ export class MetadataExtractor {
 		'september': '09', 'october': '10', 'november': '11', 'december': '12'
 	};
 
-	private static parseDateText(text: string): string {
+	static parseDateText(text: string): string {
 		// "26 February 2025" or "Wednesday, 26 February 2025"
 		let match = text.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
 		if (match) {

@@ -41,6 +41,7 @@ export class Defuddle {
 	private _metadata: any | undefined;
 	private _mobileStyles: StyleChange[] | undefined;
 	private _smallImages: Set<string> | undefined;
+	private _inExtractorPipelineRun = false;
 
 	/**
 	 * Create a new Defuddle instance
@@ -478,10 +479,36 @@ export class Defuddle {
 				includeReplies: options.includeReplies as ExtractorOptions['includeReplies'],
 				language: options.language,
 			};
-			const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);
-			if (extractor && extractor.canExtract()) {
-				const extracted = extractor.extract();
-				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
+			if (!this._inExtractorPipelineRun) {
+				const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);
+				if (extractor && extractor.canExtract()) {
+					const extracted = extractor.extract();
+					if (extracted.contentSelector) {
+						this._inExtractorPipelineRun = true;
+						try {
+							const pipelineResult = this.parseInternal({
+								contentSelector: extracted.contentSelector,
+								removeLowScoring: false,
+								removeHiddenElements: false,
+							});
+							const variables = this.getExtractorVariables(extracted.variables);
+							return {
+								...pipelineResult,
+								title: extracted.variables?.title || pipelineResult.title,
+								description: extracted.variables?.description || pipelineResult.description,
+								author: extracted.variables?.author || pipelineResult.author,
+								published: extracted.variables?.published || pipelineResult.published,
+								site: extracted.variables?.site || pipelineResult.site,
+								language: extracted.variables?.language || pipelineResult.language,
+								extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
+								...(variables ? { variables } : {}),
+							};
+						} finally {
+							this._inExtractorPipelineRun = false;
+						}
+					}
+					return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
+				}
 			}
 
 			// Continue if there is no extractor...
