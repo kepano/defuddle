@@ -174,6 +174,25 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 			Array.from(element.querySelectorAll('code a')).forEach(unwrapElement);
 			// Unwrap javascript: links — keep text, remove the link
 			Array.from(element.querySelectorAll('a[href^="javascript:"]')).forEach(unwrapElement);
+			// Restructure links that wrap block content containing a heading (e.g. article cards).
+			// <a href="/x"><h2>Title</h2><p>desc</p></a>
+			// → <h2><a href="/x">Title</a></h2><p>desc</p>
+			// This produces valid HTML that any markdown converter handles correctly.
+			Array.from(element.querySelectorAll('a')).forEach(link => {
+				const href = link.getAttribute('href');
+				if (!href || href.startsWith('#')) return;
+				const heading = Array.from(link.children).find(
+					c => /^H[1-6]$/.test(c.nodeName)
+				) as Element | undefined;
+				if (!heading) return;
+				// Move the href into the heading by wrapping its children in a new <a>
+				const innerLink = doc.createElement('a');
+				innerLink.setAttribute('href', href);
+				while (heading.firstChild) innerLink.appendChild(heading.firstChild);
+				heading.appendChild(innerLink);
+				// Unwrap the outer <a>, leaving the heading and siblings in place
+				unwrapElement(link);
+			});
 			// Unwrap anchor links that wrap headings (e.g. clickable section headers)
 			Array.from(element.querySelectorAll('a[href^="#"]')).forEach(link => {
 				if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
