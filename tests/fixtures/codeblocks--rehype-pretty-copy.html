@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Weekly Project Review</title>
+<meta name="description" content="Test for rehype-pretty-copy injected button and style elements inside code blocks">
+<meta name="author" content="Jane Smith">
+</head>
+<body>
+<article>
+<h1>Weekly Project Review</h1>
+<p>Some intro text here to make the article long enough for defuddle to pick it up as content. This is a test article with enough words to pass the word count threshold. We need to make sure defuddle picks this up properly so we can test the code block behavior with rehype-pretty-copy output.</p>
+<p>The rehype-pretty-copy plugin injects a copy button and a style element directly inside the code element. These should be stripped from the extracted content.</p>
+<figure data-rehype-pretty-code-figure=""><pre tabindex="0" data-language="yaml" data-theme="github-dark"><code data-language="yaml" data-theme="github-dark" style="display: grid;"><span data-line=""><span style="color:#85E89D">tags</span><span style="color:#E1E4E8">:</span></span>
+<span data-line=""><span style="color:#E1E4E8">  - </span><span style="color:#9ECBFF">Projects/Open</span><span style="color:#6A737D">       # status: Open, Inbox, Hold, Dropped, Done</span></span>
+<span data-line=""><span style="color:#85E89D">area</span><span style="color:#E1E4E8">: </span><span style="color:#9ECBFF">next-act</span><span style="color:#6A737D">           # life area the project belongs to</span></span>
+<span data-line=""><span style="color:#85E89D">review-cycle</span><span style="color:#E1E4E8">: </span><span style="color:#79B8FF">7</span><span style="color:#6A737D">          # days before the project is considered stale</span></span>
+<span data-line=""><span style="color:#85E89D">start-date</span><span style="color:#E1E4E8">: </span><span style="color:#79B8FF">2026-01-15</span></span>
+<span data-line=""><span style="color:#85E89D">complete-date</span><span style="color:#E1E4E8">:            </span><span style="color:#6A737D"># set when marked done</span></span><button type="button" title="Copy code" aria-label="Copy code" data="tags:
+  - Projects/Open       # status: Open, Inbox, Hold, Dropped, Done
+area: next-act           # life area the project belongs to
+review-cycle: 7          # days before the project is considered stale
+start-date: 2026-01-15
+complete-date:            # set when marked done" class="rehype-pretty-copy" onclick="navigator.clipboard.writeText(this.attributes.data.value);"><span class="ready"></span><span class="success"></span></button><style>:root {--copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3C/svg%3E");}pre button.rehype-pretty-copy { opacity: 0; }</style></code></pre></figure>
+<p>Each project file uses YAML front matter to track status and review cadence.</p>
+</article>
+</body>
+</html>

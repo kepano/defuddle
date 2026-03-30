@@ -284,6 +284,12 @@ export const codeBlockRules = [
 						return '';
 					}
 
+					// Skip UI chrome injected into <code> elements (e.g. rehype-pretty-copy
+					// buttons, injected <style> tags).
+					if (element.tagName === 'BUTTON' || element.tagName === 'STYLE') {
+						return '';
+					}
+
 					// Handle explicit line breaks.
 					// Skip <br> that immediately follows a line-based span (e.g. Hexo/Highlight.js
 					// `<span class="line">CODE</span><br>`) — the line span already appended '\n'.
