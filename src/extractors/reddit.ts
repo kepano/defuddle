@@ -18,10 +18,15 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	canExtractAsync(): boolean {
-		// For new reddit comment pages, extract() returns empty content
-		// when shreddit-comment elements are missing (server-side fetch),
-		// causing parseAsync() to fall through to this async path.
 		return this.isCommentsPage() && !this.isOldReddit;
+	}
+
+	prefersAsync(): boolean {
+		// In server/worker contexts, fetch old.reddit.com for full content including
+		// comments. In browser (real window), use the rendered DOM directly since
+		// old.reddit.com is CORS-blocked from www.reddit.com.
+		const isBrowser = typeof window !== 'undefined' && this.document.defaultView === window;
+		return this.isCommentsPage() && !this.isOldReddit && !isBrowser;
 	}
 
 	private isCommentsPage(): boolean {
@@ -58,37 +63,18 @@ export class RedditExtractor extends BaseExtractor {
 			return this.extractOldReddit(this.document);
 		}
 
-		// New reddit server-side HTML includes shreddit-post but not
-		// shreddit-comment elements (those require JS). Return empty
-		// so parseAsync() falls through to extractAsync() which fetches
-		// old.reddit.com with full content.
 		const postTitle = this.document.querySelector('h1')?.textContent?.trim() || '';
 		const subreddit = this.getSubreddit();
 		const postAuthor = this.getPostAuthor();
 		const postContent = this.getPostContent();
 		const description = this.createDescription(postContent);
 
-		const hasComments = this.document.querySelectorAll('shreddit-comment').length > 0;
-		if (this.isCommentsPage() && !hasComments) {
-			return {
-				content: '',
-				contentHtml: '',
-				extractedContent: {
-					postId: this.getPostId(),
-					subreddit,
-					postAuthor,
-				},
-				variables: {
-					title: postTitle,
-					author: postAuthor,
-					site: `r/${subreddit}`,
-					description,
-				}
-			};
-		}
-
+		// Extract any comments already in the DOM (browser renders these via JS;
+		// SSR/Node HTML won't have them, so comments will be empty there).
 		const comments = this.options.includeReplies !== false ? this.extractComments() : '';
 		const contentHtml = this.createContentHtml(postContent, comments);
+		// If contentHtml is empty (link/image post with no body and no DOM comments),
+		// parseAsync() will fall through to extractAsync() → old.reddit.com fetch.
 
 		return {
 			content: contentHtml,
