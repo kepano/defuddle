@@ -301,7 +301,7 @@ describe('Schema.org text fallback sanitization', () => {
 		expect(result.content).not.toContain('evil.com');
 	});
 
-	test('preserves iframes in schema fallback content', () => {
+	test('preserves iframes with src in schema fallback content', () => {
 		const html = buildSchemaFallbackHtml(
 			'<iframe src="https://www.youtube.com/embed/abc123" width="560" height="315"></iframe>' +
 			'<iframe src="https://open.spotify.com/embed/track/xyz"></iframe>'

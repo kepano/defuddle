@@ -218,7 +218,7 @@ export const EXACT_SELECTORS = [
 
 	// iframes
 	'instaread-player',
-	'iframe:not([src*="youtube"]):not([src*="youtu.be"]):not([src*="vimeo"]):not([src*="twitter"]):not([src*="x.com"]):not([src*="datawrapper"])',
+	'iframe:not([src])',
 
 	// logos
 	'[class="logo" i]',
