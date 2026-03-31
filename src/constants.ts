@@ -462,6 +462,7 @@ export const PARTIAL_SELECTORS = [
 	'editorial_contact',
 	'editorial-contact',
 	'element-invisible',
+	'elementor-shortcode',
 	'eletters',
 	'emailsignup',
 	'emoji-bar',
@@ -607,6 +608,8 @@ export const PARTIAL_SELECTORS = [
 //	'navigation',
 	'navigation-post',
 	'next-',
+	'next_prev',
+	'no-script',
 	'newsgallery',
 	'news-story-title',
 //	'newsletter', used on Substack
