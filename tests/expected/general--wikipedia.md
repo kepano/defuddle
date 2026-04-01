@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "Obsidian (software) - Wikipedia",
+  "title": "Obsidian (software)",
   "author": "",
-  "site": "en.wikipedia.org",
+  "site": "Wikipedia",
   "published": "2024-01-15T00:00:00+00:00"
 }
 ```
-
-## Obsidian (software)
 
 **Obsidian** is a [personal knowledge management](https://wikipedia/wiki/Personal_knowledge_management "Personal knowledge management") and [note-taking](https://wikipedia/wiki/Note-taking "Note-taking") [software application](https://wikipedia/wiki/Application_software "Application software") that operates on [Markdown](https://wikipedia/wiki/Markdown "Markdown") files.[^2] It allows users to make internal links for notes and then to visualize the connections as a graph. It is designed to help users organize and structure their thoughts and knowledge in a flexible, non-linear way.[^3] The software is free for personal use, with commercial licenses and hosted services such as [Obsidian Publish](https://wikipedia/wiki/Obsidian_Publish "Obsidian Publish") and [Obsidian Sync](https://wikipedia/wiki/Obsidian_Sync "Obsidian Sync") available as paid add-ons.[^4]
 

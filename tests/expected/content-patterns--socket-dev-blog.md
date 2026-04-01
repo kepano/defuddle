@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "Introducing Socket Firewall - Socket Blog",
+  "title": "Introducing Socket Firewall",
   "author": "",
-  "site": "socket.dev",
+  "site": "Socket Blog",
   "published": ""
 }
 ```
-
-## Introducing Socket Firewall
 
 We are excited to announce Socket Firewall, a new feature that blocks supply chain attacks before they reach your infrastructure. This post explains how it works and why we built it.
 

@@ -1,8 +1,8 @@
 ```json
 {
-  "title": "Cover vs Contain Modes - Sanity Image",
+  "title": "Cover vs Contain Modes",
   "author": "",
-  "site": "",
+  "site": "Sanity Image",
   "published": ""
 }
 ```

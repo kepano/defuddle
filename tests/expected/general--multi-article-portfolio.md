@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "Jane Smith | Portfolio",
+  "title": "Jane Smith",
   "author": "",
-  "site": "",
+  "site": "Portfolio",
   "published": ""
 }
 ```
-
-## Jane Smith
 
 Researcher and developer focused on distributed systems and machine learning infrastructure. Building tools that help teams ship faster.
 

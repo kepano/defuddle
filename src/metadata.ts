@@ -375,43 +375,58 @@ export class MetadataExtractor {
 			}
 		}
 
-		// Heuristic fallback: if the title contains a strong separator (|, /, ·)
-		// with a short segment on one end (likely a site name) and a longer
-		// segment on the other (the article title), strip the short segment.
-		// Handles both "Article Title | Site" and "Site | Article Title".
-		// Excludes dashes (-, –, —) which are commonly used within titles.
-		const separatorPattern = /\s+([|/·])\s+/g;
+		// Heuristic fallback: if the title contains a separator with a short
+		// segment on one end (likely a site name) and a longer segment on
+		// the other (the article title), strip the short segment.
+
+		// Strong separators (|, /, ·) — unambiguous, check both suffix and prefix
+		const strongResult = this.trySeparatorSplit(title, /\s+([|/·])\s+/g, {
+			guard: (tW, sW) => sW <= 3 && tW >= 2 && tW >= sW * 2,
+		});
+		if (strongResult) return strongResult;
+
+		// Dash separators (-, –, —) — commonly used within titles, so we
+		// only strip suffix position with stricter guards
+		const dashResult = this.trySeparatorSplit(title, /\s+[-–—]\s+/g, {
+			suffixOnly: true,
+			guard: (tW, sW) => sW <= 2 && tW >= 2 && tW > sW,
+		});
+		if (dashResult) return dashResult;
+
+		return { title: title.trim(), detectedSiteName: '' };
+	}
+
+	private static trySeparatorSplit(
+		title: string,
+		pattern: RegExp,
+		opts: { suffixOnly?: boolean; guard: (titleWords: number, siteWords: number) => boolean }
+	): { title: string; detectedSiteName: string } | null {
 		let match;
 		const positions: { index: number; length: number }[] = [];
-		while ((match = separatorPattern.exec(title)) !== null) {
+		while ((match = pattern.exec(title)) !== null) {
 			positions.push({ index: match.index, length: match[0].length });
 		}
+		if (positions.length === 0) return null;
 
-		if (positions.length > 0) {
-			// Try suffix: split at last separator
-			const last = positions[positions.length - 1];
-			const suffixTitle = title.substring(0, last.index).trim();
-			const suffixSite = title.substring(last.index + last.length).trim();
-			const suffixTitleWords = countWords(suffixTitle);
-			const suffixSiteWords = countWords(suffixSite);
+		// Try suffix: split at last separator
+		const last = positions[positions.length - 1];
+		const suffixTitle = title.substring(0, last.index).trim();
+		const suffixSite = title.substring(last.index + last.length).trim();
+		if (opts.guard(countWords(suffixTitle), countWords(suffixSite))) {
+			return { title: suffixTitle, detectedSiteName: suffixSite };
+		}
 
-			if (suffixSiteWords <= 3 && suffixTitleWords >= 3 && suffixTitleWords >= suffixSiteWords * 2) {
-				return { title: suffixTitle, detectedSiteName: suffixSite };
-			}
-
-			// Try prefix: split at first separator
+		// Try prefix: split at first separator
+		if (!opts.suffixOnly) {
 			const first = positions[0];
 			const prefixSite = title.substring(0, first.index).trim();
 			const prefixTitle = title.substring(first.index + first.length).trim();
-			const prefixSiteWords = countWords(prefixSite);
-			const prefixTitleWords = countWords(prefixTitle);
-
-			if (prefixSiteWords <= 3 && prefixTitleWords >= 3 && prefixTitleWords >= prefixSiteWords * 2) {
+			if (opts.guard(countWords(prefixTitle), countWords(prefixSite))) {
 				return { title: prefixTitle, detectedSiteName: prefixSite };
 			}
 		}
 
-		return { title: title.trim(), detectedSiteName: '' };
+		return null;
 	}
 
 	private static getDescription(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {

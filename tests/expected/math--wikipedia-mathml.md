@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "Quadratic formula - Encyclopedia",
+  "title": "Quadratic formula",
   "author": "",
-  "site": "",
+  "site": "Encyclopedia",
   "published": ""
 }
 ```
-
-## Quadratic Formula
 
 In algebra, the **quadratic formula** gives the solutions of the general quadratic equation. Given a second-degree polynomial of the form $ax^{2}+bx+c=0$, the values of *x* satisfying this equation are given by the quadratic formula.
 
