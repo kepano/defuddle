@@ -1,0 +1,22 @@
+<!-- {"url":"https://example.org/articles/footnotes-in-wrapper-spans"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Footnotes in Wrapper Spans</title>
+</head>
+<body>
+<article>
+<h1>Footnotes in Wrapper Spans</h1>
+<p>First paragraph with enough content to ensure stable extraction. This text discusses various topics and provides a baseline for the content scoring algorithm to work with.</p>
+<p>Some sites wrap line-break hints around footnote-adjacent text. The word before the footnote is inside the same wrapper span as the <span class="wrap-inline">reference.<span id="ft-1" class="reference"> <sup class="footnote-ref">1</sup> </span></span>This continues after the footnote.</p>
+<p>Additional paragraph for content scoring stability. The algorithm needs sufficient text to correctly identify this as the main content area of the page.</p>
+<p>Another example where the wrapped word should be <span class="wrap-inline">preserved.<span id="ft-2" class="reference"> <sup class="footnote-ref">2</sup> </span></span>More text follows here.</p>
+<p>Final paragraph to ensure there is enough content for reliable extraction and to help the scoring algorithm identify the article body correctly.</p>
+<section class="footnotes"><ol class="footnotes-list">
+<li id="fn1" class="footnote-item"><p>First footnote content.</p></li>
+<li id="fn2" class="footnote-item"><p>Second footnote content.</p></li>
+</ol></section>
+</article>
+</body>
+</html>
