@@ -903,11 +903,17 @@ export class Defuddle {
 		const hasTableLayout = tables.some(table => {
 			const width = parseInt(table.getAttribute('width') || '0');
 			const style = this.getComputedStyle(table);
+			const tableClass = getClassName(table).toLowerCase();
 			return width > 400 ||
 				(style?.width?.includes('px') && parseInt(style.width) > 400) ||
 				table.getAttribute('align') === 'center' ||
-				(table.className || '').toLowerCase().includes('content') ||
-				(table.className || '').toLowerCase().includes('article');
+				tableClass.includes('content') ||
+				tableClass.includes('article') ||
+				// Multi-column layout: a row with 2+ cells where at least one has an explicit width
+				Array.from(table.getElementsByTagName('tr')).some(row => {
+					const cells = Array.from(row.children).filter(c => c.tagName === 'TD');
+					return cells.length >= 2 && cells.some(c => c.getAttribute('width'));
+				});
 		});
 
 		if (!hasTableLayout) {
