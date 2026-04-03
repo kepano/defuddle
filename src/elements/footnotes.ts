@@ -624,6 +624,25 @@ class FootnoteHandler {
 		return results;
 	}
 
+	replaceContainerPreservingText(container: any, footnoteRef: any): void {
+		let directText = '';
+		let hasChildElements = false;
+		for (const node of container.childNodes) {
+			if (isTextNode(node)) directText += node.textContent || '';
+			else if (isElement(node)) hasChildElements = true;
+		}
+		directText = directText.trim();
+
+		if (directText && hasChildElements) {
+			const fragment = container.ownerDocument.createDocumentFragment();
+			fragment.appendChild(container.ownerDocument.createTextNode(directText));
+			fragment.appendChild(footnoteRef);
+			container.replaceWith(fragment);
+		} else {
+			container.replaceWith(footnoteRef);
+		}
+	}
+
 	findOuterFootnoteContainer(el: any): any {
 		let current: any = el;
 		let parent: any = el.parentElement;
@@ -981,7 +1000,7 @@ class FootnoteHandler {
 				footnoteData.refs.push(refId);
 
 				const container = this.findOuterFootnoteContainer(link);
-				container.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+				this.replaceContainerPreservingText(container, this.createFootnoteReference(footnoteNumber, refId));
 			});
 
 			// Pass 2: Match sup/span elements with numeric text (e.g. <sup class="footnote-ref">1</sup>)
@@ -1016,7 +1035,7 @@ class FootnoteHandler {
 					footnoteData.refs.push(refId);
 
 					const container = this.findOuterFootnoteContainer(el);
-					container.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+					this.replaceContainerPreservingText(container, this.createFootnoteReference(footnoteNumber, refId));
 				});
 			}
 		}
