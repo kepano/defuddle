@@ -471,7 +471,10 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			// Exception: allow embedded <a> elements that appear before the first heading —
 			// these are back-navigation links in page headers, not inline prose links.
 			if (el.matches('a[href]') && el.parentElement && el.parentElement !== mainContent) {
-				if ((el.parentElement.textContent?.trim() || '') !== text) {
+				const parentText = el.parentElement.textContent?.trim() || '';
+				if (parentText !== text) {
+					// Skip links inside paragraphs — these are inline prose links, not breadcrumbs
+					if (el.closest('p')) continue;
 					if (!firstHeading) continue;
 					if (!(el.compareDocumentPosition(firstHeading) & 4)) continue;
 				}
