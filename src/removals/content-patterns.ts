@@ -634,7 +634,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			child = child.previousElementSibling;
 		}
 		// Must have a heading in the trailing elements and total < 15% of content.
-		// Skip if trailing elements contain content indicators (math, code, tables, images).
+		// Skip if trailing elements contain content indicators (math, code, tables, images)
+		// or multiple prose paragraphs (which indicate a real content section like a conclusion).
 		if (trailingEls.length >= 1 && trailingWords < totalWords * 0.15) {
 			const hasHeading = trailingEls.some(el =>
 				/^H[1-6]$/.test(el.tagName) || el.querySelector('h1, h2, h3, h4, h5, h6')
@@ -642,7 +643,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			const hasContent = trailingEls.some(el =>
 				el.querySelector(CONTENT_ELEMENT_SELECTOR)
 			);
-			if (hasHeading && !hasContent) {
+			// Multiple prose paragraphs indicate a conclusion, not a CTA/promo block.
+			let proseParagraphs = 0;
+			for (const el of trailingEls) {
+				if (el.tagName === 'P' && countWords(el.textContent || '') > 5) {
+					proseParagraphs++;
+				}
+			}
+			if (hasHeading && !hasContent && proseParagraphs < 2) {
 				for (const el of trailingEls) {
 					if (debug && debugRemovals) {
 						debugRemovals.push({ step: 'removeByContentPattern', reason: 'trailing thin section', text: textPreview(el) });
@@ -660,6 +668,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	const boilerplateElements = mainContent.querySelectorAll('p, div, span, section');
 	for (const el of boilerplateElements) {
 		if (!el.parentNode) continue;
+		if (el.closest('pre, code')) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 		if (words > 50 || words < 1) continue;
