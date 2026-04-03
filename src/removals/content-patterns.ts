@@ -758,9 +758,10 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (el.children.length < 2) continue;
 		const children = Array.from(el.children);
 
-		// Each qualifying card must contain both an image and a heading
+		// Each qualifying card must contain an image and either a heading or a link
+		// (headings may have been stripped by earlier selector removal steps)
 		const cardCount = children.filter(c =>
-			c.querySelector('img, picture') && c.querySelector('h2, h3, h4')
+			c.querySelector('img, picture') && (c.querySelector('h2, h3, h4') || c.querySelector('a[href]'))
 		).length;
 		if (cardCount < 2 || cardCount < children.length * 0.7) continue;
 
