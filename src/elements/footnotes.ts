@@ -430,6 +430,44 @@ class FootnoteHandler {
 			}
 		}
 
+		// Class-based footnote paragraphs: <p class="footnote"><sup>N</sup>content...</p>
+		// The "footnote" class is a strong enough signal that we don't require cross-validation
+		// or a minimum count, so even a single footnote is detected.
+		if (footnoteCount === 1) {
+			const footnoteParagraphs: Array<{num: number; el: any}> = [];
+			element.querySelectorAll('p').forEach((p: any) => {
+				if (!p.classList?.contains('footnote')) return;
+				const num = this.parseFootnoteNum(p);
+				if (num !== null) {
+					footnoteParagraphs.push({ num, el: p });
+				}
+			});
+
+			if (footnoteParagraphs.length >= 1) {
+				for (const { num, el: defPara } of footnoteParagraphs) {
+					const id = String(num);
+					if (processedIds.has(id)) continue;
+
+					const contentDiv = element.ownerDocument.createElement('div');
+					const pClone = defPara.cloneNode(true) as any;
+					const marker = pClone.firstElementChild;
+					if (marker) {
+						marker.remove();
+						const firstNode = pClone.firstChild;
+						if (firstNode?.nodeType === 3) {
+							firstNode.textContent = firstNode.textContent.replace(/^\s+/, '');
+						}
+					}
+					contentDiv.appendChild(pClone);
+
+					footnotes[footnoteCount] = { content: contentDiv, originalId: id, refs: [] };
+					processedIds.add(id);
+					footnoteCount++;
+				}
+				this.genericElements.push(...footnoteParagraphs.map(p => p.el));
+			}
+		}
+
 		return footnotes;
 	}
 
