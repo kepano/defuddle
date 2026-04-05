@@ -1,5 +1,4 @@
 import { MetadataExtractor } from './metadata';
-import { removeHeadingAnchors } from './elements/headings';
 import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import type { ExtractorOptions } from './extractors/_base';

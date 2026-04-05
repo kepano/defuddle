@@ -1,11 +1,13 @@
 import { ALLOWED_ATTRIBUTES } from "../constants";
 
 /**
- * Remove permalink anchors from inside heading elements.
+ * Remove permalink anchors from headings and definition terms.
  * Handles symbols (#, ¶, §, 🔗), empty links, and class-based anchors.
  */
-export function removeHeadingAnchors(element: Element): void {
-	Array.from(element.querySelectorAll('h1 a, h2 a, h3 a, h4 a, h5 a, h6 a')).forEach(link => {
+export function removePermalinkAnchors(element: Element): void {
+	Array.from(element.querySelectorAll(
+		'h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, a.permalink, a.anchor-link, a.heading-anchor'
+	)).forEach(link => {
 		if (isPermalinkAnchor(link)) {
 			link.remove();
 		}
@@ -21,8 +23,9 @@ export function isPermalinkAnchor(node: Element): boolean {
 
 	if (href.startsWith('#') || href.includes('#')) return true;
 	if (title.includes('permalink')) return true;
-	if (className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link')) return true;
-	if (/^[#¶§🔗]$/.test(text)) return true;
+	const isPermalinkClass = className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link');
+	if (isPermalinkClass) return true;
+	if (/^[#¶§🔗\uFEFF]$/.test(text)) return true;
 
 	return false;
 }

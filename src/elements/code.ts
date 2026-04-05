@@ -137,6 +137,9 @@ export const codeBlockRules = [
 			'.wp-block-code',
 			'div[class*="language-"]',
 
+			// JetBrains Writerside documentation code blocks
+			'.code-block[data-lang]',
+
 			// Verso/Lean docs style highlighted code blocks
 			'code.hl.block'
 		].join(', '),

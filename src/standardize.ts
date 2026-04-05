@@ -13,7 +13,7 @@ import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
 import { wrapRawLatexDelimiters } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
-import { headingRules, removeHeadingAnchors } from './elements/headings';
+import { headingRules, removePermalinkAnchors } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
@@ -167,6 +167,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 
 	if (!debug) {
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
+		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('unwrapBareSpans', () => unwrapBareSpans(element));
 
@@ -202,7 +203,6 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 			});
 		});
 
-		step('removeHeadingAnchors', () => removeHeadingAnchors(element));
 		step('removeObsoleteElements', () => element.querySelectorAll('object, embed, applet').forEach(el => el.remove()));
 		step('removeEmptyElements', () => removeEmptyElements(element));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));

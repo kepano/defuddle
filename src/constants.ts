@@ -737,7 +737,7 @@ export const PARTIAL_SELECTORS = [
 	'redirectedfrom',
 	'recirc',
 	'register',
-	'related',
+	'(?<!h[1-6]-)related',
 	'relevant',
 	'reversefootnote',
 	'robots-nocontent',
