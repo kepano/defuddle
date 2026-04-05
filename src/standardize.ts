@@ -11,6 +11,7 @@ import {
 
 import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
+import { wrapRawLatexDelimiters } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
 import { headingRules, removeHeadingAnchors } from './elements/headings';
 import { imageRules } from './elements/images';
@@ -781,6 +782,11 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 			return r;
 		}
 		: <T>(_: string, fn: () => T): T => fn();
+
+	// Wrap raw $...$ and $$...$$ LaTeX delimiters in <math> elements so the
+	// math rules below can process them. Only fires when MathJax/KaTeX scripts
+	// are present but haven't rendered (no JS execution).
+	stepSE('wrapRawLatexDelimiters', () => wrapRawLatexDelimiters(element, doc));
 
 	// Convert elements based on standardization rules
 	ELEMENT_STANDARDIZATION_RULES.forEach(rule => {
