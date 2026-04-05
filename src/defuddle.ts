@@ -614,6 +614,31 @@ export class Defuddle {
 					removeHiddenElements(clone, this.debug, debugRemovals);
 				}
 			});
+			
+		 // Replace Next.js base64 <img> placeholders with real URLs from adjacent
+			// <noscript> images. Must run before selector cleanup removes <noscript>.
+			profileStep('fixNextNoscriptImages', () => {
+				const imgs = clone.querySelectorAll('img[src^="data:image"]');
+
+				for (const img of imgs) {
+						const noscript = img.nextElementSibling;
+						if (!noscript || noscript.tagName !== 'NOSCRIPT') continue;
+
+						const template = clone.createElement('template');
+						template.innerHTML = noscript.innerHTML;
+
+						const real = template.content.querySelector('img');
+						if (!real) continue;
+
+						const src = real.getAttribute('src');
+						if (src) img.setAttribute('src', src);
+
+						const alt = real.getAttribute('alt');
+						if (alt) img.setAttribute('alt', alt);
+
+						noscript.remove();
+				}
+			});
 
 			// Remove clutter using selectors — deterministic removal of known
 			// non-content elements (nav, footer, .sidebar, etc.) by class/id.
