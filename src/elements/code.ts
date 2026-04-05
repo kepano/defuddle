@@ -307,6 +307,12 @@ export const codeBlockRules = [
 						return '';
 					}
 
+					// Pygments inline line number spans (<span class="lineno">1</span>)
+					// are interspersed directly in the code content; skip them.
+					if (element.matches('span.lineno')) {
+						return '';
+					}
+
 					// react-syntax-highlighter inline line number spans are interspersed
 					// directly in the code content; skip them.
 					if (element.matches('.react-syntax-highlighter-line-number')) {
