@@ -50,8 +50,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
 			: null;
 
-		// Use pre-built attribute selector for elements we care about
-		const allElements = doc.querySelectorAll(TEST_ATTRIBUTES_SELECTOR);
+		// Query both doc and mainContent because linkedom's document-level
+		// querySelectorAll can miss elements after prior DOM mutations.
+		const docElements = doc.querySelectorAll(TEST_ATTRIBUTES_SELECTOR);
+		const mainElements = mainContent ? mainContent.querySelectorAll(TEST_ATTRIBUTES_SELECTOR) : [];
+		const allElements = new Set<Element>([...docElements, ...mainElements]);
 
 		// Process elements for partial matches
 		allElements.forEach(el => {
