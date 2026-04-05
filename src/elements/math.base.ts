@@ -251,13 +251,15 @@ function hasMathLibrary(doc: Document): boolean {
 	return false;
 }
 
-// Combined regex: matches $$...$$ first, then $...$. The $$...$$ branch
-// must come first so the alternation doesn't consume the opening $$ as two
-// single-$ tokens.
-const LATEX_DELIM_RE = /\$\$([\s\S]+?)\$\$|\$([^\s$](?:[^$]*[^\s$])?)\$/g;
+// Combined regex for LaTeX delimiters. Ordered so longer/greedier
+// delimiters match first: $$…$$, \[…\], $…$, \(…\).
+const LATEX_DELIM_RE = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^\s$][^$]*[^\s$]|[^\s$])\$|\\\(([\s\S]+?)\\\)/g;
+
+const LATEX_CMD_RE = /\\[a-zA-Z]/;
+const LATEX_STRUCT_RE = /[_^{}]/;
 
 function containsLatexCommand(s: string): boolean {
-	return /\\[a-zA-Z]/.test(s) || /[_^{}]/.test(s);
+	return LATEX_CMD_RE.test(s) || LATEX_STRUCT_RE.test(s);
 }
 
 const RAW_LATEX_SKIP_TAGS = new Set(['PRE', 'CODE', 'SCRIPT', 'STYLE', 'MATH', 'SVG', 'TEXTAREA']);
@@ -265,9 +267,9 @@ const RAW_LATEX_SKIP_TAGS = new Set(['PRE', 'CODE', 'SCRIPT', 'STYLE', 'MATH', '
 type LatexPart = string | { latex: string; isBlock: boolean };
 
 /**
- * Scan text nodes inside `element` for raw LaTeX `$...$` and `$$...$$`
- * delimiters and wrap each match in a `<math>` element so the existing
- * math pipeline can process them.
+ * Scan text nodes inside `element` for raw LaTeX delimiters (`$...$`,
+ * `$$...$$`, `\(...\)`, `\[...\]`) and wrap each match in a `<math>`
+ * element so the existing math pipeline can process them.
  *
  * Only runs when a MathJax or KaTeX script tag is present in the document,
  * to avoid false positives on pages that use `$` for currency.
@@ -295,25 +297,31 @@ export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
 
 	for (const textNode of textNodes) {
 		const text = textNode.textContent || '';
-		if (!text.includes('$')) continue;
+		if (!text.includes('$') && !text.includes('\\(') && !text.includes('\\[')) continue;
 
 		// First pass: collect all valid LaTeX matches (block display TBD)
 		const parts: LatexPart[] = [];
 		let lastIndex = 0;
-		let hasDoubleDollar = false;
+		let hasBlockMath = false;
 
 		LATEX_DELIM_RE.lastIndex = 0;
 		let match: RegExpExecArray | null;
 		while ((match = LATEX_DELIM_RE.exec(text)) !== null) {
-			const isDoubleDollar = match[1] !== undefined;
-			const latex = (isDoubleDollar ? match[1] : match[2]).trim();
-			if (!containsLatexCommand(latex)) continue;
+			// Groups: 1=$$…$$, 2=\[…\], 3=$…$, 4=\(…\)
+			const blockContent = match[1] ?? match[2];
+			const inlineContent = match[3] ?? match[4];
+			const isBlock = blockContent !== undefined;
+			const latex = (blockContent ?? inlineContent).trim();
+			// Backslash delimiters (\[…\], \(…\)) are unambiguous math markers.
+			// Dollar delimiters need the heuristic to avoid matching currency.
+			const isBackslashDelim = match[2] !== undefined || match[4] !== undefined;
+			if (!isBackslashDelim && !containsLatexCommand(latex)) continue;
 
 			if (lastIndex < match.index) {
 				parts.push(text.slice(lastIndex, match.index));
 			}
-			if (isDoubleDollar) hasDoubleDollar = true;
-			parts.push({ latex, isBlock: isDoubleDollar });
+			if (isBlock) hasBlockMath = true;
+			parts.push({ latex, isBlock });
 			lastIndex = match.index + match[0].length;
 		}
 
@@ -324,7 +332,7 @@ export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
 
 		// Determine if $$...$$ should be forced inline: block only when
 		// the text node is the sole content of its parent paragraph.
-		if (hasDoubleDollar) {
+		if (hasBlockMath) {
 			const hasSurroundingText = parts.some(p => typeof p === 'string' && p.trim().length > 0);
 			const parent = textNode.parentElement;
 			const parentHasOtherContent = parent ? Array.from(parent.childNodes).some(

@@ -18,3 +18,15 @@ $$
 $$
 
 This costs $100 per unit, which is not math.
+
+Let $x$ be a variable and $n$ be an integer.
+
+The backslash delimiters work too: $E = mc^2$ is inline and
+
+$$
+F = ma
+$$
+
+```
+This $\alpha$ should not be touched inside pre tags.
+```
