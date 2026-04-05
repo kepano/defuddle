@@ -69,6 +69,13 @@ export class Defuddle {
 	 * Parse the document and extract its main content
 	 */
 	parse(): DefuddleResponse {
+		// Replace base64 placeholder images with real URLs from <noscript>
+		// fallbacks before content extraction. Must run before parseInternal
+		// so the promoted URLs are available when content is scored/extracted.
+		if (this.doc.body) {
+			this._resolveNoscriptImages(this.doc.body);
+		}
+
 		// Try first with default settings
 		let result = this.parseInternal();
 
@@ -232,6 +239,50 @@ export class Defuddle {
 						el.removeAttribute(attr.name);
 					}
 				}
+			}
+		}
+	}
+
+	/**
+	 * Replace base64 placeholder images with real URLs from <noscript> fallbacks.
+	 * Next.js (data-nimg) renders a tiny base64 gif as src with the real image
+	 * only inside a <noscript> sibling. This promotes the real URL before
+	 * noscript elements are stripped.
+	 */
+	private _resolveNoscriptImages(body: Element): void {
+		const noscripts = body.querySelectorAll('noscript');
+		for (const noscript of noscripts) {
+			// Try direct child query first (linkedom parses noscript children),
+			// fall back to parsing innerHTML for browser environments
+			let noscriptImg = noscript.querySelector('img');
+			if (!noscriptImg) {
+				const html = noscript.innerHTML || '';
+				if (!html.includes('<img')) continue;
+				const fragment = parseHTML(this.doc, html);
+				noscriptImg = fragment.querySelector('img');
+			}
+			if (!noscriptImg) continue;
+
+			const realSrc = noscriptImg.getAttribute('src') || '';
+			if (!realSrc || realSrc.startsWith('data:')) continue;
+
+			const alt = noscriptImg.getAttribute('alt');
+			const parent = noscript.parentElement;
+			if (!parent) continue;
+
+			const siblingImgs = parent.querySelectorAll(':scope > img');
+			for (const img of siblingImgs) {
+				const src = img.getAttribute('src') || '';
+				if (!src.startsWith('data:')) continue;
+				// Match by alt text; require a non-empty alt to avoid false matches
+				if (!alt || img.getAttribute('alt') !== alt) continue;
+
+				img.setAttribute('src', realSrc);
+				const srcset = noscriptImg.getAttribute('srcset') || '';
+				if (srcset) {
+					img.setAttribute('srcset', srcset);
+				}
+				break;
 			}
 		}
 	}
