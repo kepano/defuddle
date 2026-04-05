@@ -64,7 +64,7 @@ const socialProfilePattern = /\b(linkedin\.com\/(in|company)\/|twitter\.com\/(?!
 
 // Date pattern for detecting standalone bylines — no leading \b because
 // textContent can concatenate adjacent elements without whitespace
-const datePattern = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+const datePattern = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)/i;
 
 // Author attribution pattern — case-sensitive "By" + capitalized name
 const bylinePattern = /\bBy\s+[A-Z]/;
@@ -80,7 +80,7 @@ const navigationHeadingPattern = new RegExp(
 );
 
 // Date pattern for content scoring (extended with year)
-const contentDatePattern = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b/i;
+const contentDatePattern = /\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*,?\s+\d{4})\b/i;
 
 // Author attribution pattern for content scoring
 const contentAuthorPattern = /\b(?:by|written by|author:)\s+[A-Za-z\s]+\b/i;

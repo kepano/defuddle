@@ -2,7 +2,7 @@ import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords } from '../utils';
 
-const CONTENT_DATE_PATTERN = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}/i;
+const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
@@ -333,6 +333,23 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					authorDateFound = true;
 					continue;
 				}
+			}
+		}
+
+		// Remove standalone date elements near the start of content.
+		if (hasDate && words <= 5 && getPos() <= 300) {
+			let residual = text;
+			for (const pattern of METADATA_STRIP_BASE) {
+				residual = residual.replace(pattern, '');
+			}
+			residual = residual.replace(/[,\s]+/g, '').trim();
+			if (residual.length === 0) {
+				const target = walkUpToWrapper(el, text, mainContent);
+				if (debug && debugRemovals) {
+					debugRemovals.push({ step: 'removeByContentPattern', reason: 'standalone date metadata', text: textPreview(target) });
+				}
+				target.remove();
+				continue;
 			}
 		}
 	}

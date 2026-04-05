@@ -250,6 +250,7 @@ export const EXACT_SELECTORS = [
 	'#sidebar',
 	'#Sidebar',
 	'#side-bar',
+	'#secondary',
 	'#sitesub',
 
 	// skip links
