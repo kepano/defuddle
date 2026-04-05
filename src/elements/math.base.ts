@@ -1,4 +1,5 @@
 import { parseHTML, getClassName } from '../utils/dom';
+import { isTextNode, isElement } from '../utils';
 
 export interface MathData {
 	mathml: string;
@@ -227,4 +228,129 @@ export const mathSelectors = [
 	'[data-tex]',
 	'script[type^="math/"]',
 	'annotation[encoding="application/x-tex"]'
-].join(','); 
+].join(',');
+
+/**
+ * Check whether the document includes a MathJax or KaTeX library script.
+ * This is used as a gate so we only scan for raw `$`-delimited LaTeX on
+ * pages that are known to use a math rendering library.
+ */
+function hasMathLibrary(doc: Document): boolean {
+	// Check for MathJax/KaTeX script src
+	const scripts = Array.from(doc.querySelectorAll('script[src]'));
+	for (const s of scripts) {
+		const src = (s.getAttribute('src') || '').toLowerCase();
+		if (src.includes('mathjax') || src.includes('katex')) return true;
+	}
+	// Check for MathJax config objects
+	const inlineScripts = Array.from(doc.querySelectorAll('script:not([src])'));
+	for (const s of inlineScripts) {
+		const text = s.textContent || '';
+		if (/MathJax\s*[.=]/.test(text) || /katex/i.test(text)) return true;
+	}
+	return false;
+}
+
+// Combined regex: matches $$...$$ first, then $...$. The $$...$$ branch
+// must come first so the alternation doesn't consume the opening $$ as two
+// single-$ tokens.
+const LATEX_DELIM_RE = /\$\$([\s\S]+?)\$\$|\$([^\s$](?:[^$]*[^\s$])?)\$/g;
+
+function containsLatexCommand(s: string): boolean {
+	return /\\[a-zA-Z]/.test(s) || /[_^{}]/.test(s);
+}
+
+const RAW_LATEX_SKIP_TAGS = new Set(['PRE', 'CODE', 'SCRIPT', 'STYLE', 'MATH', 'SVG', 'TEXTAREA']);
+
+type LatexPart = string | { latex: string; isBlock: boolean };
+
+/**
+ * Scan text nodes inside `element` for raw LaTeX `$...$` and `$$...$$`
+ * delimiters and wrap each match in a `<math>` element so the existing
+ * math pipeline can process them.
+ *
+ * Only runs when a MathJax or KaTeX script tag is present in the document,
+ * to avoid false positives on pages that use `$` for currency.
+ */
+export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
+	if (!hasMathLibrary(doc)) return;
+
+	// Skip if the page already has rendered math elements — the normal
+	// math pipeline will handle those.
+	if (element.querySelector(mathFastCheck)) return;
+
+	const textNodes: Text[] = [];
+
+	function walk(node: Node): void {
+		if (isElement(node) && RAW_LATEX_SKIP_TAGS.has(node.tagName)) return;
+		if (isTextNode(node)) {
+			textNodes.push(node);
+		} else {
+			for (let child = node.firstChild; child; child = child.nextSibling) {
+				walk(child);
+			}
+		}
+	}
+	walk(element);
+
+	for (const textNode of textNodes) {
+		const text = textNode.textContent || '';
+		if (!text.includes('$')) continue;
+
+		// First pass: collect all valid LaTeX matches (block display TBD)
+		const parts: LatexPart[] = [];
+		let lastIndex = 0;
+		let hasDoubleDollar = false;
+
+		LATEX_DELIM_RE.lastIndex = 0;
+		let match: RegExpExecArray | null;
+		while ((match = LATEX_DELIM_RE.exec(text)) !== null) {
+			const isDoubleDollar = match[1] !== undefined;
+			const latex = (isDoubleDollar ? match[1] : match[2]).trim();
+			if (!containsLatexCommand(latex)) continue;
+
+			if (lastIndex < match.index) {
+				parts.push(text.slice(lastIndex, match.index));
+			}
+			if (isDoubleDollar) hasDoubleDollar = true;
+			parts.push({ latex, isBlock: isDoubleDollar });
+			lastIndex = match.index + match[0].length;
+		}
+
+		if (parts.length === 0) continue;
+		if (lastIndex < text.length) {
+			parts.push(text.slice(lastIndex));
+		}
+
+		// Determine if $$...$$ should be forced inline: block only when
+		// the text node is the sole content of its parent paragraph.
+		if (hasDoubleDollar) {
+			const hasSurroundingText = parts.some(p => typeof p === 'string' && p.trim().length > 0);
+			const parent = textNode.parentElement;
+			const parentHasOtherContent = parent ? Array.from(parent.childNodes).some(
+				n => n !== textNode && ((isTextNode(n) && (n.textContent || '').trim().length > 0) || isElement(n))
+			) : false;
+
+			if (hasSurroundingText || parentHasOtherContent) {
+				for (const part of parts) {
+					if (typeof part !== 'string') part.isBlock = false;
+				}
+			}
+		}
+
+		const frag = doc.createDocumentFragment();
+		for (const part of parts) {
+			if (typeof part === 'string') {
+				frag.appendChild(doc.createTextNode(part));
+			} else {
+				const mathEl = doc.createElement('math');
+				mathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+				mathEl.setAttribute('display', part.isBlock ? 'block' : 'inline');
+				mathEl.setAttribute('data-latex', part.latex);
+				mathEl.textContent = part.latex;
+				frag.appendChild(mathEl);
+			}
+		}
+		textNode.replaceWith(frag);
+	}
+}
