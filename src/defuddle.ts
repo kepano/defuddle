@@ -615,7 +615,7 @@ export class Defuddle {
 				}
 			});
 			
-		 // Replace Next.js base64 <img> placeholders with real URLs from adjacent
+			// Replace Next.js base64 <img> placeholders with real URLs from adjacent
 			// <noscript> images. Must run before selector cleanup removes <noscript>.
 			profileStep('fixNextNoscriptImages', () => {
 				const imgs = clone.querySelectorAll('img[src^="data:image"]');
