@@ -711,6 +711,67 @@ class FootnoteHandler {
 	}
 
 	/**
+	 * Handle sidenotes rendered in a separate column/container.
+	 * Pattern: <aside class="sidenotes-column"><div class="sidenote" id="...">Content</div></aside>
+	 * with inline refs: <sup class="sn-ref"><a href="#sn-...">1</a></sup>
+	 */
+	collectSidenotesColumn(element: any): FootnoteCollection {
+		const footnotes: FootnoteCollection = {};
+
+		let columns = Array.from(element.querySelectorAll('.sidenotes-column')) as any[];
+
+		// Sidenote columns are often siblings of an ancestor
+		// (e.g. <div class="wrapper"><article>…</article><aside class="sidenotes-column">)
+		if (columns.length === 0) {
+			let ancestor = element.parentElement;
+			for (let i = 0; i < 3 && ancestor && columns.length === 0; i++) {
+				columns = Array.from(ancestor.querySelectorAll(':scope > .sidenotes-column')) as any[];
+				ancestor = ancestor.parentElement;
+			}
+		}
+		if (columns.length === 0) return footnotes;
+
+		let footnoteCount = 1;
+		columns.forEach((column: any) => {
+			const sidenotes = column.querySelectorAll('.sidenote[id]');
+			sidenotes.forEach((sidenote: any) => {
+				const id = sidenote.id;
+				if (!id) return;
+
+				// Extract footnote number from the sidenote__id span
+				const idSpan = sidenote.querySelector('.sidenote__id');
+				const num = idSpan?.textContent?.replace(/\D/g, '');
+				const footnoteNumber = num ? parseInt(num, 10) : footnoteCount;
+
+				// Clone content, removing the id span, label, and backref
+				const contentDiv = this.doc.createElement('div');
+				Array.from(sidenote.childNodes).forEach((node: any) => {
+					if (isElement(node)) {
+						if (node.classList?.contains('sidenote__id')) return;
+						if (node.classList?.contains('sidenote__label')) return;
+						if (node.classList?.contains('sn-backref')) return;
+					}
+					contentDiv.appendChild(node.cloneNode(true));
+				});
+
+				// Remove any nested backrefs (may be inside <p> or other elements)
+				this.removeBackrefs(contentDiv);
+
+				footnotes[footnoteNumber] = {
+					content: contentDiv,
+					originalId: id.toLowerCase(),
+					refs: []
+				};
+				footnoteCount++;
+			});
+
+			column.remove();
+		});
+
+		return footnotes;
+	}
+
+	/**
 	 * Collects footnotes from asides containing numbered ordered lists.
 	 * Pattern: <aside><ol start="N"><li>Content…</li></ol></aside>
 	 * with bare <sup>N</sup> inline refs in the surrounding text.
@@ -759,6 +820,15 @@ class FootnoteHandler {
 		const sidenotes = this.collectInlineSidenotes(element);
 
 		const footnotes = this.collectFootnotes(element);
+
+		// Merge sidenotes column footnotes; don't overwrite footnotes already collected
+		const sidenotesColumn = this.collectSidenotesColumn(element);
+		for (const [num, data] of Object.entries(sidenotesColumn)) {
+			const n = parseInt(num);
+			if (!footnotes[n]) {
+				footnotes[n] = data;
+			}
+		}
 
 		// Merge aside footnotes; don't overwrite footnotes already collected
 		const asideFootnotes = this.collectAsideFootnotes(element);

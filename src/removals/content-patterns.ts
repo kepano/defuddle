@@ -408,6 +408,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	const metadataLists = mainContent.querySelectorAll('ul, ol, dl');
 	for (const list of metadataLists) {
 		if (!list.parentNode) continue;
+		// Skip the standardized footnotes list
+		if (list.closest('#footnotes')) continue;
 		const isDl = list.tagName === 'DL';
 		const items = Array.from(list.children).filter(el =>
 			isDl ? el.tagName === 'DD' : el.tagName === 'LI'

@@ -428,7 +428,7 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 					attrValue.startsWith('fn:') || // Footnote content
 					attrValue === 'footnotes' // Footnotes container
 				)) ||
-				// Preserve code block language classes and footnote backref class
+				// Preserve code block language classes, footnote backref class, and callout classes
 				(attrName === 'class' && (
 					(tag === 'code' && attrValue.startsWith('language-')) ||
 					attrValue === 'footnote-backref' ||
