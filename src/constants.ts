@@ -846,6 +846,7 @@ export const PARTIAL_SELECTORS = [
 	'time-read',
 	'time-to-read',
 	'tip_off',
+	'-ticker',
 	'tiptout',
 	'-tout-',
 //	'-toc',
