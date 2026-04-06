@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Sample Plugin</title></head>
+<body>
+<article class="markdown-body">
+
+  <div class="markdown-heading"><h1>sample-plugin</h1></div>
+
+  <p>A fast and flexible plugin for editing configuration files.</p>
+
+  <div class="markdown-heading"><h2>Features</h2></div>
+
+  <ul dir="auto">
+    <li>Written in <code>Lua</code></li>
+    <li>Asynchronous execution</li>
+    <li>Buffer locking</li>
+    <li>Opt-in default configurations</li>
+    <li>Conditional formatting</li>
+    <li>Before/after hooks</li>
+  </ul>
+
+  <div class="markdown-heading"><h2>Install</h2></div>
+
+  <p>Use your preferred package manager:</p>
+
+  <pre><code>use 'user/sample-plugin'</code></pre>
+
+  <div class="markdown-heading"><h2>Configuration</h2></div>
+
+  <p>The plugin can be configured by passing a table to the setup function. Below is an example with the default values.</p>
+
+  <pre><code>require('sample-plugin').setup({
+  logging = true,
+  filetype = {},
+})</code></pre>
+
+  <div class="markdown-heading"><h2>Usage</h2></div>
+
+  <p>The plugin provides a single command to format the current buffer. Run it manually or bind it to a key.</p>
+
+</article>
+</body>
+</html>

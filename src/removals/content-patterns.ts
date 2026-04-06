@@ -427,10 +427,13 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		const distFromEnd = contentText.length - (listPos + listText.length);
 		if (listPos > 500 && distFromEnd > 500) continue;
 
-		// Skip lists introduced by a preceding paragraph (e.g. "Features include:")
+		// Skip lists introduced by a preceding heading or paragraph ending with ":"
 		// — those are content lists, not standalone metadata
 		const prevSibling = list.previousElementSibling;
 		if (prevSibling) {
+			const prevTag = prevSibling.tagName;
+			// Direct heading or a wrapper div containing a heading (e.g. GitHub's div.markdown-heading)
+			if (/^H[1-6]$/.test(prevTag) || prevSibling.querySelector('h1, h2, h3, h4, h5, h6')) continue;
 			const prevText = prevSibling.textContent?.trim() || '';
 			if (prevText.endsWith(':')) continue;
 		}
