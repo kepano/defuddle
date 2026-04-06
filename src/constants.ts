@@ -160,9 +160,6 @@ export const EXACT_SELECTORS = [
 	'.tags',
 	'#tags',
 	'[rel="tag"]',
-	'.toc',
-	'.Toc',
-	'#toc',
 	'.headline',
 	'#headline',
 	'#title',
@@ -178,7 +175,6 @@ export const EXACT_SELECTORS = [
 	'[href$="/author"]',
 	'a[href*="copyright.com"]',
 	'a[href*="google.com/preferences"]',
-	'[href*="#toc"]',
 	'[href="#top"]',
 	'[href="#Top"]',
 	'[href="#page-header"]',
@@ -187,6 +183,12 @@ export const EXACT_SELECTORS = [
 	'[href="#main-content"]',
 	'[href^="#main"]',
 	'[src*="author"]',
+
+	// table of contents
+	'.toc',
+	'.Toc',
+	'#toc',
+	'[href*="#toc"]',
 
 	// footer
 	'footer',
