@@ -1,0 +1,88 @@
+<!-- {"url": "https://substack.com/@testuser/note/c-999999999"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Test User (@testuser): "This is the main note content on the permalink page."</title>
+	<meta property="og:type" content="article">
+	<meta property="og:title" content="Test User (@testuser)">
+	<meta property="og:description" content="This is the main note content on the permalink page.">
+	<meta property="og:image" content="https://example.com/image/main-note.jpg">
+	<meta property="og:site_name" content="Substack">
+	<link rel="canonical" href="https://substack.com/@testuser/note/c-999999999">
+</head>
+<body>
+<div id="entry">
+	<div class="reader-nav-root reader2-font-base">
+		<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+
+			<!-- Feed sidebar with other notes (should NOT be extracted) -->
+			<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+				<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset feedCommentBody-abc123">
+					<div class="pencraft pc-reset feedCommentBodyInner-def456">
+						<div dir="auto" class="ProseMirror FeedProseMirror">
+							<p>This is a different note from the feed sidebar.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+				<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset feedCommentBody-abc123">
+					<div class="pencraft pc-reset feedCommentBodyInner-def456">
+						<div dir="auto" class="ProseMirror FeedProseMirror">
+							<p>Another unrelated feed note that appears before the main content.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Main note permalink unit -->
+			<div class="pencraft pc-display-flex pc-flexDirection-column pc-gap-8 pc-reset permalinkHeader-xyz789">
+				<div class="pencraft pc-display-flex pc-flexDirection-column pc-gap-12 pc-reset feedPermalinkUnit-abc123">
+					<div class="pencraft pc-display-flex pc-gap-8 pc-alignItems-center pc-reset">
+						<a href="/@testuser">
+							<img src="https://example.com/avatar.jpg" alt="Test User's avatar" width="36" height="36">
+						</a>
+						<div>
+							<a href="/@testuser">Test User</a>
+						</div>
+					</div>
+
+					<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset feedCommentBody-abc123">
+						<div class="pencraft pc-reset feedCommentBodyInner-def456">
+							<div dir="auto" class="ProseMirror FeedProseMirror">
+								<p>This is the main note content on the permalink page.</p>
+								<p>It has multiple paragraphs with important information.</p>
+							</div>
+						</div>
+					</div>
+					<div class="pencraft pc-display-flex pc-gap-4 pc-reset imageGrid-TadIyX size-1-rfav9C permalink-Zw9a6V">
+						<div class="pencraft imageBubble-PUJ2WF" style="width: 480px; height: 224px;">
+							<picture>
+								<source type="image/webp" srcset="https://example.com/image/320w.webp 320w, https://example.com/image/640w.webp 640w">
+								<img src="https://example.com/image/320w.jpg"
+									srcset="https://example.com/image/320w.jpg 320w, https://example.com/image/640w.jpg 640w, https://example.com/image/960w.jpg 960w"
+									width="480" height="224" alt="" loading="lazy" class="img-OACg1c pencraft pc-reset">
+							</picture>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- More feed notes after the main note (should NOT be extracted) -->
+			<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+				<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset feedCommentBody-abc123">
+					<div class="pencraft pc-reset feedCommentBodyInner-def456">
+						<div dir="auto" class="ProseMirror FeedProseMirror">
+							<p>Yet another unrelated feed note after the main content.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</div>
+</body>
+</html>

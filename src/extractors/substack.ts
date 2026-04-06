@@ -45,13 +45,21 @@ export class SubstackExtractor extends BaseExtractor {
 		}
 
 		// Fall back to Notes extraction (ProseMirror editor div)
-		this.noteText = document.querySelector('div.ProseMirror.FeedProseMirror');
+		// On permalink note pages, the main note is inside a feedPermalinkUnit container.
+		// Other ProseMirror elements on the page belong to feed recommendations.
+		const permalinkUnit = document.querySelector('[class*="feedPermalinkUnit"]');
+		this.noteText = (permalinkUnit || document).querySelector('div.ProseMirror.FeedProseMirror');
 		if (this.noteText) {
 			const feedCommentBody = this.noteText.closest('[class*="feedCommentBody"]:not([class*="feedCommentBodyInner"])');
-			const sibling = feedCommentBody?.parentElement?.nextElementSibling;
-			const siblingClass = sibling?.getAttribute('class') || '';
-			if (sibling && siblingClass.includes('imageGrid')) {
-				this.noteImage = sibling;
+			if (feedCommentBody) {
+				// imageGrid can be a sibling of feedCommentBody or of its parent wrapper
+				const candidates = [feedCommentBody.nextElementSibling, feedCommentBody.parentElement?.nextElementSibling];
+				for (const el of candidates) {
+					if (el && (el.getAttribute('class') || '').includes('imageGrid')) {
+						this.noteImage = el;
+						break;
+					}
+				}
 			}
 		}
 	}
