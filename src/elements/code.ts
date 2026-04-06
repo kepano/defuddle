@@ -384,7 +384,25 @@ export const codeBlockRules = [
 			if (!codeContent && cmContent) {
 				codeContent = extractStructuredText(cmContent);
 			} else if (!codeContent) {
-				codeContent = extractStructuredText(el);
+				// If the matched element is a wrapper (not pre/code) that contains a <pre>,
+				// extract from the code <pre> to avoid HTML template whitespace leaking in
+				// from wrapper elements (e.g. .highlight wrapping a table with line numbers).
+				let extractTarget = el;
+				if (el.tagName !== 'PRE' && el.tagName !== 'CODE') {
+					// Find the <pre> with actual code content (has language-annotated <code>,
+					// or contains .line spans). Avoids picking the line-number <pre> in
+					// table-based layouts (Chroma, Rouge, etc.).
+					const pres = Array.from(el.querySelectorAll('pre'));
+					const codePre = pres.find(p =>
+						p.querySelector('code[data-lang], code[class*="language-"], .line, [data-line]')
+					) || pres.find(p =>
+						p.querySelector('span[class]') && !p.classList.contains('lineno')
+					);
+					if (codePre) {
+						extractTarget = codePre;
+					}
+				}
+				codeContent = extractStructuredText(extractTarget);
 			}
 
 			// Clean up the content
@@ -398,10 +416,28 @@ export const codeBlockRules = [
 					.replace(/^\n+/, '');            // Remove extra newlines at start
 			} else {
 				codeContent = codeContent
-					.replace(/^\s+|\s+$/g, '')      // Trim start/end whitespace
 					.replace(/\t/g, '    ')         // Convert tabs to spaces
+					.replace(/\u00a0/g, ' ');       // Replace non-breaking spaces
+
+				// Dedent: remove common leading whitespace (e.g. HTML template indentation
+				// in non-pre containers like JetBrains Writerside <div class="code-block">).
+				// Runs before trimming so the first line's indent is still present.
+				const lines = codeContent.split('\n');
+				let minIndent = Infinity;
+				for (const line of lines) {
+					const firstChar = line.search(/\S/);
+					if (firstChar > -1) {
+						minIndent = Math.min(minIndent, firstChar);
+					}
+				}
+				if (minIndent === Infinity) minIndent = 0;
+				if (minIndent > 0) {
+					codeContent = lines.map(line => line.slice(minIndent)).join('\n');
+				}
+
+				codeContent = codeContent
+					.replace(/^\s+|\s+$/g, '')      // Trim start/end whitespace
 					.replace(/\n{3,}/g, '\n\n')     // Normalize multiple newlines
-					.replace(/\u00a0/g, ' ')        // Replace non-breaking spaces
 					.replace(/^\n+/, '')            // Remove extra newlines at start
 					.replace(/\n+$/, '');           // Remove extra newlines at end
 			}
