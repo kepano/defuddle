@@ -82,9 +82,9 @@ export function findSmallImages(doc: Document, debug: boolean): Set<string> {
 		const widths = [attrWidth, styleWidth, computedWidth, viewBoxWidth].filter(d => d > 0);
 		const heights = [attrHeight, styleHeight, computedHeight, viewBoxHeight].filter(d => d > 0);
 
-		if (widths.length > 0 && heights.length > 0) {
-			const effectiveWidth = Math.min(...widths);
-			const effectiveHeight = Math.min(...heights);
+		if (widths.length > 0 || heights.length > 0) {
+			const effectiveWidth = widths.length > 0 ? Math.min(...widths) : Infinity;
+			const effectiveHeight = heights.length > 0 ? Math.min(...heights) : Infinity;
 
 			if (effectiveWidth < MIN_DIMENSION || effectiveHeight < MIN_DIMENSION) {
 				const identifier = getElementIdentifier(element);
