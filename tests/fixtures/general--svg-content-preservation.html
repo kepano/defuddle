@@ -1,0 +1,83 @@
+<!-- {"url":"https://example.com/blog/neural-networks"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Understanding Neural Networks</title>
+  <meta name="author" content="Jane Smith" />
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/blog">Blog</a>
+  </nav>
+  <main>
+    <article>
+      <h1>Understanding Neural Networks</h1>
+      <p>Neural networks are the fundamental building block of modern AI. Let's start with the simplest example: 1 input, 1 parameter, 1 output.</p>
+
+      <!-- Responsive SVG pair: mobile (sm:hidden) and desktop (hidden sm:flex) -->
+      <div>
+        <!-- Mobile version (vertical) — should be removed -->
+        <div class="sm:hidden">
+          <div role="img" aria-label="Simple neural network with 1 parameter.">
+            <svg viewBox="0 0 100 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="50" cy="50" r="30" fill="var(--background-color-card)" stroke="var(--color-amber-600)" stroke-width="2" />
+              <text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--text-color-body)">2.0</text>
+              <path d="M 50 80 L 50 220" stroke="light-dark(var(--color-slate-400), var(--color-slate-300))" stroke-width="2" fill="none" />
+              <circle cx="50" cy="250" r="30" fill="var(--background-color-card)" stroke="var(--color-green-600)" stroke-width="2" />
+              <text x="50" y="250" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--text-color-body)">1.0</text>
+            </svg>
+          </div>
+        </div>
+        <!-- Desktop version (horizontal) — should be kept -->
+        <div class="hidden items-stretch gap-10 sm:flex">
+          <div role="img" aria-label="Simple neural network with 1 parameter.">
+            <svg viewBox="0 0 400 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="50" cy="50" r="30" fill="var(--background-color-card)" stroke="var(--color-amber-600)" stroke-width="2" />
+              <text x="50" y="50" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--text-color-body)">2.0</text>
+              <path d="M 80 50 L 320 50" stroke="light-dark(var(--color-slate-400), var(--color-slate-300))" stroke-width="2" fill="none" />
+              <circle cx="350" cy="50" r="30" fill="var(--background-color-card)" stroke="var(--color-green-600)" stroke-width="2" />
+              <text x="350" y="50" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--text-color-body)">1.0</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <p>The network multiplies the input by the parameter to produce the output.</p>
+
+      <!-- SVG with Tailwind utility classes -->
+      <div>
+        <svg viewBox="0 0 200 100" width="100%" height="100%" aria-hidden="true" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="20" y1="50" x2="180" y2="50" class="stroke-zinc-400" stroke-width="1.5" stroke-dasharray="4 4" />
+          <circle cx="50" cy="50" r="8" class="fill-orange-500" />
+          <circle cx="150" cy="50" r="8" class="fill-amber-500" />
+          <text x="100" y="90" text-anchor="middle" class="fill-amber-500 text-[14px] font-semibold">-0.50</text>
+        </svg>
+      </div>
+
+      <p>Each connection in the network has a weight that determines how strongly the input influences the output.</p>
+
+      <!-- Code block with adjacent copy button SVG (should not destroy content) -->
+      <div>
+        <pre><code class="language-python">model = NeuralNetwork(layers=[1, 4, 1])</code></pre>
+        <button>
+          <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" fill="currentColor"></path></svg>
+        </button>
+      </div>
+
+      <p>This simple model can be trained to approximate many functions with sufficient layers and parameters.</p>
+
+      <!-- Small icon SVGs that should be removed -->
+      <h2>
+        Further Reading
+        <a href="#further-reading"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 256 256"><path d="M0 0" fill="currentColor"></path></svg></a>
+      </h2>
+      <p>For more on neural networks, see the references section at the end of this article.</p>
+    </article>
+  </main>
+  <footer>
+    <p>Copyright 2026</p>
+  </footer>
+</body>
+</html>

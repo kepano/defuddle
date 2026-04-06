@@ -52,6 +52,15 @@ export function getClassName(el: Element): string {
 }
 
 /**
+ * Check if a class string contains responsive Tailwind show utilities
+ * (e.g. "sm:block", "lg:flex") indicating the element is visible at some breakpoints.
+ */
+const RESPONSIVE_SHOW_RE = /^(sm|md|lg|xl|2xl|min-\[|max-\[):(?:block|flex|grid|inline|table|contents)/;
+export function hasResponsiveShowClass(className: string): boolean {
+	return className.split(/\s+/).some(t => RESPONSIVE_SHOW_RE.test(t));
+}
+
+/**
  * Check if a URL uses a dangerous protocol (javascript:, data:text/html).
  * Strips whitespace and control characters before checking.
  */

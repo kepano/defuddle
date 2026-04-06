@@ -457,7 +457,7 @@ export const codeBlockRules = [
 					if (sibTag !== 'DIV' && sibTag !== 'SPAN') continue;
 					const sibText = (sib.textContent || '').trim();
 					const sibWords = countWords(sibText);
-					if (sibWords <= 5 && !sib.querySelector('pre, code, img, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol')) {
+					if (sibWords <= 5 && !sib.querySelector('pre, code, img, svg, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol')) {
 						sib.remove();
 					}
 				}

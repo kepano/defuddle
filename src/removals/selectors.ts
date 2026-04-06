@@ -9,7 +9,7 @@ import {
 } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
-import { getClassName } from '../utils/dom';
+import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -36,6 +36,10 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements inside code blocks (e.g. syntax highlighting spans)
 				if (el.closest('pre, code')) {
+					return;
+				}
+				// Skip elements with responsive show classes (e.g. "hidden sm:flex")
+				if (el.matches(HIDDEN_EXACT_SELECTOR) && hasResponsiveShowClass(getClassName(el))) {
 					return;
 				}
 				elementsToRemove.set(el, { type: 'exact' });

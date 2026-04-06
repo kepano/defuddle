@@ -1,5 +1,6 @@
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
+import { hasResponsiveShowClass } from '../utils/dom';
 
 export function removeHiddenElements(doc: Document, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	let count = 0;
@@ -54,8 +55,11 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 		const className = element.getAttribute('class') || '';
 		if (className) {
 			const tokens = className.split(/\s+/);
+			if (hasResponsiveShowClass(className)) continue;
+
 			for (const token of tokens) {
-				if (token === 'hidden' || token.endsWith(':hidden') || token === 'invisible' || token.endsWith(':invisible')) {
+				if (token === 'hidden' || token === 'invisible' ||
+					token.endsWith(':hidden') || token.endsWith(':invisible')) {
 					elementsToRemove.set(element, `class:${token}`);
 					count++;
 					break;

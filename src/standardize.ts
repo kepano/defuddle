@@ -6,7 +6,12 @@ import {
 	INLINE_ELEMENTS,
 	ALLOWED_ATTRIBUTES,
 	ALLOWED_ATTRIBUTES_DEBUG,
-	ALLOWED_EMPTY_ELEMENTS
+	ALLOWED_EMPTY_ELEMENTS,
+	TAILWIND_COLORS,
+	TAILWIND_SPECIAL,
+	TW_COLOR_CLASS_RE,
+	TW_SPECIAL_CLASS_RE,
+	TW_ARBITRARY_RE
 } from './constants';
 
 import { DefuddleMetadata } from './types';
@@ -164,6 +169,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	step('standardizeHeadings', () => standardizeHeadings(element, metadata.title, doc));
 	step('wrapPreformattedCode', () => wrapPreformattedCode(element, doc));
 	step('standardizeElements', () => standardizeElements(element, doc, subProfile));
+	step('resolveSvgColors', () => resolveSvgColors(element, doc));
 
 	if (!debug) {
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
@@ -519,6 +525,155 @@ function unwrapBareSpans(element: Element): void {
 	}
 
 	logDebug(_debug, 'Unwrapped bare spans:', unwrappedCount);
+}
+
+const LIGHT_DARK_RE = /light-dark\(\s*([^,]+?)\s*,\s*[^)]+?\)/g;
+const CSS_VAR_RE = /var\(--([^,)]+)(?:,\s*([^)]+))?\)/;
+const SVG_COLOR_ATTRS = ['fill', 'stroke', 'color', 'stop-color', 'flood-color', 'lighting-color'];
+
+/**
+ * Resolve CSS variables in SVG attributes to concrete color values.
+ * In browser environments, uses getComputedStyle to resolve variables.
+ * In Node/Worker environments (where CSS variables are unavailable),
+ * infers colors from variable names so SVGs remain legible outside the page.
+ */
+function resolveSvgColors(element: Element, doc: Document): void {
+	const svgs = element.querySelectorAll('svg');
+	if (svgs.length === 0) return;
+
+	const defaultView = doc.defaultView;
+	const isBrowser = typeof window !== 'undefined' && defaultView === window;
+	const resolveCache = new Map<string, string>();
+
+	const resolveVar = (value: string, svgParent: Element | null): string => {
+		// Unwrap light-dark(): use the light-mode value
+		value = value.replace(LIGHT_DARK_RE, (_match, lightVal) => lightVal.trim());
+
+		if (!value.includes('var(')) return value;
+
+		if (isBrowser) {
+			const cached = resolveCache.get(value);
+			if (cached) return cached;
+			// Append temp div to nearest HTML ancestor (not inside SVG namespace)
+			const anchor = svgParent || doc.documentElement;
+			try {
+				const temp = doc.createElement('div');
+				temp.style.color = value;
+				anchor.appendChild(temp);
+				const computed = defaultView!.getComputedStyle(temp).color;
+				temp.remove();
+				if (computed && !computed.includes('var(')) {
+					resolveCache.set(value, computed);
+					return computed;
+				}
+			} catch (e) {}
+		}
+
+		// Parse var() — use CSS fallback value if provided
+		const varMatch = value.match(CSS_VAR_RE);
+		if (varMatch) {
+			const fallback = varMatch[2]?.trim();
+			if (fallback && !fallback.includes('var(')) return fallback;
+
+			const name = varMatch[1].toLowerCase();
+
+			// Try to resolve from Tailwind palette (e.g. --color-amber-600)
+			const twMatch = name.match(/(?:^|-)([a-z]+)-(\d{2,3})$/);
+			if (twMatch) {
+				const hex = TAILWIND_COLORS[twMatch[1]]?.[twMatch[2]];
+				if (hex) return hex;
+			}
+			if (name.endsWith('-black')) return '#000';
+			if (name.endsWith('-white')) return '#fff';
+
+			// Semantic fallbacks
+			if (name.includes('background') || name.includes('card') || name.includes('surface') || name.includes('bg')) return 'Canvas';
+			if (name.includes('border') || name.includes('divider') || name.includes('separator')) return '#ccc';
+			if (name.includes('muted') || name.includes('subtle') || name.includes('secondary') || name.includes('placeholder')) return '#888';
+		}
+		return 'currentColor';
+	};
+
+	for (const svg of Array.from(svgs)) {
+		const svgParent = svg.parentElement;
+		const allEls = [svg, ...Array.from(svg.querySelectorAll('*'))];
+		for (const el of allEls) {
+			for (const attrName of SVG_COLOR_ATTRS) {
+				const val = el.getAttribute(attrName);
+				if (!val || (!val.includes('var(') && !val.includes('light-dark('))) continue;
+				el.setAttribute(attrName, resolveVar(val, svgParent));
+			}
+			const style = el.getAttribute('style');
+			if (style && (style.includes('var(') || style.includes('light-dark('))) {
+				let resolved = style.replace(LIGHT_DARK_RE, (_match, lightVal) => lightVal.trim());
+				resolved = resolved.replace(/var\(--[^,)]+(?:,\s*[^)]+)?\)/g, match => resolveVar(match, svgParent));
+				el.setAttribute('style', resolved);
+			}
+			resolveTailwindClasses(el);
+		}
+	}
+}
+
+function resolveTailwindClasses(el: Element): void {
+	const className = el.getAttribute('class');
+	if (!className) return;
+
+	const tokens = className.split(/\s+/);
+	const keep: string[] = [];
+	const styles: string[] = [];
+
+	for (const token of tokens) {
+		let match = token.match(TW_COLOR_CLASS_RE);
+		if (match) {
+			const [, prop, color, shade, opacity] = match;
+			const hex = TAILWIND_COLORS[color]?.[shade];
+			if (hex) {
+				if (opacity) {
+					const a = parseInt(opacity) / 100;
+					const r = parseInt(hex.slice(1, 3), 16);
+					const g = parseInt(hex.slice(3, 5), 16);
+					const b = parseInt(hex.slice(5, 7), 16);
+					el.setAttribute(prop, `rgba(${r},${g},${b},${a})`);
+				} else {
+					el.setAttribute(prop, hex);
+				}
+				continue;
+			}
+		}
+
+		match = token.match(TW_SPECIAL_CLASS_RE);
+		if (match) {
+			el.setAttribute(match[1], TAILWIND_SPECIAL[match[2]]);
+			continue;
+		}
+
+		match = token.match(TW_ARBITRARY_RE);
+		if (match && !match[1].startsWith('#') && !match[1].startsWith('rgb') && !match[1].startsWith('hsl')) {
+			styles.push(`font-size:${match[1]}`);
+			continue;
+		}
+
+		if (token === 'font-semibold') { styles.push('font-weight:600'); continue; }
+		if (token === 'font-bold') { styles.push('font-weight:700'); continue; }
+		if (token === 'font-medium') { styles.push('font-weight:500'); continue; }
+		if (token === 'font-mono') { styles.push('font-family:monospace'); continue; }
+
+		keep.push(token);
+	}
+
+	if (keep.length === tokens.length) return; // nothing changed
+
+	if (keep.length > 0) {
+		el.setAttribute('class', keep.join(' '));
+	} else {
+		el.removeAttribute('class');
+	}
+
+	if (styles.length > 0) {
+		const existing = el.getAttribute('style') || '';
+		const sep = existing && !existing.endsWith(';') ? ';' : '';
+		el.setAttribute('style', existing + sep + styles.join(';'));
+	}
 }
 
 function removeEmptyElements(element: Element): void {
