@@ -170,8 +170,8 @@ export const EXACT_SELECTORS = [
 	'#articleTag',
 	// '[href*="/category"]', // see issue #131
 	// '[href*="/categories"]', // see issue #131
-	'[href*="/tag/"]',
-	'[href*="/tags/"]',
+	// '[href*="/tag/"]',
+	// '[href*="/tags/"]',
 	// '[href*="/topics"]', // see issue #131
 	'[href*="/author/"]',
 	'[href*="/author?"]',
@@ -681,7 +681,7 @@ export const PARTIAL_SELECTORS = [
 	'post-tax',
 	'post_tax',
 	'posttag',
-	'post_tag',
+//	'post_tag', https://opexnews.fr
 	'post-tag',
 	'post_time',
 	'posttitle',
@@ -904,6 +904,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'a[id^="fnref"]',
 	'a[id^="ref-link"]', // Nature.com
 	'sup.footnoteref', // Wikidot
+	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
 ].join(',');
 
 export const FOOTNOTE_LIST_SELECTORS = [
@@ -924,6 +925,7 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'div.footnote[data-component-name="FootnoteToDOM"]', // Substack
 	'div.footnotes-footer', // Wikidot
 	'div.footnote-definitions',
+	'ol.wp-block-footnotes', // WordPress block editor footnotes
 	'#footnotes' // standardizeFootnotes output container
 ].join(',');
 

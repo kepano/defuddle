@@ -224,7 +224,7 @@ The assumptions of the supervised learning paradigm are:
 - The model is optimized to answer questions correctly
 - Tasks are closed-ended, defined by question/correct answer pairs
 
-These are essentially the assumptions of oracle AI, as [described by Bostrom](https://publicism.info/philosophy/superintelligence/11.html) and.
+These are essentially the assumptions of oracle AI, as [described by Bostrom](https://publicism.info/philosophy/superintelligence/11.html) and [in subsequent usage](https://www.lesswrong.com/tag/oracle-ai/history).
 
 So influential has been this miscalibrated perspective that [Gwern](https://www.gwern.net/GPT-3#prompts-as-programming), [nostalgebraist](https://lesswrong.com/posts/pv7Qpu8WSge8NRbpB) and [myself](https://generative.ink/posts/language-models-are-0-shot-interpreters/#0-shot-few-shot-and-meta-learning) – who share a peculiar model overlap due to intensive firsthand experience with the downstream behaviors of LLMs – have all repeatedly complained about it. I’ll repeat some of these arguments here, tying into the view of GPT as an oracle AI, and separating it into the two assumptions inspired by supervised learning.
 
