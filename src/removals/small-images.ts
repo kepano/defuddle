@@ -1,5 +1,6 @@
 import { logDebug } from '../utils';
 import { getClassName } from '../utils/dom';
+import { isBase64Placeholder } from '../elements/images';
 
 const STYLE_WIDTH_PATTERN = /width\s*:\s*(\d+)/;
 const STYLE_HEIGHT_PATTERN = /height\s*:\s*(\d+)/;
@@ -93,14 +94,25 @@ export function removeSmallImages(doc: Document, smallImages: Set<string>, debug
 		const elements = doc.getElementsByTagName(tag);
 		Array.from(elements).forEach(element => {
 			// Remove images with no source information at all (broken/empty images)
+			// or unresolvable base64 placeholder images (e.g. lazy-loaded images
+			// where JS never ran to inject the real URL)
 			if (tag === 'img') {
-				const hasSrc = element.getAttribute('src') ||
+				const src = element.getAttribute('src') || '';
+				const hasAltSrc =
 					element.getAttribute('srcset') ||
 					element.getAttribute('data-src') ||
 					element.getAttribute('data-srcset') ||
 					element.getAttribute('data-lazy-src') ||
 					element.getAttribute('data-original');
-				if (!hasSrc) {
+				if (!src && !hasAltSrc) {
+					element.remove();
+					removedCount++;
+					return;
+				}
+				// Base64 placeholder with no alternative source — unresolvable.
+				// Skip images inside <picture>; the picture transform will
+				// resolve them from <source> srcsets.
+				if (!hasAltSrc && !element.closest('picture') && isBase64Placeholder(src)) {
 					element.remove();
 					removedCount++;
 					return;

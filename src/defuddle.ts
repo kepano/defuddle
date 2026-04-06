@@ -69,10 +69,10 @@ export class Defuddle {
 	 * Parse the document and extract its main content
 	 */
 	parse(): DefuddleResponse {
-		// Replace base64 placeholder images with real URLs from <noscript>
-		// fallbacks before content extraction. Must run before parseInternal
-		// so the promoted URLs are available when content is scored/extracted.
+		// Normalize non-standard attribute casing (e.g. React SSR outputs
+		// "srcSet" instead of "srcset") before any image processing.
 		if (this.doc.body) {
+			this._normalizeAttributes(this.doc.body);
 			this._resolveNoscriptImages(this.doc.body);
 		}
 
@@ -249,14 +249,133 @@ export class Defuddle {
 	 * only inside a <noscript> sibling. This promotes the real URL before
 	 * noscript elements are stripped.
 	 */
+
+	/**
+	 * Remove duplicate images within figures and adjacent elements, keeping
+	 * the highest resolution version. Handles Reader mode and lazy-loading
+	 * hydration creating a second copy alongside the original.
+	 */
+	private _deduplicateImages(body: Element): void {
+		for (const figure of body.querySelectorAll('figure')) {
+			const figImgs = Array.from(figure.querySelectorAll('img'))
+				.filter(img => !img.closest('noscript') && img.parentElement);
+			if (figImgs.length < 2) continue;
+
+			// Group by alt text; empty-alt images share one group
+			const groups = new Map<string | null, Element[]>();
+			for (const img of figImgs) {
+				const src = img.getAttribute('src') || '';
+				if (!src || src.startsWith('data:')) continue;
+				const key = (img.getAttribute('alt') || '').trim() || null;
+				const group = groups.get(key) || [];
+				group.push(img);
+				groups.set(key, group);
+			}
+
+			for (const [key, group] of groups) {
+				if (group.length < 2) continue;
+				// Same-src images with alt text are legitimate repeats, not dupes
+				if (key !== null && group.every(img => img.getAttribute('src') === group[0].getAttribute('src'))) continue;
+				this._keepBestImage(group);
+			}
+		}
+
+		// Also deduplicate adjacent images outside figures (same alt, different src)
+		const imgs = Array.from(body.querySelectorAll('img'));
+		for (let i = 0; i < imgs.length; i++) {
+			const img = imgs[i];
+			if (img.closest('noscript') || img.closest('figure')) continue;
+			if (!img.parentElement) continue;
+
+			const alt = (img.getAttribute('alt') || '').trim();
+			if (!alt) continue;
+			const src = img.getAttribute('src') || '';
+			if (!src || src.startsWith('data:')) continue;
+
+			for (let j = i + 1; j < imgs.length; j++) {
+				const other = imgs[j];
+				if (other.closest('noscript') || other.closest('figure')) continue;
+				if (!other.parentElement) continue;
+
+				const otherAlt = (other.getAttribute('alt') || '').trim();
+				if (otherAlt !== alt) break;
+				const otherSrc = other.getAttribute('src') || '';
+				if (!otherSrc || otherSrc.startsWith('data:')) continue;
+				if (otherSrc === src) break; // legitimate repeat
+
+				this._keepBestImage([img, other]);
+				if (!img.parentElement) break; // img was the loser
+			}
+		}
+	}
+
+	private _keepBestImage(group: Element[]): void {
+		let best = group[0];
+		for (let i = 1; i < group.length; i++) {
+			const winner = this._pickBestImage(best, group[i]);
+			(winner === best ? group[i] : best).remove();
+			best = winner;
+		}
+	}
+
+	// Matches width hints in CDN image URLs:
+	//   imgproxy:    /width:1300/  or /w:1300/
+	//   Cloudinary:  /w_1300/ or ,w_1300,
+	//   Query param: ?w=1300 or &width=1300 or ?width=1300
+	//   Next.js:     ?w=1300
+	private static _urlWidthPattern = /(?:width[=:/]|[/,?&]w[_:=])(\d+)/;
+
+	private _pickBestImage(a: Element, b: Element): Element {
+		// Tier 1: prefer images with srcset or inside <picture>
+		const tierA = a.getAttribute('srcset') ? 2 : a.closest('picture') ? 1 : 0;
+		const tierB = b.getAttribute('srcset') ? 2 : b.closest('picture') ? 1 : 0;
+		if (tierA !== tierB) return tierA > tierB ? a : b;
+
+		// Tier 2: compare URL width hints within the same tier
+		const widthA = Defuddle._urlWidth(a);
+		const widthB = Defuddle._urlWidth(b);
+		if (widthA !== widthB) return widthA > widthB ? a : b;
+
+		return a;
+	}
+
+	private static _urlWidth(img: Element): number {
+		const src = img.getAttribute('src') || '';
+		const m = src.match(Defuddle._urlWidthPattern);
+		return m ? parseInt(m[1], 10) : 0;
+	}
+
+	/**
+	 * Rename non-standard HTML attributes to their canonical lowercase forms.
+	 * React SSR outputs camelCase attributes like "srcSet" that some DOM
+	 * parsers (e.g. linkedom) preserve verbatim instead of lowercasing.
+	 */
+	private _normalizeAttributes(body: Element): void {
+		const renames: [string, string][] = [['srcSet', 'srcset']];
+		const elements = body.querySelectorAll('img, source');
+		for (const el of elements) {
+			for (const [from, to] of renames) {
+				const value = el.getAttribute(from);
+				if (value !== null) {
+					el.removeAttribute(from);
+					el.setAttribute(to, value);
+				}
+			}
+		}
+	}
+
 	private _resolveNoscriptImages(body: Element): void {
 		const noscripts = body.querySelectorAll('noscript');
 		for (const noscript of noscripts) {
-			// Try direct child query first (linkedom parses noscript children),
-			// fall back to parsing innerHTML for browser environments
+			// Try direct child query first (linkedom parses noscript children).
+			// In browsers with JS enabled, noscript content is raw text:
+			// innerHTML is entity-encoded, textContent has the raw HTML.
 			let noscriptImg = noscript.querySelector('img');
 			if (!noscriptImg) {
-				const html = noscript.innerHTML || '';
+				let html = noscript.innerHTML || '';
+				if (!html.includes('<img')) {
+					html = noscript.textContent || '';
+				}
 				if (!html.includes('<img')) continue;
 				const fragment = parseHTML(this.doc, html);
 				noscriptImg = fragment.querySelector('img');
@@ -270,6 +389,7 @@ export class Defuddle {
 			const parent = noscript.parentElement;
 			if (!parent) continue;
 
+			let matched = false;
 			const siblingImgs = parent.querySelectorAll(':scope > img');
 			for (const img of siblingImgs) {
 				const src = img.getAttribute('src') || '';
@@ -282,9 +402,55 @@ export class Defuddle {
 				if (srcset) {
 					img.setAttribute('srcset', srcset);
 				}
+				matched = true;
 				break;
 			}
+
+			// No matching sibling img — promote the noscript img directly.
+			// Only promote inside lazy-loading contexts (not tracking pixels)
+			// and only when no JS-hydrated image already exists.
+			// Exclude noscript children from the check — linkedom parses them
+			// as real elements.
+			if (!matched && this._isLazyImageContext(noscript)) {
+				const container = noscript.closest('figure') || parent;
+				const existingImgs = container.querySelectorAll('img');
+				let hasRealImage = false;
+				for (const img of existingImgs) {
+					if (img.closest('noscript')) continue;
+					const src = img.getAttribute('src') || '';
+					if (src && !src.startsWith('data:')) {
+						hasRealImage = true;
+						break;
+					}
+				}
+				if (!hasRealImage) {
+					const promotedImg = noscriptImg.cloneNode(true) as Element;
+					parent.insertBefore(promotedImg, noscript);
+				}
+			}
 		}
+	}
+
+	/**
+	 * Detect whether a <noscript> is inside a lazy-loading image wrapper
+	 * (vs. a standalone tracking pixel that should not be promoted).
+	 */
+	private _isLazyImageContext(noscript: Element): boolean {
+		if (noscript.closest('figure')) return true;
+
+		const parent = noscript.parentElement;
+		if (parent) {
+			for (const sibling of parent.children) {
+				if (sibling === noscript) continue;
+				if (getClassName(sibling).toLowerCase().includes('lazy')) return true;
+			}
+			const parentCls = getClassName(parent).toLowerCase();
+			if (parentCls.includes('image') || parentCls.includes('img') ||
+				parentCls.includes('picture') || parentCls.includes('photo') ||
+				parentCls.includes('media')) return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -707,6 +873,10 @@ export class Defuddle {
 
 			// Resolve relative URLs to absolute
 			profileStep('resolveRelativeUrls', () => this.resolveRelativeUrls(mainContent!));
+
+			// Remove duplicate images (same alt, different resolution)
+			// after all image processing and URL resolution is complete
+			this._deduplicateImages(mainContent!);
 
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();

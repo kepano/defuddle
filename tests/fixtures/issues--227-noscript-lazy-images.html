@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/test-article"} -->
+<html>
+<head>
+	<title>Test Article with Lazy Images</title>
+</head>
+<body>
+	<div id="root">
+		<div>
+			<div class="Layout-root">
+				<main id="maincontent">
+					<div class="Material-root">
+						<div class="Material-container">
+							<div class="Article-root">
+								<div class="Article-container">
+									<div class="Article-head">
+										<div class="Article-header">
+											<figure>
+												<picture>
+													<source type="image/webp" media="(min-width: 1000px)" srcset="/images/hero.webp 2x, /images/hero-small.webp 1x ">
+													<source type="image/png" media="(min-width: 1000px)" srcset="/images/hero.png 2x, /images/hero-small.png 1x ">
+													<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Hero image caption.">
+												</picture>
+												<figcaption>Hero image caption. Photo Credit / Agency</figcaption>
+											</figure>
+											<h2>Test article with multiple lazy-loaded images</h2>
+										</div>
+									</div>
+									<div class="Article-body">
+										<div class="Article-article">
+											<figure>
+												<picture>
+													<source type="image/webp" media="(min-width: 1000px)" srcset="/images/hero.webp 2x, /images/hero-small.webp 1x ">
+													<source type="image/png" media="(min-width: 1000px)" srcset="/images/hero.png 2x, /images/hero-small.png 1x ">
+													<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Hero image caption.">
+												</picture>
+												<figcaption>Hero image caption. Photo Credit / Agency</figcaption>
+											</figure>
+											<h3>Section one</h3>
+											<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+											<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+											<div data-testid="grouped-block" class="GroupedBlock-root">
+												<div class="GroupedBlock-items">
+													<div class="GroupedBlock-item" style="width:50%">
+														<figure>
+															<div class="Image-root">
+																<div class="Image-wrapper">
+																	<div class="Lazy-root" data-testid="lazy"></div>
+																	<noscript><img src="/images/gallery-1.jpg" alt="First gallery image caption."></noscript>
+																</div>
+															</div>
+															<figcaption>First gallery image caption. <a href="https://example.com/source1">Source One</a></figcaption>
+														</figure>
+													</div>
+													<div class="GroupedBlock-item" style="width:50%">
+														<figure>
+															<div class="Image-root">
+																<div class="Image-wrapper">
+																	<div class="Lazy-root" data-testid="lazy"></div>
+																	<noscript><img src="/images/gallery-2.jpg" alt="Second gallery image caption."></noscript>
+																</div>
+															</div>
+															<figcaption><a href="https://example.com/source2">Source Two</a></figcaption>
+														</figure>
+													</div>
+												</div>
+											</div>
+											<p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+											<figure>
+												<div class="Image-root">
+													<div class="Image-wrapper">
+														<div class="Lazy-root" data-testid="lazy"></div>
+														<noscript><img src="/images/inline-photo.jpg" alt="Inline photo caption."></noscript>
+													</div>
+												</div>
+												<figcaption>Inline photo caption. Photo Credit / Agency</figcaption>
+											</figure>
+											<p>Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</p>
+											<figure>
+												<div class="Image-root">
+													<div class="Image-wrapper">
+														<div class="Lazy-root" data-testid="lazy"></div>
+														<noscript><img src="/images/inline-photo-2.jpg" alt="Another inline photo."></noscript>
+													</div>
+												</div>
+												<figcaption>Another inline photo. Photo Credit / Agency</figcaption>
+											</figure>
+											<p>Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</main>
+			</div>
+		</div>
+	</div>
+</body>
+</html>

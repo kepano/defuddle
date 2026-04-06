@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/srcset-test"} -->
+<html>
+<head>
+	<title>React SSR srcSet Normalization</title>
+</head>
+<body>
+	<article>
+		<h1>Article with React SSR Images</h1>
+		<p>This article tests normalization of React SSR camelCase srcSet attributes to standard lowercase srcset.</p>
+
+		<figure>
+			<picture>
+				<source type="image/webp" media="(min-width: 1000px)" srcSet="https://www.example.com/images/hero.webp 2x, https://www.example.com/images/hero-small.webp 1x ">
+				<source type="image/png" media="(min-width: 1000px)" srcSet="https://www.example.com/images/hero.png 2x, https://www.example.com/images/hero-small.png 1x ">
+				<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Hero image with React SSR attributes.">
+			</picture>
+			<figcaption>Hero image with React SSR attributes. Photo credit.</figcaption>
+		</figure>
+
+		<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+		<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
+	</article>
+</body>
+</html>

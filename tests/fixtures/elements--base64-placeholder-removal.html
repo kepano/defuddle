@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/base64-test"} -->
+<html>
+<head>
+	<title>Base64 Placeholder Image Handling</title>
+</head>
+<body>
+	<article>
+		<h1>Base64 Placeholder Images</h1>
+		<p>This article tests removal of unresolvable base64 placeholder images while preserving resolvable ones.</p>
+
+		<!-- Unresolvable base64 placeholder (no srcset, data-src, or picture source) — should be removed -->
+		<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Unresolvable placeholder.">
+
+		<p>Some article text between images with enough words for content detection to function properly here.</p>
+
+		<!-- Base64 inside picture with sources — should be resolved to source URL -->
+		<figure>
+			<picture>
+				<source srcset="https://www.example.com/images/resolved.webp 2x, https://www.example.com/images/resolved-small.webp 1x">
+				<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Resolvable from picture source.">
+			</picture>
+			<figcaption>Resolvable from picture source. Photo credit.</figcaption>
+		</figure>
+
+		<p>More article text with enough content for the parser to work with on this test article page.</p>
+
+		<!-- Base64 with data-src alternative — should be resolved -->
+		<img src="data:image/gif;base64,R0lGODlhAQABAPAAAPLy8gAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" data-src="https://www.example.com/images/lazy-loaded.jpg" alt="Resolvable from data-src." loading="lazy">
+
+		<!-- Real image — should be preserved -->
+		<img src="https://www.example.com/images/real-image.jpg" alt="A real image.">
+
+		<p>Final paragraph with concluding article text for the content detection scoring algorithm.</p>
+	</article>
+</body>
+</html>

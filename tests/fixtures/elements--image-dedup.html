@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/image-dedup"} -->
+<html>
+<head>
+	<title>Image Deduplication Test</title>
+</head>
+<body>
+	<article>
+		<h1>Image Deduplication</h1>
+		<p>This article tests deduplication of lazy-loaded image duplicates while preserving legitimate repeated images.</p>
+
+		<!-- Case 1: Figure with duplicate images (different resolution, same alt) -->
+		<figure>
+			<div>
+				<picture>
+					<div class="image-wrapper">
+						<img src="https://www.example.com/images/photo-large.webp" alt="A landscape photo."
+							srcset="https://www.example.com/images/photo-large.webp 2x, https://www.example.com/images/photo-medium.webp 1x">
+					</div>
+				</picture>
+			</div>
+			<div class="image-wrapper">
+				<img src="https://www.example.com/images/photo-small.jpg" alt="A landscape photo.">
+			</div>
+			<figcaption>A landscape photo. Photo credit.</figcaption>
+		</figure>
+
+		<p>Paragraph of text between the images to separate content sections properly for the parser to work with.</p>
+
+		<!-- Case 2: Figure with duplicate images (no alt text) -->
+		<figure>
+			<div>
+				<img src="https://www.example.com/images/portrait-large.webp"
+					srcset="https://www.example.com/images/portrait-large.webp 2x">
+			</div>
+			<div>
+				<img src="https://www.example.com/images/portrait-small.jpg">
+			</div>
+			<figcaption>A portrait photo. Photographer name.</figcaption>
+		</figure>
+
+		<p>More article text here with enough words for the content detection scoring algorithm to work properly.</p>
+
+		<!-- Case 3: Legitimate repeated image (same src, same alt in different paragraphs) -->
+		<p>Here is a formula: <img src="https://www.example.com/latex/formula.png" alt="E equals mc squared"> in context.</p>
+		<p>The same formula <img src="https://www.example.com/latex/formula.png" alt="E equals mc squared"> appears again here.</p>
+
+		<p>Final paragraph of the article with some concluding text for the content parser.</p>
+	</article>
+</body>
+</html>

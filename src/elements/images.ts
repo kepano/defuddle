@@ -352,7 +352,7 @@ function copyAttributesExcept(source: Element, target: Element, excludeAttrs: st
 /**
  * Check if a string is a base64 placeholder image
  */
-function isBase64Placeholder(src: string): boolean {
+export function isBase64Placeholder(src: string): boolean {
 	// Check if it's a base64 data URL
 	const match = src.match(b64DataUrlRegex);
 	
