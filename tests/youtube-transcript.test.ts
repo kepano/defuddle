@@ -485,6 +485,46 @@ describe('YouTube transcript parsing', () => {
 		expect(track?.languageCode).toBe('zh');
 	});
 
+	test('pickCaptionTrack prefers non-ASR tracks over auto-generated ones', () => {
+		const extractor = createExtractor();
+		const track = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'en', kind: 'asr' },
+			{ languageCode: 'en' },
+		]);
+
+		expect(track?.kind).toBeUndefined();
+		expect(track?.languageCode).toBe('en');
+	});
+
+	test('pickCaptionTrack falls back to ASR when no manual tracks exist', () => {
+		const extractor = createExtractor();
+		const track = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'en', kind: 'asr' },
+		]);
+
+		expect(track?.kind).toBe('asr');
+	});
+
+	test('collapses newlines within caption segments to spaces', () => {
+		const extractor = createExtractor();
+		const xml = `<?xml version="1.0" encoding="utf-8"?>
+<timedtext format="3">
+<body>
+<p t="0" d="2690">- The first time I tried to use Obsidian,</p>
+<p t="6180" d="2960">I couldn&#39;t quite get
+it to do what I wanted.</p>
+<p t="9140" d="3010">And frankly, I just didn&#39;t
+get all of the hype.</p>
+</body>
+</timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		expect(result).toBeDefined();
+		expect(result.text).toContain("I couldn't quite get it to do what I wanted.");
+		expect(result.text).toContain("And frankly, I just didn't get all of the hype.");
+		expect(result.text).not.toContain('\n\n');
+	});
+
 	test('extractAsync does not open the transcript panel when API transcript succeeds', async () => {
 		const extractor = createExtractor(`
 			<html>

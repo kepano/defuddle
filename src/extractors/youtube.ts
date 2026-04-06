@@ -127,9 +127,16 @@ export class YoutubeExtractor extends BaseExtractor {
 		if (!norm) return undefined;
 		const base = norm.split('-')[0];
 		const normalized = captionTracks.map(t => ({ t, code: this.normalizeLanguageCode(t.languageCode) }));
-		return (normalized.find(({ code }) => code === norm)
-			?? normalized.find(({ code }) => code === base)
-			?? normalized.find(({ code }) => code.split('-')[0] === base))?.t;
+
+		// At each specificity level, prefer non-ASR tracks
+		const findBest = (predicate: (item: { t: any; code: string }) => boolean) => {
+			const matches = normalized.filter(predicate);
+			return (matches.find(({ t }) => t.kind !== 'asr') ?? matches[0])?.t;
+		};
+
+		return findBest(({ code }) => code === norm)
+			?? findBest(({ code }) => code === base)
+			?? findBest(({ code }) => code.split('-')[0] === base);
 	}
 
 	private pickCaptionTrack(captionTracks: any[]): any | undefined {
@@ -138,7 +145,11 @@ export class YoutubeExtractor extends BaseExtractor {
 			const match = this.findPreferredCaptionTrack(captionTracks, preferredLang);
 			if (match) return match;
 		}
-		return captionTracks.find((track: any) => track.languageCode === 'en') || captionTracks[0];
+
+		// Prefer manually uploaded tracks over auto-generated (ASR) ones
+		const nonAsr = captionTracks.filter((track: any) => track.kind !== 'asr');
+		const pool = nonAsr.length > 0 ? nonAsr : captionTracks;
+		return pool.find((track: any) => track.languageCode === 'en') || pool[0];
 	}
 
 	private getTrackDisplayName(track: any): string {
@@ -831,6 +842,9 @@ export class YoutubeExtractor extends BaseExtractor {
 				text = inner.replace(/<[^>]+>/g, '');
 			}
 
+			// Collapse subtitle line breaks to spaces
+			text = text.replace(/\n/g, ' ').replace(/\s{2,}/g, ' ');
+
 			// Decode HTML entities
 			text = this.decodeEntities(text);
 
@@ -844,7 +858,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const textRegex = /<text\s+start="([^"]*)"[^>]*>([\s\S]*?)<\/text>/g;
 			while ((match = textRegex.exec(xml)) !== null) {
 				const start = parseFloat(match[1]);
-				let text = this.decodeEntities(match[2].replace(/<[^>]+>/g, ''));
+				let text = this.decodeEntities(match[2].replace(/<[^>]+>/g, '').replace(/\n/g, ' ').replace(/\s{2,}/g, ' '));
 				if (text.trim()) {
 					segments.push({ start, text: text.trim() });
 				}
