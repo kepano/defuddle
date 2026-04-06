@@ -254,6 +254,9 @@ export const EXACT_SELECTORS = [
 	'#secondary',
 	'#sitesub',
 
+	// sitemap
+	'[href*="/sitemap/sitemap.xml"]', // Medium.com
+
 	// skip links
 	'[data-link-name*="skip" i]',
 	'[aria-label*="skip" i]',
