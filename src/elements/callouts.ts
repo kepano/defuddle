@@ -65,6 +65,29 @@ export function standardizeCallouts(element: Element): void {
 		el.replaceWith(createCallout(doc, type, title, contentEl || el));
 	}
 
+	// Hugo/Docsy admonitions (div.admonition)
+	const admonitionTypes = new Set(['info', 'warning', 'note', 'tip', 'danger', 'caution', 'important', 'abstract', 'success', 'question', 'failure', 'bug', 'example', 'quote']);
+	const admonitions = Array.from(element.querySelectorAll('.admonition'));
+	for (const el of admonitions) {
+		// Skip if already processed as a callout
+		if (el.getAttribute('data-callout')) continue;
+
+		// Type from class: info, warning, note, tip, danger, etc.
+		const type = Array.from(el.classList).find(c => admonitionTypes.has(c)) || 'note';
+
+		// Title from .admonition-title
+		const titleEl = el.querySelector('.admonition-title');
+		const title = titleEl?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
+		if (titleEl) {
+			titleEl.remove();
+		}
+
+		// Content from .admonition-content or .details-content, fall back to the element itself
+		const contentEl = el.querySelector('.admonition-content') || el.querySelector('.details-content') || el;
+
+		el.replaceWith(createCallout(doc, type, title, contentEl));
+	}
+
 	// Bootstrap alerts (div.alert.alert-*)
 	const bootstrapAlerts = Array.from(element.querySelectorAll('.alert[class*="alert-"]'));
 	for (const el of bootstrapAlerts) {

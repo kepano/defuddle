@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Hugo admonitions test</title>
+</head>
+<body>
+  <article>
+    <h1>Hugo admonitions test</h1>
+
+    <p>Here is some content before the admonitions.</p>
+
+    <div class="details admonition info open">
+      <div class="details-summary admonition-title">
+        <span class="icon"><svg viewBox="0 0 512 512"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8z"></path></svg></span>
+        Note
+        <span class="details-icon"><svg viewBox="0 0 256 512"><path d="M224 273l-136 136c-9 9-25 9-34 0l-23-23c-9-9-9-25 0-34l97-96-97-96c-9-9-9-25 0-34L54 103c9-9 25-9 34 0l136 136c9 9 9 25 0 34z"></path></svg></span>
+      </div>
+      <div class="details-content">
+        <div class="admonition-content">
+          <p>This is an informational note about the topic.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="details admonition warning open">
+      <div class="details-summary admonition-title">
+        <span class="icon"><svg viewBox="0 0 576 512"><path d="M569 440L329 24c-19-32-67-32-86 0L3 440c-18 31 5 72 43 72h480c38 0 61-41 43-72z"></path></svg></span>
+        Warning
+        <span class="details-icon"><svg viewBox="0 0 256 512"><path d="M224 273l-136 136c-9 9-25 9-34 0l-23-23c-9-9-9-25 0-34l97-96-97-96c-9-9-9-25 0-34L54 103c9-9 25-9 34 0l136 136c9 9 9 25 0 34z"></path></svg></span>
+      </div>
+      <div class="details-content">
+        <div class="admonition-content">
+          <p>Be careful when modifying these settings.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="details admonition danger open">
+      <div class="details-summary admonition-title">
+        <span class="icon"><svg viewBox="0 0 512 512"><path d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8z"></path></svg></span>
+        Danger
+        <span class="details-icon"><svg viewBox="0 0 256 512"><path d="M224 273l-136 136c-9 9-25 9-34 0l-23-23c-9-9-9-25 0-34l97-96-97-96c-9-9-9-25 0-34L54 103c9-9 25-9 34 0l136 136c9 9 9 25 0 34z"></path></svg></span>
+      </div>
+      <div class="details-content">
+        <div class="admonition-content">
+          <p>This action cannot be undone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="details admonition tip open">
+      <div class="details-summary admonition-title">
+        <span class="icon"><svg viewBox="0 0 352 512"><path d="M176 80c-52 0-96 44-96 96 0 8 7 16 16 16s16-8 16-16c0-35 29-64 64-64 8 0 16-7 16-16s-8-16-16-16z"></path></svg></span>
+        Helpful tip
+        <span class="details-icon"><svg viewBox="0 0 256 512"><path d="M224 273l-136 136c-9 9-25 9-34 0l-23-23c-9-9-9-25 0-34l97-96-97-96c-9-9-9-25 0-34L54 103c9-9 25-9 34 0l136 136c9 9 9 25 0 34z"></path></svg></span>
+      </div>
+      <div class="details-content">
+        <div class="admonition-content">
+          <p>Use this shortcut to save time.</p>
+        </div>
+      </div>
+    </div>
+
+    <p>Here is some content after the admonitions.</p>
+  </article>
+</body>
+</html>
