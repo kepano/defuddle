@@ -13,7 +13,7 @@ import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
 import { wrapRawLatexDelimiters } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
-import { headingRules, removePermalinkAnchors } from './elements/headings';
+import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
@@ -397,7 +397,12 @@ function standardizeHeadings(element: Element, title: string, doc: Document): vo
 	const h2s = element.getElementsByTagName('h2');
 	if (h2s.length > 0) {
 		const firstH2 = h2s[0];
-		const firstH2Text = normalizeText(firstH2.textContent || '');
+		// Subtract permalink anchor text (e.g. ¶, #, §) which hasn't been stripped yet
+		let permalinkText = '';
+		for (const a of firstH2.querySelectorAll('a')) {
+			if (isPermalinkAnchor(a)) permalinkText += a.textContent || '';
+		}
+		const firstH2Text = normalizeText((firstH2.textContent || '').replace(permalinkText, ''));
 		const normalizedTitle = normalizeText(title);
 		if (normalizedTitle && normalizedTitle === firstH2Text) {
 			firstH2.remove();
