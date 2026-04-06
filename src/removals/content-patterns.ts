@@ -16,6 +16,7 @@ const BOILERPLATE_PATTERNS = [
 	/^Leave a (?:comment|reply)$/i,
 ];
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)/i;
+const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
 
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
@@ -844,8 +845,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	}
 
 	// Remove newsletter signup lists — <ul> elements whose only content is
-	// newsletter signup links (e.g. Guardian standfirst). These are siblings
-	// of real content so we remove the list directly without walking up.
+	// newsletter signup links (e.g. Guardian standfirst).
 	for (const el of mainContent.querySelectorAll('ul')) {
 		if (!el.parentNode) continue;
 		if (!isNewsletterElement(el, 30)) continue;
@@ -855,6 +855,21 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 		el.remove();
 		break;
+	}
+
+	// Remove social engagement counters ("9 Likes", "3 Comments", etc.)
+	for (const el of mainContent.querySelectorAll('p, div, span')) {
+		if (!el.parentNode) continue;
+		const text = el.textContent?.trim() || '';
+		if (!SOCIAL_COUNTER_PATTERN.test(text)) continue;
+		const pos = contentText.indexOf(text);
+		const distFromEnd = contentText.length - (pos + text.length);
+		if (distFromEnd > 200) continue;
+		const target = walkUpToWrapper(el, text, mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'social engagement counter', text: textPreview(target) });
+		}
+		target.remove();
 	}
 
 }
