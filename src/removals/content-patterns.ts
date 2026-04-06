@@ -26,6 +26,7 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author)$/i;
+const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
 
 // Shared date/number patterns for stripping metadata text.
 const METADATA_STRIP_BASE = [
@@ -767,6 +768,21 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 		removeTrailingSiblings(target, true, debug, debugRemovals);
 		break;
+	}
+
+	// Remove orphaned "For more on/about ..." intro paragraphs left behind
+	// after related content embeds are stripped by selector removal.
+	for (const el of mainContent.querySelectorAll('p')) {
+		if (!el.parentNode) continue;
+		const text = el.textContent?.trim() || '';
+		if (!RELATED_INTRO_PATTERN.test(text)) continue;
+		if (countWords(text) > 20) continue;
+		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content intro', text: textPreview(el) });
+		}
+		el.remove();
 	}
 
 	// Remove related post card grids that lack a detectable heading

@@ -233,6 +233,12 @@ export const EXACT_SELECTORS = [
 	'#Newsletter',
 	'.subscribe',
 
+	// Substack inline clutter
+	'[data-component-name="ButtonCreateButton"]',
+	'[data-component-name="DigestPostEmbed"]',
+	'[data-component-name="SubscribeWidgetToDOM"]',
+	'[class*="digestPostEmbed"]', // class has hash suffix in browser-rendered DOM
+
 	// hidden for print
 	'.noprint',
 	'[data-print-layout="hide" i]',

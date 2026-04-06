@@ -349,6 +349,25 @@ export function removeOrphanedDividers(element: Element): void {
 			break;
 		}
 	}
+
+	// Collapse consecutive <hr> elements (skipping whitespace text nodes between them)
+	for (const hr of element.querySelectorAll('hr')) {
+		if (!hr.parentNode) continue;
+		let node: Node | null = hr.nextSibling;
+		while (node) {
+			if (isTextNode(node) && !(node.textContent || '').trim()) {
+				node = node.nextSibling;
+				continue;
+			}
+			if (isElement(node) && (node as Element).tagName === 'HR') {
+				const next = node.nextSibling;
+				(node as Element).remove();
+				node = next;
+				continue;
+			}
+			break;
+		}
+	}
 }
 
 function standardizeHeadings(element: Element, title: string, doc: Document): void {
