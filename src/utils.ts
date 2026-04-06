@@ -25,6 +25,11 @@ export function isCommentNode(node: Node): node is Comment {
 	return node.nodeType === NODE_TYPE.COMMENT_NODE;
 }
 
+// Uses closest('svg') as fallback since linkedom may not set namespaceURI correctly
+export function isSVGElement(el: Element): boolean {
+	return el.closest?.('svg') !== null || el.namespaceURI === 'http://www.w3.org/2000/svg';
+}
+
 export function getComputedStyle(element: Element): CSSStyleDeclaration | null {
 	const win = getWindow(element.ownerDocument);
 	if (!win || typeof win.getComputedStyle !== 'function') return null;

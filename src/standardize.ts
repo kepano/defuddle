@@ -15,7 +15,7 @@ import { wrapRawLatexDelimiters } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, isTextNode, isCommentNode, getComputedStyle, logDebug } from './utils';
+import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 
 // Module-level debug flag, set by standardizeContent for child functions
@@ -242,10 +242,10 @@ function wrapPreformattedCode(element: Element, doc: Document): void {
 
 function standardizeSpaces(element: Element): void {
 	const processNode = (node: Node) => {
-		// Skip pre and code elements
+		// Skip pre, code, and SVG elements
 		if (isElement(node)) {
 			const tag = (node as Element).tagName.toLowerCase();
-			if (tag === 'pre' || tag === 'code') {
+			if (tag === 'pre' || tag === 'code' || isSVGElement(node as Element)) {
 				return;
 			}
 		}
@@ -432,8 +432,8 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 	let attributeCount = 0;
 
 	const processElement = (el: Element) => {
-		// Skip SVG elements - preserve all their attributes
-		if (el.tagName.toLowerCase() === 'svg' || el.namespaceURI === 'http://www.w3.org/2000/svg') {
+		// Skip SVG elements - preserve all their attributes (colors, fills, strokes, etc.)
+		if (isSVGElement(el)) {
 			return;
 		}
 
@@ -1074,6 +1074,9 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 
 	const shouldPreserveElement = (el: Element): boolean => {
 		const tagName = el.tagName.toLowerCase();
+
+		// Preserve SVG elements and all their children
+		if (isSVGElement(el)) return true;
 
 		// Check if element should be preserved
 		if (PRESERVE_ELEMENTS.has(tagName)) return true;
