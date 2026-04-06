@@ -46,6 +46,19 @@ export function findSmallImages(doc: Document, debug: boolean): Set<string> {
 		const attrWidth = parseInt(element.getAttribute('width') || '0');
 		const attrHeight = parseInt(element.getAttribute('height') || '0');
 
+		// For SVGs, use viewBox dimensions as fallback when no explicit width/height
+		let viewBoxWidth = 0, viewBoxHeight = 0;
+		if (element.tagName.toLowerCase() === 'svg') {
+			const viewBox = element.getAttribute('viewBox');
+			if (viewBox) {
+				const parts = viewBox.split(/[\s,]+/);
+				if (parts.length === 4) {
+					viewBoxWidth = parseFloat(parts[2]) || 0;
+					viewBoxHeight = parseFloat(parts[3]) || 0;
+				}
+			}
+		}
+
 		// Check inline style dimensions
 		const style = element.getAttribute('style') || '';
 		const styleWidth = parseInt(style.match(STYLE_WIDTH_PATTERN)?.[1] || '0');
@@ -66,8 +79,8 @@ export function findSmallImages(doc: Document, debug: boolean): Set<string> {
 			} catch (e) {}
 		}
 
-		const widths = [attrWidth, styleWidth, computedWidth].filter(d => d > 0);
-		const heights = [attrHeight, styleHeight, computedHeight].filter(d => d > 0);
+		const widths = [attrWidth, styleWidth, computedWidth, viewBoxWidth].filter(d => d > 0);
+		const heights = [attrHeight, styleHeight, computedHeight, viewBoxHeight].filter(d => d > 0);
 
 		if (widths.length > 0 && heights.length > 0) {
 			const effectiveWidth = Math.min(...widths);
