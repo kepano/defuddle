@@ -124,9 +124,10 @@ export const EXACT_SELECTORS = [
 	'ads-breadcrumbs',
 
 	// header, nav
-	// Exclude headers that contain paragraph text — some sites (e.g. Webflow blogs)
+	// Exclude headers that contain multiple paragraphs — some sites (e.g. Webflow blogs)
 	// use <header> as the main content wrapper rather than a navigation container.
-	'header:not(:has(p))',
+	// A single <p> (subtitle/deck) is still a page header, not article content.
+	'header:not(:has(p + p))',
 	'.header:not(.banner)',
 	'#header',
 	'#Header',
