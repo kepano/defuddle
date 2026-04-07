@@ -242,8 +242,12 @@ export class MetadataExtractor {
 	private static cleanAuthorString(s: string): string {
 		// Strip "By " prefix
 		s = s.replace(/^by\s+/i, '');
+		// Remove URLs
+		s = s.replace(/https?:\/\/\S+/gi, '');
 		// Normalize " and " to comma separator for consistent formatting
 		s = s.replace(/,?\s+and\s+/gi, ', ');
+		// Clean up leftover separators and whitespace
+		s = s.replace(/\s*[-–—|]\s*$/g, '');
 		return s.trim();
 	}
 
