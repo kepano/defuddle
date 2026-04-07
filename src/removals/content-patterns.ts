@@ -19,6 +19,9 @@ const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter
 const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
 const TIMEZONE_WIDGET_PATTERN = /^current time in$/i;
 const PINNED_LABEL_PATTERN = /^pinned$/i;
+const AUTHOR_CONTACT_LABEL_PATTERN = /^(?:written by|(?:author|contact|reporter|correspondent)s?)$/i;
+const EMAIL_PATTERN = /[\w.-]+@[\w.-]+\.\w+/;
+const PHONE_PATTERN = /\(?\d{3}\)?[\s.‑–-]?\d{3}[\s.‑–-]?\d{4}/;
 
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
@@ -904,6 +907,45 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'newsletter signup list', text: textPreview(el) });
 		}
 		el.remove();
+		break;
+	}
+
+	// Remove author/contact info blocks near the end of content.
+	// These contain labels like "Written by" or "Contact" alongside names,
+	// email addresses, and phone numbers — common in news/university sites.
+	for (const el of mainContent.querySelectorAll('div, section')) {
+		if (!el.parentNode) continue;
+		const text = el.textContent?.trim() || '';
+		const words = countWords(text);
+		if (words < 2 || words > 40) continue;
+
+		// Must be near the end of content
+		const pos = contentText.indexOf(text.substring(0, 60));
+		if (pos < 0) continue;
+		const distFromEnd = contentText.length - (pos + text.length);
+		if (distFromEnd > 300) continue;
+
+		// Must contain an author/contact label
+		const children = el.querySelectorAll('div, span, p, dt, dd, li');
+		let hasLabel = false;
+		for (const child of children) {
+			const childText = child.textContent?.trim() || '';
+			if (AUTHOR_CONTACT_LABEL_PATTERN.test(childText)) {
+				hasLabel = true;
+				break;
+			}
+		}
+		if (!hasLabel) continue;
+
+		// Must also contain contact info (email or phone) or a mailto link
+		const hasContactInfo = EMAIL_PATTERN.test(text) || PHONE_PATTERN.test(text) || el.querySelector('a[href^="mailto:"]');
+		if (!hasContactInfo) continue;
+
+		const target = walkUpIsolated(el, mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'author contact block', text: textPreview(target) });
+		}
+		target.remove();
 		break;
 	}
 
