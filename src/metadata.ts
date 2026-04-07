@@ -80,7 +80,7 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString && !this.isTemplateArtifact(authorsString)) return authorsString;
+		if (authorsString && !this.isTemplateArtifact(authorsString)) return this.cleanAuthorString(authorsString);
 
 		// Conventions for research paper meta tags
 		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author").filter(s => !this.isTemplateArtifact(s));
@@ -237,6 +237,14 @@ export class MetadataExtractor {
 			}
 		}
 		return null;
+	}
+
+	private static cleanAuthorString(s: string): string {
+		// Strip "By " prefix
+		s = s.replace(/^by\s+/i, '');
+		// Normalize " and " to comma separator for consistent formatting
+		s = s.replace(/,?\s+and\s+/gi, ', ');
+		return s.trim();
 	}
 
 	private static getSiteName(schemaOrgData: any, metaTags: MetaTagItem[]): string {
