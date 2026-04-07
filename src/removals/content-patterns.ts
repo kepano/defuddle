@@ -2,7 +2,7 @@ import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords } from '../utils';
 
-const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*)/i;
+const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
@@ -35,6 +35,7 @@ const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
 const METADATA_STRIP_BASE = [
 	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
 	/\b\d+(?:st|nd|rd|th)?\b/g,
+	/\d{4}[-/]\d{1,2}[-/]\d{1,2}/g,
 ];
 // Read-time: strip everything including whitespace (expect empty residual)
 const READ_TIME_STRIP_PATTERNS = [
@@ -304,17 +305,21 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			continue;
 		}
 
-		// Remove read time metadata (e.g. "Mar 4th 2026 | 3 min read").
-		if (hasDate && CONTENT_READ_TIME_PATTERN.test(text) && el.querySelectorAll('p, div, section, article').length === 0) {
+		// Remove read time metadata (e.g. "8 min read", "Mar 4th 2026 | 3 min read").
+		// With a date: any position, no block children. Without: short text near the start.
+		if (CONTENT_READ_TIME_PATTERN.test(text) &&
+			(hasDate ? el.querySelectorAll('p, div, section, article').length === 0
+			         : words <= 5 && getPos() <= 500)) {
 			let cleaned = text;
 			for (const pattern of READ_TIME_STRIP_PATTERNS) {
 				cleaned = cleaned.replace(pattern, '');
 			}
 			if (cleaned.trim().length === 0) {
+				const target = hasDate ? el : walkUpToWrapper(el, text, mainContent);
 				if (debug && debugRemovals) {
-					debugRemovals.push({ step: 'removeByContentPattern', reason: 'read time metadata', text: textPreview(el) });
+					debugRemovals.push({ step: 'removeByContentPattern', reason: 'read time metadata', text: textPreview(target) });
 				}
-				el.remove();
+				target.remove();
 				continue;
 			}
 		}
@@ -346,7 +351,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			for (const pattern of METADATA_STRIP_BASE) {
 				residual = residual.replace(pattern, '');
 			}
-			residual = residual.replace(/[,\s]+/g, '').trim();
+			residual = residual.replace(/[,\s/\-]+/g, '').trim();
 			if (residual.length === 0) {
 				const target = walkUpToWrapper(el, text, mainContent);
 				if (debug && debugRemovals) {
