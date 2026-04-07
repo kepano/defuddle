@@ -27,6 +27,8 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author)$/i;
+// CTA headings that are never real content — safe to remove even as direct children
+const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our))$/i;
 const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
 
 // Shared date/number patterns for stripping metadata text.
@@ -646,6 +648,16 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		let trailingWords = 0;
 		let child = mainContent.lastElementChild;
 		while (child) {
+			// Skip the standardized footnotes container (appended at the end by standardizeFootnotes)
+			if (child.id === 'footnotes') {
+				child = child.previousElementSibling;
+				continue;
+			}
+			// An <hr> is a content boundary — include it and stop walking
+			if (child.tagName === 'HR') {
+				trailingEls.push(child);
+				break;
+			}
 			// Count prose words, excluding SVG path data which inflates word counts
 			let svgWords = 0;
 			for (const svg of child.querySelectorAll('svg')) {
@@ -683,6 +695,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				}
 			}
 		}
+
 	}
 
 	// Remove boilerplate sentences and trailing non-content.
@@ -754,23 +767,26 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	for (const heading of mainContent.querySelectorAll('h2, h3, h4, h5, h6')) {
 		if (!heading.parentNode) continue;
 		const headingText = heading.textContent?.trim() || '';
-		if (!RELATED_HEADING_PATTERN.test(headingText)) continue;
+		const isCta = CTA_HEADING_PATTERN.test(headingText);
+		if (!isCta && !RELATED_HEADING_PATTERN.test(headingText)) continue;
 
 		// Must appear after substantial content
 		if (contentText.indexOf(headingText) < 500) continue;
 
 		const target = walkUpIsolated(heading, mainContent);
 
-		// Only remove if we walked up to a container (not the heading itself).
-		// If the heading is directly in the article body, target remains the heading — skip.
-		if (target === heading) continue;
+		if (target === heading) {
+			// Heading is a direct child — only remove CTA headings (never real content)
+			if (!isCta) continue;
+			removeTrailingSiblings(heading, true, debug, debugRemovals);
+		} else {
+			removeThinPrecedingSection(target, debug, debugRemovals);
 
-		removeThinPrecedingSection(target, debug, debugRemovals);
-
-		if (debug && debugRemovals) {
-			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content section', text: textPreview(target) });
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content section', text: textPreview(target) });
+			}
+			removeTrailingSiblings(target, true, debug, debugRemovals);
 		}
-		removeTrailingSiblings(target, true, debug, debugRemovals);
 		break;
 	}
 
