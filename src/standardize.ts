@@ -172,6 +172,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	step('resolveSvgColors', () => resolveSvgColors(element, doc));
 
 	if (!debug) {
+		step('convertBlockSpans', () => convertBlockSpans(element, doc));
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
 		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
@@ -497,6 +498,34 @@ function unwrapElement(el: Element): void {
 		el.parentNode?.insertBefore(el.firstChild, el);
 	}
 	el.remove();
+}
+
+const TW_BLOCK_RE = /(?:^|\s)block(?:\s|$)/;
+const DISPLAY_BLOCK_RE = /display\s*:\s*block/i;
+
+/**
+ * Convert spans styled as block-level paragraphs to <p> elements.
+ * Some sites (e.g. Grokipedia) use <span class="block ..."> with Tailwind
+ * to render paragraph-like blocks. These lose structure after attribute
+ * stripping and bare-span unwrapping.
+ */
+function convertBlockSpans(element: Element, doc: Document): void {
+	let convertedCount = 0;
+	const spans = Array.from(element.querySelectorAll('span[class*="block"], span[style*="block"]'));
+	for (const span of spans) {
+		if (!span.parentNode) continue;
+
+		const isBlock = TW_BLOCK_RE.test(getClassName(span)) ||
+			DISPLAY_BLOCK_RE.test(span.getAttribute('style') || '');
+		if (!isBlock) continue;
+		if (!span.textContent?.trim()) continue;
+
+		const p = doc.createElement('p');
+		transferContent(span, p);
+		span.replaceWith(p);
+		convertedCount++;
+	}
+	logDebug(_debug, 'Converted block spans to paragraphs:', convertedCount);
 }
 
 function unwrapBareSpans(element: Element): void {

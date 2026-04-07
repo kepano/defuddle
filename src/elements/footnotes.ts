@@ -581,15 +581,31 @@ class FootnoteHandler {
 	findOuterFootnoteContainer(el: any): any {
 		let current: any = el;
 		let parent: any = el.parentElement;
-		
-		while (parent && (
-			parent.tagName.toLowerCase() === 'span' || 
-			parent.tagName.toLowerCase() === 'sup'
-		)) {
+
+		while (parent) {
+			const tag = parent.tagName.toLowerCase();
+			if (tag !== 'span' && tag !== 'sup') break;
+
+			// Don't walk into spans that contain substantial non-footnote content
+			if (tag === 'span') {
+				let hasNonFootnoteContent = false;
+				for (const child of parent.childNodes) {
+					if (child === current) continue;
+					if (isTextNode(child) && child.textContent?.trim()) {
+						hasNonFootnoteContent = true;
+						break;
+					}
+					if (isElement(child) && child.tagName.toLowerCase() !== 'sup') {
+						hasNonFootnoteContent = true;
+						break;
+					}
+				}
+				if (hasNonFootnoteContent) break;
+			}
 			current = parent;
 			parent = parent.parentElement;
 		}
-		
+
 		return current;
 	}
 
@@ -744,6 +760,8 @@ class FootnoteHandler {
 
 		footnoteInlineReferences.forEach((el: any) => {
 			if (!el || !el.parentNode) return;
+
+			if (!el.textContent?.trim()) return;
 
 			let footnoteId = '';
 			let footnoteContent = '';
