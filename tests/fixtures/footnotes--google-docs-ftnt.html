@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Google Docs footnotes: ftnt/ftnt_ref pattern</title>
+</head>
+<body>
+  <!--
+    Google Docs/Sites export pattern: inline refs use sup[id="ftnt_refN"]
+    containing a[href="#ftntN"], footnotes use p[id="ftntN"] containing
+    back-links a[href="#ftnt_refN"].
+  -->
+  <article>
+    <h1>Google Docs footnotes: ftnt/ftnt_ref pattern</h1>
+
+    <p>These capabilities have emerged very quickly. Our internal evaluations showed that the model
+      generally had a near-0% success rate at autonomous exploit development. But the new preview is in a
+      different league. The previous model turned vulnerabilities into shell exploits only two times out of several
+      hundred attempts. We re-ran this experiment as a benchmark for the preview, which developed working
+      exploits <span style="font-style: italic;">181</span>&nbsp;times, and achieved register control on 29 more.<sup id="ftnt_ref1"><a href="#ftnt1">[1]</a></sup></p>
+
+    <p>Separately, we found that it could chain together multiple vulnerability classes to achieve
+      full remote code execution in controlled test environments.<sup id="ftnt_ref2"><a href="#ftnt2">[2]</a></sup></p>
+
+    <h3>Footnotes</h3>
+
+    <div>
+      <p id="ftnt1"><a href="#ftnt_ref1">[1]</a>&nbsp;These exploits target a
+        testing harness mimicking a content process, without the browser's process sandbox or other
+        defense-in-depth mitigations.</p>
+    </div>
+
+    <div>
+      <p id="ftnt2"><a href="#ftnt_ref2">[2]</a>&nbsp;This testing was conducted
+        in isolated environments with no connection to production systems.</p>
+    </div>
+  </article>
+</body>
+</html>

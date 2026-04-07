@@ -918,6 +918,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'a[id^="ref-link"]', // Nature.com
 	'sup.footnoteref', // Wikidot
 	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
+	'sup[id^="ftnt_ref"] a[href^="#ftnt"]', // Google Docs/Sites
 ].join(',');
 
 export const FOOTNOTE_LIST_SELECTORS = [

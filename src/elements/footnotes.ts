@@ -361,6 +361,54 @@ class FootnoteHandler {
 			}
 		}
 
+		// Google Docs/Sites: p[id^="ftnt"] with back-link a[href*="#ftnt_ref"]
+		if (footnoteCount === 1) {
+			const gdocFootnotes = Array.from(element.querySelectorAll('p[id^="ftnt"]'));
+			const gdocPairs: Array<{num: number, el: any}> = [];
+			gdocFootnotes.forEach((p: any) => {
+				const id = p.id || '';
+				const match = id.match(/^ftnt(\d+)$/);
+				if (!match) return;
+				gdocPairs.push({ num: parseInt(match[1]), el: p });
+			});
+
+			if (gdocPairs.length >= 2) {
+				gdocPairs.sort((a, b) => a.num - b.num);
+				gdocPairs.forEach(({ num, el }) => {
+					const originalId = `ftnt${num}`;
+					if (processedIds.has(originalId)) return;
+
+					const clone = el.cloneNode(true) as any;
+					const backref = clone.querySelector('a[href*="#ftnt_ref"]');
+					if (backref) backref.remove();
+
+					const contentDiv = element.ownerDocument.createElement('div');
+					contentDiv.appendChild(clone);
+
+					footnotes[num] = { content: contentDiv, originalId, refs: [] };
+					processedIds.add(originalId);
+					if (num >= footnoteCount) footnoteCount = num + 1;
+
+					// Remove the paragraph and its wrapper div
+					this.genericElements.push(el);
+					const parent = el.parentElement;
+					if (parent && parent !== element && parent.tagName.toLowerCase() === 'div' && parent.children.length === 1) {
+						this.genericElements.push(parent);
+					}
+				});
+
+				// Remove "Footnotes" heading preceding the first footnote
+				const firstEl = gdocPairs[0].el;
+				const firstParent = firstEl.parentElement;
+				const scanFrom = (firstParent && firstParent !== element && firstParent.tagName.toLowerCase() === 'div')
+					? firstParent : firstEl;
+				const prev = scanFrom.previousElementSibling;
+				if (prev && /^h[1-6]$/.test(prev.tagName.toLowerCase()) && FOOTNOTE_SECTION_RE.test(prev.textContent?.trim() || '')) {
+					this.genericElements.push(prev);
+				}
+			}
+		}
+
 		// Loose footnotes: trailing numbered paragraphs cross-referenced with inline <sup>N</sup> refs,
 		// or a direct-child container whose child <p>s are all numbered paragraphs.
 		if (footnoteCount === 1) {
