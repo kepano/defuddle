@@ -861,13 +861,17 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	}
 
 	// Remove social engagement counters ("9 Likes", "3 Comments", etc.)
-	for (const el of mainContent.querySelectorAll('p, div, span')) {
+	// Check block elements near the end of content, and bare <a> elements (no href) anywhere
+	for (const el of mainContent.querySelectorAll('a, p, div, span')) {
 		if (!el.parentNode) continue;
 		const text = el.textContent?.trim() || '';
 		if (!SOCIAL_COUNTER_PATTERN.test(text)) continue;
-		const pos = contentText.indexOf(text);
-		const distFromEnd = contentText.length - (pos + text.length);
-		if (distFromEnd > 200) continue;
+		if (el.tagName === 'A' && el.getAttribute('href')) continue;
+		if (el.tagName !== 'A') {
+			const pos = contentText.indexOf(text);
+			const distFromEnd = contentText.length - (pos + text.length);
+			if (distFromEnd > 200) continue;
+		}
 		const target = walkUpToWrapper(el, text, mainContent);
 		if (debug && debugRemovals) {
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'social engagement counter', text: textPreview(target) });
