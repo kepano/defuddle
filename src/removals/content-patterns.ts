@@ -240,6 +240,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			if (!link.parentNode) continue;
 			if (!(link.compareDocumentPosition(firstH1) & 4)) continue;
 			if (!link.querySelector('div')) continue;
+			if (link.querySelector('img, picture, video')) continue;
 			const text = link.textContent?.trim() || '';
 			if (countWords(text) > 25) continue;
 			if (/[.!?]\s/.test(text)) continue;
