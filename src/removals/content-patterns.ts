@@ -17,6 +17,8 @@ const BOILERPLATE_PATTERNS = [
 ];
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)/i;
 const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
+const TIMEZONE_WIDGET_PATTERN = /^current time in$/i;
+const PINNED_LABEL_PATTERN = /^pinned$/i;
 
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
@@ -282,6 +284,29 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Defer indexOf — only compute when a check needs it
 		let pos = -2; // sentinel: not yet computed
 		const getPos = () => { if (pos === -2) pos = contentText.indexOf(text); return pos; };
+
+		// Remove "Current time in" timezone widgets (e.g. NYT live blogs).
+		// The label is a child of a container that also holds timezone entries.
+		if (TIMEZONE_WIDGET_PATTERN.test(text) && getPos() <= 300) {
+			let target: Element = el;
+			if (target.parentElement && target.parentElement !== mainContent) {
+				target = target.parentElement;
+			}
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'timezone widget', text: textPreview(target) });
+			}
+			target.remove();
+			continue;
+		}
+
+		// Remove standalone "Pinned" labels (e.g. live blog pinned post markers).
+		if (words === 1 && PINNED_LABEL_PATTERN.test(text)) {
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'pinned label', text: textPreview(el) });
+			}
+			el.remove();
+			continue;
+		}
 
 		// Remove article metadata header blocks (DIV only) near the top of content.
 		// Catches Tailwind-based blog layouts with non-semantic date+category divs.

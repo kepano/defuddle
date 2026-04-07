@@ -541,6 +541,7 @@ export const PARTIAL_SELECTORS = [
 	'hidden-print',
 	'hidden-sidenote',
 	'hidden-accessibility',
+	'home-link',
 
 	'infoline',
 	'inline-topic',
