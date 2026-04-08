@@ -1,0 +1,60 @@
+<!-- {"url":"https://example.com/posts/sample/"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta property="og:site_name" content="Example">
+  <meta property="og:title" content="Sample Post | EXAMPLE">
+  <meta name="description" content="Example is a company building software.">
+  <title>Sample Post | EXAMPLE</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="skip-intro">
+  <div class="announcement-banner" role="banner">
+    <a href="/posts/press-release/">ANNOUNCING THINGS →</a>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <a href="/" class="center-logo">
+    <img class="main-logo" id="logo" src="/static/logo.svg" alt="Example">
+  </a>
+
+  <div class="page">
+    <div class="updates-overlay overlay--posts overlay--post-detail" aria-hidden="true">
+      <div class="updates-letter" role="dialog" aria-label="Posts">
+        <a class="updates-dismiss" href="/posts/" aria-label="Dismiss" data-dismiss-url="/posts/">&lt;</a>
+        <div class="updates-scroll-content">
+          <div class="email-meta">
+            <p><span>From:</span> Example &lt;hello@example.com&gt;</p>
+            <p><span>To:</span> You</p>
+            <p><span>Subject:</span> Sample Post</p>
+          </div>
+          <div class="letter-body">
+            <p>
+              We are excited to share an update on our work. Over the past several months
+              the team has been focused on building tools that are simple, reliable, and open.
+            </p>
+            <p>
+              Our goal is to create software that earns trust over time. We believe in building
+              in the open, sharing progress publicly, and making decisions legible. This post
+              outlines what we have been working on and where we are headed next.
+            </p>
+          </div>
+          <div class="letter-footer">
+            <div class="signature-delimiter">--</div>
+            <div class="signature-detail"><a href="https://example.com">example.com</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="top-nav">
+    <a class="nav-link" href="/about/">About</a>
+    <a class="nav-link" href="/posts/">Posts</a>
+  </nav>
+
+  <div id="site-footer">EXAMPLE INC.</div>
+</body>
+</html>
