@@ -439,8 +439,13 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 	let attributeCount = 0;
 
 	const processElement = (el: Element) => {
-		// Skip SVG elements - preserve all their attributes (colors, fills, strokes, etc.)
+		// SVG elements: preserve all rendering attributes but strip class
+		// (CSS is no longer available, so classes serve no purpose)
 		if (isSVGElement(el)) {
+			if (!debug && el.hasAttribute('class')) {
+				el.removeAttribute('class');
+				attributeCount++;
+			}
 			return;
 		}
 
@@ -639,6 +644,87 @@ function resolveSvgColors(element: Element, doc: Document): void {
 				el.setAttribute('style', resolved);
 			}
 			resolveTailwindClasses(el);
+		}
+
+		applySvgFallbackStyles(svg);
+	}
+}
+
+const SVG_FILLED_TAGS = new Set(['path', 'rect', 'circle', 'ellipse', 'polygon']);
+const SVG_STROKE_TAGS = new Set(['line', 'polyline']);
+const SVG_TEXT_TAGS = new Set(['text', 'tspan']);
+const SVG_NON_RENDERED_ANCESTOR = 'defs, clipPath, mask, pattern, marker';
+const GRIDLINE_STROKE_OPACITY = '0.2';
+
+/** Check if an inline style attribute sets a specific CSS property. */
+function hasStyleProp(el: Element, prop: string): boolean {
+	const style = el.getAttribute('style');
+	if (!style) return false;
+	// Match "fill:" but not "fill-opacity:" or "fill-rule:"
+	return new RegExp(`(?:^|;)\\s*${prop}\\s*:`).test(style);
+}
+
+/**
+ * Apply fallback fill/stroke to SVG elements that have class attributes
+ * but lost their CSS-based styling. Only triggers when at least one
+ * filled shape element has a class but no fill — indicating CSS was lost.
+ * Elements inside <defs>, <clipPath>, etc. are skipped.
+ */
+function applySvgFallbackStyles(svg: Element): void {
+	if (svg.querySelector('style')) return;
+
+	const allEls = Array.from(svg.querySelectorAll('*'));
+
+	// Only apply fallbacks if at least one filled shape has a class but no
+	// fill — indicating CSS-based styling was lost.
+	let hasUnstyled = false;
+	for (const el of allEls) {
+		const tag = el.tagName.toLowerCase();
+		if (!SVG_FILLED_TAGS.has(tag)) continue;
+		if (!el.getAttribute('class')) continue;
+		if (el.closest(SVG_NON_RENDERED_ANCESTOR)) continue;
+		if (el.hasAttribute('fill') || hasStyleProp(el, 'fill')) continue;
+		hasUnstyled = true;
+		break;
+	}
+	if (!hasUnstyled) return;
+
+	for (const el of allEls) {
+		const tag = el.tagName.toLowerCase();
+		const isFilled = SVG_FILLED_TAGS.has(tag);
+		const isStroke = SVG_STROKE_TAGS.has(tag);
+		const isText = SVG_TEXT_TAGS.has(tag);
+		if (!isFilled && !isStroke && !isText) continue;
+		if (!el.getAttribute('class')) continue;
+		if (el.closest(SVG_NON_RENDERED_ANCESTOR)) continue;
+
+		if (isText) {
+			if (!el.hasAttribute('fill') && !hasStyleProp(el, 'fill')) {
+				el.setAttribute('fill', 'currentColor');
+			}
+			continue;
+		}
+
+		const hasFill = el.hasAttribute('fill') && el.getAttribute('fill') !== 'none';
+		const hasStrokeAttr = el.hasAttribute('stroke') || hasStyleProp(el, 'stroke');
+
+		if (isFilled && !el.hasAttribute('fill') && !hasStyleProp(el, 'fill')) {
+			el.setAttribute('fill', 'none');
+		}
+
+		if (!hasStrokeAttr) {
+			if (isStroke) {
+				el.setAttribute('stroke', 'currentColor');
+				if (!el.hasAttribute('stroke-opacity')) {
+					el.setAttribute('stroke-opacity', GRIDLINE_STROKE_OPACITY);
+				}
+			} else if (isFilled && !hasFill) {
+				const d = el.getAttribute('d') || '';
+				const isClosed = /Z\s*$/i.test(d.trim());
+				if (!isClosed) {
+					el.setAttribute('stroke', 'currentColor');
+				}
+			}
 		}
 	}
 }

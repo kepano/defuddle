@@ -16,3 +16,4 @@ export function parseLinkedomHTML(html: string, url?: string): Document {
 	if (url) doc.URL = url;
 	return document as unknown as Document;
 }
+

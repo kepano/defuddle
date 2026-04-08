@@ -1,0 +1,59 @@
+<!-- {"url":"https://example.com/article/oil-prices"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Oil Prices Rise After New Trade Agreement</title>
+  <meta name="author" content="Jane Reporter" />
+  <!-- CSS is in external stylesheet, not available in Node/Worker -->
+  <link rel="stylesheet" href="https://static.example.com/assets/chart.css" />
+</head>
+<body>
+  <nav><a href="/">Home</a></nav>
+  <main>
+    <article>
+      <h1>Oil Prices Rise After New Trade Agreement</h1>
+      <p>Crude oil prices have been steadily climbing since the start of the year, driven by new trade agreements and supply constraints.</p>
+
+      <!-- Chart SVG with class-based styling (CSS unavailable) -->
+      <svg class="chart-svg svelte-abc123" width="400" height="200" viewBox="0 0 400 200">
+        <g transform="translate(30, 10)">
+          <g class="axis x-axis svelte-def456">
+            <g class="tick svelte-def456" transform="translate(0,170)">
+              <line class="gridline svelte-def456" x1="0" x2="350" y1="0" y2="0"></line>
+              <text x="0" y="27">Jan.</text>
+            </g>
+            <g class="tick svelte-def456" transform="translate(175,170)">
+              <line class="gridline svelte-def456" x1="0" x2="0" y1="-170" y2="0"></line>
+              <text x="0" y="27">Feb.</text>
+            </g>
+            <g class="tick svelte-def456" transform="translate(350,170)">
+              <line class="gridline svelte-def456" x1="0" x2="0" y1="-170" y2="0"></line>
+              <text x="0" y="27">March</text>
+            </g>
+          </g>
+          <g class="axis y-axis">
+            <g class="tick svelte-ghi789" transform="translate(0, 170)">
+              <line class="gridline svelte-ghi789" x1="-30" x2="350" y1="0" y2="0"></line>
+              <text x="-30" y="0">$0</text>
+            </g>
+            <g class="tick svelte-ghi789" transform="translate(0, 85)">
+              <line class="gridline svelte-ghi789" x1="-30" x2="350" y1="0" y2="0"></line>
+              <text x="-30" y="0">$50</text>
+            </g>
+            <g class="tick svelte-ghi789" transform="translate(0, 0)">
+              <line class="gridline svelte-ghi789" x1="-30" x2="350" y1="0" y2="0"></line>
+              <text x="-30" y="0">$100</text>
+            </g>
+          </g>
+          <path class="path-area svelte-jkl012" d="M0,120L100,100L200,60L300,40L350,50 L350,170 L0,170 Z"></path>
+          <path class="path-line svelte-mno345" d="M0,120L100,100L200,60L300,40L350,50"></path>
+        </g>
+      </svg>
+
+      <p>Analysts expect prices to remain elevated through the end of the quarter as demand continues to outpace production increases.</p>
+    </article>
+  </main>
+  <footer>Copyright 2026</footer>
+</body>
+</html>

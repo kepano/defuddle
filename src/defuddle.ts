@@ -18,7 +18,7 @@ import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
-import { getComputedStyle, textPreview, countWords } from './utils';
+import { getComputedStyle, textPreview, countWords, isSVGElement } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
 
 interface StyleChange {
@@ -223,7 +223,10 @@ export class Defuddle {
 		const dangerousElements = body.querySelectorAll(
 			'script:not([type^="math/"]), style, noscript, frame, frameset, object, embed, applet, base'
 		);
-		for (const el of dangerousElements) el.remove();
+		for (const el of dangerousElements) {
+			if (el.tagName === 'STYLE' && isSVGElement(el)) continue;
+			el.remove();
+		}
 
 		// Remove event handler attributes, dangerous URIs, and srcdoc
 		const allElements = body.querySelectorAll('*');
