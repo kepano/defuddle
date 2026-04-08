@@ -35,8 +35,40 @@ export function standardizeCallouts(element: Element): void {
 	const doc = element.ownerDocument;
 	if (!doc) return;
 
-	// Obsidian Publish callouts — already in the right format, skip
-	// (matched by div.callout[data-callout])
+	// Obsidian Publish callouts — already use data-callout and
+	// .callout-content, but collapsed ones need to be expanded so
+	// removeHiddenElements doesn't strip their content.
+	// Preserve fold state via data-callout-fold (already set by Obsidian)
+	// and transfer is-collapsible/is-collapsed to the standardized element.
+	const obsidianCollapsed = Array.from(element.querySelectorAll('.callout.is-collapsed, .callout.is-collapsible'));
+	for (const el of obsidianCollapsed) {
+		const isCollapsed = el.classList.contains('is-collapsed');
+		el.classList.remove('is-collapsed', 'is-collapsible');
+
+		// Ensure data-callout-fold is set for the markdown converter
+		if (!el.hasAttribute('data-callout-fold')) {
+			el.setAttribute('data-callout-fold', isCollapsed ? '-' : '+');
+		}
+
+		const fold = el.querySelector('.callout-fold');
+		if (fold) fold.remove();
+
+		// The browser may have applied inline display:none to .callout-content
+		// while the callout was collapsed — remove it so the content survives
+		// the removeHiddenElements step.
+		const content = el.querySelector('.callout-content');
+		if (content) {
+			const style = content.getAttribute('style');
+			if (style) {
+				const cleaned = style.replace(/display\s*:\s*none\s*;?/gi, '').trim();
+				if (cleaned) {
+					content.setAttribute('style', cleaned);
+				} else {
+					content.removeAttribute('style');
+				}
+			}
+		}
+	}
 
 	// GitHub markdown alerts (div.markdown-alert)
 	const githubAlerts = Array.from(element.querySelectorAll('.markdown-alert'));

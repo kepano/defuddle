@@ -346,7 +346,7 @@ export const codeBlockRules = [
 					if (element.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
 						// Try to find the actual code content in common structures:
 						// 1. A dedicated code container
-						const codeContainer = element.querySelector('.code, .content, [class*="code-"], [class*="content-"]');
+						const codeContainer = element.querySelector('.code:not(.token), .content:not(.token), [class*="code-"], [class*="content-"]');
 						if (codeContainer) {
 							return (codeContainer.textContent || '').replace(/\n$/, '') + '\n';
 						}
@@ -450,6 +450,15 @@ export const codeBlockRules = [
 			for (let i = 0; i < 3 && ancestor; i++) {
 				const container: Element | null = ancestor.parentElement;
 				if (!container || container.tagName === 'BODY') break;
+
+				// Stop if the container has many children — it's the main
+				// content area, not a tight code block wrapper.
+				if (container.children.length > 5) break;
+
+				// Don't clean up siblings inside callouts — those are callout
+				// structure (title, content), not code block chrome.
+				if (container.closest?.('[data-callout]')) break;
+
 				const siblings = Array.from(container.children) as Element[];
 				for (const sib of siblings) {
 					if (sib.contains(el)) continue;
@@ -457,7 +466,7 @@ export const codeBlockRules = [
 					if (sibTag !== 'DIV' && sibTag !== 'SPAN') continue;
 					const sibText = (sib.textContent || '').trim();
 					const sibWords = countWords(sibText);
-					if (sibWords <= 5 && !sib.querySelector('pre, code, img, svg, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol')) {
+					if (sibWords <= 5 && !sib.querySelector('pre, code, img, svg, table, h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, hr')) {
 						sib.remove();
 					}
 				}

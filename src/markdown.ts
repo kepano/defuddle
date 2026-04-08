@@ -662,6 +662,11 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isGenericElement(node)) return content;
 			const type = node.getAttribute('data-callout') || 'note';
 
+			// Fold indicator: data-callout-fold="-" means collapsed,
+			// "+" means collapsible but open, absent means not foldable
+			const fold = node.getAttribute('data-callout-fold');
+			const foldIndicator = fold === '-' || fold === '+' ? fold : '';
+
 			// Extract title from .callout-title-inner
 			const titleInner = node.querySelector('.callout-title-inner');
 			const title = titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
@@ -681,7 +686,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const lines = calloutContent.trim().split('\n');
 			const quotedContent = lines.map(line => `> ${line}`).join('\n');
 
-			return `\n\n> [!${type}] ${title}\n${quotedContent}\n\n`;
+			return `\n\n> [!${type}]${foldIndicator} ${title}\n${quotedContent}\n\n`;
 		}
 	});
 
