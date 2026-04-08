@@ -47,6 +47,7 @@ interface FxTwitterResponse {
 		article?: {
 			title: string;
 			preview_text: string;
+			created_at?: string;
 			cover_media?: {
 				media_info?: {
 					original_img_url?: string;
@@ -56,7 +57,26 @@ interface FxTwitterResponse {
 				blocks: DraftBlock[];
 				entityMap: DraftEntityMapEntry[];
 			};
+			media_entities?: FxTwitterArticleMediaEntity[];
 		};
+	};
+}
+
+interface FxTwitterArticleMediaEntity {
+	media_id: string;
+	media_info: {
+		__typename: string;
+		original_img_url?: string;
+		original_img_width?: number;
+		original_img_height?: number;
+		preview_image?: {
+			original_img_url?: string;
+		};
+		variants?: {
+			bit_rate?: number;
+			content_type: string;
+			url: string;
+		}[];
 	};
 }
 
@@ -214,11 +234,22 @@ export class XOembedExtractor extends BaseExtractor {
 		return response.json();
 	}
 
+	private toDateString(dateStr?: string): string | undefined {
+		if (!dateStr) return undefined;
+		try {
+			return new Date(dateStr).toISOString().split('T')[0];
+		} catch {
+			return undefined;
+		}
+	}
+
 	private buildArticleResult(data: FxTwitterResponse): ExtractorResult {
 		const article = data.tweet.article!;
 		const { blocks, entityMap } = article.content;
-		const contentHtml = this.renderArticle(blocks, entityMap, article.cover_media);
+		const mediaEntities = article.media_entities || [];
+		const contentHtml = this.renderArticle(blocks, entityMap, article.cover_media, mediaEntities);
 		const handle = `@${data.tweet.author.screen_name}`;
+		const published = this.toDateString(article.created_at) ?? this.toDateString(data.tweet.created_at);
 
 		return {
 			content: contentHtml,
@@ -228,6 +259,7 @@ export class XOembedExtractor extends BaseExtractor {
 				author: handle,
 				site: 'X (Twitter)',
 				description: article.preview_text,
+				...(published && { published }),
 			}
 		};
 	}
@@ -236,6 +268,7 @@ export class XOembedExtractor extends BaseExtractor {
 		const tweet = data.tweet;
 		const handle = `@${tweet.author.screen_name}`;
 		const contentHtml = this.renderTweet(tweet);
+		const published = this.toDateString(tweet.created_at);
 
 		return {
 			content: contentHtml,
@@ -244,6 +277,7 @@ export class XOembedExtractor extends BaseExtractor {
 				title: `Post by ${handle}`,
 				author: handle,
 				site: 'X (Twitter)',
+				...(published && { published }),
 			}
 		};
 	}
@@ -357,7 +391,8 @@ export class XOembedExtractor extends BaseExtractor {
 	private renderArticle(
 		blocks: DraftBlock[],
 		entityMap: DraftEntityMapEntry[],
-		coverMedia?: { media_info?: { original_img_url?: string } }
+		coverMedia?: { media_info?: { original_img_url?: string } },
+		mediaEntities?: FxTwitterArticleMediaEntity[]
 	): string {
 		const parts: string[] = [];
 
@@ -381,17 +416,17 @@ export class XOembedExtractor extends BaseExtractor {
 				continue;
 			}
 
-			const html = this.renderBlock(block, entityMap);
+			const html = this.renderBlock(block, entityMap, mediaEntities);
 			if (html) {
 				parts.push(html);
 			}
 			i++;
 		}
 
-		return `<article class="x-article">${parts.join('')}</article>`;
+		return `<article class="x-article">${parts.join('\n')}</article>`;
 	}
 
-	private renderBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[]): string {
+	private renderBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[], mediaEntities?: FxTwitterArticleMediaEntity[]): string {
 		switch (block.type) {
 			case 'unstyled': {
 				if (!block.text.trim()) return '';
@@ -402,7 +437,7 @@ export class XOembedExtractor extends BaseExtractor {
 			case 'header-three':
 				return `<h3>${this.renderInlineContent(block, entityMap)}</h3>`;
 			case 'atomic':
-				return this.renderAtomicBlock(block, entityMap);
+				return this.renderAtomicBlock(block, entityMap, mediaEntities);
 			default: {
 				if (!block.text.trim()) return '';
 				return `<p>${this.renderInlineContent(block, entityMap)}</p>`;
@@ -410,7 +445,7 @@ export class XOembedExtractor extends BaseExtractor {
 		}
 	}
 
-	private renderAtomicBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[]): string {
+	private renderAtomicBlock(block: DraftBlock, entityMap: DraftEntityMapEntry[], mediaEntities?: FxTwitterArticleMediaEntity[]): string {
 		if (block.entityRanges.length === 0) return '';
 
 		const entityEntry = entityMap.find(e => e.key === String(block.entityRanges[0].key));
@@ -420,8 +455,36 @@ export class XOembedExtractor extends BaseExtractor {
 
 		switch (entity.type) {
 			case 'MEDIA': {
+				const mediaItems = entity.data.mediaItems || [];
 				const caption = entity.data.caption;
-				if (caption) {
+				const images: string[] = [];
+
+				for (const item of mediaItems) {
+					const mediaEntity = mediaEntities?.find(e => String(e.media_id) === String(item.mediaId));
+					if (!mediaEntity) continue;
+
+					const info = mediaEntity.media_info;
+					if (info.__typename === 'ApiImage' && info.original_img_url) {
+						images.push(`<img src="${escapeHtml(info.original_img_url)}" alt="${caption ? escapeHtml(caption) : ''}">`);
+					} else if (info.__typename === 'ApiVideo' && info.preview_image?.original_img_url) {
+						const videoVariants = (info.variants || [])
+							.filter(v => v.content_type === 'video/mp4' && v.bit_rate)
+							.sort((a, b) => (b.bit_rate || 0) - (a.bit_rate || 0));
+						const videoUrl = videoVariants[0]?.url;
+						const previewUrl = info.preview_image.original_img_url;
+						if (videoUrl) {
+							images.push(`<video src="${escapeHtml(videoUrl)}" poster="${escapeHtml(previewUrl)}" controls></video>`);
+						} else {
+							images.push(`<img src="${escapeHtml(previewUrl)}" alt="${caption ? escapeHtml(caption) : ''}">`);
+						}
+					}
+				}
+
+				if (images.length > 0 && caption) {
+					return `<figure>${images.join('\n')}<figcaption>${escapeHtml(caption)}</figcaption></figure>`;
+				} else if (images.length > 0) {
+					return images.map(img => `<figure>${img}</figure>`).join('\n');
+				} else if (caption) {
 					return `<figure><figcaption>${escapeHtml(caption)}</figcaption></figure>`;
 				}
 				return '';
