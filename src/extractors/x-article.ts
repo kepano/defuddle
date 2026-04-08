@@ -3,6 +3,7 @@ import { ExtractorResult } from '../types/extractors';
 import { serializeHTML } from '../utils/dom';
 
 const SELECTORS = {
+	ARTICLE_READ_VIEW: '[data-testid="twitterArticleReadView"]',
 	ARTICLE_CONTAINER: '[data-testid="twitterArticleRichTextView"]',
 	TITLE: '[data-testid="twitter-article-title"]',
 	AUTHOR: '[itemprop="author"]',
@@ -92,7 +93,25 @@ export class XArticleExtractor extends BaseExtractor {
 		const clone = this.articleContainer.cloneNode(true) as HTMLElement;
 		this.cleanContent(clone);
 
-		return `<article class="x-article">${serializeHTML(clone)}</article>`;
+		const headerImage = this.extractHeaderImage();
+		return `<article class="x-article">${headerImage}${serializeHTML(clone)}</article>`;
+	}
+
+	private extractHeaderImage(): string {
+		const readView = this.document.querySelector(SELECTORS.ARTICLE_READ_VIEW);
+		if (!readView) return '';
+
+		const headerPhoto = readView.querySelector(SELECTORS.IMAGES);
+		if (!headerPhoto) return '';
+
+		if (this.articleContainer!.contains(headerPhoto)) return '';
+
+		const src = headerPhoto.getAttribute('src');
+		if (!src) return '';
+
+		const alt = headerPhoto.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || 'Image';
+
+		return `<img src="${this.upgradeImageSrc(src)}" alt="${alt}">`;
 	}
 
 	private cleanContent(container: HTMLElement): void {
@@ -189,30 +208,17 @@ export class XArticleExtractor extends BaseExtractor {
 	}
 
 	private unwrapLinkedImages(container: HTMLElement, ownerDoc: Document): void {
-		// find all tweetPhoto images and extract them from any ancestor anchors
 		container.querySelectorAll(SELECTORS.IMAGES).forEach(img => {
-			// find closest anchor ancestor
 			const anchor = img.closest('a');
 			if (!anchor || !container.contains(anchor)) return;
 
-			// create clean img tag with upgraded quality (like TwitterExtractor does)
-			let src = img.getAttribute('src') || '';
+			const src = img.getAttribute('src') || '';
 			const alt = img.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || 'Image';
 
-			// upgrade image quality
-			if (src.includes('&name=')) {
-				src = src.replace(/&name=\w+/, '&name=large');
-			} else if (src.includes('?')) {
-				src = `${src}&name=large`;
-			} else {
-				src = `${src}?name=large`;
-			}
-
 			const cleanImg = ownerDoc.createElement('img');
-			cleanImg.setAttribute('src', src);
+			cleanImg.setAttribute('src', this.upgradeImageSrc(src));
 			cleanImg.setAttribute('alt', alt);
 
-			// replace anchor with clean image
 			anchor.replaceWith(cleanImg);
 		});
 	}
@@ -221,15 +227,17 @@ export class XArticleExtractor extends BaseExtractor {
 		container.querySelectorAll(SELECTORS.IMAGES).forEach(img => {
 			const src = img.getAttribute('src');
 			if (!src) return;
-
-			if (src.includes('&name=')) {
-				img.setAttribute('src', src.replace(/&name=\w+/, '&name=large'));
-			} else if (src.includes('?')) {
-				img.setAttribute('src', `${src}&name=large`);
-			} else {
-				img.setAttribute('src', `${src}?name=large`);
-			}
+			img.setAttribute('src', this.upgradeImageSrc(src));
 		});
+	}
+
+	private upgradeImageSrc(src: string): string {
+		if (src.includes('&name=')) {
+			return src.replace(/&name=\w+/, '&name=large');
+		} else if (src.includes('?')) {
+			return `${src}&name=large`;
+		}
+		return `${src}?name=large`;
 	}
 
 	private convertDraftParagraphs(container: HTMLElement, ownerDoc: Document): void {

@@ -7,6 +7,8 @@
 }
 ```
 
+![Image](https://pbs.twimg.com/media/G-_GGKzXkAAHz_w?format=jpg&name=large)
+
 ive spent the last year building an operating system for thinking with ai. claude code runs my obsidian vaults
 
 it extracts the key concepts, connects them to what you already figured out, and builds a living representation of your thinking
