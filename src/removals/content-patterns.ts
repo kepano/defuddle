@@ -14,12 +14,16 @@ const BOILERPLATE_PATTERNS = [
 	/^©\s*(?:Copyright\s+)?\d{4}/i,
 	/^Comments?$/i,
 	/^Leave a (?:comment|reply)$/i,
+	/^Loading\.{3}$/,
 ];
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)/i;
 const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
 const TIMEZONE_WIDGET_PATTERN = /^current time in$/i;
 const PINNED_LABEL_PATTERN = /^pinned$/i;
 const AUTHOR_CONTACT_LABEL_PATTERN = /^(?:written by|(?:author|contact|reporter|correspondent)s?)$/i;
+const SHARE_AUTHOR_LABEL = /^(?:share|authors?|written\s+by)$/i;
+// CONTENT_ELEMENT_SELECTOR minus img/picture — author avatars are common in metadata widgets
+const CONTENT_ELEMENT_NO_IMG_SELECTOR = CONTENT_ELEMENT_SELECTOR.replace(/img, picture, /, '');
 const EMAIL_PATTERN = /[\w.-]+@[\w.-]+\.\w+/;
 const PHONE_PATTERN = /\(?\d{3}\)?[\s.‑–-]?\d{3}[\s.‑–-]?\d{4}/;
 
@@ -947,6 +951,29 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 		target.remove();
 		break;
+	}
+
+	// Remove author/share metadata widgets — short containers with labels like
+	// "Author", "Share", "Written by" common in Tailwind/Next.js blog templates.
+	// Images excluded from content check since author avatars are common.
+	for (const el of mainContent.querySelectorAll('p, span, div')) {
+		if (!el.parentNode) continue;
+		const elText = el.textContent?.trim() || '';
+		if (!SHARE_AUTHOR_LABEL.test(elText)) continue;
+
+		let container = el;
+		while (container.parentElement && container.parentElement !== mainContent) {
+			const parent = container.parentElement;
+			if (countWords(parent.textContent?.trim() || '') > 15) break;
+			container = parent;
+		}
+
+		if (container.querySelector(CONTENT_ELEMENT_NO_IMG_SELECTOR)) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'author/share widget', text: textPreview(container) });
+		}
+		container.remove();
 	}
 
 	// Remove social engagement counters ("9 Likes", "3 Comments", etc.)
