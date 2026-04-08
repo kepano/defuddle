@@ -359,6 +359,7 @@ export const PARTIAL_SELECTORS = [
 	'article--share',
 	'article-share',
 	'article--topics',
+	'article-tools',
 	'articletags',
 	'article-tags',
 	'article_tags',
@@ -642,6 +643,7 @@ export const PARTIAL_SELECTORS = [
 	'nomobile',
 	'noprint',
 
+	'onward-journey', // FT.com
 	'open-slideshow',
 	'originally-published', // Mercury News
 	'other-blogs',
