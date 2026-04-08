@@ -242,8 +242,8 @@ export class MetadataExtractor {
 	private static cleanAuthorString(s: string): string {
 		// Strip "By " prefix
 		s = s.replace(/^by\s+/i, '');
-		// Remove URLs
-		s = s.replace(/https?:\/\/\S+/gi, '');
+		// Remove URLs (including surrounding parentheses if the URL is wrapped in them)
+		s = s.replace(/\(?\s*https?:\/\/\S+\s*\)?/gi, '');
 		// Normalize " and " to comma separator for consistent formatting
 		s = s.replace(/,?\s+and\s+/gi, ', ');
 		// Clean up leftover separators and whitespace
