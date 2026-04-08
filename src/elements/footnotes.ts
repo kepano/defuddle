@@ -1016,7 +1016,7 @@ class FootnoteHandler {
 export function standardizeFootnotes(element: any): void {
 	const doc = element.ownerDocument;
 	if (!doc) {
-		console.warn('standardizeFootnotes: No document available');
+		// No document available
 		return;
 	}
 

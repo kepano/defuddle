@@ -27,7 +27,6 @@ export const imageRules = [
 			const imgElement = el.querySelector('img');
 
 			if (!imgElement) {
-				console.warn('Picture element without img fallback:', el.outerHTML);
 				const bestSource = selectBestSource(sourceElements);
 				if (bestSource) {
 					const srcset = bestSource.getAttribute('srcset');
@@ -85,8 +84,7 @@ export const imageRules = [
 			if (!originalImg) {
 				// If no img inside, return an empty figure or maybe just the original element?
 				// Returning empty figure for now, as it represents a failed conversion.
-				console.warn('uni-image-full-width without img:', el.outerHTML);
-				return figure; 
+				return figure;
 			}
 
 			let bestSrc = originalImg.getAttribute('src'); // Default to src
@@ -98,15 +96,14 @@ export const imageRules = [
 						bestSrc = dataLoading.desktop; // Prefer desktop URL
 					}
 				} catch (e) {
-					console.warn('Failed to parse data-loading attribute:', dataLoadingAttr, e);
+					// Invalid data-loading JSON, skip
 				}
 			}
 			if (bestSrc && isValidImageUrl(bestSrc)) {
 				img.setAttribute('src', bestSrc);
 			} else {
 				// If no valid src found, maybe skip this image?
-				console.warn('Could not find valid src for uni-image-full-width:', el.outerHTML);
-				return figure; // Return empty figure
+				return figure;
 			}
 
 			let altText = originalImg.getAttribute('alt');
@@ -248,7 +245,7 @@ export const imageRules = [
 					return processedImg;
 				}
 			} catch (error) {
-				console.warn('Error processing span with image:', error);
+				// Failed to process span with image, return as-is
 				return el;
 			}
 		}
@@ -285,7 +282,7 @@ export const imageRules = [
 						imageToAdd = currentImg; 
 					} else {
 						// Fallback: process the initially found element.
-						console.warn("Figure rule couldn't find current image element in:", el.outerHTML);
+						// Fallback: process the initially found element
 						// processImageElement will clone if needed
 						imageToAdd = processImageElement(imgElement, doc); 
 					}
@@ -299,7 +296,7 @@ export const imageRules = [
 					return el;
 				}
 			} catch (error) {
-				console.warn('Error processing complex image element:', error);
+				// Failed to process complex image element, return as-is
 				return el; 
 			}
 		}

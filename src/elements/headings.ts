@@ -50,7 +50,7 @@ export const headingRules = [
 			// Get document from element's owner document
 			const doc = el.ownerDocument;
 			if (!doc) {
-				console.warn('No document available');
+				// No document available
 				return el;
 			}
 
