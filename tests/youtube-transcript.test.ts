@@ -155,6 +155,29 @@ describe('YouTube transcript parsing', () => {
 		expect(lines[5]).toBe('**0:12** · That\'s interesting.');
 	});
 
+	test('groups segments by dash speaker markers', () => {
+		const extractor = createExtractor();
+		const xml = `<timedtext><body>
+<p t="0" d="3000"><s>- Some things are not normal.</s></p>
+<p t="3000" d="7000"><s>By that I mean if you go out in the world.</s></p>
+<p t="10000" d="6000"><s>You will find that most data clusters around some average.</s></p>
+<p t="24000" d="3000"><s>- Nature shows power laws all over the place.</s></p>
+<p t="27000" d="3000"><s>That seems weird.</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		// First speaker — dash stripped, first short sentence stays separate
+		expect(lines[0]).toBe('**0:00** · Some things are not normal.');
+		expect(lines[1]).toBe('**0:03** · By that I mean if you go out in the world. You will find that most data clusters around some average.');
+		// Blank line before second speaker
+		expect(lines[2]).toBe('');
+		// Second speaker — dash stripped
+		expect(lines[3]).toContain('Nature shows power laws all over the place.');
+		expect(lines[3]).not.toContain('- ');
+	});
+
 	test('groups segments by sentences when no speaker markers', () => {
 		const extractor = createExtractor();
 		const xml = `<timedtext><body>

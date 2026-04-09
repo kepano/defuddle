@@ -6,6 +6,9 @@ import { buildTranscript } from '../utils/transcript';
 
 const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
 const QUESTION_END = /\?["'\u2019\u201D)]*\s*$/;
+const SPEAKER_MARKER = /^(>>|-\s)/;
+const SPEAKER_STRIP = /^(>>\s*|-\s+)/;
+const TRAILING_COMMA = /,\s*$/;
 const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
 const TURN_MERGE_MAX_WORDS = 80;
 const TURN_MERGE_MAX_SPAN_SECONDS = 45;
@@ -900,13 +903,13 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	/**
 	 * Group raw transcript segments into readable blocks.
-	 * If speaker markers (>>) are present, groups by speaker turn.
+	 * If speaker markers (>> or -) are present, groups by speaker turn.
 	 * Otherwise, groups by sentence boundaries.
 	 */
 	private groupTranscriptSegments(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
 		if (segments.length === 0) return [];
 
-		const hasSpeakerMarkers = segments.some(s => /^>>/.test(s.text));
+		const hasSpeakerMarkers = segments.some(s => SPEAKER_MARKER.test(s.text));
 		return hasSpeakerMarkers
 			? this.groupBySpeaker(segments)
 			: this.groupBySentence(segments);
@@ -926,13 +929,13 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		let prevSegText = '';
 		for (const seg of segments) {
-			const isSpeakerChange = /^>>/.test(seg.text);
-			const cleanText = seg.text.replace(/^>>\s*/, '').replace(/^-\s+/, '');
+			const isSpeakerChange = SPEAKER_MARKER.test(seg.text);
+			const cleanText = seg.text.replace(SPEAKER_STRIP, '');
 
-			// Only treat >> as a real speaker change if the previous segment
+			// Only treat a marker as a real speaker change if the previous segment
 			// ended at a sentence boundary — otherwise it's a mid-sentence
 			// false positive from auto-captions
-			const prevEndsWithComma = /,\s*$/.test(prevSegText);
+			const prevEndsWithComma = TRAILING_COMMA.test(prevSegText);
 			const prevEndedSentence = (SENTENCE_END.test(prevSegText) || !prevSegText) && !prevEndsWithComma;
 			const isRealSpeakerChange = isSpeakerChange && prevEndedSentence;
 
