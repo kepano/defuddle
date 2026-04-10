@@ -36,14 +36,13 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
 				|| '';
 
-			let currentAuthorRole = '';
+			const messageEl = turn.querySelector('[data-message-author-role]');
 
-			const authorRole = turn.getAttribute('data-message-author-role');
-			if (authorRole) {
-				currentAuthorRole = authorRole;
-			}
+			const currentAuthorRole = messageEl?.getAttribute('data-message-author-role') || '';
 
-			let messageContent = serializeHTML(turn);
+			const contentEl = messageEl?.querySelector('.markdown, .whitespace-pre-wrap') || messageEl || turn;
+
+			let messageContent = serializeHTML(contentEl);
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
