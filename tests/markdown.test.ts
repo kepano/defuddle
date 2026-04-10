@@ -1,6 +1,8 @@
 import { describe, test, expect } from 'vitest';
+import TurndownService from 'turndown';
 import { Defuddle } from '../src/node';
 import { parseDocument } from './helpers';
+import { addDefuddleRules } from '../src/markdown';
 
 describe('Markdown conversion', () => {
 	describe('exclamation mark before image', () => {
@@ -66,6 +68,40 @@ describe('Markdown conversion', () => {
 			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
 
 			expect(result.contentMarkdown).toContain('longword');
+		});
+	});
+
+	describe('addDefuddleRules', () => {
+		test('should register rules on a custom TurndownService instance', () => {
+			const td = new TurndownService({ headingStyle: 'setext', bulletListMarker: '*' });
+			addDefuddleRules(td);
+
+			const html = '<h2>Title</h2><ul><li>one</li><li>two</li></ul>';
+			const md = td.turndown(html);
+
+			// setext heading style (user option respected)
+			expect(md).toContain('Title\n-----');
+			// bullet marker from user option
+			expect(md).toContain('* one');
+		});
+
+		test('should apply table rule from defuddle', () => {
+			const td = new TurndownService();
+			addDefuddleRules(td);
+
+			const html = '<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>';
+			const md = td.turndown(html);
+
+			expect(md).toContain('| A | B |');
+			expect(md).toContain('| 1 | 2 |');
+		});
+
+		test('should apply highlight rule from defuddle', () => {
+			const td = new TurndownService();
+			addDefuddleRules(td);
+
+			const md = td.turndown('<p>This is <mark>highlighted</mark> text</p>');
+			expect(md).toContain('==highlighted==');
 		});
 	});
 });

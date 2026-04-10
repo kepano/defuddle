@@ -1,12 +1,12 @@
 import { Defuddle as DefuddleBase } from './defuddle';
 import { DefuddleOptions, DefuddleResponse } from './types';
-import { toMarkdown, createMarkdownContent } from './markdown';
+import { toMarkdown, createMarkdownContent, addDefuddleRules } from './markdown';
 
 // Export types
 export type { DefuddleOptions, DefuddleResponse };
 
 // Export standalone markdown conversion
-export { createMarkdownContent };
+export { createMarkdownContent, addDefuddleRules };
 
 class Defuddle {
 	private defuddle: DefuddleBase;
@@ -32,6 +32,7 @@ class Defuddle {
 
 // Attach named exports as static properties for UMD/CJS consumers
 (Defuddle as any).createMarkdownContent = createMarkdownContent;
+(Defuddle as any).addDefuddleRules = addDefuddleRules;
 
 // Export Defuddle as default
 export default Defuddle;
