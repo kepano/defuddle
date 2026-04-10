@@ -3,20 +3,20 @@ import { ConversationMessage, ConversationMetadata, Footnote } from '../types/ex
 import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
-	private articles: NodeListOf<Element> | null;
+	private turns: NodeListOf<Element> | null;
 	private footnotes: Footnote[];
 	private footnoteCounter: number;
 	private cachedMessages: ConversationMessage[] | null = null;
 
 	constructor(document: Document, url: string) {
 		super(document, url);
-		this.articles = document.querySelectorAll('article[data-testid^="conversation-turn-"]');
+		this.turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
 		this.footnotes = [];
 		this.footnoteCounter = 0;
 	}
 
 	canExtract(): boolean {
-		return !!this.articles && this.articles.length > 0;
+		return !!this.turns && this.turns.length > 0;
 	}
 
 	protected extractMessages(): ConversationMessage[] {
@@ -26,30 +26,29 @@ export class ChatGPTExtractor extends ConversationExtractor {
 		this.footnotes = [];
 		this.footnoteCounter = 0;
 
-		if (!this.articles) return messages;
+		if (!this.turns) return messages;
 
-		this.articles.forEach((article) => {
+		this.turns.forEach((turn) => {
 			// Get the localized author text from the sr-only heading and clean it
-			const authorElement = article.querySelector('h5.sr-only, h6.sr-only');
+			const authorElement = turn.querySelector('h4.sr-only, h5.sr-only, h6.sr-only');
 			const authorText = authorElement?.textContent
 				?.trim()
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
 				|| '';
 
-			let currentAuthorRole = '';
+			const messageEl = turn.querySelector('[data-message-author-role]');
 
-			const authorRole = article.getAttribute('data-message-author-role');
-			if (authorRole) {
-				currentAuthorRole = authorRole;
-			}
+			const currentAuthorRole = messageEl?.getAttribute('data-message-author-role') || '';
 
-			let messageContent = serializeHTML(article);
+			const contentEl = messageEl?.querySelector('.markdown, .whitespace-pre-wrap') || messageEl || turn;
+
+			let messageContent = serializeHTML(contentEl);
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
 			const tempDiv = this.document.createElement('div');
 			tempDiv.appendChild(parseHTML(this.document, messageContent));
-			tempDiv.querySelectorAll('h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
+			tempDiv.querySelectorAll('h4.sr-only, h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
 			messageContent = serializeHTML(tempDiv);
 
 			// Process inline references using regex to find the containers
@@ -148,7 +147,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 		}
 
 		// Fall back to first user message
-		const firstUserTurn = this.articles?.item(0)?.querySelector('.text-message');
+		const firstUserTurn = this.turns?.item(0)?.querySelector('.text-message');
 		if (firstUserTurn) {
 			const text = firstUserTurn.textContent || '';
 			// Truncate to first 50 characters if longer
