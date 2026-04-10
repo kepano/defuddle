@@ -101,6 +101,40 @@ npx defuddle parse page.html --debug
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
 | `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
+| `--download-images` | | Download remote images referenced in generated markdown and rewrite links |
+| `--image-dir <dir>` | | Local image folder relative to output markdown (default: `attachments`) |
+| `--image-dir-from-output` | | Save images in a folder using output markdown base name (e.g. `article`) |
+
+#### CLI default options file
+
+Defuddle looks for a config file in the current working directory (checked in order):
+- `defuddle.config.json`
+- `.defuddlerc`
+- `.defuddlerc.json`
+
+The config file is only loaded when **no CLI flags are passed**. If any flag is present on the command line, the config file is ignored entirely and you must supply all options manually.
+
+The config file should be JSON with the same option keys (e.g. `markdown`, `output`, `downloadImages`, `imageDir`, `imageDirFromOutput`, `lang`). When `downloadImages` is set without `output`, the output filename is auto-generated from the URL (e.g. `stephango.com-saw.md`). Example `defuddle.config.json`:
+
+```json
+{
+  "markdown": true,
+  "downloadImages": true,
+  "imageDir": "attachments"
+}
+```
+
+With this config, running `npx defuddle parse <url>` will save clean markdown to a file named after the URL in the current directory, with images downloaded to an `attachments/` subfolder.
+
+For an output-named image folder, use:
+
+```json
+{
+  "markdown": true,
+  "downloadImages": true,
+  "imageDirFromOutput": true
+}
+```
 
 ## Installation
 
