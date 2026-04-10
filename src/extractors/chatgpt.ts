@@ -3,20 +3,20 @@ import { ConversationMessage, ConversationMetadata, Footnote } from '../types/ex
 import { parseHTML, serializeHTML } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
-	private articles: NodeListOf<Element> | null;
+	private turns: NodeListOf<Element> | null;
 	private footnotes: Footnote[];
 	private footnoteCounter: number;
 	private cachedMessages: ConversationMessage[] | null = null;
 
 	constructor(document: Document, url: string) {
 		super(document, url);
-		this.articles = document.querySelectorAll('article[data-testid^="conversation-turn-"]');
+		this.turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
 		this.footnotes = [];
 		this.footnoteCounter = 0;
 	}
 
 	canExtract(): boolean {
-		return !!this.articles && this.articles.length > 0;
+		return !!this.turns && this.turns.length > 0;
 	}
 
 	protected extractMessages(): ConversationMessage[] {
@@ -26,11 +26,11 @@ export class ChatGPTExtractor extends ConversationExtractor {
 		this.footnotes = [];
 		this.footnoteCounter = 0;
 
-		if (!this.articles) return messages;
+		if (!this.turns) return messages;
 
-		this.articles.forEach((article) => {
+		this.turns.forEach((turn) => {
 			// Get the localized author text from the sr-only heading and clean it
-			const authorElement = article.querySelector('h5.sr-only, h6.sr-only');
+			const authorElement = turn.querySelector('h5.sr-only, h6.sr-only');
 			const authorText = authorElement?.textContent
 				?.trim()
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
@@ -38,12 +38,12 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 			let currentAuthorRole = '';
 
-			const authorRole = article.getAttribute('data-message-author-role');
+			const authorRole = turn.getAttribute('data-message-author-role');
 			if (authorRole) {
 				currentAuthorRole = authorRole;
 			}
 
-			let messageContent = serializeHTML(article);
+			let messageContent = serializeHTML(turn);
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
@@ -148,7 +148,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 		}
 
 		// Fall back to first user message
-		const firstUserTurn = this.articles?.item(0)?.querySelector('.text-message');
+		const firstUserTurn = this.turns?.item(0)?.querySelector('.text-message');
 		if (firstUserTurn) {
 			const text = firstUserTurn.textContent || '';
 			// Truncate to first 50 characters if longer
