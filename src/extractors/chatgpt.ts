@@ -30,7 +30,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 		this.turns.forEach((turn) => {
 			// Get the localized author text from the sr-only heading and clean it
-			const authorElement = turn.querySelector('h5.sr-only, h6.sr-only');
+			const authorElement = turn.querySelector('h4.sr-only, h5.sr-only, h6.sr-only');
 			const authorText = authorElement?.textContent
 				?.trim()
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
@@ -49,7 +49,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 			// Remove specific elements from the message content
 			const tempDiv = this.document.createElement('div');
 			tempDiv.appendChild(parseHTML(this.document, messageContent));
-			tempDiv.querySelectorAll('h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
+			tempDiv.querySelectorAll('h4.sr-only, h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
 			messageContent = serializeHTML(tempDiv);
 
 			// Process inline references using regex to find the containers
