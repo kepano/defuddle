@@ -10,6 +10,8 @@ const SPEAKER_MARKER = /^(>>|-\s)/;
 const SPEAKER_STRIP = /^(>>\s*|-\s+)/;
 const TRAILING_COMMA = /,\s*$/;
 const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
+const TRANSCRIPT_MAX_GROUP_SECONDS = 30;
+const MID_TEXT_SENTENCE_BOUNDARY = /^(.*[.!?]["'\u2019\u201D)]*)\s+([A-Z].*)$/;
 const TURN_MERGE_MAX_WORDS = 80;
 const TURN_MERGE_MAX_SPAN_SECONDS = 45;
 const SHORT_UTTERANCE_MAX_WORDS = 3;
@@ -1096,41 +1098,95 @@ export class YoutubeExtractor extends BaseExtractor {
 	 */
 	private groupBySentence(segments: { start: number; text: string }[]): { start: number; text: string; speakerChange: boolean; speaker?: number }[] {
 		const groups: { start: number; text: string; speakerChange: boolean }[] = [];
-		let buffer = '';
-		let bufferStart = 0;
-		let lastStart = 0;
+		const pending: { start: number; text: string }[] = [];
 
-		const flush = () => {
-			if (buffer.trim()) {
-				groups.push({
-					start: bufferStart,
-					text: buffer.trim(),
-					speakerChange: false,
-				});
-				buffer = '';
+		const pushGroup = (segs: { start: number; text: string }[]) => {
+			const text = segs.map(s => s.text).join(' ').trim();
+			if (text) {
+				groups.push({ start: segs[0].start, text, speakerChange: false });
 			}
+		};
+
+		const flushAll = () => {
+			if (pending.length === 0) return;
+			pushGroup(pending);
+			pending.length = 0;
+		};
+
+		const flushUpTo = (idx: number) => {
+			if (idx <= 0) return;
+			pushGroup(pending.splice(0, idx));
 		};
 
 		for (const seg of segments) {
 			// YouTube often emits sparse caption windows 10-15s apart even when the
 			// sentence is still continuing, so only treat very large gaps as breaks.
-			if (buffer && seg.start - lastStart > TRANSCRIPT_GROUP_GAP_SECONDS) {
-				flush();
+			if (pending.length > 0 && seg.start - pending[pending.length - 1].start > TRANSCRIPT_GROUP_GAP_SECONDS) {
+				flushAll();
 			}
 
-			if (!buffer) {
-				bufferStart = seg.start;
-			}
-			buffer += (buffer ? ' ' : '') + seg.text;
-			lastStart = seg.start;
+			pending.push(seg);
 
-			// Only flush when the segment itself ends with sentence punctuation
 			if (SENTENCE_END.test(seg.text)) {
-				flush();
+				flushAll();
+				continue;
+			}
+
+			// For unpunctuated ASR transcripts, break at the best natural
+			// point once the group exceeds TRANSCRIPT_MAX_GROUP_SECONDS.
+			if (seg.start - pending[0].start >= TRANSCRIPT_MAX_GROUP_SECONDS) {
+				const breakIdx = this.findNaturalBreak(pending);
+				if (breakIdx > 0 && breakIdx < pending.length) {
+					flushUpTo(breakIdx);
+				} else {
+					flushAll();
+				}
 			}
 		}
 
-		flush();
+		flushAll();
 		return groups;
 	}
-} 
+
+	/**
+	 * Find the best natural break point in a list of segments.
+	 * Prefers mid-text sentence boundaries (". A") over gap-based breaks.
+	 * May splice a segment in two when a sentence boundary is found mid-text.
+	 * Returns the index to break BEFORE (i.e., flush segments 0..idx-1).
+	 */
+	private findNaturalBreak(segments: { start: number; text: string }[]): number {
+		if (segments.length <= 1) return -1;
+
+		const minStart = segments[0].start + TRANSCRIPT_MAX_GROUP_SECONDS / 2;
+
+		// Priority 1: last segment containing a mid-text sentence boundary.
+		// Split that segment so the boundary falls at a clean edge.
+		for (let i = segments.length - 1; i >= 0; i--) {
+			if (segments[i].start < minStart) break;
+			const match = segments[i].text.match(MID_TEXT_SENTENCE_BOUNDARY);
+			if (match) {
+				const start = segments[i].start;
+				segments.splice(i, 1,
+					{ start, text: match[1] },
+					{ start, text: match[2] },
+				);
+				return i + 1;
+			}
+		}
+
+		// Priority 2: largest gap (natural pause) in the eligible range.
+		let bestIdx = -1;
+		let bestGap = 0;
+
+		for (let i = 1; i < segments.length; i++) {
+			if (segments[i].start < minStart) continue;
+			const gap = segments[i].start - segments[i - 1].start;
+			if (gap >= bestGap) {
+				bestGap = gap;
+				bestIdx = i;
+			}
+		}
+
+		return bestIdx;
+	}
+}

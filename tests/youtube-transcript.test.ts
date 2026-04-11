@@ -178,6 +178,41 @@ describe('YouTube transcript parsing', () => {
 		expect(lines[3]).not.toContain('- ');
 	});
 
+	test('breaks at mid-text sentence boundaries in unpunctuated ASR', () => {
+		const extractor = createExtractor();
+		// Simulate ASR segments where punctuation falls mid-segment.
+		// Each segment is ~2s, so 30s cap triggers around segment 15.
+		const xml = `<timedtext><body>
+<p t="0" d="2000"><s>Oh yeah. Yeah. I started</s></p>
+<p t="2000" d="2000"><s>using Twitter because I was bored. So</s></p>
+<p t="4000" d="2000"><s>my wife and I were traveling around</s></p>
+<p t="6000" d="2000"><s>in Europe for December. We were just</s></p>
+<p t="8000" d="2000"><s>kind of nomading around. We went to</s></p>
+<p t="10000" d="2000"><s>like Copenhagen went to a few different</s></p>
+<p t="12000" d="2000"><s>countries. Um and for me it was just</s></p>
+<p t="14000" d="2000"><s>like a coding vacation. So every day I</s></p>
+<p t="16000" d="2000"><s>was coding and that is like my favorite</s></p>
+<p t="18000" d="2000"><s>kind of vacation just to just like code</s></p>
+<p t="20000" d="2000"><s>all day. It is the best. And at some</s></p>
+<p t="22000" d="2000"><s>point I just kind of got bored and like</s></p>
+<p t="24000" d="2000"><s>I ran out of ideas for you know like a</s></p>
+<p t="26000" d="2000"><s>few hours. I was like okay what do I</s></p>
+<p t="28000" d="2000"><s>want to do next? And so I opened</s></p>
+<p t="30000" d="2000"><s>Twitter. I saw some people tweeting</s></p>
+<p t="32000" d="2000"><s>about it and then I just started</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'en');
+		const lines = result.text.split('\n');
+
+		// Should break at a sentence boundary, not at the 30s mark mid-sentence
+		const firstGroup = lines[0];
+		// First group should end at a sentence boundary (period or question mark)
+		expect(firstGroup).toMatch(/[.!?]$/);
+		// Should not end mid-sentence like "And so I opened" or "I just kind of"
+		expect(firstGroup).not.toMatch(/\b(of|and|I|the|a|to)\s*$/i);
+	});
+
 	test('groups segments by sentences when no speaker markers', () => {
 		const extractor = createExtractor();
 		const xml = `<timedtext><body>
