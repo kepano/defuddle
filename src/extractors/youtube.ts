@@ -17,6 +17,8 @@ const TURN_MERGE_MAX_SPAN_SECONDS = 45;
 const SHORT_UTTERANCE_MAX_WORDS = 3;
 const FIRST_GROUP_MERGE_MIN_WORDS = 8;
 
+const FETCH_TIMEOUT_MS = 2000;
+
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
 const INNERTUBE_API_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
@@ -87,11 +89,14 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	async extractAsync(): Promise<ExtractorResult> {
 		const existingTranscript = this.extractTranscriptFromExistingDom();
-		const transcript = this.shouldUseExistingDomTranscript(existingTranscript)
-			? existingTranscript
-			: await this.fetchTranscript()
-				|| existingTranscript
-				|| await this.extractTranscriptFromOpenedDom();
+
+		if (this.shouldUseExistingDomTranscript(existingTranscript)) {
+			return this.buildResult(existingTranscript);
+		}
+
+		const transcript = await this.fetchTranscript()
+			|| existingTranscript
+			|| await this.extractTranscriptFromOpenedDom();
 		return this.buildResult(transcript);
 	}
 
@@ -503,47 +508,76 @@ export class YoutubeExtractor extends BaseExtractor {
 			const videoId = this.getVideoId();
 			if (!videoId) return undefined;
 
-			// Fetch captions and chapters in parallel
-			const [playerData, chapters] = await Promise.all([
-				this.fetchPlayerData(videoId),
-				this.fetchChapters(videoId),
-			]);
+			const chaptersPromise = this.fetchChapters(videoId);
 
-			if (!playerData) return undefined;
+			// Start caption XML fetch from inline data immediately (no API needed).
+			// Runs in parallel with the API-based path below.
+			const inlineTrack = this.getInlineCaptionTrack();
+			const inlineXmlPromise = inlineTrack
+				? this.fetchCaptionXml(inlineTrack, chaptersPromise)
+				: undefined;
 
-			const captionTracks = this.getCaptionTracks(playerData);
-			if (captionTracks.length === 0) return undefined;
+			// API-based path: fetch player data for fresh caption tracks
+			const playerData = await this.fetchPlayerData(videoId);
+			const apiTrack = playerData
+				? this.pickCaptionTrack(this.getCaptionTracks(playerData))
+				: undefined;
 
-			// Prefer English, fall back to first available track
-			const track = this.pickCaptionTrack(captionTracks);
-			if (!track?.baseUrl) return undefined;
+			// If the API returned a different/better track, fetch its XML.
+			// Skip if it's the same URL the inline path is already fetching.
+			const apiXmlPromise = apiTrack?.baseUrl && apiTrack.baseUrl !== inlineTrack?.baseUrl
+				? this.fetchCaptionXml(apiTrack, chaptersPromise)
+				: undefined;
 
+			// Prefer API result, fall back to inline
+			const apiResult = apiXmlPromise ? await apiXmlPromise : undefined;
+			if (apiResult) return apiResult;
+
+			return inlineXmlPromise ? await inlineXmlPromise : undefined;
+		} catch (error) {
+			console.error('YoutubeExtractor: failed to fetch transcript', error);
+			return undefined;
+		}
+	}
+
+	private getInlineCaptionTrack(): any | undefined {
+		const data = this.getValidatedPlayerResponse();
+		const tracks = this.getCaptionTracks(data);
+		if (tracks.length === 0) return undefined;
+		const track = this.pickCaptionTrack(tracks);
+		return track?.baseUrl ? track : undefined;
+	}
+
+	private async fetchCaptionXml(
+		track: { baseUrl: string; languageCode?: string },
+		chaptersPromise: Promise<{ title: string; start: number }[]>,
+	): Promise<TranscriptResult | undefined> {
+		try {
 			// Validate URL to prevent SSRF in server-side contexts
-			try {
-				const captionUrl = new URL(track.baseUrl);
-				if (!captionUrl.hostname.endsWith('.youtube.com')) return undefined;
-			} catch {
-				return undefined;
-			}
+			const captionUrl = new URL(track.baseUrl);
+			if (!captionUrl.hostname.endsWith('.youtube.com')) return undefined;
 
 			const captionHeaders: Record<string, string> = { 'User-Agent': 'Mozilla/5.0' };
 			if (this.options.language) {
 				captionHeaders['Accept-Language'] = this.options.language;
 			}
-			const response = await fetch(track.baseUrl, { headers: captionHeaders, signal: AbortSignal.timeout(4000) });
+			const response = await fetch(track.baseUrl, {
+				headers: captionHeaders,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+			});
 			if (!response.ok) return undefined;
 
 			let xml: string;
 			try {
 				xml = await response.text();
-			} catch (textError) {
-				console.error('YoutubeExtractor: response.text() failed:', textError);
+			} catch {
 				return undefined;
 			}
 			if (!xml) return undefined;
+
+			const chapters = await chaptersPromise;
 			return this.parseTranscriptXml(xml, track.languageCode || 'en', chapters);
-		} catch (error) {
-			console.error('YoutubeExtractor: failed to fetch transcript', error);
+		} catch {
 			return undefined;
 		}
 	}
@@ -675,7 +709,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const resp = await fetch(INNERTUBE_API_URL, {
 				method: 'POST',
 				headers,
-				signal: AbortSignal.timeout(4000),
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 				body: JSON.stringify({
 					context: INNERTUBE_CONTEXT,
 					videoId,
@@ -696,36 +730,39 @@ export class YoutubeExtractor extends BaseExtractor {
 		}
 
 		// Try WEB client as fallback — rate-limited independently from Android client
-		if (androidTimedOut) return undefined;
-		try {
-			const webHeaders: Record<string, string> = {
-				'Content-Type': 'application/json',
-			};
-			if (this.options.language) {
-				webHeaders['Accept-Language'] = this.options.language;
-			}
-			const resp = await fetch(INNERTUBE_API_URL, {
-				method: 'POST',
-				headers: webHeaders,
-				signal: AbortSignal.timeout(4000),
-				body: JSON.stringify({
-					context: INNERTUBE_WEB_CONTEXT,
-					videoId,
-				})
-			});
-			if (resp.ok) {
-				const data = await resp.json();
-				if (this.getCaptionTracks(data).length > 0) {
-					return data;
+		if (!androidTimedOut) {
+			try {
+				const webHeaders: Record<string, string> = {
+					'Content-Type': 'application/json',
+				};
+				if (this.options.language) {
+					webHeaders['Accept-Language'] = this.options.language;
 				}
+				const resp = await fetch(INNERTUBE_API_URL, {
+					method: 'POST',
+					headers: webHeaders,
+					signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+					body: JSON.stringify({
+						context: INNERTUBE_WEB_CONTEXT,
+						videoId,
+					})
+				});
+				if (resp.ok) {
+					const data = await resp.json();
+					if (this.getCaptionTracks(data).length > 0) {
+						return data;
+					}
+				}
+			} catch {
+				// Fall through to unvalidated inline data below.
 			}
-		} catch {
-			// Fall back to inline page data below.
 		}
 
-		const inlineData = this.parseInlineJson('ytInitialPlayerResponse');
-		if (this.getCaptionTracks(inlineData).length > 0) {
-			return inlineData;
+		// Last resort: unvalidated inline data (may be stale after SPA navigation,
+		// but better than nothing when all API calls fail)
+		const fallbackData = this.parseInlineJson('ytInitialPlayerResponse');
+		if (this.getCaptionTracks(fallbackData).length > 0) {
+			return fallbackData;
 		}
 
 		return undefined;
@@ -743,7 +780,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			const resp = await fetch(INNERTUBE_NEXT_URL, {
 				method: 'POST',
 				headers: chapterHeaders,
-				signal: AbortSignal.timeout(4000),
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 				body: JSON.stringify({
 					context: INNERTUBE_WEB_CONTEXT,
 					videoId,

@@ -388,6 +388,44 @@ describe('YouTube transcript parsing', () => {
 		}
 	});
 
+	test('fetchPlayerData falls back to inline data when API times out', async () => {
+		const extractor = createExtractor(`
+			<html>
+				<body>
+						<script>
+							var ytInitialPlayerResponse = {
+								"videoDetails": { "videoId": "test123" },
+								"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"baseUrl": "https://www.youtube.com/api/timedtext?v=test123&lang=en"
+										}
+									]
+								}
+							}
+						};
+					</script>
+				</body>
+			</html>
+		`);
+
+		const timeoutError = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+		const fetchMock = vi.fn().mockRejectedValue(timeoutError);
+		vi.stubGlobal('fetch', fetchMock);
+		try {
+			const playerData = await (extractor as any).fetchPlayerData('test123');
+			const tracks = (extractor as any).getCaptionTracks(playerData);
+
+			// Should fall back to inline data when API times out
+			expect(tracks).toHaveLength(1);
+			expect(tracks[0].baseUrl).toContain('v=test123');
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	test('extractAsync uses an existing transcript panel before opening it', async () => {
 		const extractor = createExtractor(`
 			<html>
@@ -458,7 +496,7 @@ describe('YouTube transcript parsing', () => {
 					${getTranscriptPanelHtml()}
 				</body>
 			</html>
-		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh' });
+		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh'});
 
 		const document = (extractor as any).document as Document;
 		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
@@ -506,7 +544,7 @@ describe('YouTube transcript parsing', () => {
 					${getTranscriptPanelHtmlWithoutLanguageButton()}
 				</body>
 			</html>
-		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh' });
+		`, 'https://www.youtube.com/watch?v=test123', { language: 'zh'});
 
 		(extractor as any).fetchTranscript = vi.fn().mockResolvedValue({
 			html: '<div class="youtube transcript"><h2>Transcript</h2><p class="transcript-segment"><strong><span class="timestamp" data-timestamp="0">0:00</span></strong> · 你好，世界。</p></div>',
@@ -592,7 +630,7 @@ get all of the hype.</p>
 					</ytd-video-description-transcript-section-renderer>
 				</body>
 			</html>
-		`);
+		`, 'https://www.youtube.com/watch?v=test123', { useDomTranscript: false });
 
 		const document = (extractor as any).document as Document;
 		const openButton = document.querySelector('#open-transcript') as HTMLButtonElement;
