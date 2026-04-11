@@ -65,6 +65,9 @@ export function logDebug(debug: boolean, message: string, ...args: any[]): void 
 	}
 }
 
+// CJK character ranges for use in regex character classes (BMP only)
+export const CJK_CHAR_RANGES = '\\u3040-\\u309f\\u30a0-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uac00-\\ud7af';
+
 /**
  * Count words in text, handling CJK characters (Chinese, Japanese, Korean).
  * CJK characters are counted individually since they don't use spaces between words.

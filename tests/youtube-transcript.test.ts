@@ -213,6 +213,39 @@ describe('YouTube transcript parsing', () => {
 		expect(firstGroup).not.toMatch(/\b(of|and|I|the|a|to)\s*$/i);
 	});
 
+	test('breaks at CJK sentence punctuation', () => {
+		const extractor = createExtractor();
+		const xml = `<timedtext><body>
+<p t="0" d="2000"><s>这是第一句话关于人工智能。</s></p>
+<p t="2000" d="2000"><s>这是第二句关于机器学习。</s></p>
+</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'zh');
+		const lines = result.text.split('\n');
+
+		// Should split at 。 (ideographic period) at end of each segment
+		expect(lines[0]).toBe('**0:00** · 这是第一句话关于人工智能。');
+		expect(lines[1]).toBe('**0:02** · 这是第二句关于机器学习。');
+	});
+
+	test('breaks at mid-text CJK sentence boundary in long segments', () => {
+		const extractor = createExtractor();
+		// Build segments spanning >30s where CJK punctuation falls mid-segment
+		const segs = [];
+		for (let i = 0; i < 17; i++) {
+			const t = i * 2000;
+			const text = i === 12 ? '这很重要。接下来我们' : '继续讨论这个话题';
+			segs.push(`<p t="${t}" d="2000"><s>${text}</s></p>`);
+		}
+		const xml = `<timedtext><body>${segs.join('\n')}</body></timedtext>`;
+
+		const result = (extractor as any).parseTranscriptXml(xml, 'zh');
+		const lines = result.text.split('\n');
+
+		// First group should end at the 。 boundary, not at an arbitrary 30s cut
+		expect(lines[0]).toMatch(/。$/);
+	});
+
 	test('groups segments by sentences when no speaker markers', () => {
 		const extractor = createExtractor();
 		const xml = `<timedtext><body>

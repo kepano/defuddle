@@ -1,17 +1,24 @@
 import { BaseExtractor, ExtractorOptions } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
-import { countWords } from '../utils';
+import { countWords, CJK_CHAR_RANGES } from '../utils';
 import { buildTranscript } from '../utils/transcript';
 
-const SENTENCE_END = /[.!?]["'\u2019\u201D)]*\s*$/;
-const QUESTION_END = /\?["'\u2019\u201D)]*\s*$/;
+const CJK_SENTENCE_PUNCT = '\u3002\uFF01\uFF1F';  // 。！？
+const CJK_CLOSE_QUOTES = '\u300D\u300F\uFF09';    // 」』）
+const SENTENCE_END = new RegExp(`[.!?${CJK_SENTENCE_PUNCT}]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
+const QUESTION_END = new RegExp(`[?\\uFF1F]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
 const SPEAKER_MARKER = /^(>>|-\s)/;
 const SPEAKER_STRIP = /^(>>\s*|-\s+)/;
 const TRAILING_COMMA = /,\s*$/;
 const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
 const TRANSCRIPT_MAX_GROUP_SECONDS = 30;
-const MID_TEXT_SENTENCE_BOUNDARY = /^(.*[.!?]["'\u2019\u201D)]*)\s+([A-Z].*)$/;
+// Latin: sentence punct + optional quotes + whitespace + uppercase letter
+// CJK: fullwidth sentence punct + optional close quotes + any CJK character (no space needed)
+const MID_TEXT_SENTENCE_BOUNDARY = new RegExp(
+	`^(.*[.!?]["'\\u2019\\u201D)]*)\\s+([A-Z].*)$` +
+	`|^(.*[${CJK_SENTENCE_PUNCT}][${CJK_CLOSE_QUOTES}]*)([${CJK_CHAR_RANGES}].*)$`
+);
 const TURN_MERGE_MAX_WORDS = 80;
 const TURN_MERGE_MAX_SPAN_SECONDS = 45;
 const SHORT_UTTERANCE_MAX_WORDS = 3;
@@ -1202,10 +1209,12 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (segments[i].start < minStart) break;
 			const match = segments[i].text.match(MID_TEXT_SENTENCE_BOUNDARY);
 			if (match) {
+				const before = match[1] ?? match[3];
+				const after = match[2] ?? match[4];
 				const start = segments[i].start;
 				segments.splice(i, 1,
-					{ start, text: match[1] },
-					{ start, text: match[2] },
+					{ start, text: before },
+					{ start, text: after },
 				);
 				return i + 1;
 			}
