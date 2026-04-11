@@ -24,7 +24,7 @@ const TURN_MERGE_MAX_SPAN_SECONDS = 45;
 const SHORT_UTTERANCE_MAX_WORDS = 3;
 const FIRST_GROUP_MERGE_MIN_WORDS = 8;
 
-const FETCH_TIMEOUT_MS = 2000;
+const FETCH_TIMEOUT_MS = 4000;
 
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.
