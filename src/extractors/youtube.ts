@@ -38,6 +38,12 @@ const INNERTUBE_CONTEXT = {
 };
 const INNERTUBE_USER_AGENT = `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 14)`;
 const INNERTUBE_NEXT_URL = 'https://www.youtube.com/youtubei/v1/next?prettyPrint=false';
+const INNERTUBE_IOS_CONTEXT = {
+	client: {
+		clientName: 'IOS',
+		clientVersion: '20.10.3',
+	}
+};
 const INNERTUBE_WEB_CONTEXT = {
 	client: {
 		clientName: 'WEB',
@@ -703,7 +709,36 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
-		// Try Android client first (most reliable for caption tracks)
+		// Try iOS client first — doesn't require a special User-Agent header,
+		// so it works in browser extensions where User-Agent is a forbidden header.
+		try {
+			const iosHeaders: Record<string, string> = {
+				'Content-Type': 'application/json',
+			};
+			if (this.options.language) {
+				iosHeaders['Accept-Language'] = this.options.language;
+			}
+			const resp = await this.fetch(INNERTUBE_API_URL, {
+				method: 'POST',
+				headers: iosHeaders,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+				body: JSON.stringify({
+					context: INNERTUBE_IOS_CONTEXT,
+					videoId,
+				})
+			});
+			if (resp.ok) {
+				const data = await resp.json();
+				if (this.getCaptionTracks(data).length > 0) {
+					return data;
+				}
+			}
+		} catch {
+			// iOS client failed — fall through to Android client
+		}
+
+		// Try Android client (requires matching User-Agent — works server-side
+		// and in content scripts on youtube.com, but not from extension pages)
 		try {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -731,7 +766,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			// Android client failed — fall through to WEB client
 		}
 
-		// Try WEB client as fallback — rate-limited independently from Android client
+		// Try WEB client as last API fallback
 		try {
 			const webHeaders: Record<string, string> = {
 				'Content-Type': 'application/json',
