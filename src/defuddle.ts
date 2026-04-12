@@ -587,7 +587,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language };
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch };
 			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
@@ -607,7 +607,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language };
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch };
 			const extractor = finder(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
@@ -697,6 +697,7 @@ export class Defuddle {
 			const extractorOpts: ExtractorOptions = {
 				includeReplies: options.includeReplies as ExtractorOptions['includeReplies'],
 				language: options.language,
+				fetch: options.fetch,
 			};
 			if (!this._inExtractorPipelineRun) {
 				const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);

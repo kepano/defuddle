@@ -38,7 +38,7 @@ export class RedditExtractor extends BaseExtractor {
 		const oldUrl = new URL(this.url);
 		oldUrl.hostname = 'old.reddit.com';
 
-		const response = await fetch(oldUrl.toString(), {
+		const response = await this.fetch(oldUrl.toString(), {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
 			},

@@ -568,7 +568,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (this.options.language) {
 				captionHeaders['Accept-Language'] = this.options.language;
 			}
-			const response = await fetch(track.baseUrl, {
+			const response = await this.fetch(track.baseUrl, {
 				headers: captionHeaders,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 			});
@@ -712,7 +712,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (this.options.language) {
 				headers['Accept-Language'] = this.options.language;
 			}
-			const resp = await fetch(INNERTUBE_API_URL, {
+			const resp = await this.fetch(INNERTUBE_API_URL, {
 				method: 'POST',
 				headers,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -739,7 +739,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (this.options.language) {
 				webHeaders['Accept-Language'] = this.options.language;
 			}
-			const resp = await fetch(INNERTUBE_API_URL, {
+			const resp = await this.fetch(INNERTUBE_API_URL, {
 				method: 'POST',
 				headers: webHeaders,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -777,7 +777,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			if (this.options.language) {
 				chapterHeaders['Accept-Language'] = this.options.language;
 			}
-			const resp = await fetch(INNERTUBE_NEXT_URL, {
+			const resp = await this.fetch(INNERTUBE_NEXT_URL, {
 				method: 'POST',
 				headers: chapterHeaders,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),

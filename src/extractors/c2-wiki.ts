@@ -27,7 +27,7 @@ export class C2WikiExtractor extends BaseExtractor {
 		const title = this.getPageTitle();
 		if (!title) return { content: '', contentHtml: '' };
 
-		const json = await fetch(C2_API + title).then(res => res.json());
+		const json = await this.fetch(C2_API + title).then(res => res.json());
 		if (!json || !json.text) return { content: '', contentHtml: '' };
 
 		const words = title.replace(/([a-z])([A-Z])/g, '$1 $2');

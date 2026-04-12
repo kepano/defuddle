@@ -145,6 +145,14 @@ export interface DefuddleOptions {
 	 * Enable per-step profiling. Timings are returned in result.profile.
 	 */
 	profile?: boolean;
+
+	/**
+	 * Custom fetch function override. Used for all HTTP requests made during
+	 * extraction (e.g. YouTube transcript API, Reddit comments).
+	 * Useful in environments where the global fetch has restrictions
+	 * (e.g. browser extensions that need to proxy requests).
+	 */
+	fetch?: typeof globalThis.fetch;
 }
 
 export interface ExtractorVariables {

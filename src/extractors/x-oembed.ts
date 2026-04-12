@@ -141,7 +141,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 	private async extractOembed(): Promise<ExtractorResult> {
 		const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(this.url)}&omit_script=true`;
-		const response = await fetch(oembedUrl);
+		const response = await this.fetch(oembedUrl);
 
 		if (!response.ok) {
 			throw new Error(`oEmbed request failed: ${response.status}`);
@@ -221,7 +221,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 	private async fetchFxTwitter(username: string, id: string): Promise<FxTwitterResponse> {
 		const apiUrl = `https://api.fxtwitter.com/${username}/status/${id}`;
-		const response = await fetch(apiUrl, {
+		const response = await this.fetch(apiUrl, {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
 			},
