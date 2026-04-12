@@ -81,6 +81,30 @@ async function fetchYouTubeContent(targetUrl: string, language?: string): Promis
 	return defuddleHtmlAsync(minimalHtml, targetUrl, language);
 }
 
+export async function convertToHtml(targetUrl: string, language?: string): Promise<DefuddleResponse> {
+	if (isYouTubeUrl(targetUrl)) {
+		return fetchYouTubeContent(targetUrl, language);
+	}
+
+	const initialUA = getInitialUA(targetUrl);
+	const html = await fetchPage(targetUrl, initialUA, language);
+	let result = await defuddleHtmlAsync(html, targetUrl, language);
+
+	if (result.wordCount === 0 && initialUA !== BOT_UA) {
+		try {
+			const botHtml = await fetchPage(targetUrl, BOT_UA, language);
+			const botResult = await defuddleHtmlAsync(botHtml, targetUrl, language);
+			if (botResult.wordCount > 0) {
+				return botResult;
+			}
+		} catch {
+			// Bot UA may be blocked — fall through to original result
+		}
+	}
+
+	return result;
+}
+
 export async function convertToMarkdown(targetUrl: string, language?: string): Promise<DefuddleResponse> {
 	// YouTube: bypass page fetch — use oEmbed + InnerTube API to avoid 429 rate-limiting
 	if (isYouTubeUrl(targetUrl)) {

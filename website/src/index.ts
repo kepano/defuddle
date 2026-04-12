@@ -7,7 +7,7 @@ import { getTermsPage } from './terms';
 import { getPrivacyPage } from './privacy';
 import { getPricingPage } from './pricing';
 import { getSuccessPage } from './success';
-import { convertToMarkdown, formatResponse, parseHtml } from './convert';
+import { convertToHtml, convertToMarkdown, formatResponse, parseHtml } from './convert';
 
 const PRIMARY_HOST = 'defuddle.md';
 const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
@@ -515,8 +515,12 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 		return errorResponse('Not found.', 404);
 	}
 
+	// Check for /html/ prefix — returns clean HTML instead of markdown
+	const htmlMode = path.startsWith('/html/');
+	const urlPath = htmlMode ? path.slice(5) : path;
+
 	// Parse target URL from path
-	let targetUrl = path.replace(/^\/+/, '');
+	let targetUrl = urlPath.replace(/^\/+/, '');
 	targetUrl = decodeURIComponent(targetUrl);
 
 	if (url.search) {
@@ -546,6 +550,7 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	// Build cache key before auth so we can check cache before consuming API key credits
 	// Include language so different locales don't share cached results
 	const cacheUrl = new URL(targetUrl, 'https://defuddle.md');
+	if (htmlMode) cacheUrl.searchParams.set('_fmt', 'html');
 	if (language) cacheUrl.searchParams.set('_lang', language);
 	const cacheKey = useCache ? new Request(cacheUrl.toString()) : null;
 
@@ -609,16 +614,19 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	}
 
 	try {
-		const result = await convertToMarkdown(targetUrl, language);
-		const markdown = formatResponse(result, targetUrl);
+		const result = htmlMode
+			? await convertToHtml(targetUrl, language)
+			: await convertToMarkdown(targetUrl, language);
+		const body = htmlMode ? result.content : formatResponse(result, targetUrl);
+		const contentType = htmlMode ? 'text/html; charset=utf-8' : 'text/markdown; charset=utf-8';
 
 		// Cache if there's meaningful text content, or if an extractor ran and got metadata
 		// (e.g. YouTube without transcript — avoids hammering InnerTube on every request)
 		const shouldCache = result.wordCount > 0 || !!result.extractorType;
 
-		const response = new Response(markdown, {
+		const response = new Response(body, {
 			headers: {
-				'Content-Type': 'text/markdown; charset=utf-8',
+				'Content-Type': contentType,
 				'Access-Control-Allow-Origin': '*',
 				...(cacheKey && shouldCache && {
 					'Cache-Control': `s-maxage=${CACHE_TTL}`,
