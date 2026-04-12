@@ -20,7 +20,8 @@ export abstract class BaseExtractor {
 	}
 
 	protected get fetch(): typeof globalThis.fetch {
-		return this.options.fetch || globalThis.fetch;
+		const fn = this.options.fetch || globalThis.fetch;
+		return fn.bind(globalThis);
 	}
 
 	abstract canExtract(): boolean;
