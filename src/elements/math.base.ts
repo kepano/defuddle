@@ -74,22 +74,35 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 		return dataLatex;
 	}
 
-	// WordPress LaTeX images
-	if (el.tagName.toLowerCase() === 'img' && el.classList.contains('latex')) {
-		// Try alt text first as it's cleaner
-		const altLatex = el.getAttribute('alt');
-		if (altLatex) {
-			return altLatex;
-		}
-		
-		// Fallback to extracting from URL
+	// LaTeX images (WordPress, rendering services)
+	if (el.tagName.toLowerCase() === 'img') {
 		const src = el.getAttribute('src');
 		if (src) {
-			const match = src.match(/latex\.php\?latex=([^&]+)/);
-			if (match) {
-				return decodeURIComponent(match[1])
-					.replace(/\+/g, ' ') // Replace + with spaces
-					.replace(/%5C/g, '\\'); // Fix escaped backslashes
+			// WordPress: latex.php?latex=<encoded>
+			const wpMatch = src.match(/latex\.php\?latex=([^&]+)/);
+			if (wpMatch) {
+				return el.getAttribute('alt')
+					|| decodeURIComponent(wpMatch[1])
+						.replace(/\+/g, ' ')
+						.replace(/%5C/g, '\\');
+			}
+
+			// dinglr.de/formula/<encoded>
+			const dinglrMatch = src.match(/dinglr\.de\/formula\/([^?#]+)/);
+			if (dinglrMatch) {
+				return decodeURIComponent(dinglrMatch[1]);
+			}
+
+			// CodeCogs: latex.codecogs.com/<format>?<latex>
+			const codecogsMatch = src.match(/latex\.codecogs\.com\/[^?]+\?([^#]+)/);
+			if (codecogsMatch) {
+				return decodeURIComponent(codecogsMatch[1]);
+			}
+
+			// Google Charts: chart.apis.google.com/chart?cht=tx&chl=<latex>
+			const googleMatch = src.match(/chart\.apis\.google\.com\/chart\?(?:[^&]*&)*chl=([^&#]+)/);
+			if (googleMatch) {
+				return decodeURIComponent(googleMatch[1]);
 			}
 		}
 	}
@@ -189,12 +202,15 @@ export const isBlockDisplay = (el: Element): boolean => {
 
 // Cheap presence check before running the full mathSelectors scan.
 // Must remain a subset of mathSelectors — every selector here should also appear there.
-export const mathFastCheck = 'math, mjx-container, .MathJax, .katex, img.latex, [data-math], [data-latex], script[type^="math/"]';
+export const mathFastCheck = 'math, mjx-container, .MathJax, .katex, img.latex, img[src*="dinglr.de/formula/"], img[src*="latex.codecogs.com/"], img[src*="chart.apis.google.com/chart"], [data-math], [data-latex], script[type^="math/"]';
 
 // Shared selector for math elements
 export const mathSelectors = [
-	// WordPress LaTeX images
+	// LaTeX image rendering services
 	'img.latex[src*="latex.php"]',
+	'img[src*="dinglr.de/formula/"]',
+	'img[src*="latex.codecogs.com/"]',
+	'img[src*="chart.apis.google.com/chart"][src*="chl="]',
 
 	// MathJax elements (v2 and v3)
 	'span.MathJax',
