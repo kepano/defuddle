@@ -704,7 +704,6 @@ export class YoutubeExtractor extends BaseExtractor {
 
 	private async fetchPlayerData(videoId: string): Promise<any> {
 		// Try Android client first (most reliable for caption tracks)
-		let androidTimedOut = false;
 		try {
 			const headers: Record<string, string> = {
 				'Content-Type': 'application/json',
@@ -728,41 +727,35 @@ export class YoutubeExtractor extends BaseExtractor {
 					return data;
 				}
 			}
-		} catch (e: any) {
-			// If the Android request timed out, YouTube is likely throttling this IP.
-			// Skip the WEB fallback to avoid doubling the wait time.
-			if (e?.name === 'TimeoutError') {
-				androidTimedOut = true;
-			}
+		} catch {
+			// Android client failed — fall through to WEB client
 		}
 
 		// Try WEB client as fallback — rate-limited independently from Android client
-		if (!androidTimedOut) {
-			try {
-				const webHeaders: Record<string, string> = {
-					'Content-Type': 'application/json',
-				};
-				if (this.options.language) {
-					webHeaders['Accept-Language'] = this.options.language;
-				}
-				const resp = await fetch(INNERTUBE_API_URL, {
-					method: 'POST',
-					headers: webHeaders,
-					signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-					body: JSON.stringify({
-						context: INNERTUBE_WEB_CONTEXT,
-						videoId,
-					})
-				});
-				if (resp.ok) {
-					const data = await resp.json();
-					if (this.getCaptionTracks(data).length > 0) {
-						return data;
-					}
-				}
-			} catch {
-				// Fall through to unvalidated inline data below.
+		try {
+			const webHeaders: Record<string, string> = {
+				'Content-Type': 'application/json',
+			};
+			if (this.options.language) {
+				webHeaders['Accept-Language'] = this.options.language;
 			}
+			const resp = await fetch(INNERTUBE_API_URL, {
+				method: 'POST',
+				headers: webHeaders,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+				body: JSON.stringify({
+					context: INNERTUBE_WEB_CONTEXT,
+					videoId,
+				})
+			});
+			if (resp.ok) {
+				const data = await resp.json();
+				if (this.getCaptionTracks(data).length > 0) {
+					return data;
+				}
+			}
+		} catch {
+			// Fall through to unvalidated inline data below.
 		}
 
 		// Last resort: unvalidated inline data (may be stale after SPA navigation,
