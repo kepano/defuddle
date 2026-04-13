@@ -172,6 +172,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	step('resolveSvgColors', () => resolveSvgColors(element, doc));
 
 	if (!debug) {
+		step('replaceCustomElements', () => replaceCustomElements(element, doc));
 		step('convertBlockSpans', () => convertBlockSpans(element, doc));
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
 		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
@@ -507,6 +508,30 @@ function unwrapElement(el: Element): void {
 
 const TW_BLOCK_RE = /(?:^|\s)block(?:\s|$)/;
 const DISPLAY_BLOCK_RE = /display\s*:\s*block/i;
+
+/**
+ * Replace custom elements (hyphenated tag names) with divs so they
+ * participate in block-level flattening instead of being treated as inline.
+ */
+function replaceCustomElements(element: Element, doc: Document): void {
+	const customElements = Array.from(element.querySelectorAll('*')).filter(
+		el => el.tagName.includes('-')
+			&& !INLINE_ELEMENTS.has(el.tagName.toLowerCase())
+			&& !isSVGElement(el)
+	).reverse();
+
+	let replacedCount = 0;
+	for (const el of customElements) {
+		if (!el.parentNode) continue;
+		const div = doc.createElement('div');
+		while (el.firstChild) {
+			div.appendChild(el.firstChild);
+		}
+		el.replaceWith(div);
+		replacedCount++;
+	}
+	logDebug(_debug, 'Replaced custom elements with divs:', replacedCount);
+}
 
 /**
  * Convert spans styled as block-level paragraphs to <p> elements.
