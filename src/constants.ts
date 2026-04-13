@@ -527,6 +527,7 @@ export const PARTIAL_SELECTORS = [
 	'fullbleedheader',
 	
 	'gallery-count',
+	'gated-popup',
 	'gh-feed',
 	'gist-meta',
 //	'global',
@@ -784,6 +785,7 @@ export const PARTIAL_SELECTORS = [
 	'share-section',
 	'sharing_',
 	'shariff-',
+	'shortcode-id',
 	'show-for-print',
 	'sidebartitle',
 //	'sidebar_',
