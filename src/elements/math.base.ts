@@ -230,6 +230,57 @@ export const mathSelectors = [
 	'annotation[encoding="application/x-tex"]'
 ].join(',');
 
+// Precompiled regexes for named query parameters used by LaTeX rendering services.
+// latex/tex/eq/math = generic; chl = Google Charts
+const LATEX_PARAM_REGEXES = ['latex', 'chl', 'tex', 'eq', 'math'].map(
+	param => new RegExp(`[?&]${param}=([^&#]+)`, 'i')
+);
+const LOOKS_LIKE_LATEX_RE = /\\[a-zA-Z]{2,}/;
+
+/**
+ * Extract LaTeX from an image src URL by detecting URL-encoded LaTeX commands.
+ * Works with any LaTeX rendering service without hardcoding domain names.
+ */
+export function extractLatexFromImageSrc(src: string): string | null {
+	// Try named query parameters
+	for (const re of LATEX_PARAM_REGEXES) {
+		const match = src.match(re);
+		if (match) {
+			const latex = decodeLatex(match[1]);
+			if (latex) return latex;
+		}
+	}
+
+	// Try the full query string as bare LaTeX (e.g. CodeCogs, mimeTeX)
+	const queryMatch = src.match(/\?([^#]+)/);
+	if (queryMatch) {
+		const latex = decodeLatex(queryMatch[1]);
+		if (latex) return latex;
+	}
+
+	// Try URL path segments containing encoded LaTeX
+	const pathPart = src.split('?')[0];
+	const segments = pathPart.split('/');
+	for (let i = segments.length - 1; i >= 0; i--) {
+		if (/%5[Cc]/.test(segments[i])) {
+			const latex = decodeLatex(segments[i]);
+			if (latex) return latex;
+		}
+	}
+
+	return null;
+}
+
+/** Decode a URL-encoded string and return it if it contains a LaTeX command. */
+function decodeLatex(raw: string): string | null {
+	try {
+		const decoded = decodeURIComponent(raw.replace(/\+/g, ' '));
+		return LOOKS_LIKE_LATEX_RE.test(decoded) ? decoded : null;
+	} catch {
+		return null;
+	}
+}
+
 /**
  * Check whether the document includes a MathJax or KaTeX library script.
  * This is used as a gate so we only scan for raw `$`-delimited LaTeX on

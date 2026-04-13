@@ -16,7 +16,7 @@ import {
 
 import { DefuddleMetadata } from './types';
 import { mathRules } from './elements/math';
-import { wrapRawLatexDelimiters } from './elements/math.base';
+import { wrapRawLatexDelimiters, extractLatexFromImageSrc } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
@@ -1106,6 +1106,24 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 	// math rules below can process them. Only fires when MathJax/KaTeX scripts
 	// are present but haven't rendered (no JS execution).
 	stepSE('wrapRawLatexDelimiters', () => wrapRawLatexDelimiters(element, doc));
+
+	// Convert images from LaTeX rendering services into <math> elements.
+	// Uses URL-based heuristics (not domain allowlists) to detect encoded LaTeX.
+	stepSE('convertLatexImages', () => {
+		for (const img of Array.from(element.querySelectorAll('img[src]'))) {
+			const src = img.getAttribute('src');
+			if (!src) continue;
+			const latex = extractLatexFromImageSrc(src);
+			if (!latex) continue;
+			const mathEl = doc.createElement('math');
+			mathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+			mathEl.setAttribute('display', 'inline');
+			mathEl.setAttribute('data-latex', latex);
+			mathEl.textContent = latex;
+			img.replaceWith(mathEl);
+			processedCount++;
+		}
+	});
 
 	// Convert elements based on standardization rules
 	ELEMENT_STANDARDIZATION_RULES.forEach(rule => {
