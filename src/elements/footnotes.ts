@@ -156,6 +156,36 @@ class FootnoteHandler {
 				return;
 			}
 
+			// Easy Footnotes WP plugin: li items have no id, id is on a child span
+			if (list.matches('ol.easy-footnotes-wrapper')) {
+				const items = list.querySelectorAll('li.easy-footnote-single');
+				items.forEach((li: any) => {
+					const idSpan = li.querySelector('span[id^="easy-footnote-bottom-"]');
+					if (!idSpan) return;
+					const id = idSpan.id.toLowerCase();
+					if (processedIds.has(id)) return;
+
+					const clone = li.cloneNode(true);
+					const cloneIdSpan = clone.querySelector('span[id^="easy-footnote-bottom-"]');
+					if (cloneIdSpan) cloneIdSpan.remove();
+					const backLink = clone.querySelector('a.easy-footnote-to-top');
+					if (backLink) backLink.remove();
+
+					footnotes[footnoteCount] = {
+						content: clone,
+						originalId: id,
+						refs: []
+					};
+					processedIds.add(id);
+					footnoteCount++;
+				});
+				// Track empty anchor spans left in the body by the plugin for later removal
+				element.querySelectorAll('span.easy-footnote-margin-adjust').forEach((span: any) => {
+					this.extraContainersToRemove.push(span);
+				});
+				return;
+			}
+
 			// Substack has individual footnote divs with no parent
 			if (list.matches('div.footnote[data-component-name="FootnoteToDOM"]')) {
 				const anchor = list.querySelector('a.footnote-number');
@@ -792,9 +822,52 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
+	// Hidden aside footnotes linked by data-definition attribute
+	// Pattern: <span data-definition="id"><a href="#">*</a></span>
+	//          <aside style="display:none" id="id">content</aside>
+	collectHiddenAsideFootnotes(element: any): FootnoteCollection {
+		const footnotes: FootnoteCollection = {};
+
+		const refs = Array.from(element.querySelectorAll('span[data-definition]')) as any[];
+		if (refs.length === 0) return footnotes;
+
+		const asideMap = new Map<string, any>();
+		element.querySelectorAll('aside[id]').forEach((aside: any) => {
+			asideMap.set(aside.id, aside);
+		});
+
+		let footnoteCount = 1;
+
+		refs.forEach((ref: any) => {
+			const defId = ref.getAttribute('data-definition');
+			if (!defId) return;
+
+			const aside = asideMap.get(defId);
+			if (!aside) return;
+
+			const contentDiv = this.doc.createElement('div');
+			transferContent(aside, contentDiv);
+			aside.remove();
+
+			const footnoteNumber = String(footnoteCount);
+			const refId = `fnref:${footnoteNumber}`;
+			footnotes[footnoteCount] = {
+				content: contentDiv,
+				originalId: defId.toLowerCase(),
+				refs: [refId]
+			};
+
+			ref.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+			footnoteCount++;
+		});
+
+		return footnotes;
+	}
+
 	standardizeFootnotes(element: any) {
 		const sidenotes = this.collectInlineSidenotes(element);
-		const footnotes = this.collectFootnotes(element);
+		const footnotes = this.collectHiddenAsideFootnotes(element);
+		this.mergeFootnotes(footnotes, this.collectFootnotes(element));
 		this.mergeFootnotes(footnotes, this.collectSidenotesColumn(element));
 		this.mergeFootnotes(footnotes, this.collectAsideFootnotes(element));
 

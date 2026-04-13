@@ -926,6 +926,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'sup.footnoteref', // Wikidot
 	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
 	'sup[id^="ftnt_ref"] a[href^="#ftnt"]', // Google Docs/Sites
+	'span.easy-footnote > a[href^="#easy-footnote-bottom-"]', // Easy Footnotes WP plugin
 ].join(',');
 
 export const FOOTNOTE_LIST_SELECTORS = [
@@ -947,6 +948,7 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'div.footnotes-footer', // Wikidot
 	'div.footnote-definitions',
 	'ol.wp-block-footnotes', // WordPress block editor footnotes
+	'ol.easy-footnotes-wrapper', // Easy Footnotes WP plugin
 	'#footnotes' // standardizeFootnotes output container
 ].join(',');
 
