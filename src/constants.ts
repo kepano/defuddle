@@ -6,6 +6,7 @@ export const ENTRY_POINT_ELEMENTS = [
 	'.post-body',
 	'.article-content',
 	'#article-content',
+	'.js-article-content',
 	'.article_post',
 	'.article-wrapper',
 	'.entry-content',
@@ -763,6 +764,7 @@ export const PARTIAL_SELECTORS = [
 	'robots-nocontent',
 	'_rss',
 	'rss-link',
+	'rubricwrapper',
 
 	'screen-reader-text',
 	'scroll_to',
