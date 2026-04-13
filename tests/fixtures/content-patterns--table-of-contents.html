@@ -1,0 +1,151 @@
+<!-- {"url": "https://www.example.org/install-guide/"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Installation Guide &mdash; Example Blog</title>
+  <meta name="author" content="Jane Doe">
+</head>
+<body>
+<main>
+<article>
+  <h1>Installation Guide</h1>
+
+  <p>This guide walks through the complete installation process for setting up the system with encryption and a custom bootloader on a single disk.</p>
+
+  <hr>
+  <ul>
+    <li><a href="#1-start-here">1. Start Here</a>
+      <ul>
+        <li><a href="#acquire-the-image">Acquire the image</a></li>
+        <li><a href="#prepare-the-usb">Prepare the USB</a></li>
+      </ul>
+    </li>
+    <li><a href="#2-configure-the-environment">2. Configure the Environment</a>
+      <ul>
+        <li><a href="#set-the-font">Set the font</a></li>
+        <li><a href="#set-the-keyboard">Set the keyboard</a></li>
+        <li><a href="#verify-boot-mode">Verify boot mode</a></li>
+        <li><a href="#connect-to-internet">Connect to the internet</a></li>
+      </ul>
+    </li>
+    <li><a href="#3-prepare-the-disk">3. Prepare the Disk</a>
+      <ul>
+        <li><a href="#define-variables">Define variables</a></li>
+        <li><a href="#wipe-disk">Wipe disk</a></li>
+        <li><a href="#partition-disk">Partition disk</a></li>
+      </ul>
+    </li>
+    <li><a href="#4-installation">4. Installation</a></li>
+    <li><a href="#5-configure-the-system">5. Configure the System</a>
+      <ul>
+        <li><a href="#chroot">Chroot</a></li>
+        <li><a href="#set-password">Set password</a></li>
+        <li><a href="#packages">Packages</a></li>
+        <li><a href="#timezone">Timezone</a></li>
+        <li><a href="#hostname">Hostname</a></li>
+      </ul>
+    </li>
+    <li><a href="#6-finish-up">6. Finish Up</a>
+      <ul>
+        <li><a href="#unmount">Unmount</a></li>
+        <li><a href="#reboot">Reboot</a></li>
+      </ul>
+    </li>
+    <li><a href="#7-resources">7. Resources</a></li>
+  </ul>
+  <hr>
+
+  <h2 id="1-start-here">1. Start Here</h2>
+  <p>The system is installed as the sole operating system on a single disk using a two-partition layout.</p>
+  <ul>
+    <li>Partition <code>pool</code> is formatted with the custom filesystem using native encryption.</li>
+    <li>Partition <code>esp</code> serves as the EFI system partition formatted with <code>fat32</code>.</li>
+  </ul>
+
+  <h3 id="acquire-the-image">Acquire the image</h3>
+  <p>Download the latest live ISO install image from the project website.</p>
+  <p>Verify the image integrity:</p>
+  <pre><code>sha256sum -c --ignore-missing sha256sums.txt</code></pre>
+
+  <h3 id="prepare-the-usb">Prepare the USB</h3>
+  <p>Write the installer to an unmounted USB storage device:</p>
+  <pre><code>dd bs=4M conv=fsync oflag=direct status=progress if=installer.iso of=/dev/sdx</code></pre>
+
+  <h2 id="2-configure-the-environment">2. Configure the Environment</h2>
+  <p>Boot the target device from the installation media.</p>
+
+  <h3 id="set-the-font">Set the font</h3>
+  <p>If the existing font size appears too small, run:</p>
+  <pre><code>setfont -d</code></pre>
+
+  <h3 id="set-the-keyboard">Set the keyboard</h3>
+  <p>Default keymap is <code>us</code>. Set a different keymap with:</p>
+  <pre><code>loadkeys dvorak</code></pre>
+
+  <h3 id="verify-boot-mode">Verify boot mode</h3>
+  <p>Check that the system booted in UEFI mode:</p>
+  <pre><code>ls /sys/firmware/efi/efivars</code></pre>
+
+  <h3 id="connect-to-internet">Connect to the internet</h3>
+  <p>Verify network connectivity:</p>
+  <pre><code>ping -c 3 example.org</code></pre>
+
+  <h2 id="3-prepare-the-disk">3. Prepare the Disk</h2>
+
+  <h3 id="define-variables">Define variables</h3>
+  <p>Set the disk variable for the target device:</p>
+  <pre><code>DISK=/dev/sda</code></pre>
+
+  <h3 id="wipe-disk">Wipe disk</h3>
+  <p>Clear any existing partition data:</p>
+  <pre><code>sgdisk --zap-all $DISK</code></pre>
+
+  <h3 id="partition-disk">Partition disk</h3>
+  <p>Create the partition layout:</p>
+  <pre><code>sgdisk -n1:1M:+512M -t1:EF00 $DISK
+sgdisk -n2:0:0 -t2:BF00 $DISK</code></pre>
+
+  <h2 id="4-installation">4. Installation</h2>
+  <p>Install the base system packages:</p>
+  <pre><code>apk add base-system</code></pre>
+
+  <h2 id="5-configure-the-system">5. Configure the System</h2>
+
+  <h3 id="chroot">Chroot</h3>
+  <p>Enter the new system:</p>
+  <pre><code>chroot /mnt /bin/sh</code></pre>
+
+  <h3 id="set-password">Set password</h3>
+  <p>Set the root password:</p>
+  <pre><code>passwd</code></pre>
+
+  <h3 id="packages">Packages</h3>
+  <p>Install additional packages:</p>
+  <pre><code>apk add vim openssh</code></pre>
+
+  <h3 id="timezone">Timezone</h3>
+  <p>Set the timezone:</p>
+  <pre><code>ln -sf /usr/share/zoneinfo/America/New_York /etc/localtime</code></pre>
+
+  <h3 id="hostname">Hostname</h3>
+  <p>Set the hostname:</p>
+  <pre><code>echo "myhost" > /etc/hostname</code></pre>
+
+  <h2 id="6-finish-up">6. Finish Up</h2>
+
+  <h3 id="unmount">Unmount</h3>
+  <p>Exit chroot and unmount:</p>
+  <pre><code>exit
+umount -R /mnt</code></pre>
+
+  <h3 id="reboot">Reboot</h3>
+  <p>Remove installation media and reboot:</p>
+  <pre><code>reboot</code></pre>
+
+  <h2 id="7-resources">7. Resources</h2>
+  <p>For more information, consult the official documentation and community forums.</p>
+</article>
+</main>
+</body>
+</html>

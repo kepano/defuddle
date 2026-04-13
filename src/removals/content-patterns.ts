@@ -273,6 +273,76 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	removeHeroHeader(mainContent, debug, debugRemovals);
 
 	const contentText = mainContent.textContent || '';
+
+	let parsedPageUrl: URL | null = null;
+	try { parsedPageUrl = new URL(url); } catch {}
+
+	// Remove table of contents — lists of same-page anchor links near the top of content.
+	// These are navigation aids that duplicate heading text and add noise to extracted content.
+	for (const list of mainContent.querySelectorAll('ul, ol')) {
+		if (!list.parentNode) continue;
+
+		// Must be near the top of content — check before enumerating links
+		const listText = list.textContent?.trim() || '';
+		const listPos = contentText.indexOf(listText.substring(0, 60));
+		if (listPos < 0 || listPos > contentText.length * 0.3) continue;
+
+		const links = Array.from(list.querySelectorAll('a[href]'));
+		if (links.length < 3) continue;
+
+		if (list.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+
+		// Count same-page anchor links (fragment-only or same-page URL with fragment)
+		let anchorCount = 0;
+		for (const link of links) {
+			const href = link.getAttribute('href') || '';
+			if (href.startsWith('#')) {
+				anchorCount++;
+			} else if (parsedPageUrl && href.includes('#')) {
+				try {
+					const resolved = new URL(href, url);
+					if (resolved.pathname === parsedPageUrl.pathname &&
+						resolved.hostname === parsedPageUrl.hostname) {
+						anchorCount++;
+					}
+				} catch {}
+			}
+		}
+
+		if (anchorCount < 3 || anchorCount / links.length < 0.8) continue;
+
+		let target: Element = list;
+		while (target.parentElement && target.parentElement !== mainContent &&
+			target.parentElement.children.length === 1) {
+			target = target.parentElement;
+		}
+
+		// Remove an adjacent preceding heading if it's a ToC label
+		const prevEl = target.previousElementSibling;
+		if (prevEl && /^H[1-6]$/.test(prevEl.tagName)) {
+			const hText = prevEl.textContent?.trim() || '';
+			if (/^(?:table of )?contents$|^on this page$|^in this (?:article|guide|post)$/i.test(hText)) {
+				if (debug && debugRemovals) {
+					debugRemovals.push({ step: 'removeByContentPattern', reason: 'table of contents heading', text: textPreview(prevEl) });
+				}
+				prevEl.remove();
+			}
+		}
+
+		// Remove surrounding HR separators that framed the ToC
+		const prevSib = target.previousElementSibling;
+		const nextSib = target.nextElementSibling;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'table of contents', text: textPreview(target) });
+		}
+		target.remove();
+
+		if (prevSib?.tagName === 'HR') prevSib.remove();
+		if (nextSib?.tagName === 'HR') nextSib.remove();
+		break;
+	}
+
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 
 	// Single pass over candidates for all metadata-removal checks.
@@ -520,13 +590,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	//      e.g. current=/articles/hensels, link=../index.html → /index.html
 	// Bare <a> elements are only matched when not embedded in flowing prose
 	// (the parent element's text must equal the link's text).
-	let urlPath = '';
-	let pageHost = '';
-	try {
-		const parsedUrl = new URL(url);
-		urlPath = parsedUrl.pathname;
-		pageHost = parsedUrl.hostname.replace(/^www\./, '');
-	} catch {}
+	const urlPath = parsedPageUrl?.pathname || '';
+	const pageHost = parsedPageUrl?.hostname.replace(/^www\./, '') || '';
 	if (urlPath) {
 		const shortElements = mainContent.querySelectorAll('div, span, p, a[href]');
 		const firstHeading = mainContent.querySelector('h1, h2, h3');
