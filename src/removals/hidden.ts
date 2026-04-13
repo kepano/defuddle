@@ -58,8 +58,15 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 			if (hasResponsiveShowClass(className)) continue;
 
 			for (const token of tokens) {
-				if (token === 'hidden' || token === 'invisible' ||
-					token.endsWith(':hidden') || token.endsWith(':invisible')) {
+				// Match exact "hidden"/"invisible" and variant prefixes like
+				// "sm:hidden", "lg:invisible". Skip Tailwind arbitrary variants
+				// containing "[" (e.g. "[&_.class]:hidden", "group-[.state]:hidden")
+				// — those are conditional state selectors, not unconditional hiding.
+				const isExact = token === 'hidden' || token === 'invisible';
+				const isVariant = !token.includes('[') &&
+					(token.endsWith(':hidden') || token.endsWith(':invisible'));
+
+				if (isExact || isVariant) {
 					elementsToRemove.set(element, `class:${token}`);
 					count++;
 					break;

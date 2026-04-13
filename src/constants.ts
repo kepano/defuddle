@@ -139,6 +139,7 @@ export const EXACT_SELECTORS = [
 	// '.hero', // see issue #132
 	'[role="navigation" i]',
 	'[role="dialog" i]',
+	'[role="alertdialog" i]',
 	'[role*="complementary" i]',
 	'[class*="pagination" i]',
 	'.menu',
@@ -525,7 +526,6 @@ export const PARTIAL_SELECTORS = [
 	'fullbleedheader',
 	
 	'gallery-count',
-	'gated-',
 	'gh-feed',
 	'gist-meta',
 //	'global',
