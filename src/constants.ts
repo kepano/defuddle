@@ -270,6 +270,10 @@ export const EXACT_SELECTORS = [
 	'[data-link-name*="skip" i]',
 	'[aria-label*="skip" i]',
 
+	// dismiss/close buttons
+	'[aria-label="Dismiss" i]',
+	'[aria-label="Close" i]',
+
 	// other
 	'.copyright',
 	'#copyright',
