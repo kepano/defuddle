@@ -281,6 +281,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// These are navigation aids that duplicate heading text and add noise to extracted content.
 	for (const list of mainContent.querySelectorAll('ul, ol')) {
 		if (!list.parentNode) continue;
+		if (list.closest('#footnotes')) continue;
 
 		// Must be near the top of content — check before enumerating links
 		const listText = list.textContent?.trim() || '';
