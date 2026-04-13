@@ -57,12 +57,14 @@ class FootnoteHandler {
 			} else if (!hasParagraphs && hasBlockChildren) {
 				// Append block children directly to avoid invalid <p><div> nesting
 				children.forEach((child: any) => {
+					if (this.isBackrefLink(child)) return;
 					const clone = child.cloneNode(true);
 					this.removeBackrefs(clone);
 					newItem.appendChild(clone);
 				});
 			} else {
 				children.forEach((child: any) => {
+					if (this.isBackrefLink(child)) return;
 					if (child.tagName.toLowerCase() === 'p') {
 						if (!child.textContent?.trim() && !child.querySelector('img, br')) return;
 						const newP = doc.createElement('p');
@@ -593,6 +595,12 @@ class FootnoteHandler {
 		}
 
 		return null;
+	}
+
+	isBackrefLink(el: any): boolean {
+		if (el.tagName?.toLowerCase() !== 'a') return false;
+		const text = el.textContent?.trim().replace(/\uFE0E|\uFE0F/g, '') || '';
+		return /^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/.test(text) || !!el.classList?.contains('footnote-backref');
 	}
 
 	removeBackrefs(el: any): void {
