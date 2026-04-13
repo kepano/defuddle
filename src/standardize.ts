@@ -1198,6 +1198,18 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 		}
 	});
 
+	// Remove tables with no text and no media in any cell
+	for (const table of Array.from(element.querySelectorAll('table'))) {
+		if (!table.parentNode) continue;
+		const cells = table.querySelectorAll('td, th');
+		if (cells.length > 0
+			&& Array.from(cells).every(cell => !(cell.textContent || '').trim())
+			&& !table.querySelector('img, picture, video, audio, iframe, svg, math')) {
+			table.remove();
+			processedCount++;
+		}
+	}
+
 	// Unwrap single-column layout tables (used for styling/positioning, not data)
 	const tables = Array.from(element.querySelectorAll('table'));
 	tables.forEach(table => {
