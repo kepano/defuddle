@@ -411,6 +411,7 @@ export const PARTIAL_SELECTORS = [
 	'bcrumb',
 	'breadcrumb',
 	'brdcrumb',
+	'bubblewrapper',
 	'button-wrapper',
 	'buttons-container',
 	'btn-',
@@ -536,11 +537,9 @@ export const PARTIAL_SELECTORS = [
 	'graph-view',
 
 	'hamburger',
-	'header_logo',
-	'header-logo',
 	'header-pattern', // The Verge
 //	'headlines', Mercurynews
-	'hero-list',
+	'hero[_\\-a-z]',
 //	'-hidden',
 	'hide-for-print',
 	'hide-print',
@@ -593,7 +592,7 @@ export const PARTIAL_SELECTORS = [
 	'listinks',
 	'loading',
 	'loa-info',
-	'logo_container',
+	'logo',
 	'ltx_role_refnum', // Arxiv
 	'ltx_tag_bibitem',
 	'ltx_error',
@@ -783,6 +782,7 @@ export const PARTIAL_SELECTORS = [
 	'share-post',
 	'share-print',
 	'share-section',
+	'share-text',
 	'sharing_',
 	'shariff-',
 	'shortcode-id',
@@ -795,7 +795,6 @@ export const PARTIAL_SELECTORS = [
 	'sidebar-author',
 	'sidebar-item',
 	'side-box',
-	'side-logo',
 	'sign-in-gate',
 	'similar-',
 	'similar_',
@@ -803,7 +802,6 @@ export const PARTIAL_SELECTORS = [
 	'site-index',
 	'site-header',
 	'siteheader',
-	'site-logo',
 	'site-name',
 	'site-wordpress',
 //	'skip-',

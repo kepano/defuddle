@@ -3,7 +3,7 @@ import { DebugRemoval } from '../types';
 import { textPreview, countWords } from '../utils';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
-const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b/i;
+const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\s+time)\s*:?\s*\d+\s*min(?:ute)?s?\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
 const BOILERPLATE_PATTERNS = [
@@ -35,9 +35,9 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
-const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author)$/i;
+const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
 // CTA headings that are never real content — safe to remove even as direct children
-const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our))$/i;
+const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our)|search (?:the |our )?(?:site|blog|archives?|newsroom|website|catalog|store|shop|database))$/i;
 const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
 
 // Shared date/number patterns for stripping metadata text.
@@ -50,8 +50,10 @@ const METADATA_STRIP_BASE = [
 const READ_TIME_STRIP_PATTERNS = [
 	...METADATA_STRIP_BASE,
 	/\bmin(?:ute)?s?\b/gi,
-	/\bread\b/gi,
-	/[/|·•—–\-,.\s]+/g,
+	/\bread(?:ing)?\b/gi,
+	/\btime\b/gi,
+	/\bestimated\b/gi,
+	/[/|·•—–\-,:.\s]+/g,
 ];
 // Byline: preserve spaces so name words can be split
 const BYLINE_STRIP_PATTERNS = [
