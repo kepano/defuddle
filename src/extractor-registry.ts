@@ -15,6 +15,7 @@ import { XOembedExtractor } from './extractors/x-oembed';
 import { BbcodeDataExtractor } from './extractors/bbcode-data';
 import { C2WikiExtractor } from './extractors/c2-wiki';
 import { SubstackExtractor } from './extractors/substack';
+import { NytimesExtractor } from './extractors/nytimes';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -132,6 +133,13 @@ export class ExtractorRegistry {
 				'substack.com',
 			],
 			extractor: SubstackExtractor
+		});
+
+		this.register({
+			patterns: [
+				'nytimes.com',
+			],
+			extractor: NytimesExtractor
 		});
 
 		this.register({

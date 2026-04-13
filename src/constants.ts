@@ -127,7 +127,7 @@ export const EXACT_SELECTORS = [
 	// Exclude headers that contain multiple paragraphs — some sites (e.g. Webflow blogs)
 	// use <header> as the main content wrapper rather than a navigation container.
 	// A single <p> (subtitle/deck) is still a page header, not article content.
-	'header:not(:has(p + p))',
+	'header:not(:has(p + p)):not(:has(img))',
 	'.header:not(.banner)',
 	'#header',
 	'#Header',
