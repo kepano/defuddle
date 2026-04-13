@@ -73,7 +73,11 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 	if (dataLatex) {
 		return dataLatex;
 	}
-
+	const dataMath = el.getAttribute('data-math');                                                                                                                   
+	if (dataMath) {
+		return dataMath;                                                                                                                                             
+	}
+	
 	// WordPress LaTeX images
 	if (el.tagName.toLowerCase() === 'img' && el.classList.contains('latex')) {
 		// Try alt text first as it's cleaner
