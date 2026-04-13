@@ -26,6 +26,12 @@ const SHARE_AUTHOR_LABEL = /^(?:share|authors?|written\s+by)$/i;
 const CONTENT_ELEMENT_NO_IMG_SELECTOR = CONTENT_ELEMENT_SELECTOR.replace(/img, picture, /, '');
 const EMAIL_PATTERN = /[\w.-]+@[\w.-]+\.\w+/;
 const PHONE_PATTERN = /\(?\d{3}\)?[\s.‑–-]?\d{3}[\s.‑–-]?\d{4}/;
+const HEADING_TAG_PATTERN = /^H[1-6]$/;
+const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
+
+function isOrContainsHeading(el: Element): boolean {
+	return HEADING_TAG_PATTERN.test(el.tagName) || !!el.querySelector(HEADING_SELECTOR);
+}
 
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
@@ -123,6 +129,14 @@ function removeThinPrecedingSection(target: Element, debug: boolean, debugRemova
 	if (!prevSib) return;
 	if (countWords(prevSib.textContent || '') >= 50) return;
 	if (prevSib.querySelector(CONTENT_ELEMENT_SELECTOR)) return;
+
+	// If prevSib is preceded by a heading (or a wrapper containing one), it's
+	// the body of a named section, not a CTA block — leave it alone.
+	const beforePrev = prevSib.previousElementSibling;
+	if (beforePrev && isOrContainsHeading(beforePrev)) {
+		return;
+	}
+
 	if (debug && debugRemovals) {
 		debugRemovals.push({ step: 'removeByContentPattern', reason: 'thin CTA section', text: textPreview(prevSib) });
 	}
@@ -322,7 +336,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		// Remove an adjacent preceding heading if it's a ToC label
 		const prevEl = target.previousElementSibling;
-		if (prevEl && /^H[1-6]$/.test(prevEl.tagName)) {
+		if (prevEl && HEADING_TAG_PATTERN.test(prevEl.tagName)) {
 			const hText = prevEl.textContent?.trim() || '';
 			if (/^(?:table of )?contents$|^on this page$|^in this (?:article|guide|post)$/i.test(hText)) {
 				if (debug && debugRemovals) {
@@ -550,9 +564,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// — those are content lists, not standalone metadata
 		const prevSibling = list.previousElementSibling;
 		if (prevSibling) {
-			const prevTag = prevSibling.tagName;
 			// Direct heading or a wrapper div containing a heading (e.g. GitHub's div.markdown-heading)
-			if (/^H[1-6]$/.test(prevTag) || prevSibling.querySelector('h1, h2, h3, h4, h5, h6')) continue;
+			if (isOrContainsHeading(prevSibling)) continue;
 			const prevText = prevSibling.textContent?.trim() || '';
 			if (prevText.endsWith(':')) continue;
 		}
@@ -785,9 +798,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Skip if trailing elements contain content indicators (math, code, tables, images)
 		// or multiple prose paragraphs (which indicate a real content section like a conclusion).
 		if (trailingEls.length >= 1 && trailingWords < totalWords * 0.15) {
-			const hasHeading = trailingEls.some(el =>
-				/^H[1-6]$/.test(el.tagName) || el.querySelector('h1, h2, h3, h4, h5, h6')
-			);
+			const hasHeading = trailingEls.some(el => isOrContainsHeading(el));
 			const hasContent = trailingEls.some(el =>
 				el.querySelector(CONTENT_ELEMENT_SELECTOR)
 			);
