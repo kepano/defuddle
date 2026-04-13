@@ -556,10 +556,12 @@ export class MetadataExtractor {
 	}
 
 	private static getTimeElement(doc: Document): string {
-		const selector = `time`;
-		const element = Array.from(doc.querySelectorAll(selector))[0];
-		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
-		return content;
+		const element = doc.querySelector('time');
+		if (!element) return '';
+		const datetime = element.getAttribute('datetime')?.trim();
+		if (datetime) return datetime;
+		const text = element.textContent?.trim() || '';
+		return this.parseDateText(text) || text;
 	}
 
 	private static readonly MONTH_MAP: Record<string, string> = {
