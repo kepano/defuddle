@@ -13,8 +13,6 @@ Welcome to my blog. I write about economics, politics, and whatever else catches
   
 **Note:** Comments are now moderated.
 
-  
-
 > **The One Minute Guide to Avoiding Bad Projects**  
 >   
 > People have been asking me how I was able to predict the outcome so accurately. The answer is surprisingly simple and comes from my business school education. Here are the key principles I learned.  

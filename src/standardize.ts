@@ -889,20 +889,11 @@ function stripExtraBrElements(element: Element): void {
 		consecutiveBrs = [];
 	};
 
-	// Process all br elements
 	brElements.forEach(currentNode => {
-		// Check if this br is consecutive with previous ones
 		let isConsecutive = false;
 		if (consecutiveBrs.length > 0) {
 			const lastBr = consecutiveBrs[consecutiveBrs.length - 1];
-			let node: Node | null = currentNode.previousSibling;
-			
-			// Skip whitespace text nodes
-			while (node && isTextNode(node) && !node.textContent?.trim()) {
-				node = node.previousSibling;
-			}
-			
-			if (node === lastBr) {
+			if (skipWhitespace(currentNode, 'previous') === lastBr) {
 				isConsecutive = true;
 			}
 		}
@@ -910,20 +901,75 @@ function stripExtraBrElements(element: Element): void {
 		if (isConsecutive) {
 			consecutiveBrs.push(currentNode);
 		} else {
-			// Process any previously collected brs before starting new group
 			processBrs();
 			consecutiveBrs = [currentNode];
 		}
 	});
 
-	// Process any remaining br elements
 	processBrs();
+
+	// Remove <br> elements (or groups of <br>) between block-level elements,
+	// and trailing <br> inside blocks. CMS editors often insert standalone <br>
+	// as spacers between paragraphs, figures, and headings. These are redundant
+	// because block elements already produce spacing.
+	const remainingBrs = Array.from(element.getElementsByTagName('br'));
+
+	for (const br of remainingBrs) {
+		const parent = br.parentElement;
+		if (!parent) continue;
+		if (br.closest('pre, code')) continue;
+
+		const parentTag = parent.tagName.toLowerCase();
+
+		// Case 1: <br> (or consecutive group) between block-level siblings
+		// e.g. </p><br><p>, </figure><br><br><p>, </h2><br><p>
+		if (BLOCK_LEVEL_ELEMENTS.has(parentTag) || parentTag === 'body') {
+			const group: Element[] = [br];
+			let scan = skipWhitespace(br, 'next');
+			while (scan && isElement(scan) && scan.tagName.toLowerCase() === 'br') {
+				group.push(scan);
+				scan = skipWhitespace(scan, 'next');
+			}
+
+			const prev = skipWhitespace(group[0], 'previous');
+			const next = skipWhitespace(group[group.length - 1], 'next');
+			const prevIsBlock = prev && isElement(prev) && BLOCK_LEVEL_ELEMENTS.has(prev.tagName.toLowerCase());
+			const nextIsBlock = next && isElement(next) && BLOCK_LEVEL_ELEMENTS.has(next.tagName.toLowerCase());
+
+			if ((prevIsBlock && nextIsBlock) || (prevIsBlock && !next) || (!prev && nextIsBlock)) {
+				for (const b of group) {
+					b.remove();
+					processedCount++;
+				}
+				continue;
+			}
+		}
+
+		// Case 2: trailing <br> inside a block element
+		// e.g. <p>Some text. <br></p>
+		if (BLOCK_LEVEL_ELEMENTS.has(parentTag)) {
+			if (!skipWhitespace(br, 'next')) {
+				br.remove();
+				processedCount++;
+			}
+		}
+	}
 
 	const endTime = Date.now();
 	logDebug(_debug, 'Standardized br elements:', {
 		removed: processedCount,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
+}
+
+/** Walk siblings in one direction, skipping whitespace-only text nodes. */
+function skipWhitespace(node: Node, direction: 'previous' | 'next'): Node | null {
+	const prop = direction === 'previous' ? 'previousSibling' : 'nextSibling';
+	let sibling: Node | null = node[prop];
+	while (sibling && isTextNode(sibling) && !sibling.textContent?.trim()) {
+		sibling = sibling[prop];
+	}
+	return sibling;
 }
 
 function moveWhitespaceOutside(node: Element, doc: Document, direction: 'leading' | 'trailing'): number {

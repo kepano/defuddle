@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>BR between blocks test</title>
+</head>
+<body>
+  <!--
+    Some CMS editors (e.g. Craft CMS, WordPress classic editor) insert
+    standalone <br> elements between block-level elements as visual spacers.
+    These are redundant because block elements already produce spacing and
+    should be removed during standardization.
+  -->
+  <article>
+    <h1>Article title</h1>
+
+    <p>First paragraph with some introductory text.</p><br>
+    <p>Second paragraph after a br spacer.</p><br>
+    <figure><img src="https://example.com/image.jpg"><figcaption>A sample figure.</figcaption></figure><br>
+    <p>Third paragraph after a figure and br.</p> <br>
+    <p>Fourth paragraph with trailing br inside. <br></p><br>
+    <p>Fifth paragraph after a p-with-inner-br.</p><br>
+    <h2>Section heading</h2><br>
+    <p>Sixth paragraph after a heading and br.</p><br>
+    <hr><br>
+    <p>Seventh paragraph after an hr and br.</p>
+  </article>
+</body>
+</html>
