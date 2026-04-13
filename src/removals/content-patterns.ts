@@ -214,6 +214,12 @@ function isBreadcrumbList(list: Element): boolean {
 	if (listLinks.length < 1 || listLinks.length >= listItems.length) return false;
 	if (list.querySelector('img, p, figure, blockquote')) return false;
 
+	// Breadcrumb items are short labels (e.g. "Home", "Blog", "Post Title").
+	// Content lists have longer prose items — reject if any item exceeds 8 words.
+	for (const item of listItems) {
+		if (countWords(item.textContent || '') > 8) return false;
+	}
+
 	let allInternal = true;
 	let hasBreadcrumbLink = false;
 	let shortLinkTexts = true;
