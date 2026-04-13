@@ -92,8 +92,8 @@ export function createMarkdownContent(content: string, url: string) {
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
 			
-			// Check if it's an ArXiv equation table
-			if (node.classList?.contains('ltx_equation') || node.classList?.contains('ltx_eqn_table')) {
+			// Check if it's an equation table (ArXiv, Wikipedia)
+			if (node.classList?.contains('ltx_equation') || node.classList?.contains('ltx_eqn_table') || node.classList?.contains('numblk')) {
 				return handleNestedEquations(node);
 			}
 
@@ -691,15 +691,15 @@ export function createMarkdownContent(content: string, url: string) {
 	});
 
 	function handleNestedEquations(element: GenericElement): string {
-		const mathElements = element.querySelectorAll('math[alttext]');
+		const mathElements = element.querySelectorAll('math');
 		if (mathElements.length === 0) return '';
 
 		return Array.from(mathElements).map(mathElement => {
-			const alttext = mathElement.getAttribute('alttext');
-			if (alttext) {
-				// Check if it's an inline or block equation
-				const isInline = mathElement.closest('.ltx_eqn_inline') !== null;
-				return isInline ? `$${alttext.trim()}$` : `\n$$\n${alttext.trim()}\n$$`;
+			const annotation = mathElement.querySelector('annotation[encoding="application/x-tex"]');
+			const latex = annotation?.textContent?.trim() || mathElement.getAttribute('alttext')?.trim();
+			if (latex) {
+				const isInline = mathElement.closest('.ltx_eqn_inline, .mwe-math-element-inline') !== null;
+				return isInline ? `$${latex}$` : `\n$$\n${latex}\n$$`;
 			}
 			return '';
 		}).join('\n\n');
