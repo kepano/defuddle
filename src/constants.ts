@@ -411,6 +411,7 @@ export const PARTIAL_SELECTORS = [
 	'bcrumb',
 	'breadcrumb',
 	'brdcrumb',
+	'crumbs',
 	'bubblewrapper',
 	'button-wrapper',
 	'buttons-container',
