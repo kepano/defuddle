@@ -3,7 +3,7 @@
   "title": "Building Frontend UIs with Codex and Figma",
   "author": "",
   "site": "Figma",
-  "published": "February 26, 2026"
+  "published": "2026-02-26T00:00:00+00:00"
 }
 ```
 
