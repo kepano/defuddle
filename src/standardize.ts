@@ -173,6 +173,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 
 	if (!debug) {
 		step('replaceCustomElements', () => replaceCustomElements(element, doc));
+		step('convertDataAsSpans', () => convertDataAsSpans(element, doc));
 		step('convertBlockSpans', () => convertBlockSpans(element, doc));
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
 		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
@@ -531,6 +532,30 @@ function replaceCustomElements(element: Element, doc: Document): void {
 		replacedCount++;
 	}
 	logDebug(_debug, 'Replaced custom elements with divs:', replacedCount);
+}
+
+const DATA_AS_ALLOWED = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote']);
+
+/**
+ * Convert <span data-as="<tag>"> to a real element of that tag.
+ * Mintlify/MDX emits these when a logical paragraph contains block-level
+ * components, to sidestep HTML's content model. Must run before attribute
+ * stripping so data-as is still present.
+ */
+function convertDataAsSpans(element: Element, doc: Document): void {
+	let convertedCount = 0;
+	const spans = Array.from(element.querySelectorAll('span[data-as]'));
+	for (const span of spans) {
+		if (!span.parentNode) continue;
+		const target = span.getAttribute('data-as')!.toLowerCase();
+		if (!DATA_AS_ALLOWED.has(target)) continue;
+
+		const replacement = doc.createElement(target);
+		transferContent(span, replacement);
+		span.replaceWith(replacement);
+		convertedCount++;
+	}
+	logDebug(_debug, 'Converted data-as spans:', convertedCount);
 }
 
 /**
