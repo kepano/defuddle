@@ -277,6 +277,7 @@ export const EXACT_SELECTORS = [
 	'[aria-label="Close" i]',
 
 	// other
+	'[data-testid="load-more-posts"] + div', // NY Times lazy loader
 	'.copyright',
 	'#copyright',
 	'.licensebox',
@@ -286,7 +287,7 @@ export const EXACT_SELECTORS = [
 	'.gutter',
 	'#primaryaudio', // NPR
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
-	'[data-testid="photoviewer-children-figure"] > span', // New York Times
+	'[data-testid="photoviewer-children-figure"] > span', // NY Times
 	'table.infobox',
 	'[data-optimizely="related-articles-section" i]', // The Economist
 	'[data-orientation="vertical"]',
@@ -589,6 +590,7 @@ export const PARTIAL_SELECTORS = [
 	'links-title', // BBC
 	'listing-dynamic-terms', // Boston Review
 	'list-tags',
+	'live-blog-header-live-label', // NY Times
 	'listinks',
 	'loading',
 	'loa-info',
