@@ -1,18 +1,38 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { serializeHTML } from '../utils/dom';
+import { serializeHTML, escapeHtml } from '../utils/dom';
 import { buildComment, buildCommentTree, buildContentHtml, CommentData } from '../utils/comments';
+
+interface StoryData {
+	id: string;
+	title: string;
+	url: string;
+	site: string;
+	score: string;
+	author: string;
+	date: string;
+	comments: string;
+	commentsUrl: string;
+}
 
 export class HackerNewsExtractor extends BaseExtractor {
 	private mainPost: Element | null;
 	private isCommentPage: boolean;
+	private isListingPage: boolean;
 	private mainComment: Element | null;
 
 	constructor(document: Document, url: string) {
 		super(document, url);
 		this.mainPost = document.querySelector('.fatitem');
+		this.isListingPage = this.detectListingPage();
 		this.isCommentPage = this.detectCommentPage();
 		this.mainComment = this.isCommentPage ? this.findMainComment() : null;
+	}
+
+	private detectListingPage(): boolean {
+		if (this.mainPost) return false;
+		const stories = this.document.querySelectorAll('tr.athing');
+		return stories.length > 1;
 	}
 
 	private detectCommentPage(): boolean {
@@ -28,10 +48,14 @@ export class HackerNewsExtractor extends BaseExtractor {
 	}
 
 	canExtract(): boolean {
-		return !!this.mainPost;
+		return !!this.mainPost || this.isListingPage;
 	}
 
 	extract(): ExtractorResult {
+		if (this.isListingPage) {
+			return this.extractListing();
+		}
+
 		const postContent = this.getPostContent();
 		const comments = this.options.includeReplies !== false ? this.extractComments() : '';
 
@@ -56,6 +80,99 @@ export class HackerNewsExtractor extends BaseExtractor {
 				published,
 			}
 		};
+	}
+
+	private getMoreLink(): { url: string; text: string } | null {
+		const moreLink = this.document.querySelector('.morelink');
+		if (!moreLink) return null;
+		const href = moreLink.getAttribute('href') || '';
+		return { url: href, text: moreLink.textContent?.trim() || 'More' };
+	}
+
+	private extractListing(): ExtractorResult {
+		const stories = this.extractStories();
+		const moreLink = this.getMoreLink();
+		const contentHtml = this.buildListingHtml(stories, moreLink);
+		const title = this.document.title?.replace(/\s*\|\s*Hacker News$/, '').trim() || 'Hacker News';
+
+		return {
+			content: contentHtml,
+			contentHtml: contentHtml,
+			extractedContent: {},
+			variables: {
+				title,
+				site: 'Hacker News',
+			}
+		};
+	}
+
+	private extractStories(): StoryData[] {
+		const storyRows = Array.from(this.document.querySelectorAll('tr.athing'));
+		const stories: StoryData[] = [];
+
+		for (const row of storyRows) {
+			const id = row.getAttribute('id') || '';
+			const titleEl = row.querySelector('.titleline a');
+			if (!titleEl) continue;
+
+			const title = titleEl.textContent?.trim() || '';
+			const storyUrl = titleEl.getAttribute('href') || '';
+
+			const site = row.querySelector('.sitestr')?.textContent?.trim() || '';
+
+			// The subtext row is the next sibling tr
+			const subRow = row.nextElementSibling;
+			const score = subRow?.querySelector('.score')?.textContent?.trim() || '';
+			const author = subRow?.querySelector('.hnuser')?.textContent?.trim() || '';
+			const ageEl = subRow?.querySelector('.age');
+			const timestamp = ageEl?.getAttribute('title') || '';
+			const date = timestamp.split('T')[0] || '';
+
+			const subLinks = subRow ? Array.from(subRow.querySelectorAll('td.subtext a')) : [];
+			const lastLink = subLinks[subLinks.length - 1];
+			const commentsText = lastLink?.textContent?.replace(/\u00a0/g, ' ').trim() || '';
+			const comments = /\d+\s*comment/.test(commentsText) ? commentsText : '';
+			const commentsUrl = id ? `https://news.ycombinator.com/item?id=${id}` : '';
+
+			stories.push({ id, title, url: storyUrl, site, score, author, date, comments, commentsUrl });
+		}
+
+		return stories;
+	}
+
+	private buildListingHtml(stories: StoryData[], moreLink: { url: string; text: string } | null): string {
+		if (stories.length === 0) return '';
+
+		const items = stories.map(story => {
+			let html = '<li>';
+			html += `<a href="${escapeHtml(story.url)}">${escapeHtml(story.title)}</a>`;
+
+			if (story.site) {
+				html += ` <small>(${escapeHtml(story.site)})</small>`;
+			}
+
+			const meta: string[] = [];
+			if (story.score) meta.push(escapeHtml(story.score));
+			if (story.author) meta.push(`by ${escapeHtml(story.author)}`);
+			if (story.comments) {
+				meta.push(`<a href="${escapeHtml(story.commentsUrl)}">${escapeHtml(story.comments)}</a>`);
+			}
+
+			if (meta.length > 0) {
+				html += `<br><small>${meta.join(' · ')}</small>`;
+			}
+
+			html += '</li>';
+			return html;
+		});
+
+		let html = `<ol>${items.join('')}</ol>`;
+
+		if (moreLink) {
+			html += `<p><a href="${escapeHtml(moreLink.url)}">${escapeHtml(moreLink.text)}</a></p>`;
+		}
+
+		return html;
 	}
 
 	private createContentHtml(postContent: string, comments: string): string {

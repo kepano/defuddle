@@ -77,7 +77,7 @@ export class ExtractorRegistry {
 
 		this.register({
 			patterns: [
-				/news\.ycombinator\.com\/item\?id=.*/
+				'news.ycombinator.com',
 			],
 			extractor: HackerNewsExtractor
 		});
