@@ -546,17 +546,24 @@ export class MetadataExtractor {
 				sibling = sibling.nextElementSibling;
 			}
 
-			// Walk up h1's ancestors (up to 3 levels) and search their p/time
-			// descendants. Keeps the search scoped to the article header area
-			// without scanning the whole document.
-			let ancestor: Element | null = h1.parentElement;
-			for (let depth = 0; depth < 3 && ancestor; depth++) {
-				for (const child of Array.from(ancestor.querySelectorAll('p, time'))) {
-					if (child === h1 || h1.contains(child)) continue;
-					const parsed = this.parseDateText(child.textContent?.trim() || '');
-					if (parsed) return parsed;
+			// Walk up h1's ancestors and at each level scan the *siblings* of the
+			// path element (not its descendants) for a date. This covers layouts
+			// where the date lives in a cousin subtree — e.g. a separate
+			// "metadata" column next to the header block — without reaching into
+			// the article body, which would produce false positives from dates
+			// mentioned in prose.
+			let pathElement: Element = h1;
+			for (let depth = 0; depth < 3; depth++) {
+				const parent: Element | null = pathElement.parentElement;
+				if (!parent) break;
+				for (const sibling of Array.from(parent.children)) {
+					if (sibling === pathElement) continue;
+					for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
+						const parsed = this.parseDateText(child.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
 				}
-				ancestor = ancestor.parentElement;
+				pathElement = parent;
 			}
 		}
 
@@ -598,22 +605,27 @@ export class MetadataExtractor {
 		'dec': '12', 'december': '12',
 	};
 
-	// Matches full month names and common 3-4 letter abbreviations (with optional trailing period).
+	// Full month names and 3-4 letter abbreviations. The optional trailing
+	// period (`\.?`) is outside the capture group so the captured token is
+	// always a bare month name, ready for direct lookup in MONTH_MAP.
 	private static readonly MONTH_PATTERN = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\.?';
+
+	private static readonly DATE_DAY_FIRST_RE = new RegExp(`\\b(\\d{1,2})\\s+${MetadataExtractor.MONTH_PATTERN}\\s+(\\d{4})\\b`, 'i');
+	private static readonly DATE_MONTH_FIRST_RE = new RegExp(`\\b${MetadataExtractor.MONTH_PATTERN}\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
 
 	static parseDateText(text: string): string {
 		// "26 February 2025", "26 Feb 2025", or "Wednesday, 26 February 2025"
-		let match = text.match(new RegExp(`\\b(\\d{1,2})\\s+${this.MONTH_PATTERN}\\s+(\\d{4})\\b`, 'i'));
+		let match = text.match(this.DATE_DAY_FIRST_RE);
 		if (match) {
 			const day = match[1].padStart(2, '0');
-			const month = this.MONTH_MAP[match[2].toLowerCase().replace(/\.$/, '')];
+			const month = this.MONTH_MAP[match[2].toLowerCase()];
 			return `${match[3]}-${month}-${day}T00:00:00+00:00`;
 		}
 
 		// "February 26, 2025", "Oct 20, 2025", or "June 5 2023"
-		match = text.match(new RegExp(`\\b${this.MONTH_PATTERN}\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i'));
+		match = text.match(this.DATE_MONTH_FIRST_RE);
 		if (match) {
-			const month = this.MONTH_MAP[match[1].toLowerCase().replace(/\.$/, '')];
+			const month = this.MONTH_MAP[match[1].toLowerCase()];
 			const day = match[2].padStart(2, '0');
 			return `${match[3]}-${month}-${day}T00:00:00+00:00`;
 		}

@@ -34,6 +34,14 @@ describe('parseDateText', () => {
 		expect(MetadataExtractor.parseDateText('Sep 5, 2025')).toBe('2025-09-05T00:00:00+00:00');
 	});
 
+	test('parses "Oct. 20, 2025" (abbreviation with trailing period)', () => {
+		expect(MetadataExtractor.parseDateText('Oct. 20, 2025')).toBe('2025-10-20T00:00:00+00:00');
+	});
+
+	test('parses "OCT 20, 2025" (uppercase)', () => {
+		expect(MetadataExtractor.parseDateText('OCT 20, 2025')).toBe('2025-10-20T00:00:00+00:00');
+	});
+
 	test('parses "May 1, 2025" (month with no abbreviation)', () => {
 		expect(MetadataExtractor.parseDateText('May 1, 2025')).toBe('2025-05-01T00:00:00+00:00');
 	});
