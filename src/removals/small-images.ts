@@ -1,6 +1,7 @@
 import { logDebug } from '../utils';
 import { getClassName } from '../utils/dom';
 import { isBase64Placeholder } from '../elements/images';
+import { LOOKS_LIKE_LATEX_RE } from '../elements/math.base';
 
 const STYLE_WIDTH_PATTERN = /width\s*:\s*(\d+)/;
 const STYLE_HEIGHT_PATTERN = /height\s*:\s*(\d+)/;
@@ -87,6 +88,14 @@ export function findSmallImages(doc: Document, debug: boolean): Set<string> {
 			const effectiveHeight = heights.length > 0 ? Math.min(...heights) : Infinity;
 
 			if (effectiveWidth < MIN_DIMENSION || effectiveHeight < MIN_DIMENSION) {
+				// Skip math/equation images
+				if (element.tagName.toLowerCase() === 'img') {
+					const alt = element.getAttribute('alt') || '';
+					if (LOOKS_LIKE_LATEX_RE.test(alt)) continue;
+					if (element.classList.contains('latex') || element.classList.contains('tex')) continue;
+					if (element.getAttribute('data-latex') || element.getAttribute('data-math')) continue;
+				}
+
 				const identifier = getElementIdentifier(element);
 				if (identifier) {
 					smallImages.add(identifier);

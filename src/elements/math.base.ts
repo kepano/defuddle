@@ -239,7 +239,7 @@ export const mathSelectors = [
 const LATEX_PARAM_REGEXES = ['latex', 'chl', 'tex', 'eq', 'math'].map(
 	param => new RegExp(`[?&]${param}=([^&#]+)`, 'i')
 );
-const LOOKS_LIKE_LATEX_RE = /\\[a-zA-Z]{2,}/;
+export const LOOKS_LIKE_LATEX_RE = /\\[a-zA-Z]{2,}/;
 
 /**
  * Extract LaTeX from an image src URL by detecting URL-encoded LaTeX commands.

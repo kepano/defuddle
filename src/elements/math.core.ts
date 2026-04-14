@@ -8,7 +8,7 @@ import {
 } from './math.base';
 import { parseHTML, transferContent } from '../utils/dom';
 
-export const createCleanMathEl = (doc: Document, mathData: MathData | null, latex: string | null, isBlock: boolean): Element => {
+export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean, doc: Document): Element => {
 	const cleanMathEl = doc.createElement('math');
 
 	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
@@ -47,7 +47,7 @@ export const mathRules = [
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
 			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(doc, mathData, latex, isBlock);
+			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock, doc);
 
 			// Clean up any associated math scripts after we've extracted their content.
 			// Skip when el itself is a math script — it will be replaced by the

@@ -15,8 +15,8 @@ import {
 } from './constants';
 
 import { DefuddleMetadata } from './types';
-import { mathRules } from './elements/math';
-import { wrapRawLatexDelimiters, extractLatexFromImageSrc } from './elements/math.base';
+import { mathRules, createCleanMathEl } from './elements/math';
+import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
@@ -1154,18 +1154,30 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 	stepSE('wrapRawLatexDelimiters', () => wrapRawLatexDelimiters(element, doc));
 
 	// Convert images from LaTeX rendering services into <math> elements.
-	// Uses URL-based heuristics (not domain allowlists) to detect encoded LaTeX.
+	// Uses URL-based heuristics (not domain allowlists) to detect encoded LaTeX,
+	// then falls back to alt text containing LaTeX commands.
 	stepSE('convertLatexImages', () => {
 		for (const img of Array.from(element.querySelectorAll('img[src]'))) {
 			const src = img.getAttribute('src');
 			if (!src) continue;
-			const latex = extractLatexFromImageSrc(src);
+
+			let latex = extractLatexFromImageSrc(src);
+
+			// Fall back to alt text if it contains LaTeX commands
+			if (!latex) {
+				const alt = img.getAttribute('alt') || '';
+				if (LOOKS_LIKE_LATEX_RE.test(alt)) {
+					latex = alt;
+				}
+			}
+
 			if (!latex) continue;
-			const mathEl = doc.createElement('math');
-			mathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
-			mathEl.setAttribute('display', 'inline');
-			mathEl.setAttribute('data-latex', latex);
-			mathEl.textContent = latex;
+
+			const isBlock = /\\begin\{/.test(latex)
+				|| (img.parentElement?.tagName.toLowerCase() === 'p'
+					&& img.parentElement.childNodes.length === 1);
+
+			const mathEl = createCleanMathEl(null, latex, isBlock, doc);
 			img.replaceWith(mathEl);
 			processedCount++;
 		}
