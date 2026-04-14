@@ -434,7 +434,7 @@ export const PARTIAL_SELECTORS = [
 	'chapter-list', // The Economist
 	'collections',
 	'comments',
-	'-comment', // comments in code blocks are skipped in removeBySelector
+	'-comment\\b', // word boundary avoids false matches like Wikipedia's 'rt-commentedText'. Comments in code blocks are skipped in removeBySelector
 	'commentbox',
 	'comment-button',
 	'commentcomp',

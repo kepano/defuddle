@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Example (pronunciation) - Wikipedia</title>
+  <meta property="og:title" content="Example (pronunciation) - Wikipedia" />
+</head>
+<body>
+  <!--
+    Wikipedia wraps IPA pronunciations in <span class="rt-commentedText nowrap">.
+    The substring 'rt-commentedText' (lowercased to 'rt-commentedtext') must NOT
+    match the PARTIAL_SELECTOR '-comment' intended for classes like 'post-comment'.
+    Note: the body below is deliberately long so that wordCount >= 200 and defuddle
+    does not fall back to its no-partial-selectors retry, which would mask the bug.
+  -->
+  <div id="content" class="mw-body" role="main">
+    <h1 id="firstHeading" class="firstHeading">Example (pronunciation)</h1>
+    <div id="bodyContent" class="mw-body-content">
+      <div id="mw-content-text" lang="en" dir="ltr" class="mw-content-ltr">
+        <div class="mw-parser-output">
+          <p>An <b>example</b> (<span class="rt-commentedText nowrap"><span class="IPA nopopups noexcerpt" lang="en-fonipa">/ɪɡˈzæmpəl/</span></span>) is a short illustrative instance used to demonstrate a concept, rule, or pattern. Examples appear throughout written and spoken language as a way to anchor an abstract idea in something concrete. A good example is vivid, specific, and relevant to the point being made.</p>
+          <p>In teaching and exposition, examples play a central role. They bridge the gap between a general principle and its application, allowing the reader to check whether a claim holds water. A single well-chosen example can do more work than many paragraphs of abstract argument. Conversely, a poorly chosen example can mislead or distract from the underlying point.</p>
+          <p>Mathematicians often distinguish between examples and counterexamples. An example exhibits an object with a given property; a counterexample rules out a conjecture by exhibiting an object that lacks the expected property. Both kinds of example are load-bearing in the development of a theory, and much of mathematical practice consists of hunting for the right ones.</p>
+          <p>Beyond mathematics, the practice of using examples is central to law, where precedent works as a stream of examples guiding new decisions, and to software engineering, where example inputs and outputs drive both documentation and automated tests. Everywhere the goal is the same: pin down a general claim by showing it at work in a particular case.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
