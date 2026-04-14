@@ -3,7 +3,7 @@
   "title": "KaTeX and MathJax Comparison Demo, currently processed as KaTeX",
   "author": "Murray Bourne",
   "site": "Murray Bourne",
-  "published": ""
+  "published": "2020-04-29T00:00:00+00:00"
 }
 ```
 

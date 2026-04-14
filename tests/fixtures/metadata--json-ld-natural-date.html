@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Example Article With Natural-Language JSON-LD Date</title>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": "Example Article With Natural-Language JSON-LD Date",
+  "datePublished": "Oct 20, 2025",
+  "dateModified": "Nov 12, 2025"
+}
+</script>
+</head>
+<body>
+<article>
+<h1>Example Article With Natural-Language JSON-LD Date</h1>
+<p>Some sites emit schema.org JSON-LD with non-ISO date strings like "Oct 20, 2025" instead of the ISO 8601 format the specification requires. Defuddle should normalize these to ISO when possible so downstream consumers can pass the value straight to Date constructors without hitting V8's year-2001 fallback quirk.</p>
+<p>This fixture reproduces that upstream pattern: a JSON-LD block with an abbreviated-month, natural-language datePublished value and no other date sources on the page.</p>
+</article>
+</body>
+</html>

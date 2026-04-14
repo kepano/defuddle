@@ -522,9 +522,15 @@ export class MetadataExtractor {
 			(doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() ||
 			this.getTimeElement(doc) ||
 			this.getMetaContent(metaTags, "name", "sailthru.date");
-		if (result) return result;
+		// Some sites emit non-ISO dates (e.g. "Oct 20, 2025") even in JSON-LD.
+		// Try to normalize natural-language formats; fall back to the raw value
+		// if the parser doesn't recognize it (e.g. already ISO).
+		if (result) return this.parseDateText(result) || result;
 
-		// Look for date text near the article heading
+		// Look for date text near the article heading.
+		// First try h1's forward siblings (the common case), then walk up the
+		// ancestor chain to cover layouts where the date lives in a cousin
+		// subtree (e.g. a separate "metadata" column next to the header block).
 		const h1 = doc.querySelector('h1');
 		if (h1) {
 			let sibling = h1.nextElementSibling;
@@ -538,6 +544,26 @@ export class MetadataExtractor {
 				const parsed = this.parseDateText(sibling.textContent?.trim() || '');
 				if (parsed) return parsed;
 				sibling = sibling.nextElementSibling;
+			}
+
+			// Walk up h1's ancestors and at each level scan the *siblings* of the
+			// path element (not its descendants) for a date. This covers layouts
+			// where the date lives in a cousin subtree — e.g. a separate
+			// "metadata" column next to the header block — without reaching into
+			// the article body, which would produce false positives from dates
+			// mentioned in prose.
+			let pathElement: Element = h1;
+			for (let depth = 0; depth < 3; depth++) {
+				const parent: Element | null = pathElement.parentElement;
+				if (!parent) break;
+				for (const sibling of Array.from(parent.children)) {
+					if (sibling === pathElement) continue;
+					for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
+						const parsed = this.parseDateText(child.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
+				}
+				pathElement = parent;
 			}
 		}
 
@@ -556,29 +582,48 @@ export class MetadataExtractor {
 	}
 
 	private static getTimeElement(doc: Document): string {
-		const selector = `time`;
-		const element = Array.from(doc.querySelectorAll(selector))[0];
-		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
-		return content;
+		const element = doc.querySelector('time');
+		if (!element) return '';
+		const datetime = element.getAttribute('datetime')?.trim();
+		if (datetime) return datetime;
+		const text = element.textContent?.trim() || '';
+		return this.parseDateText(text) || text;
 	}
 
 	private static readonly MONTH_MAP: Record<string, string> = {
-		'january': '01', 'february': '02', 'march': '03', 'april': '04',
-		'may': '05', 'june': '06', 'july': '07', 'august': '08',
-		'september': '09', 'october': '10', 'november': '11', 'december': '12'
+		'jan': '01', 'january': '01',
+		'feb': '02', 'february': '02',
+		'mar': '03', 'march': '03',
+		'apr': '04', 'april': '04',
+		'may': '05',
+		'jun': '06', 'june': '06',
+		'jul': '07', 'july': '07',
+		'aug': '08', 'august': '08',
+		'sep': '09', 'sept': '09', 'september': '09',
+		'oct': '10', 'october': '10',
+		'nov': '11', 'november': '11',
+		'dec': '12', 'december': '12',
 	};
 
+	// Full month names and 3-4 letter abbreviations. The optional trailing
+	// period (`\.?`) is outside the capture group so the captured token is
+	// always a bare month name, ready for direct lookup in MONTH_MAP.
+	private static readonly MONTH_PATTERN = '(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sept?(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\\.?';
+
+	private static readonly DATE_DAY_FIRST_RE = new RegExp(`\\b(\\d{1,2})\\s+${MetadataExtractor.MONTH_PATTERN}\\s+(\\d{4})\\b`, 'i');
+	private static readonly DATE_MONTH_FIRST_RE = new RegExp(`\\b${MetadataExtractor.MONTH_PATTERN}\\s+(\\d{1,2}),?\\s+(\\d{4})\\b`, 'i');
+
 	static parseDateText(text: string): string {
-		// "26 February 2025" or "Wednesday, 26 February 2025"
-		let match = text.match(/\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i);
+		// "26 February 2025", "26 Feb 2025", or "Wednesday, 26 February 2025"
+		let match = text.match(this.DATE_DAY_FIRST_RE);
 		if (match) {
 			const day = match[1].padStart(2, '0');
 			const month = this.MONTH_MAP[match[2].toLowerCase()];
 			return `${match[3]}-${month}-${day}T00:00:00+00:00`;
 		}
 
-		// "February 26, 2025" or "June 5, 2023"
-		match = text.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/i);
+		// "February 26, 2025", "Oct 20, 2025", or "June 5 2023"
+		match = text.match(this.DATE_MONTH_FIRST_RE);
 		if (match) {
 			const month = this.MONTH_MAP[match[1].toLowerCase()];
 			const day = match[2].padStart(2, '0');

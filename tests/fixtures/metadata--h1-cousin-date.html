@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Article With Date In H1 Cousin Subtree</title>
+</head>
+<body>
+<main>
+<section class="page-wrapper hero">
+<div class="content">
+<div class="header">
+<div class="hero-image"><img alt="" src="/hero.svg"></div>
+<h1>Article With Date In H1 Cousin Subtree</h1>
+</div>
+<div class="metadata">
+<p class="byline">Written by Jane Author, a researcher on the team.</p>
+<p class="date">Feb 05, 2026</p>
+</div>
+</div>
+</section>
+<article>
+<p>Some publishers place the article date in a sibling subtree of the h1 rather than as a direct sibling of the heading element. This fixture covers that case so defuddle can find the date by walking up the h1 ancestor chain and scanning descendants.</p>
+<p>The metadata block is a cousin of the h1 — both live inside the same content wrapper but in separate header and metadata subtrees. A plain h1.nextElementSibling walk would never reach the date text.</p>
+</article>
+</main>
+</body>
+</html>
