@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Article With Sidebar Toggle</title>
+</head>
+<body>
+<!-- Hidden checkbox used to toggle the sidebar via a sibling label -->
+<input type="checkbox" class="sidebar-checkbox" id="sidebar-checkbox">
+<!-- Mobile menu trigger pattern (obdev.at) -->
+<input type="checkbox" id="mm-trigger" class="mm-trigger">
+
+<div class="sidebar" id="sidebar">
+<nav class="sidebar-nav">
+<a class="sidebar-nav-item" href="/">Home</a>
+<a class="sidebar-nav-item" href="/about">About</a>
+</nav>
+</div>
+
+<div class="wrap">
+<div class="container content">
+<h1>Article With Sidebar Toggle</h1>
+<p>The first paragraph introduces the topic with enough text to score as the main content of the page so that the body extractor will pick this section.</p>
+<p>A second paragraph keeps the prose flowing and ensures the article has more than one block of substantive text to anchor the content score.</p>
+<figure>
+<img alt="Storage migration: SD to NVMe" src="/media/orangepi-storage-migration.svg">
+<figcaption>Storage migration: SD to NVMe</figcaption>
+</figure>
+<p>A closing paragraph after the diagram explains what the figure shows and gives the article a tidy conclusion that should survive extraction.</p>
+</div>
+</div>
+
+<label for="sidebar-checkbox" class="sidebar-toggle"></label>
+</body>
+</html>

@@ -207,6 +207,19 @@ export const EXACT_SELECTORS = [
 	'fieldset',
 	'form',
 	'input:not([type="checkbox"])',
+	// UI toggle checkboxes (sidebar/menu/nav/drawer/hamburger patterns).
+	// Markdown task list checkboxes use class="task-list-item-checkbox", so
+	// none of these patterns affect them.
+	'input[type="checkbox"][class*="sidebar" i]',
+	'input[type="checkbox"][id*="sidebar" i]',
+	'input[type="checkbox"][class*="drawer" i]',
+	'input[type="checkbox"][id*="drawer" i]',
+	'input[type="checkbox"][class*="hamburger" i]',
+	'input[type="checkbox"][id*="hamburger" i]',
+	'input[type="checkbox"][class*="toggle" i]',
+	'input[type="checkbox"][id*="toggle" i]',
+	'input[type="checkbox"][class*="trigger" i]',
+	'input[type="checkbox"][id*="trigger" i]',
 	'label',
 	'option',
 	'select',
