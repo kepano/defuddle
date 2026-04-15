@@ -795,6 +795,7 @@ export const PARTIAL_SELECTORS = [
 	'sharedaddy',
 	'share-icons',
 	'sharelinks',
+	'share-links',
 	'share-post',
 	'share-print',
 	'share-section',
