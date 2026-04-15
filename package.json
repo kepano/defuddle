@@ -1,6 +1,6 @@
 {
 	"name": "defuddle",
-	"version": "0.16.0",
+	"version": "0.17.0",
 	"description": "Extract article content and metadata from web pages.",
 	"main": "dist/index.js",
 	"bin": {
