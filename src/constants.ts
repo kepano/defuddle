@@ -238,6 +238,7 @@ export const EXACT_SELECTORS = [
 	// iframes
 	'instaread-player',
 	'iframe:not([src])',
+	'iframe[src*="trinitymedia.ai"]',
 
 	// logos
 	'[class="logo" i]',
