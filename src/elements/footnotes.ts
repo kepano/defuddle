@@ -6,6 +6,9 @@ import { removeOrphanedDividers } from '../standardize';
 // Matches heading text for loose footnote section delimiters
 const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
 
+// Unicode return/backref arrow glyphs used as backlink text
+const BACKREF_SYMBOLS_RE = /^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/;
+
 type FootnoteData = { content: any; originalId: string; refs: string[] };
 type FootnoteCollection = Record<number, FootnoteData>;
 
@@ -272,8 +275,7 @@ class FootnoteHandler {
 			const candidateRefs = new Map<string, any[]>();
 			const allAnchors = element.querySelectorAll('a[href*="#"]');
 			allAnchors.forEach((a: any) => {
-				const href = a.getAttribute('href') || '';
-				const fragment = href.split('#').pop()?.toLowerCase();
+				const fragment = this.getHrefFragment(a);
 				if (!fragment) return;
 
 				const text = a.textContent?.trim() || '';
@@ -620,15 +622,12 @@ class FootnoteHandler {
 	isBackrefLink(el: any): boolean {
 		if (el.tagName?.toLowerCase() !== 'a') return false;
 		const text = el.textContent?.trim().replace(/\uFE0E|\uFE0F/g, '') || '';
-		return /^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/.test(text) || !!el.classList?.contains('footnote-backref');
+		return BACKREF_SYMBOLS_RE.test(text) || !!el.classList?.contains('footnote-backref');
 	}
 
 	removeBackrefs(el: any): void {
 		el.querySelectorAll('a').forEach((a: any) => {
-			const text = a.textContent?.trim().replace(/\uFE0E|\uFE0F/g, '') || '';
-			if (/^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/.test(text) || a.classList?.contains('footnote-backref')) {
-				a.remove();
-			}
+			if (this.isBackrefLink(a)) a.remove();
 		});
 		while (el.lastChild && el.lastChild.nodeType === 3) {
 			const text = el.lastChild.textContent;
@@ -644,6 +643,12 @@ class FootnoteHandler {
 		const anchor = el.querySelector('a[id], a[name]');
 		if (!anchor) return '';
 		return (anchor.id || anchor.getAttribute('name') || '').toLowerCase();
+	}
+
+	// Extract the lowercase fragment id from an anchor's href (part after the last '#').
+	getHrefFragment(anchor: any): string {
+		const href = anchor?.getAttribute('href') || '';
+		return href.split('#').pop()?.toLowerCase() || '';
 	}
 
 	findMatchingFootnoteElements(container: any, fragmentSet: Set<string>): Array<{el: any, id: string}> {
@@ -990,10 +995,7 @@ class FootnoteHandler {
 			} else if (el.matches('sup[id^="fnr"]')) {
 				footnoteId = el.id.replace('fnr', '').toLowerCase();
 			} else if (el.matches('sup.footnote-reference')) {
-				const link = el.querySelector('a[href^="#"]');
-				if (link) {
-					footnoteId = (link.getAttribute('href') || '').replace(/^#/, '').toLowerCase();
-				}
+				footnoteId = this.getHrefFragment(el.querySelector('a[href^="#"]'));
 			} else if (el.matches('span.footnote-reference')) {
 				footnoteId = el.getAttribute('data-footnote-id') || '';
 				// LessWrong uses id="fnrefXXX" on the span
@@ -1073,7 +1075,7 @@ class FootnoteHandler {
 			// Pass 1: Match by fragment link
 			element.querySelectorAll('a[href*="#"]').forEach((link: any) => {
 				if (!link.parentNode || isInsideFootnotes(link)) return;
-				const fragment = (link.getAttribute('href') || '').split('#').pop()?.toLowerCase();
+				const fragment = this.getHrefFragment(link);
 				if (!fragment) return;
 				const entry = footnoteIdMap.get(fragment);
 				if (!entry) return;
