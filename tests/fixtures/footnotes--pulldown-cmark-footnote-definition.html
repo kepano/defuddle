@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>pulldown-cmark footnote-definition</title>
+</head>
+<body>
+  <!--
+    Pattern: pulldown-cmark / mdBook / zola unwrapped footnote definitions.
+    Inline ref: <sup class="footnote-reference"><a href="#N">N</a></sup>
+    Definition: <div class="footnote-definition" id="N"><sup class="footnote-definition-label">N</sup>
+                  <p>content</p>
+                </div>
+    No wrapping container — each definition is a top-level sibling of the content,
+    typically preceded by an <hr>.
+  -->
+  <article>
+    <h1>Example post with a footnote</h1>
+
+    <p>Example bit-shift analysis: a common simplification is to replace
+    <code>x &amp; ~0</code> with <code>x</code><sup class="footnote-reference"><a href="#1">1</a></sup>.
+    Other paragraph content follows that explains the broader idea in more detail.</p>
+
+    <p>This is an additional paragraph with more prose to give the post enough weight
+    for the content detection scoring. Lorem ipsum dolor sit amet, consectetur adipiscing
+    elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+
+    <p>Thanks to everyone for reading. Ut enim ad minim veniam, quis nostrud exercitation
+    ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+    <hr>
+    <div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
+    <p>Possibly with masking of the top bit if our IR semantics have
+    defined wrapping/truncation behavior: <code>x &amp; 0x7fff..ffff</code>.</p>
+    </div>
+  </article>
+</body>
+</html>

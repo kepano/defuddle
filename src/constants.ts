@@ -943,6 +943,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'a[id^="fnref"]',
 	'a[id^="ref-link"]', // Nature.com
 	'sup.footnoteref', // Wikidot
+	'sup.footnote-reference', // pulldown-cmark / mdBook / zola
 	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
 	'sup[id^="ftnt_ref"] a[href^="#ftnt"]', // Google Docs/Sites
 	'span.easy-footnote > a[href^="#easy-footnote-bottom-"]', // Easy Footnotes WP plugin
@@ -966,6 +967,7 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'div.footnote[data-component-name="FootnoteToDOM"]', // Substack
 	'div.footnotes-footer', // Wikidot
 	'div.footnote-definitions',
+	'div.footnote-definition', // pulldown-cmark / mdBook / zola (unwrapped)
 	'ol.wp-block-footnotes', // WordPress block editor footnotes
 	'ol.easy-footnotes-wrapper', // Easy Footnotes WP plugin
 	'#footnotes' // standardizeFootnotes output container

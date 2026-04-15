@@ -132,6 +132,26 @@ class FootnoteHandler {
 				return;
 			}
 
+			// pulldown-cmark / mdBook / zola: standalone div.footnote-definition.
+			// Skip if wrapped in div.footnote-definitions (handled by the next branch).
+			if (list.matches('div.footnote-definition') && !list.parentElement?.matches('div.footnote-definitions')) {
+				const id = (list.id || '').toLowerCase();
+				if (!id || processedIds.has(id)) return;
+
+				const clone = list.cloneNode(true);
+				const label = clone.querySelector('sup.footnote-definition-label');
+				if (label) label.remove();
+
+				footnotes[footnoteCount] = {
+					content: clone,
+					originalId: id,
+					refs: []
+				};
+				processedIds.add(id);
+				footnoteCount++;
+				return;
+			}
+
 			// Hugo/org-mode: div.footnote-definitions containing div.footnote-definition children
 			// Each child: <sup id="footnote-N"><a href="#footnote-reference-N">N</a></sup>
 			//              <div class="footnote-body"><p>content</p></div>
@@ -969,6 +989,11 @@ class FootnoteHandler {
 				footnoteId = el.id.replace('fnref:', '').toLowerCase();
 			} else if (el.matches('sup[id^="fnr"]')) {
 				footnoteId = el.id.replace('fnr', '').toLowerCase();
+			} else if (el.matches('sup.footnote-reference')) {
+				const link = el.querySelector('a[href^="#"]');
+				if (link) {
+					footnoteId = (link.getAttribute('href') || '').replace(/^#/, '').toLowerCase();
+				}
 			} else if (el.matches('span.footnote-reference')) {
 				footnoteId = el.getAttribute('data-footnote-id') || '';
 				// LessWrong uses id="fnrefXXX" on the span
@@ -997,11 +1022,19 @@ class FootnoteHandler {
 
 				if (footnoteEntry) {
 					const [footnoteNumber, footnoteData] = footnoteEntry;
+					const container = this.findOuterFootnoteContainer(el);
+					const isSup = container.tagName.toLowerCase() === 'sup';
+
+					// Dedupe: when an outer sup and its inner anchor both match the same footnote,
+					// keep only the first reference.
+					if (isSup && supGroups.get(container)?.some((r: any) => r.footnoteNumber === footnoteNumber)) {
+						return;
+					}
+
 					const refId = this.makeRefId(footnoteNumber, footnoteData.refs.length);
 					footnoteData.refs.push(refId);
 
-					const container = this.findOuterFootnoteContainer(el);
-					if (container.tagName.toLowerCase() === 'sup') {
+					if (isSup) {
 						if (!supGroups.has(container)) supGroups.set(container, []);
 						supGroups.get(container).push({ footnoteNumber, refId });
 					} else {
