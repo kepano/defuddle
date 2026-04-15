@@ -1,0 +1,29 @@
+<!--{"url":"https://blog.example.com/posts/fallbacks"}-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Placeholder Fallbacks - Example Blog</title>
+  <meta property="og:title" content="{{page.title}}">
+  <meta property="og:site_name" content="{{site.name}}">
+  <meta name="description" content=". .">
+  <meta property="og:description" content="{{description}}">
+  <meta property="article:published_time" content="{{date}}">
+  <meta name="author" content=". .">
+  <meta name="twitter:description" content="A post demonstrating that defuddle falls back past placeholder metadata values.">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Article",
+    "headline":"Placeholder Fallbacks",
+    "datePublished":"2026-03-15T10:00:00+00:00",
+    "publisher":{"@type":"Organization","name":"Example Blog"}}
+  </script>
+</head>
+<body>
+<main>
+  <article>
+    <h1>Placeholder Fallbacks</h1>
+    <p>Some CMSes leave unresolved template literals like the ones in this page's meta tags. Defuddle should skip over these and fall back to the next valid source.</p>
+    <p>In this fixture, og:title, og:site_name, og:description, and article:published_time are all template placeholders. The name meta description and the name author are both literal ". .". The real values come from the schema and twitter:description tags.</p>
+  </article>
+</main>
+</body>
+</html>
