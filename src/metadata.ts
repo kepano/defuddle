@@ -65,10 +65,14 @@ export class MetadataExtractor {
 		};
 	}
 
-	// Returns true if the string looks like an unresolved template literal
-	// e.g. "#author.fullName}" (missing opening brace), "{{author}}", etc.
+	// Returns true if the string is not a usable author — either an unresolved
+	// template literal (e.g. "#author.fullName}", "{{author}}") or a placeholder
+	// containing no letters/digits (e.g. ". .", "-", "_") emitted by some CMSes
+	// when the author display name is empty.
 	private static isTemplateArtifact(s: string): boolean {
-		return /[{}]/.test(s) || /^#[a-zA-Z]/.test(s);
+		if (/[{}]/.test(s) || /^#[a-zA-Z]/.test(s)) return true;
+		if (!/[\p{L}\p{N}]/u.test(s)) return true;
+		return false;
 	}
 
 	private static getAuthor(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
@@ -106,7 +110,8 @@ export class MetadataExtractor {
 		if (schemaAuthors) {
 			const parts = schemaAuthors.split(',')
 				.map(part => part.trim().replace(/,$/, '').trim())
-				.filter(Boolean);
+				.filter(Boolean)
+				.filter(part => !this.isTemplateArtifact(part));
 			if (parts.length > 0) {
 				let uniqueSchemaAuthors = [...new Set(parts)];
 				if (uniqueSchemaAuthors.length > 10) {
@@ -123,7 +128,7 @@ export class MetadataExtractor {
 			value.split(',').forEach(namePart => {
 				const cleanedName = namePart.replace(/\s+/g, ' ').trim().replace(/,$/, '').trim();
 				const lowerCleanedName = cleanedName.toLowerCase();
-				if (cleanedName && lowerCleanedName !== 'author' && lowerCleanedName !== 'authors') {
+				if (cleanedName && lowerCleanedName !== 'author' && lowerCleanedName !== 'authors' && !this.isTemplateArtifact(cleanedName)) {
 					collectedAuthorsFromDOM.push(cleanedName);
 				}
 			});
@@ -654,7 +659,8 @@ export class MetadataExtractor {
 			if (results.length === 0) {
 				results = searchSchema(schemaOrgData, property.split('.'), '', false);
 			}
-			const result = results.length > 0 ? results.filter(Boolean).join(', ') : defaultValue;
+			const unique = [...new Set(results.filter(Boolean))];
+			const result = unique.length > 0 ? unique.join(', ') : defaultValue;
 			return result;
 		} catch (error) {
 			console.error(`Error in getSchemaProperty for ${property}:`, error);
