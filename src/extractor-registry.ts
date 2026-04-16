@@ -17,6 +17,7 @@ import { C2WikiExtractor } from './extractors/c2-wiki';
 import { SubstackExtractor } from './extractors/substack';
 import { NytimesExtractor } from './extractors/nytimes';
 import { WikipediaExtractor } from './extractors/wikipedia';
+import { LinkedInExtractor } from './extractors/linkedin';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -118,6 +119,13 @@ export class ExtractorRegistry {
 				/^https?:\/\/github\.com\/.*/
 			],
 			extractor: GitHubExtractor
+		});
+
+		this.register({
+			patterns: [
+				'linkedin.com',
+			],
+			extractor: LinkedInExtractor
 		});
 
 		this.register({

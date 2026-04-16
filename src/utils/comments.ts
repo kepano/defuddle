@@ -26,6 +26,17 @@ export interface CommentData {
 	url?: string;
 }
 
+export interface QuotedPostData {
+	/** Author name */
+	author?: string;
+	/** Display date */
+	date?: string;
+	/** Post body HTML */
+	content: string;
+	/** Permalink URL */
+	url?: string;
+}
+
 /**
  * Build the full content HTML for a post with optional comments section.
  * @param site - Site identifier for wrapper class (e.g. "reddit", "hackernews", "github")
@@ -122,4 +133,27 @@ export function buildComment(comment: CommentData): string {
 	</div>
 	<div class="comment-content">${comment.content}</div>
 </div>`;
+}
+
+/**
+ * Build a quoted/reposted post blockquote.
+ * Used by Twitter (quote tweets) and LinkedIn (reposts with commentary).
+ */
+export function buildQuotedPost(post: QuotedPostData): string {
+	let header = '';
+	if (post.author) {
+		header += `<p><strong>${escapeHtml(post.author)}</strong>`;
+		if (post.date) header += ` · ${escapeHtml(post.date)}`;
+		header += '</p>';
+	}
+
+	let footer = '';
+	if (post.url) {
+		const safeUrl = isDangerousUrl(post.url) ? '' : post.url;
+		if (safeUrl) {
+			footer = `\n<p><a href="${escapeHtml(safeUrl)}">${escapeHtml(safeUrl)}</a></p>`;
+		}
+	}
+
+	return `<blockquote class="quoted-post">${header}${post.content}${footer}</blockquote>`;
 }
