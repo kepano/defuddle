@@ -19,6 +19,7 @@ import { NytimesExtractor } from './extractors/nytimes';
 import { WikipediaExtractor } from './extractors/wikipedia';
 import { LinkedInExtractor } from './extractors/linkedin';
 import { ThreadsExtractor } from './extractors/threads';
+import { BlueskyExtractor } from './extractors/bluesky';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -136,6 +137,13 @@ export class ExtractorRegistry {
 				'threads.com',
 			],
 			extractor: ThreadsExtractor
+		});
+
+		this.register({
+			patterns: [
+				'bsky.app',
+			],
+			extractor: BlueskyExtractor
 		});
 
 		this.register({

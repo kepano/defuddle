@@ -70,9 +70,7 @@ export class ThreadsExtractor extends BaseExtractor {
 		const contentHtml = buildContentHtml('threads', postContent, comments);
 		const author = `@${mainAuthor}`;
 		const description = this.createDescription(threadPosts[0]?.element);
-		const title = threadPosts.length > 1
-			? `Thread by ${author}`
-			: `Post by ${author}`;
+		const title = this.postTitle(author, 'Threads');
 		const published = threadPosts[0]?.date || '';
 
 		return {
@@ -118,7 +116,7 @@ export class ThreadsExtractor extends BaseExtractor {
 				postAuthor: mainAuthor,
 			},
 			variables: {
-				title: `Post by ${author}`,
+				title: this.postTitle(author, 'Threads'),
 				author,
 				site: 'Threads',
 				description,
@@ -505,10 +503,13 @@ export class ThreadsExtractor extends BaseExtractor {
 
 		const spans = container.querySelectorAll('span[dir="auto"]');
 		for (const span of Array.from(spans)) {
-			if (span.closest('a[href^="/@"], [role="button"], a[href*="/post/"]')) continue;
+			if (span.closest('a[href^="/@"], [role="button"], a[href*="/post/"], time')) continue;
 			const text = span.textContent?.trim() || '';
-			if (text && text !== 'Author' && text !== '·') {
-				return this.stripThreadNumber(text).slice(0, 140).replace(/\s+/g, ' ');
+			if (!text || text === 'Author' || text === '·' || text === 'Top' || text === 'View activity') continue;
+			if (/^\d{2}\/\d{2}\/\d{2}$/.test(text)) continue;
+			const cleaned = this.stripThreadNumber(text);
+			if (cleaned) {
+				return cleaned.slice(0, 140).replace(/\s+/g, ' ');
 			}
 		}
 		return '';

@@ -107,9 +107,7 @@ export class TwitterExtractor extends BaseExtractor {
 		const tweetId = this.getTweetId();
 		const tweetAuthor = this.getTweetAuthor();
 		const description = this.createDescription(this.mainTweet);
-		const title = this.threadTweets.length > 0
-			? `Thread by ${tweetAuthor}`
-			: `Post by ${tweetAuthor}`;
+		const title = this.postTitle(tweetAuthor, 'X');
 
 		return {
 			content: contentHtml,

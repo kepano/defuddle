@@ -168,13 +168,17 @@ export class XOembedExtractor extends BaseExtractor {
 
 		const contentHtml = buildContentHtml('twitter', tweetText, '');
 
+		const author = handle || data.author_name;
+		const description = tweetText.replace(/<[^>]*>/g, '').trim().slice(0, 140).replace(/\s+/g, ' ');
+
 		return {
 			content: contentHtml,
 			contentHtml: contentHtml,
 			variables: {
-				title: `Post by ${handle || data.author_name}`,
-				author: handle || data.author_name,
+				title: this.postTitle(author, 'X'),
+				author,
 				site: 'X (Twitter)',
+				description,
 			}
 		};
 	}
@@ -250,14 +254,16 @@ export class XOembedExtractor extends BaseExtractor {
 		const postContent = this.renderTweet(tweet);
 		const contentHtml = buildContentHtml('twitter', postContent, '');
 		const published = this.toDateString(tweet.created_at);
+		const description = (tweet.text || '').trim().slice(0, 140).replace(/\s+/g, ' ');
 
 		return {
 			content: contentHtml,
 			contentHtml,
 			variables: {
-				title: `Post by ${handle}`,
+				title: this.postTitle(handle, 'X'),
 				author: handle,
 				site: 'X (Twitter)',
+				description,
 				...(published && { published }),
 			}
 		};

@@ -30,7 +30,7 @@ export class LinkedInExtractor extends BaseExtractor {
 				postUrn: this.postArticle?.getAttribute('data-urn') || '',
 			},
 			variables: {
-				title: `Post by ${author}`,
+				title: this.postTitle(author, 'LinkedIn'),
 				author,
 				site: 'LinkedIn',
 				description,

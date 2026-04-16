@@ -27,6 +27,14 @@ export abstract class BaseExtractor {
 	abstract canExtract(): boolean;
 	abstract extract(): ExtractorResult;
 
+	/**
+	 * Generate a title from the post description text, falling back to
+	 * "Post by {author}" if the description is empty.
+	 */
+	protected postTitle(author: string, site: string): string {
+		return `Post by ${author} on ${site}`;
+	}
+
 	canExtractAsync(): boolean {
 		return false;
 	}
