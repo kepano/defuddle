@@ -18,6 +18,7 @@ import { SubstackExtractor } from './extractors/substack';
 import { NytimesExtractor } from './extractors/nytimes';
 import { WikipediaExtractor } from './extractors/wikipedia';
 import { LinkedInExtractor } from './extractors/linkedin';
+import { ThreadsExtractor } from './extractors/threads';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -126,6 +127,15 @@ export class ExtractorRegistry {
 				'linkedin.com',
 			],
 			extractor: LinkedInExtractor
+		});
+
+		this.register({
+			patterns: [
+				'threads.net',
+				'www.threads.com',
+				'threads.com',
+			],
+			extractor: ThreadsExtractor
 		});
 
 		this.register({
