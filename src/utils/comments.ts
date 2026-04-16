@@ -34,18 +34,20 @@ export interface CommentData {
  */
 export function buildContentHtml(site: string, postContent: string, comments: string): string {
 	return `
-		<div class="${site} post">
-			<div class="post-content">
-				${postContent}
+		<article data-defuddle>
+			<div class="${site} post">
+				<div class="post-content">
+					${postContent}
+				</div>
 			</div>
-		</div>
-		${comments ? `
-			<hr>
-			<div class="${site} comments">
-				<h2>Comments</h2>
-				${comments}
-			</div>
-		` : ''}
+			${comments ? `
+				<hr>
+				<div class="${site} comments">
+					<h2>Comments</h2>
+					${comments}
+				</div>
+			` : ''}
+		</article>
 	`.trim();
 }
 

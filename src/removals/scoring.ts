@@ -274,6 +274,11 @@ export class ContentScorer {
 				return;
 			}
 
+			// Skip elements inside defuddle extractor output
+			if (element.closest('[data-defuddle]')) {
+				return;
+			}
+
 			// Skip elements that are likely to be content
 			if (ContentScorer.isLikelyContent(element)) {
 				return;

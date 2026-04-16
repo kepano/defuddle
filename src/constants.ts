@@ -895,7 +895,6 @@ export const PARTIAL_SELECTORS = [
 	'trust-badge',
 	'trust-project',
 	'chakra-badge',
-	'twitter',
 	'twiblock',
 
 	'u-hide',

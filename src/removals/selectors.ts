@@ -70,6 +70,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				return;
 			}
 
+			// Skip elements inside defuddle extractor output (e.g. comment trees)
+			if (el.closest('[data-defuddle]')) {
+				return;
+			}
+
 			// Skip code elements and elements containing code blocks
 			// where class names indicate language/syntax, not page structure
 			const tag = el.tagName;

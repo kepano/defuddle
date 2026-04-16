@@ -774,6 +774,15 @@ export class Defuddle {
 					found = this.findMainContent(clone);
 				}
 
+				// If the selected element is inside defuddle extractor output,
+				// expand to the whole container so post + comments stay together.
+				if (found) {
+					const defuddleAncestor = found.closest('[data-defuddle]');
+					if (defuddleAncestor) {
+						found = defuddleAncestor;
+					}
+				}
+
 				// If we fell back to <body>, try using schema.org articleBody/text
 				// to find a more specific content element within the DOM.
 				if (found && found.tagName.toLowerCase() === 'body') {

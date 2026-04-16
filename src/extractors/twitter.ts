@@ -1,14 +1,17 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
+import { buildCommentTree, buildContentHtml, type CommentData } from '../utils/comments';
 
 export class TwitterExtractor extends BaseExtractor {
 	private mainTweet: Element | null = null;
 	private threadTweets: Element[] = [];
+	private replyTweets: Element[] = [];
+	private replyDepths: number[] = [];
 
 	constructor(document: Document, url: string) {
 		super(document, url);
-		
+
 		// Get all tweets from the timeline
 		const timeline = document.querySelector('[aria-label="Timeline: Conversation"]');
 		if (!timeline) {
@@ -20,23 +23,67 @@ export class TwitterExtractor extends BaseExtractor {
 			return;
 		}
 
+		// Walk cellInnerDiv elements to classify tweets:
+		// 1. Main tweet (first article)
+		// 2. Thread tweets: consecutive self-replies by the main author at the
+		//    top of the timeline, before any reply by a different person
+		// 3. Reply tweets: everything after the thread ends
+		const cells = Array.from(timeline.querySelectorAll('[data-testid="cellInnerDiv"]'));
+
 		// Get all tweets before any section with "Discover more" or similar headings
-		let allTweets = Array.from(timeline.querySelectorAll('article[data-testid="tweet"]'));
 		const firstSection = timeline.querySelector('section, h2')?.parentElement;
 
-		if (firstSection) {
-			// Filter out tweets that appear after the first section
-			const cutoffIndex = allTweets.findIndex(tweet =>
-				firstSection.compareDocumentPosition(tweet) & Node.DOCUMENT_POSITION_FOLLOWING
-			);
-			if (cutoffIndex !== -1) {
-				allTweets = allTweets.slice(0, cutoffIndex);
+		let mainHandle = '';
+		let isFirstTweet = true;
+		let threadEnded = false;
+		let lastWasTweet = false;
+		let currentDepth = 0;
+
+		for (const cell of cells) {
+			// Stop if we've passed a section boundary
+			if (firstSection && (firstSection.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+				break;
+			}
+
+			const article = cell.querySelector('article[data-testid="tweet"]');
+			if (article) {
+				if (isFirstTweet) {
+					this.mainTweet = article;
+					mainHandle = this.getHandle(article);
+					isFirstTweet = false;
+					lastWasTweet = true;
+					continue;
+				}
+
+				const handle = this.getHandle(article);
+
+				// Before the thread has ended, self-replies by the main author
+				// are part of the thread (post content)
+				if (!threadEnded && handle === mainHandle) {
+					this.threadTweets.push(article);
+					lastWasTweet = true;
+					continue;
+				}
+
+				// First tweet by a different person ends the thread
+				if (!threadEnded) {
+					threadEnded = true;
+				}
+
+				// Determine reply depth
+				if (lastWasTweet) {
+					currentDepth++;
+				} else {
+					currentDepth = 0;
+				}
+
+				this.replyTweets.push(article);
+				this.replyDepths.push(currentDepth);
+				lastWasTweet = true;
+			} else {
+				lastWasTweet = false;
 			}
 		}
-
-		// Set main tweet and thread tweets
-		this.mainTweet = allTweets[0] || null;
-		this.threadTweets = allTweets.slice(1);
 	}
 
 	canExtract(): boolean {
@@ -44,28 +91,25 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	extract(): ExtractorResult {
-		const mainContent = this.extractTweet(this.mainTweet);
-		const threadContent = this.options.includeReplies !== false
-			? this.threadTweets.map(tweet => this.extractTweet(tweet)).join('\n<hr>\n')
+		// Build post content from main tweet + thread (self-replies)
+		const parts = [this.extractTweetContent(this.mainTweet)];
+		for (const tweet of this.threadTweets) {
+			parts.push(this.extractTweetContent(tweet));
+		}
+		const postContent = parts.join('\n<hr>\n');
+
+		const comments = this.options.includeReplies !== false
+			? this.extractComments()
 			: '';
-		
-		const contentHtml = `
-			<div class="tweet-thread">
-				<div class="main-tweet">
-					${mainContent}
-				</div>
-				${threadContent ? `
-					<hr>
-					<div class="thread-tweets">
-						${threadContent}
-					</div>
-				` : ''}
-			</div>
-		`.trim();
+
+		const contentHtml = buildContentHtml('twitter', postContent, comments);
 
 		const tweetId = this.getTweetId();
 		const tweetAuthor = this.getTweetAuthor();
 		const description = this.createDescription(this.mainTweet);
+		const title = this.threadTweets.length > 0
+			? `Thread by ${tweetAuthor}`
+			: `Post by ${tweetAuthor}`;
 
 		return {
 			content: contentHtml,
@@ -75,12 +119,37 @@ export class TwitterExtractor extends BaseExtractor {
 				tweetAuthor,
 			},
 			variables: {
-				title: `Thread by ${tweetAuthor}`,
+				title,
 				author: tweetAuthor,
 				site: 'X (Twitter)',
 				description,
 			}
 		};
+	}
+
+	private extractComments(): string {
+		if (this.replyTweets.length === 0) return '';
+
+		const commentData: CommentData[] = this.replyTweets.map((tweet, i) => {
+			const userInfo = this.extractUserInfo(tweet);
+			const content = this.extractTweetContent(tweet);
+
+			return {
+				author: userInfo.fullName ? `${userInfo.fullName} ${userInfo.handle}` : userInfo.handle,
+				date: userInfo.date,
+				content,
+				depth: this.replyDepths[i],
+				url: userInfo.permalink,
+			};
+		});
+
+		return buildCommentTree(commentData);
+	}
+
+	private getHandle(tweet: Element): string {
+		const nameElement = tweet.querySelector('[data-testid="User-Name"]');
+		const links = nameElement?.querySelectorAll('a');
+		return links?.[1]?.textContent?.trim() || '';
 	}
 
 	private formatTweetText(text: string): string {
@@ -111,53 +180,65 @@ export class TwitterExtractor extends BaseExtractor {
 		return paragraphs.map(p => `<p>${p}</p>`).join('\n');
 	}
 
-	private extractTweet(tweet: Element | null): string {
-		if (!tweet) return '';
-
-		// Clone the tweet element to modify it
-		const tweetClone = tweet.cloneNode(true) as Element;
-		
-		// Convert emoji images to text
-		tweetClone.querySelectorAll('img[src*="/emoji/"]').forEach(img => {
-			if (img.tagName.toLowerCase() === 'img' && img.getAttribute('alt')) {
-				const altText = img.getAttribute('alt');
-				if (altText) {
-					img.replaceWith(altText);
-				}
+	private replaceEmojiImages(container: Element): void {
+		container.querySelectorAll('img[src*="/emoji/"]').forEach(img => {
+			const altText = img.getAttribute('alt');
+			if (altText) {
+				img.replaceWith(altText);
 			}
 		});
+	}
+
+	private findQuotedTweet(tweet: Element): Element | null {
+		return tweet.querySelector('[aria-labelledby*="id__"]')
+			?.querySelector('[data-testid="User-Name"]')
+			?.closest('[aria-labelledby*="id__"]') || null;
+	}
+
+	private extractTweetContent(tweet: Element | null): string {
+		if (!tweet) return '';
+
+		const tweetClone = tweet.cloneNode(true) as Element;
+		this.replaceEmojiImages(tweetClone);
 
 		const tweetTextEl = tweetClone.querySelector('[data-testid="tweetText"]');
 		const tweetText = tweetTextEl ? serializeHTML(tweetTextEl) : '';
 		const formattedText = this.formatTweetText(tweetText);
-		const images = this.extractImages(tweet);
-		
-		// Get author info and date
-		const userInfo = this.extractUserInfo(tweet);
-		
-		// Extract quoted tweet if present
-		const quotedTweet = tweet.querySelector('[aria-labelledby*="id__"]')?.querySelector('[data-testid="User-Name"]')?.closest('[aria-labelledby*="id__"]');
-		const quotedContent = quotedTweet ? this.extractTweet(quotedTweet) : '';
 
-		return `
-			<div class="tweet">
-				<div class="tweet-header">
-					<span class="tweet-author"><strong>${userInfo.fullName}</strong> <span class="tweet-handle">${userInfo.handle}</span></span>
-					${userInfo.date ? `<a href="${userInfo.permalink}" class="tweet-date">${userInfo.date}</a>` : ''}
-				</div>
-				${formattedText ? `<div class="tweet-text">${formattedText}</div>` : ''}
-				${images.length ? `
-					<div class="tweet-media">
-						${images.join('\n')}
-					</div>
-				` : ''}
-				${quotedContent ? `
-					<blockquote class="quoted-tweet">
-						${quotedContent}
-					</blockquote>
-				` : ''}
-			</div>
-		`.trim();
+		const quotedTweet = this.findQuotedTweet(tweet);
+		const images = this.extractImages(tweet, quotedTweet);
+		const quotedContent = quotedTweet ? this.extractQuotedTweet(quotedTweet) : '';
+		const cardLink = this.extractCard(tweet);
+
+		let html = '';
+		if (formattedText) html += formattedText;
+		if (images.length) html += `\n${images.join('\n')}`;
+		if (cardLink) html += `\n${cardLink}`;
+		if (quotedContent) html += `\n<blockquote class="quoted-tweet">${quotedContent}</blockquote>`;
+
+		return html;
+	}
+
+	private extractQuotedTweet(quotedTweet: Element): string {
+		const tweetClone = quotedTweet.cloneNode(true) as Element;
+		this.replaceEmojiImages(tweetClone);
+
+		const tweetTextEl = tweetClone.querySelector('[data-testid="tweetText"]');
+		const tweetText = tweetTextEl ? serializeHTML(tweetTextEl) : '';
+		const formattedText = this.formatTweetText(tweetText);
+		const userInfo = this.extractUserInfo(quotedTweet);
+		const images = this.extractImages(quotedTweet, null);
+
+		let html = '';
+		if (userInfo.fullName || userInfo.handle) {
+			html += `<p><strong>${escapeHtml(userInfo.fullName)}</strong> ${escapeHtml(userInfo.handle)}`;
+			if (userInfo.date) html += ` · ${escapeHtml(userInfo.date)}`;
+			html += '</p>';
+		}
+		if (formattedText) html += formattedText;
+		if (images.length) html += `\n${images.join('\n')}`;
+
+		return html;
 	}
 
 	private extractUserInfo(tweet: Element) {
@@ -169,10 +250,16 @@ export class TwitterExtractor extends BaseExtractor {
 		let fullName = links?.[0]?.textContent?.trim() || '';
 		let handle = links?.[1]?.textContent?.trim() || '';
 
-		// If links don't have the info, try to get from spans (quoted tweet structure)
+		// If links don't have the info, try direct children (quoted tweet structure).
+		// Quoted tweets have two child divs: [0] = display name, [1] = "@handle·date"
 		if (!fullName || !handle) {
-			fullName = nameElement.querySelector('span[style*="color: rgb(15, 20, 25)"] span')?.textContent?.trim() || '';
-			handle = nameElement.querySelector('span[style*="color: rgb(83, 100, 113)"]')?.textContent?.trim() || '';
+			const children = Array.from(nameElement.children);
+			if (children.length >= 2) {
+				fullName = children[0]?.textContent?.trim() || '';
+				const secondText = children[1]?.textContent?.trim() || '';
+				const handleMatch = secondText.match(/(@\w+)/);
+				handle = handleMatch ? handleMatch[1] : '';
+			}
 		}
 
 		const timestamp = tweet.querySelector('time');
@@ -183,8 +270,7 @@ export class TwitterExtractor extends BaseExtractor {
 		return { fullName, handle, date, permalink };
 	}
 
-	private extractImages(tweet: Element): string[] {
-		// Look for images in different containers
+	private extractImages(tweet: Element, quotedTweet: Element | null): string[] {
 		const imageContainers = [
 			'[data-testid="tweetPhoto"]',
 			'[data-testid="tweet-image"]',
@@ -192,29 +278,38 @@ export class TwitterExtractor extends BaseExtractor {
 		];
 
 		const images: string[] = [];
-		
-		// Skip images that are inside quoted tweets
-		const quotedTweet = tweet.querySelector('[aria-labelledby*="id__"]')?.querySelector('[data-testid="User-Name"]')?.closest('[aria-labelledby*="id__"]');
-		
+
 		for (const selector of imageContainers) {
 			const elements = tweet.querySelectorAll(selector);
-			
+
 			elements.forEach(img => {
-				// Skip if the image is inside a quoted tweet
 				if (quotedTweet?.contains(img)) {
 					return;
 				}
 
-				// Check if element is an image by checking tag name and required properties
 				if (img.tagName.toLowerCase() === 'img' && img.getAttribute('alt')) {
 					const highQualitySrc = img.getAttribute('src')?.replace(/&name=\w+$/, '&name=large') || '';
 					const cleanAlt = img.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || '';
-					images.push(`<img src="${highQualitySrc}" alt="${cleanAlt}" />`);
+					images.push(`<img src="${escapeHtml(highQualitySrc)}" alt="${escapeHtml(cleanAlt)}" />`);
 				}
 			});
 		}
 
 		return images;
+	}
+
+	private extractCard(tweet: Element): string {
+		const card = tweet.querySelector('[data-testid="card.wrapper"]');
+		if (!card) return '';
+
+		const cardLink = card.querySelector('a[href]') as HTMLAnchorElement | null;
+		if (!cardLink) return '';
+
+		const href = cardLink.getAttribute('href') || '';
+		const label = cardLink.getAttribute('aria-label') || '';
+		const title = label.split(/\n/)[0]?.trim() || href;
+
+		return `<p><a href="${escapeHtml(href)}">${escapeHtml(title)}</a></p>`;
 	}
 
 	private getTweetId(): string {
@@ -223,9 +318,7 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	private getTweetAuthor(): string {
-		const nameElement = this.mainTweet?.querySelector('[data-testid="User-Name"]');
-		const links = nameElement?.querySelectorAll('a');
-		const handle = links?.[1]?.textContent?.trim() || '';
+		const handle = this.getHandle(this.mainTweet!);
 		return handle.startsWith('@') ? handle : `@${handle}`;
 	}
 
@@ -235,4 +328,4 @@ export class TwitterExtractor extends BaseExtractor {
 		const tweetText = tweet.querySelector('[data-testid="tweetText"]')?.textContent || '';
 		return tweetText.trim().slice(0, 140).replace(/\s+/g, ' ');
 	}
-} 
+}
