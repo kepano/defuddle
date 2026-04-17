@@ -245,7 +245,8 @@ export class BlueskyExtractor extends BaseExtractor {
 		// Remove Unicode bidi markers that Bluesky adds around handles
 		let html = (clone.innerHTML || clone.textContent || '').trim();
 		html = html.replace(/[\u200E\u200F\u200B]/g, '');
-		html = html.replace(/\s+/g, ' ').trim();
+		// Collapse whitespace but preserve newlines for paragraph splitting
+		html = html.replace(/[^\S\n]+/g, ' ').trim();
 
 		if (!html) return '';
 

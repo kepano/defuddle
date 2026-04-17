@@ -20,6 +20,7 @@ import { WikipediaExtractor } from './extractors/wikipedia';
 import { LinkedInExtractor } from './extractors/linkedin';
 import { ThreadsExtractor } from './extractors/threads';
 import { BlueskyExtractor } from './extractors/bluesky';
+import { DiscourseExtractor } from './extractors/discourse';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -174,6 +175,11 @@ export class ExtractorRegistry {
 				'wikipedia.org',
 			],
 			extractor: WikipediaExtractor
+		});
+
+		this.register({
+			patterns: [/\/t\/[^/]+\/\d+/],
+			extractor: DiscourseExtractor
 		});
 
 		this.register({

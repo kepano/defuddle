@@ -152,6 +152,11 @@ export const codeBlockRules = [
 
 			if (!hasHTMLElementProps(el)) return el;
 
+			// Remove UI buttons (copy, fullscreen, etc.) added by sites
+			// like Discourse, GitHub, etc. These survive normal button
+			// removal because elements inside <pre>/<code> are protected.
+			el.querySelectorAll('button, [class*="codeblock-button"]').forEach(btn => btn.remove());
+
 			const getCodeLanguage = (element: Element): string => {
 				// Check data-lang attribute first
 				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language') || element.getAttribute('language');
