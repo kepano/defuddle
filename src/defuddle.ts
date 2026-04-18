@@ -1153,8 +1153,27 @@ export class Defuddle {
 			return null; // Don't try table-based extraction for modern layouts
 		}
 
-		const cells = Array.from(doc.getElementsByTagName('td'));
-		return ContentScorer.findBestElement(cells);
+		const tocSelector = '#toc, .toc, .Toc, .table-of-contents, [role="directory"]';
+		const cells = Array.from(doc.getElementsByTagName('td')).filter(cell => {
+			// Skip cells inside or containing TOC elements — they hold navigation, not content
+			return !cell.closest(tocSelector) && !cell.querySelector(tocSelector);
+		});
+
+		const bestCell = ContentScorer.findBestElement(cells);
+		if (!bestCell) return null;
+
+		// Check if there's substantial content outside of tables (free-flowing
+		// headings and paragraphs). If the body has far more text outside tables
+		// than inside the best cell, the tables are peripheral (TOC, intro boxes,
+		// quotes) — not the main content container.
+		const bestCellWords = countWords(bestCell.textContent || '');
+		const body = doc.body || doc.documentElement;
+		const bodyWords = countWords(body.textContent || '');
+		if (bestCellWords < bodyWords * 0.33) {
+			return null;
+		}
+
+		return bestCell;
 	}
 
 	private findContentByScoring(doc: Document): Element | null {
