@@ -64,6 +64,17 @@ export class MediumExtractor extends BaseExtractor {
 			el.removeAttribute('role');
 		});
 
+		// Remove subscription promo banners (links to medium.com/plans)
+		this.article.querySelectorAll('a[href*="medium.com/plans"]').forEach(link => {
+			// Remove the closest block-level ancestor that wraps only the promo
+			const wrapper = link.closest('div');
+			if (wrapper && wrapper !== this.article) {
+				wrapper.remove();
+			} else {
+				link.remove();
+			}
+		});
+
 		// Remove related article previews
 		this.article.querySelectorAll('[data-testid="post-preview"]').forEach(el => el.remove());
 
