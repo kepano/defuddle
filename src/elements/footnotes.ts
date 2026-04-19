@@ -6,8 +6,11 @@ import { removeOrphanedDividers } from '../standardize';
 // Matches heading text for loose footnote section delimiters
 const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
 
-// Unicode return/backref arrow glyphs used as backlink text
-const BACKREF_SYMBOLS_RE = /^[\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/;
+// Return/backref symbols used as backlink text (Unicode arrows + ASCII caret)
+const BACKREF_SYMBOLS_RE = /^[\^\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/;
+
+// MediaWiki cite_ref backref href pattern
+const CITE_REF_RE = /^#cite_ref-/;
 
 type FootnoteData = { content: any; originalId: string; refs: string[] };
 type FootnoteCollection = Record<number, FootnoteData>;
@@ -622,13 +625,33 @@ class FootnoteHandler {
 	isBackrefLink(el: any): boolean {
 		if (el.tagName?.toLowerCase() !== 'a') return false;
 		const text = el.textContent?.trim().replace(/\uFE0E|\uFE0F/g, '') || '';
-		return BACKREF_SYMBOLS_RE.test(text) || !!el.classList?.contains('footnote-backref');
+		if (BACKREF_SYMBOLS_RE.test(text) || !!el.classList?.contains('footnote-backref')) return true;
+		// MediaWiki multi-ref backrefs: <a href="#cite_ref-...">3.0</a>
+		const href = el.getAttribute('href') || '';
+		return CITE_REF_RE.test(href);
 	}
 
 	removeBackrefs(el: any): void {
 		el.querySelectorAll('a').forEach((a: any) => {
-			if (this.isBackrefLink(a)) a.remove();
+			if (this.isBackrefLink(a)) {
+				// Remove the wrapping <sup> if it only contained this link
+				const parent = a.parentElement;
+				if (parent?.tagName?.toLowerCase() === 'sup' && parent.children.length === 1) {
+					parent.remove();
+				} else {
+					a.remove();
+				}
+			}
 		});
+		// Trim leading backref text nodes (e.g. bare "^" before numbered multi-ref links)
+		while (el.firstChild && el.firstChild.nodeType === 3) {
+			const text = el.firstChild.textContent;
+			if (text && /^[\s\^,.;]*$/.test(text) && text.includes('^')) {
+				el.firstChild.remove();
+			} else {
+				break;
+			}
+		}
 		while (el.lastChild && el.lastChild.nodeType === 3) {
 			const text = el.lastChild.textContent;
 			if (/^[\s,.;]*$/.test(text)) {

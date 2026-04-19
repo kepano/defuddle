@@ -1154,7 +1154,19 @@ export class Defuddle {
 		}
 
 		const cells = Array.from(doc.getElementsByTagName('td'));
-		return ContentScorer.findBestElement(cells);
+		const bestCell = ContentScorer.findBestElement(cells);
+		if (!bestCell) return null;
+
+		// If there's more text outside the best cell than inside it,
+		// tables are peripheral (TOC, intro boxes, data tables) — not the
+		// main content container. Fall back to body.
+		const bestCellWords = countWords(bestCell.textContent || '');
+		const bodyWords = countWords((doc.body || doc.documentElement).textContent || '');
+		if (bestCellWords * 2 < bodyWords) {
+			return null;
+		}
+
+		return bestCell;
 	}
 
 	private findContentByScoring(doc: Document): Element | null {
