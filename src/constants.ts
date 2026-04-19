@@ -97,7 +97,7 @@ export const EXACT_SELECTORS = [
 	'link',
 
 	// empty media elements (src set by JS at runtime, not in raw HTML)
-	'audio:not([src])',
+	'audio:not([src]):not(:has(source))',
 	'video:not([src]):not(:has(source))',
 
 	// ads
