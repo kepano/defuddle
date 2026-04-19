@@ -21,6 +21,7 @@ import { LinkedInExtractor } from './extractors/linkedin';
 import { ThreadsExtractor } from './extractors/threads';
 import { BlueskyExtractor } from './extractors/bluesky';
 import { DiscourseExtractor } from './extractors/discourse';
+import { MediumExtractor } from './extractors/medium';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -145,6 +146,14 @@ export class ExtractorRegistry {
 				'bsky.app',
 			],
 			extractor: BlueskyExtractor
+		});
+
+		this.register({
+			patterns: [
+				'medium.com',
+				/\.medium\.com/,
+			],
+			extractor: MediumExtractor
 		});
 
 		this.register({
