@@ -79,6 +79,9 @@ const navigationHeadingPattern = new RegExp(
 	navigationIndicators.map(i => i.replace(/\s+/g, '\\s+')).join('|'), 'i'
 );
 
+// Table of contents heading labels — excluded from heading wrapper protection
+const tocHeadingPattern = /^(?:table of )?contents$|^on this page$|^in this (?:article|guide|post)$/i;
+
 // Date pattern for content scoring (extended with year)
 const contentDatePattern = /\b(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*,?\s+\d{4})\b/i;
 
@@ -339,6 +342,22 @@ export class ContentScorer {
 
 		const text = element.textContent || '';
 		const words = countWords(text);
+
+		// Heading wrappers — elements whose only content is a heading tag
+		// (common in page builders like Elementor). These are section headings,
+		// not widgets, even if the wrapper class contains "widget".
+		// Exclude navigation headings (e.g. "Related articles") and ToC labels.
+		const headingChild = element.querySelector('h1, h2, h3, h4, h5, h6');
+		if (headingChild) {
+			const headingText = (headingChild.textContent || '').trim();
+			if (headingText && headingText === text.trim()) {
+				const headingLower = headingText.toLowerCase();
+				if (!navigationHeadingPattern.test(headingLower) &&
+					!tocHeadingPattern.test(headingLower)) {
+					return true;
+				}
+			}
+		}
 
 		// Check for headings that signal non-content sections (e.g. "Related articles")
 		// even if the element has enough text/paragraphs to otherwise look like content.
