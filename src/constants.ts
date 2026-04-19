@@ -80,8 +80,12 @@ const HIDDEN_EXACT_SKIP_SELECTORS = [
 	'.invisible',
 ];
 
+// Paywall sites (e.g. Future PLC) mark gated paragraphs with
+// aria-hidden="true" + class="paywall". Preserve those so the
+// article text isn't stripped, which would trigger a low-word-count
+// retry with partial selectors disabled.
 const HIDDEN_EXACT_SELECTORS = HIDDEN_EXACT_SKIP_SELECTORS.map(s =>
-	s === '[aria-hidden="true"]' ? '[aria-hidden="true"]:not([class*="math"]):not(svg)' : s
+	s === '[aria-hidden="true"]' ? '[aria-hidden="true"]:not([class*="math"]):not(svg):not([class*="paywall"])' : s
 );
 
 // Pre-joined selector strings (these arrays are constant)
@@ -100,6 +104,9 @@ export const EXACT_SELECTORS = [
 	'audio:not([src]):not(:has(source))',
 	'video:not([src]):not(:has(source))',
 
+	// JW Player embeds (removes entire player including controls, shortcuts, overlays)
+	'.jwplayer',
+
 	// ads
 	'.ad:not([class*="gradient"])',
 	'[class^="ad-" i]',
@@ -113,6 +120,7 @@ export const EXACT_SELECTORS = [
 	'.Promo',
 	'#barrier-page', // ft.com
 	'.alert',
+	'[rel="sponsored" i]',
 
 	// comments
 	'[id="comments" i]',
@@ -360,6 +368,7 @@ export const PARTIAL_SELECTORS = [
 	'article-category',
 	'article-card',
 	'article-citation',
+	'article-continues',
 	'article__copy',
 	'article_date',
 	'article-date',
@@ -554,6 +563,7 @@ export const PARTIAL_SELECTORS = [
 	'graph-view',
 
 	'hamburger',
+	'hawk-', // Future PLC affiliate deal widgets
 	'header-pattern', // The Verge
 //	'headlines', Mercurynews
 	'hero[_\\-a-z]',
@@ -566,6 +576,7 @@ export const PARTIAL_SELECTORS = [
 	'hidden-accessibility',
 	'home-link',
 
+	'inarticle-ad',
 	'infoline',
 	'inline-topic',
 	'instacartIntegration',
@@ -901,6 +912,7 @@ export const PARTIAL_SELECTORS = [
 	'u-hide',
 	'upsell',
 
+	'vid_carousel',
 	'viewbottom',
 	'view-language',
 	'yarpp-related',
