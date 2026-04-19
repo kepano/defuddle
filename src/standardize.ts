@@ -175,6 +175,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('replaceCustomElements', () => replaceCustomElements(element, doc));
 		step('convertDataAsSpans', () => convertDataAsSpans(element, doc));
 		step('convertBlockSpans', () => convertBlockSpans(element, doc));
+		step('unwrapLayoutTables', () => unwrapLayoutTables(element));
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
 		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
@@ -505,6 +506,42 @@ function unwrapElement(el: Element): void {
 		el.parentNode?.insertBefore(el.firstChild, el);
 	}
 	el.remove();
+}
+
+/**
+ * Replace layout-only tables with their content. After selector removal,
+ * some tables end up with only one non-empty cell (e.g. a TOC cell was
+ * emptied). If that cell holds a single block element, the table is just
+ * a layout wrapper and should be unwrapped.
+ */
+function unwrapLayoutTables(element: Element): void {
+	const tables = Array.from(element.querySelectorAll('table'));
+	let count = 0;
+
+	for (const table of tables) {
+		if (!table.parentNode) continue;
+
+		// Skip data tables with explicit structure hints
+		if (table.querySelector('thead, tfoot, th, caption')) continue;
+
+		// Only check direct cells to avoid matching nested tables
+		const cells = Array.from(table.querySelectorAll(':scope > tbody > tr > td, :scope > tr > td'));
+		const nonEmptyCells = cells.filter(td => td.textContent?.trim());
+
+		if (nonEmptyCells.length !== 1) continue;
+
+		const cell = nonEmptyCells[0];
+		const children = Array.from(cell.children).filter(
+			c => c.textContent?.trim()
+		);
+
+		if (children.length === 1 && BLOCK_LEVEL_ELEMENTS.has(children[0].tagName.toLowerCase())) {
+			table.replaceWith(children[0]);
+			count++;
+		}
+	}
+
+	logDebug(_debug, 'Unwrapped layout tables:', count);
 }
 
 const TW_BLOCK_RE = /(?:^|\s)block(?:\s|$)/;
