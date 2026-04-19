@@ -472,6 +472,7 @@ class FootnoteHandler {
 			const numbered = this.findLooseFootnoteParagraphs(element);
 			if (numbered) {
 				const { paragraphs, toRemove } = numbered;
+				const toRemoveSet = new Set(toRemove);
 				for (let i = 0; i < paragraphs.length; i++) {
 					const { num, el: defPara } = paragraphs[i];
 					const nextDef = paragraphs[i + 1]?.el ?? null;
@@ -480,7 +481,7 @@ class FootnoteHandler {
 
 					const contentDiv = this.stripMarkerAndWrap(defPara);
 					let sibling: any = defPara.nextElementSibling;
-					while (sibling && sibling !== nextDef) {
+					while (sibling && sibling !== nextDef && toRemoveSet.has(sibling)) {
 						contentDiv.appendChild(sibling.cloneNode(true));
 						sibling = sibling.nextElementSibling;
 					}
@@ -520,15 +521,31 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
+	private trimLeadingWhitespace(parent: any): void {
+		const first = parent.firstChild;
+		if (first?.nodeType === 3) {
+			first.textContent = first.textContent.replace(/^\s+/, '');
+		}
+	}
+
+	private isBoldWrappedSup(el: any): boolean {
+		const tag = el.tagName?.toLowerCase();
+		return (tag === 'b' || tag === 'strong') &&
+			el.firstChild === el.firstElementChild &&
+			el.firstElementChild?.tagName?.toLowerCase() === 'sup';
+	}
+
 	stripMarkerAndWrap(el: any): any {
 		const contentDiv = el.ownerDocument.createElement('div');
 		const clone = el.cloneNode(true) as any;
 		const marker = clone.firstElementChild;
 		if (marker) {
-			marker.remove();
-			const firstNode = clone.firstChild;
-			if (firstNode?.nodeType === 3) {
-				firstNode.textContent = firstNode.textContent.replace(/^\s+/, '');
+			if (this.isBoldWrappedSup(marker)) {
+				marker.firstElementChild.remove();
+				this.trimLeadingWhitespace(marker);
+			} else {
+				marker.remove();
+				this.trimLeadingWhitespace(clone);
 			}
 		}
 		contentDiv.appendChild(clone);
@@ -536,10 +553,16 @@ class FootnoteHandler {
 	}
 
 	parseFootnoteNum(el: any): number | null {
-		const first = el.firstElementChild;
-		if (!first) return null;
-		const ft = first.tagName.toLowerCase();
-		if (ft !== 'sup' && ft !== 'strong') return null;
+		// Marker must be the very first child (no preceding text node)
+		if (!el.firstChild) return null;
+		let first = el.firstElementChild;
+		if (!first || first !== el.firstChild) return null;
+		let tag = first.tagName.toLowerCase();
+		if (this.isBoldWrappedSup(first)) {
+			first = first.firstElementChild;
+			tag = 'sup';
+		}
+		if (tag !== 'sup' && tag !== 'strong') return null;
 		const numText = first.textContent?.trim() || '';
 		const num = parseInt(numText, 10);
 		return !isNaN(num) && num >= 1 && String(num) === numText ? num : null;
@@ -617,6 +640,19 @@ class FootnoteHandler {
 			}
 
 			return { paragraphs: trailingNumbered, toRemove };
+		}
+
+		// Strategy 3: catches footnotes followed by non-footnote trailing content,
+		// or footnotes in a different container than the last <p>
+		const halfParaIdx = Math.floor(allPs.length / 2);
+		const scattered: Array<{num: number; el: any}> = [];
+		for (let i = halfParaIdx; i < allPs.length; i++) {
+			const num = this.parseFootnoteNum(allPs[i]);
+			if (num !== null) scattered.push({ num, el: allPs[i] });
+		}
+
+		if (scattered.length >= 2 && this.crossValidate(element, scattered)) {
+			return { paragraphs: scattered, toRemove: scattered.map(p => p.el) };
 		}
 
 		return null;
@@ -1013,7 +1049,7 @@ class FootnoteHandler {
 						}
 					}
 				});
-			} else if (el.matches('sup[id^="fnref:"]')) {
+			} else if (el.matches('sup[id^="fnref:"], span[id^="fnref:"]')) {
 				footnoteId = el.id.replace('fnref:', '').toLowerCase();
 			} else if (el.matches('sup[id^="fnr"]')) {
 				footnoteId = el.id.replace('fnr', '').toLowerCase();

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Loose footnotes: bold-wrapped sup with trailing content</title>
+</head>
+<body>
+  <!--
+    Pattern: inline <sup>N</sup> references in body, definitions as
+    <p><b><sup>N</sup> label:</b> text</p> — used by apenwarr.com style blogs.
+    Footnotes are followed by non-footnote trailing content (updates, related links).
+  -->
+  <article>
+    <h1>Loose footnotes: bold-wrapped sup with trailing content</h1>
+
+    <p>The protocol handles mobility transparently.<sup>1</sup></p>
+
+    <p>Some care is needed to prevent session hijacking.<sup>2</sup></p>
+
+    <p>There are several candidate protocols.<sup>3</sup></p>
+
+    <p>In conclusion, the approach is promising.</p>
+
+    <p><b><sup>1</sup> Note 2024-01-15:</b> This also works with legacy addressing and NAT traversal.</p>
+
+    <p><b><sup>2</sup> Note 2024-01-10:</b> A simple challenge-response exchange during handshake is sufficient to prevent hijacking by outside attackers.</p>
+
+    <p><b><sup>3</sup> Note 2024-03-20:</b> Besides the primary candidate, there are several other proposals with similar properties.</p>
+
+    <p><b>Update 2024-06-01:</b> A follow-up discussion has been posted on the project blog.</p>
+  </article>
+</body>
+</html>
