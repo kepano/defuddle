@@ -998,7 +998,7 @@ function stripExtraBrElements(element: Element): void {
 			const prevIsBlock = prev && isElement(prev) && BLOCK_LEVEL_ELEMENTS.has(prev.tagName.toLowerCase());
 			const nextIsBlock = next && isElement(next) && BLOCK_LEVEL_ELEMENTS.has(next.tagName.toLowerCase());
 
-			if ((prevIsBlock && nextIsBlock) || (prevIsBlock && !next) || (!prev && nextIsBlock)) {
+			if ((prevIsBlock && nextIsBlock) || (prevIsBlock && !next) || !prev) {
 				for (const b of group) {
 					b.remove();
 					processedCount++;
