@@ -12,9 +12,9 @@ const BACKREF_SYMBOLS_RE = /^[\^\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/;
 // MediaWiki cite_ref backref href pattern
 const CITE_REF_RE = /^#cite_ref-/;
 
-// Numeric footnote marker with optional wrapping brackets/parens (e.g. "1", "[1]", "(23)").
-// Capture group 1 is the digits.
-const FOOTNOTE_MARKER_RE = /^[\[\(]?(\d{1,4})[\]\)]?$/;
+// Numeric footnote marker with optional wrapping brackets/parens (e.g. "1", "[1]", "(23)", "([1])").
+// Capture group 1 is the digits. Wrappers are matched loosely — this is a filter, not an identifier.
+const FOOTNOTE_MARKER_RE = /^\[?\(?(\d{1,4})\)?\]?$/;
 
 // Lowercase fragment id from an anchor's href (part after the last '#').
 function getHrefFragment(anchor: any): string {
@@ -382,7 +382,7 @@ class FootnoteHandler {
 			this.addFootnote(state, id, contentDiv);
 		});
 
-		this.pendingRemovals.push(bestContainer);
+		if (bestContainer) this.pendingRemovals.push(bestContainer);
 	}
 
 	// Microsoft Word HTML export: body refs use href="#_ftn[N]",
