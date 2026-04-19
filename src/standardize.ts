@@ -384,6 +384,10 @@ function standardizeHeadings(element: Element, title: string, doc: Document): vo
 	const normalizeText = (text: string): string => {
 		return text
 			.replace(/\u00A0/g, ' ') // Convert non-breaking spaces to regular spaces
+			.replace(/[\u2018\u2019\u201A\u201B]/g, "'") // Normalize smart single quotes/apostrophes
+			.replace(/[\u2012\u2013\u2014\u2015]/g, '-') // Normalize dashes (figure, en, em, horizontal bar)
+			.replace(/[\u201C\u201D\u201E\u201F]/g, '"') // Normalize smart double quotes
+			.replace(/\u2026/g, '...') // Normalize ellipsis
 			.replace(/\s+/g, ' ') // Normalize all whitespace to single spaces
 			.trim()
 			.toLowerCase();
