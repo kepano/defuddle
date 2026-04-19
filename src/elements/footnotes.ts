@@ -794,8 +794,55 @@ class FootnoteHandler {
 		const footnotes: FootnoteCollection = {};
 		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container, span.inline-footnote');
 
-		// Remove standalone sidenotes that duplicate the formal footnote list
 		if (containers.length === 0) {
+			// Org Mode CSS sidenotes: label.footref + input.footref-toggle + span.sidenote
+			const footrefs = element.querySelectorAll('label.footref');
+			if (footrefs.length > 0) {
+				let footnoteCount = 1;
+				footrefs.forEach((label: any) => {
+					// Find the sidenote that follows this label (possibly with input in between)
+					let sibling = label.nextElementSibling;
+					if (sibling?.tagName === 'INPUT' && sibling.classList?.contains('footref-toggle')) {
+						sibling = sibling.nextElementSibling;
+					}
+					if (!sibling || sibling.tagName !== 'SPAN' || !sibling.classList?.contains('sidenote')) return;
+
+					const content = sibling.cloneNode(true);
+					// Remove the leading sup number from the sidenote content
+					const leadingSup = content.querySelector('sup');
+					if (leadingSup && content.firstChild === leadingSup) {
+						leadingSup.remove();
+					}
+
+					footnotes[footnoteCount] = {
+						content: content,
+						originalId: String(footnoteCount),
+						refs: [`fnref:${footnoteCount}`]
+					};
+
+					// Replace label + input + sidenote with a footnote reference
+					const ref = this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`);
+					const inputEl = label.nextElementSibling;
+					if (inputEl?.tagName === 'INPUT' && inputEl.classList?.contains('footref-toggle')) {
+						inputEl.remove();
+					}
+					sibling.remove();
+					label.replaceWith(ref);
+
+					footnoteCount++;
+				});
+
+				// Remove the footer that duplicates these sidenotes (Org Mode footdef list)
+				element.querySelectorAll('footer').forEach((footer: any) => {
+					if (footer.querySelector('.footdef')) {
+						footer.remove();
+					}
+				});
+
+				return footnotes;
+			}
+
+			// Remove standalone sidenotes that duplicate the formal footnote list
 			element.querySelectorAll('span.sidenote').forEach((sidenote: any) => {
 				sidenote.remove();
 			});
