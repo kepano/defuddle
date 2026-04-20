@@ -132,6 +132,23 @@ export class MetadataExtractor {
 		}
 
 		// 3. DOM elements
+
+		// Short-circuit on rel="author": running before `.author` stops a container
+		// that wraps a bio from contributing bio text to the collection below.
+		const relAuthorEls = doc.querySelectorAll('a[rel~="author"], address[rel~="author"]');
+		if (relAuthorEls.length > 0 && relAuthorEls.length <= 3) {
+			const relNames: string[] = [];
+			relAuthorEls.forEach(el => {
+				const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+				const lower = text.toLowerCase();
+				if (text && text.length < 100 && lower !== 'author' && lower !== 'authors' && !this.isPlaceholderValue(text)) {
+					relNames.push(text);
+				}
+			});
+			const uniqueRelNames = [...new Set(relNames)];
+			if (uniqueRelNames.length > 0) return uniqueRelNames.join(', ');
+		}
+
 		const collectedAuthorsFromDOM: string[] = [];
 		const addDomAuthor = (value: string | null | undefined) => {
 			if (!value) return;
