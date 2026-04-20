@@ -475,6 +475,7 @@ export const PARTIAL_SELECTORS = [
 	'contact-',
 	'content-card', // The Verge
 	'copycontent',
+	'copy-tooltip',
 	'content-topics',
 	'contentpromo',
 	'context-bar',
@@ -576,6 +577,7 @@ export const PARTIAL_SELECTORS = [
 	'hidden-accessibility',
 	'home-link',
 
+	'icon-sidebar',
 	'inarticle-ad',
 	'infoline',
 	'inline-topic',
