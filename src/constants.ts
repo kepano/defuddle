@@ -247,6 +247,7 @@ export const EXACT_SELECTORS = [
 	// iframes
 	'instaread-player',
 	'iframe:not([src])',
+	'iframe[src*="tinypass.com"]',
 	'iframe[src*="trinitymedia.ai"]',
 
 	// logos

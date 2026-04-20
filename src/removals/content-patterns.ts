@@ -4,6 +4,7 @@ import { textPreview, countWords } from '../utils';
 import { findContentStart, isAboveContentStart } from '../content-boundary';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
+const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago\b/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\s+time)\s*:?\s*\d+\s*min(?:ute)?s?\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
@@ -250,12 +251,12 @@ function isBreadcrumbList(list: Element): boolean {
 // presentational and don't belong in extracted content. Runs before selector removal
 // so the h1 anchor is still present on pages that strip title classes (e.g. Substack).
 export function removeEyebrowLabel(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
-	const firstH1 = mainContent.querySelector('h1');
-	if (!firstH1) return;
+	const firstHeading = mainContent.querySelector('h1') || mainContent.querySelector('h2');
+	if (!firstHeading) return;
 
 	// Walk up through single-child wrappers so we can match eyebrows that
 	// appear as siblings of an h1 ancestor rather than of the h1 directly.
-	let current: Element = firstH1;
+	let current: Element = firstHeading;
 	while (current.parentElement && current.parentElement !== mainContent &&
 		!current.previousElementSibling &&
 		current.parentElement.children.length === 1) {
@@ -447,9 +448,10 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			continue;
 		}
 
-		// Remove article metadata header blocks (DIV only) near the top of content.
-		// Catches Tailwind-based blog layouts with non-semantic date+category divs.
-		if (tag === 'DIV' && words >= 1 && words <= 10 && hasDate && !/[.!?]/.test(text) && isPreContent(el)) {
+		// Remove article metadata header blocks (DIV/P) near the top of content.
+		// Catches Tailwind-based blog layouts with non-semantic date+category divs,
+		// and news site eyebrows with relative timestamps (e.g. "21 hours ago - Politics & Policy").
+		if ((tag === 'DIV' || tag === 'P') && words >= 1 && words <= 10 && (hasDate || RELATIVE_TIME_PATTERN.test(text)) && !/[.!?]/.test(text) && isPreContent(el)) {
 			if (!Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) {
 				if (debug && debugRemovals) {
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'article metadata header block', text: textPreview(el) });
