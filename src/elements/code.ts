@@ -157,6 +157,21 @@ export const codeBlockRules = [
 			// removal because elements inside <pre>/<code> are protected.
 			el.querySelectorAll('button, [class*="codeblock-button"]').forEach(btn => btn.remove());
 
+			// Runs after button removal so header text is just labels, not "bash Copy".
+			el.querySelectorAll(
+				'[class*="header"], [class*="toolbar"], [class*="titlebar"], [class*="title-bar"]'
+			).forEach(elem => {
+				const tag = elem.tagName;
+				if (tag !== 'DIV' && tag !== 'SPAN') return;
+				const lineAncestor = elem.closest?.('[data-line], .line');
+				if (lineAncestor && el.contains(lineAncestor)) return;
+				if (elem.querySelector('[data-line], .line, pre')) return;
+				const text = (elem.textContent || '').trim();
+				if (countWords(text) <= 5) {
+					elem.remove();
+				}
+			});
+
 			const getCodeLanguage = (element: Element): string => {
 				// Check data-lang attribute first
 				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language') || element.getAttribute('language');
