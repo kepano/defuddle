@@ -328,6 +328,28 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// orphaned images and empty wrappers. Detect and remove the whole block.
 	removeHeroHeader(mainContent, contentStart, debug, debugRemovals);
 
+	// Remove "Listen to this article" audio player widgets.
+	// TTS services inject audio/video players with "Listen to this article/story" text.
+	// Find audio/video elements with sources and walk up to a short container.
+	for (const media of mainContent.querySelectorAll('audio, video')) {
+		if (!media.parentNode) continue;
+		if (!media.getAttribute('src') && !media.querySelector('source')) continue;
+
+		let container = media as Element;
+		while (container.parentElement && container.parentElement !== mainContent) {
+			if (countWords(container.parentElement.textContent?.trim() || '') > 25) break;
+			container = container.parentElement;
+		}
+
+		const containerText = container.textContent?.trim() || '';
+		if (/\blisten\s+to\s+(?:this\s+)?(?:article|story|post|episode|podcast)\b/i.test(containerText)) {
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'audio player widget', text: textPreview(container) });
+			}
+			container.remove();
+		}
+	}
+
 	const contentText = mainContent.textContent || '';
 
 	let parsedPageUrl: URL | null = null;

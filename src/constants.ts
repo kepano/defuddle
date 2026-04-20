@@ -408,6 +408,7 @@ export const PARTIAL_SELECTORS = [
 	'associated-people',
 	'ambient-video__button',
 	'audio-card',
+	'beyondwords',
 //	'author', Gwern
 //	'-author',
 	'author-bio',
