@@ -313,6 +313,7 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "title"),
 			this.getMetaContent(metaTags, "name", "sailthru.title"),
 			doc.querySelector('title')?.textContent?.trim() || '',
+			doc.querySelector('h1')?.textContent?.trim() || '',
 		].filter(c => c && !this.isPlaceholderValue(c));
 
 		if (candidates.length === 0) return '';
