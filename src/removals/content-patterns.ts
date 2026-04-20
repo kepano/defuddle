@@ -17,13 +17,16 @@ const BOILERPLATE_PATTERNS = [
 	/^Comments?$/i,
 	/^Leave a (?:comment|reply)$/i,
 	/^Loading\.{3}$/,
+	/^Affiliate links\b.*\b(?:earn|commission)/i,
+	/\bRead our Comment Policy\b/i,
+	/^Thank you for (?:being part of|joining) our community\b/i,
 ];
-const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)/i;
+const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)|\b(?:don[\u2019']?t (?:want to )?miss|never miss)\b[\s\S]{0,80}\b(?:latest|best|exclusive|reports?|updates?|source)/i;
 const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
 const TIMEZONE_WIDGET_PATTERN = /^current time in$/i;
 const PINNED_LABEL_PATTERN = /^pinned$/i;
 const AUTHOR_CONTACT_LABEL_PATTERN = /^(?:written by|(?:author|contact|reporter|correspondent)s?)$/i;
-const SHARE_AUTHOR_LABEL = /^(?:share|authors?|written\s+by)$/i;
+const SHARE_AUTHOR_LABEL = /^(?:share|follow|authors?|written\s+by)$/i;
 // CONTENT_ELEMENT_SELECTOR minus img/picture — author avatars are common in metadata widgets
 const CONTENT_ELEMENT_NO_IMG_SELECTOR = CONTENT_ELEMENT_SELECTOR.replace(/img, picture, /, '');
 const EMAIL_PATTERN = /[\w.-]+@[\w.-]+\.\w+/;
@@ -40,7 +43,7 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const words = countWords(text);
 	if (words < 2 || words > maxWords) return false;
 	if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) return false;
-	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\u2018\u2019]/g, "'");
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
@@ -254,12 +257,12 @@ export function removeEyebrowLabel(mainContent: Element, debug: boolean, debugRe
 	const firstHeading = mainContent.querySelector('h1') || mainContent.querySelector('h2');
 	if (!firstHeading) return;
 
-	// Walk up through single-child wrappers so we can match eyebrows that
-	// appear as siblings of an h1 ancestor rather than of the h1 directly.
+	// Walk up through wrappers where the heading (or its ancestor) is the
+	// first child, so we can match eyebrows that appear as siblings of an
+	// h1 ancestor rather than of the h1 directly.
 	let current: Element = firstHeading;
 	while (current.parentElement && current.parentElement !== mainContent &&
-		!current.previousElementSibling &&
-		current.parentElement.children.length === 1) {
+		!current.previousElementSibling) {
 		current = current.parentElement;
 	}
 	const prev = current.previousElementSibling;
@@ -961,7 +964,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				for (const ancestor of ancestors) {
 					removeTrailingSiblings(ancestor, false, debug, debugRemovals);
 				}
-				return;
+				break;
 			}
 		}
 	}
@@ -1163,6 +1166,34 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'social engagement counter', text: textPreview(target) });
 		}
 		target.remove();
+	}
+
+	// Remove trailing tag/category link blocks — short blocks near the end of
+	// content containing only links (e.g. "Features", "Amazon", "Amazon Kindle").
+	// These are tag clouds or category link sections appended after the article body.
+	for (const el of mainContent.querySelectorAll('div')) {
+		if (!el.parentNode) continue;
+		const text = el.textContent?.trim() || '';
+		const words = countWords(text);
+		if (words < 1 || words > 10) continue;
+		if (/[.!?]/.test(text)) continue;
+		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+
+		const pos = contentText.indexOf(text);
+		if (pos < 0) continue;
+		const distFromEnd = contentText.length - (pos + text.length);
+		if (distFromEnd > 300) continue;
+
+		const links = el.querySelectorAll('a[href]');
+		if (links.length === 0) continue;
+		let linkTextLen = 0;
+		for (const link of links) linkTextLen += (link.textContent?.trim() || '').length;
+		if (linkTextLen / (text.length || 1) < 0.8) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'trailing tag link block', text: textPreview(el) });
+		}
+		el.remove();
 	}
 
 }
