@@ -65,7 +65,8 @@ export class MediumExtractor extends BaseExtractor {
 		});
 
 		// Remove subscription promo banners (links to medium.com/plans)
-		this.article.querySelectorAll('a[href*="medium.com/plans"]').forEach(link => {
+		// and "Write on Medium" promotional banners
+		this.article.querySelectorAll('a[href*="medium.com/plans"], a[href*="source=promotion"]').forEach(link => {
 			// Remove the closest block-level ancestor that wraps only the promo
 			const wrapper = link.closest('div');
 			if (wrapper && wrapper !== this.article) {
