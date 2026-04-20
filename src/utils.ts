@@ -69,6 +69,23 @@ export function logDebug(debug: boolean, message: string, ...args: any[]): void 
 export const CJK_CHAR_RANGES = '\\u3040-\\u309f\\u30a0-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\\uac00-\\ud7af';
 
 /**
+ * Canonicalize text for title/heading comparison: normalize smart quotes,
+ * dashes, ellipses, and whitespace; lowercase. Two strings that humans would
+ * read as "the same" should compare equal after this pass.
+ */
+export function normalizeText(text: string): string {
+	return text
+		.replace(/\u00A0/g, ' ')
+		.replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+		.replace(/[\u2012\u2013\u2014\u2015]/g, '-')
+		.replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+		.replace(/\u2026/g, '...')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.toLowerCase();
+}
+
+/**
  * Count words in text, handling CJK characters (Chinese, Japanese, Korean).
  * CJK characters are counted individually since they don't use spaces between words.
  * Non-CJK text is counted by splitting on whitespace.

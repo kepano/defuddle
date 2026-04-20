@@ -20,7 +20,7 @@ import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE }
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug } from './utils';
+import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 
 // Module-level debug flag, set by standardizeContent for child functions
@@ -381,18 +381,6 @@ export function removeOrphanedDividers(element: Element): void {
 }
 
 function standardizeHeadings(element: Element, title: string, doc: Document): void {
-	const normalizeText = (text: string): string => {
-		return text
-			.replace(/\u00A0/g, ' ') // Convert non-breaking spaces to regular spaces
-			.replace(/[\u2018\u2019\u201A\u201B]/g, "'") // Normalize smart single quotes/apostrophes
-			.replace(/[\u2012\u2013\u2014\u2015]/g, '-') // Normalize dashes (figure, en, em, horizontal bar)
-			.replace(/[\u201C\u201D\u201E\u201F]/g, '"') // Normalize smart double quotes
-			.replace(/\u2026/g, '...') // Normalize ellipsis
-			.replace(/\s+/g, ' ') // Normalize all whitespace to single spaces
-			.trim()
-			.toLowerCase();
-	};
-
 	const h1s = element.getElementsByTagName('h1');
 
 	Array.from(h1s).forEach(h1 => {

@@ -16,7 +16,7 @@ import { ContentScorer, ContentScore } from './removals/scoring';
 import { findSmallImages, removeSmallImages } from './removals/small-images';
 import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
-import { removeByContentPattern } from './removals/content-patterns';
+import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords, isSVGElement } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
@@ -844,6 +844,15 @@ export class Defuddle {
 				}
 			});
 
+			// Remove "eyebrow" category labels before selector removal — these
+			// are anchored on the first <h1>, which some sites strip via class
+			// (e.g. Substack's .post-title) in the selector phase.
+			profileStep('removeEyebrowLabel', () => {
+				if (options.removeContentPatterns && mainContent) {
+					removeEyebrowLabel(mainContent!, this.debug, debugRemovals);
+				}
+			});
+
 			// Remove clutter using selectors — deterministic removal of known
 			// non-content elements (nav, footer, .sidebar, etc.) by class/id.
 			// Runs before scoring so the heuristic scorer sees a cleaner DOM.
@@ -873,7 +882,7 @@ export class Defuddle {
 			profileStep('removeByContentPattern', () => {
 				if (options.removeContentPatterns && mainContent) {
 					const url = this.options.url || this.doc.URL || '';
-					removeByContentPattern(mainContent!, this.debug, url, debugRemovals);
+					removeByContentPattern(mainContent!, this.debug, url, metadata.title || '', debugRemovals);
 				}
 			});
 

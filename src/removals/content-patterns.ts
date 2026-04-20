@@ -1,6 +1,7 @@
 import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords } from '../utils';
+import { findContentStart, isAboveContentStart } from '../content-boundary';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\s+time)\s*:?\s*\d+\s*min(?:ute)?s?\b/i;
@@ -144,26 +145,22 @@ function removeThinPrecedingSection(target: Element, debug: boolean, debugRemova
 }
 
 /**
- * Detect and remove "hero header" blocks near the top of content.
- * These are containers that wrap a heading (h1/h2), a <time> element,
- * and optionally author info and a hero image — common in blog layouts.
- * The block has very little prose; it's purely presentational metadata.
+ * Remove "hero header" blocks — wrappers that group a heading, a <time>, and
+ * typically a hero image/byline at the top of a blog post. Individual metadata
+ * elements are stripped elsewhere; this exists to delete the empty wrapper and
+ * its orphaned hero image so they don't surface as bare children of mainContent.
  *
- * Strategy: find <time> elements near the start, then walk up to find
- * the largest ancestor that's still mostly metadata (contains h1 + time,
- * has little prose). This handles arbitrary nesting depth.
+ * A <time> above the content boundary is the entry point; we walk up toward
+ * the largest ancestor that still has little prose (contains h1 + time but
+ * < 30 non-metadata words).
  */
-function removeHeroHeader(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+function removeHeroHeader(mainContent: Element, contentStart: Element | null, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	const timeElements = mainContent.querySelectorAll('time');
 	if (timeElements.length === 0) return;
 
-	const contentText = mainContent.textContent || '';
-
 	for (const time of timeElements) {
-		// Must be near the start of content
-		const timeText = time.textContent?.trim() || '';
-		const pos = contentText.indexOf(timeText);
-		if (pos > 300) continue;
+		// Must sit above the content body — i.e. pre-content metadata.
+		if (!isAboveContentStart(time, contentStart)) continue;
 
 		// Walk up from the <time> element to find the largest ancestor
 		// that contains both a heading and a <time>, but has little prose.
@@ -248,7 +245,48 @@ function isBreadcrumbList(list: Element): boolean {
 	return allInternal && hasBreadcrumbLink && shortLinkTexts;
 }
 
-export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, debugRemovals?: DebugRemoval[]) {
+// Remove "eyebrow" elements — short category/taxonomy labels immediately preceding
+// the first <h1> (e.g. "Blog post", "Off-nominal", "Announcements"). These are
+// presentational and don't belong in extracted content. Runs before selector removal
+// so the h1 anchor is still present on pages that strip title classes (e.g. Substack).
+export function removeEyebrowLabel(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const firstH1 = mainContent.querySelector('h1');
+	if (!firstH1) return;
+
+	// Walk up through single-child wrappers so we can match eyebrows that
+	// appear as siblings of an h1 ancestor rather than of the h1 directly.
+	let current: Element = firstH1;
+	while (current.parentElement && current.parentElement !== mainContent &&
+		!current.previousElementSibling &&
+		current.parentElement.children.length === 1) {
+		current = current.parentElement;
+	}
+	const prev = current.previousElementSibling;
+	if (!prev) return;
+
+	const text = prev.textContent?.trim() || '';
+	const words = countWords(text);
+	if (words < 1 || words > 6) return;
+	if (text.length > 40) return;
+	if (/[.!?]/.test(text)) return;
+	if (CONTENT_DATE_PATTERN.test(text)) return;
+	if (prev.querySelector(
+		'img, picture, video, iframe, figure, table, pre, code, time, [datetime], ' +
+		'h1, h2, h3, h4, h5, h6, ul, ol, blockquote'
+	)) return;
+
+	if (debug && debugRemovals) {
+		debugRemovals.push({ step: 'removeEyebrowLabel', reason: 'eyebrow label', text: textPreview(prev) });
+	}
+	prev.remove();
+}
+
+export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, title: string, debugRemovals?: DebugRemoval[]) {
+	// Structural anchor for "where the prose body starts." Heuristics targeting
+	// pre-content use this as the authoritative above/below check — replacing
+	// ad-hoc `contentText.indexOf(text) < N` byte-offset thresholds.
+	const contentStart = findContentStart(mainContent, title);
+	const isPreContent = (el: Element): boolean => isAboveContentStart(el, contentStart);
 	const firstList = mainContent.querySelector('ul, ol');
 	if (firstList && isBreadcrumbList(firstList)) {
 		let target: Element = firstList;
@@ -282,11 +320,12 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 	}
 
+
 	// Remove hero header blocks — containers near the top of content that
 	// wrap date, title heading, author, tags, and a hero image together.
 	// After individual metadata elements are stripped, these leave behind
 	// orphaned images and empty wrappers. Detect and remove the whole block.
-	removeHeroHeader(mainContent, debug, debugRemovals);
+	removeHeroHeader(mainContent, contentStart, debug, debugRemovals);
 
 	const contentText = mainContent.textContent || '';
 
@@ -410,7 +449,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		// Remove article metadata header blocks (DIV only) near the top of content.
 		// Catches Tailwind-based blog layouts with non-semantic date+category divs.
-		if (tag === 'DIV' && words >= 1 && words <= 10 && hasDate && !/[.!?]/.test(text) && getPos() <= 400) {
+		if (tag === 'DIV' && words >= 1 && words <= 10 && hasDate && !/[.!?]/.test(text) && isPreContent(el)) {
 			if (!Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) {
 				if (debug && debugRemovals) {
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'article metadata header block', text: textPreview(el) });
@@ -421,7 +460,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 
 		// Remove standalone "By [Name]" author bylines near the start of content.
-		if (!bylineFound && STARTS_WITH_BY_PATTERN.test(text) && words >= 2 && !/[.!?]$/.test(text) && getPos() <= 600) {
+		if (!bylineFound && STARTS_WITH_BY_PATTERN.test(text) && words >= 2 && !/[.!?]$/.test(text) && isPreContent(el)) {
 			const target = walkUpToWrapper(el, text, mainContent);
 			if (debug && debugRemovals) {
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'author byline', text: textPreview(target) });
@@ -435,7 +474,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// With a date: any position, no block children. Without: short text near the start.
 		if (CONTENT_READ_TIME_PATTERN.test(text) &&
 			(hasDate ? el.querySelectorAll('p, div, section, article').length === 0
-			         : words <= 5 && getPos() <= 500)) {
+			         : words <= 5 && isPreContent(el))) {
 			let cleaned = text;
 			for (const pattern of READ_TIME_STRIP_PATTERNS) {
 				cleaned = cleaned.replace(pattern, '');
@@ -451,7 +490,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 
 		// Remove author + date bylines (name + date, any order) near the start.
-		if (!authorDateFound && words >= 2 && words <= 10 && hasDate && getPos() <= 500) {
+		if (!authorDateFound && words >= 2 && words <= 10 && hasDate && isPreContent(el)) {
 			let residual = text;
 			for (const pattern of BYLINE_STRIP_PATTERNS) {
 				residual = residual.replace(pattern, '');
@@ -472,7 +511,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 
 		// Remove standalone date elements near the start of content.
-		if (hasDate && words <= 5 && getPos() <= 300) {
+		if (hasDate && words <= 5 && isPreContent(el)) {
 			let residual = text;
 			for (const pattern of METADATA_STRIP_BASE) {
 				residual = residual.replace(pattern, '');

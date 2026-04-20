@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Notes on Distributed Training Methods This Week</title>
+<meta property="og:title" content="Notes on Distributed Training Methods This Week">
+<meta property="og:site_name" content="Example Newsletter">
+<meta property="article:published_time" content="2026-04-15T00:00:00.000Z">
+</head>
+<body>
+<main>
+	<article class="typography newsletter-post post">
+		<div role="region" aria-label="Post header" class="post-header">
+			<div class="post-label"><a href="/s/blog/" class="uppercase">Blog</a></div>
+			<h1 class="post-title published">Notes on Distributed Training Methods This Week</h1>
+			<h3 class="subtitle">April 15, 2026</h3>
+		</div>
+		<div class="body markup">
+			<p>At the end of a recent podcast episode, we talked about how to actually retain what you learn from technical reading. The advice was to make some kind of demanding artifact. Write something up. Try to explain it. So in that spirit, here are notes on a few topics I have been learning about over the last week or two.</p>
+			<p>These notes are extremely rough, and they almost certainly contain mistakes. Please read them as a learning log rather than authoritative reference, and do not hesitate to push back on anything that seems wrong.</p>
+			<h2>Parallelism strategies</h2>
+			<p>The three standard parallelism strategies for training large models are data parallelism, tensor parallelism, and pipeline parallelism. Modern systems combine all three, which is often referred to as three-dimensional parallelism, with the exact ratios depending on the hardware topology and model shape.</p>
+			<p>Data parallelism replicates the model across devices and splits the batch. Tensor parallelism splits individual operations, such as matrix multiplies, across devices. Pipeline parallelism splits the model by layer across devices, with micro-batches flowing through the pipeline to keep all devices busy.</p>
+			<h2>Communication patterns</h2>
+			<p>Each parallelism strategy has a distinct communication pattern, and the efficiency of the training run depends heavily on how well those patterns map onto the underlying interconnect.</p>
+			<p>Tensor parallelism requires all-reduce operations between every device involved in a given shard, which scales poorly beyond a single node. Pipeline parallelism needs point-to-point sends between adjacent stages, which scales across nodes more gracefully.</p>
+			<h2>Practical implications</h2>
+			<p>The interaction between these strategies, the interconnect, and the model architecture determines how a given cluster should be partitioned for training. Getting the partitioning right is often the difference between a fast run and one that is network-bound.</p>
+		</div>
+	</article>
+</main>
+</body>
+</html>

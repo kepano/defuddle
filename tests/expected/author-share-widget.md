@@ -7,8 +7,6 @@
 }
 ```
 
-Blog
-
 This is the first paragraph of a long blog post. It discusses an important topic that many people care about. The author shares insights based on years of experience.
 
 ## Background
