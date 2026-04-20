@@ -459,6 +459,23 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			}
 		}
 
+		// Remove category/topic badge blocks near the start of content.
+		// These are small containers holding only an image link and a category name link.
+		if (tag === 'DIV' && words >= 1 && words <= 5 && !/[.!?]/.test(text) && isPreContent(el) && el.querySelector('img')) {
+			const links = el.querySelectorAll('a[href]');
+			if (links.length > 0) {
+				let linkTextLen = 0;
+				for (const link of links) linkTextLen += (link.textContent?.trim() || '').length;
+				if (linkTextLen / (text.length || 1) >= 0.8) {
+					if (debug && debugRemovals) {
+						debugRemovals.push({ step: 'removeByContentPattern', reason: 'category badge', text: textPreview(el) });
+					}
+					el.remove();
+					continue;
+				}
+			}
+		}
+
 		// Remove standalone "By [Name]" author bylines near the start of content.
 		if (!bylineFound && STARTS_WITH_BY_PATTERN.test(text) && words >= 2 && !/[.!?]$/.test(text) && isPreContent(el)) {
 			const target = walkUpToWrapper(el, text, mainContent);

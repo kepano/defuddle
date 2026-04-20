@@ -473,6 +473,7 @@ export const PARTIAL_SELECTORS = [
 	'complementary',
 	'consent',
 	'contact-',
+	'cookie.law',
 	'content-card', // The Verge
 	'copycontent',
 	'copy-tooltip',
@@ -541,6 +542,7 @@ export const PARTIAL_SELECTORS = [
 	'feedback',
 	'feed-links',
 	'field-site-sections',
+	'filed',
 	'fixheader',
 	'floating-vid',
 //	'follow',
@@ -686,6 +688,7 @@ export const PARTIAL_SELECTORS = [
 	'outline-view',
 //	'overlay',
 
+	'pagefoot',
 	'pagehead',
 	'page-header',
 	'page-title',
@@ -791,7 +794,9 @@ export const PARTIAL_SELECTORS = [
 	'register',
 	'(?<!h[1-6]-)related',
 	'relevant',
+	'relposts',
 	'reversefootnote',
+	'rightcol',
 	'robots-nocontent',
 	'_rss',
 	'rss-link',
