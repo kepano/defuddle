@@ -121,6 +121,7 @@ export const EXACT_SELECTORS = [
 	'#barrier-page', // ft.com
 	'.alert',
 	'[rel="sponsored" i]',
+	'[href*="source=promotion" i]',
 
 	// comments
 	'[id="comments" i]',
@@ -1065,6 +1066,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'src',
 	'srclang',
 	'srcset',
+	'start',
 	'title',
 	'type',
 	'width',
