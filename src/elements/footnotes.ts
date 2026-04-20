@@ -1,10 +1,10 @@
 import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES, BLOCK_LEVEL_ELEMENTS } from '../constants';
-import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { transferContent, parseHTML, serializeHTML, getClassName } from '../utils/dom';
 import { isElement, isTextNode } from '../utils';
 import { removeOrphanedDividers } from '../standardize';
 
 // Matches heading text for loose footnote section delimiters
-const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
+export const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
 
 // Return/backref symbols used as backlink text (Unicode arrows + ASCII caret)
 const BACKREF_SYMBOLS_RE = /^[\^\u21A9\u21A5\u2191\u21B5\u2934\u2935\u23CE]+$/;
@@ -287,6 +287,7 @@ class FootnoteHandler {
 			this.tryGenericIdDetection,
 			this.tryWordExport,
 			this.tryGoogleDocs,
+			this.tryLabeledSection,
 			this.tryLooseFootnotes,
 			this.tryClassFootnote,
 		];
@@ -507,6 +508,52 @@ class FootnoteHandler {
 			this.addFootnote(state, String(num), this.stripMarkerAndWrap(defPara));
 		}
 		this.pendingRemovals.push(...footnoteParagraphs.map(p => p.el));
+	}
+
+	// Labeled footnote sections: a container whose class/id contains "footnote" and
+	// whose first heading matches FOOTNOTE_SECTION_RE (e.g. "Footnotes"). The heading
+	// is a strong enough signal that even a single footnote is detected. Handles CSS
+	// module hashes like "PostDetail__UQuRMa__footnotes".
+	private tryLabeledSection(element: any, state: CollectState): void {
+		const containers = element.querySelectorAll('div, section, aside');
+		for (const container of Array.from(containers) as any[]) {
+			const className = getClassName(container);
+			const id = container.id || '';
+			if (!/footnote/i.test(className) && !/footnote/i.test(id)) continue;
+
+			const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
+			if (!heading || !FOOTNOTE_SECTION_RE.test(heading.textContent?.trim() || '')) continue;
+
+			const paragraphs: Array<{num: number; el: any}> = [];
+			container.querySelectorAll('p').forEach((p: any) => {
+				const num = this.parseFootnoteNum(p);
+				if (num !== null) paragraphs.push({ num, el: p });
+			});
+
+			if (paragraphs.length === 0) continue;
+
+			const numberedSet = new Set(paragraphs.map(p => p.el));
+			for (let i = 0; i < paragraphs.length; i++) {
+				const { num, el: defPara } = paragraphs[i];
+				const contentDiv = this.stripMarkerAndWrap(defPara);
+
+				// Collect subsequent siblings until the next numbered paragraph
+				let sibling = defPara.nextElementSibling;
+				while (sibling && !numberedSet.has(sibling)) {
+					if (sibling.textContent?.trim()) {
+						contentDiv.appendChild(sibling.cloneNode(true));
+					}
+					this.pendingRemovals.push(sibling);
+					sibling = sibling.nextElementSibling;
+				}
+
+				this.addFootnote(state, String(num), contentDiv);
+				this.pendingRemovals.push(defPara);
+			}
+
+			this.pendingRemovals.push(container);
+			break;
+		}
 	}
 
 	private trimLeadingWhitespace(parent: any): void {

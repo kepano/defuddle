@@ -10,7 +10,7 @@ import {
 	ENTRY_POINT_ELEMENTS
 } from './constants';
 import { standardizeContent } from './standardize';
-import { standardizeFootnotes } from './elements/footnotes';
+import { standardizeFootnotes, FOOTNOTE_SECTION_RE } from './elements/footnotes';
 import { standardizeCallouts } from './elements/callouts';
 import { ContentScorer, ContentScore } from './removals/scoring';
 import { findSmallImages, removeSmallImages } from './removals/small-images';
@@ -822,6 +822,13 @@ export class Defuddle {
 				mainContent!.querySelectorAll('wbr').forEach(el => el.remove());
 			});
 
+			// Pull in footnote sections that live outside the main content element
+			profileStep('adoptExternalFootnotes', () => {
+				if (options.standardize) {
+					this.adoptExternalFootnotes(mainContent!, clone);
+				}
+			});
+
 			// Standardize footnotes before cleanup (CSS sidenotes use display:none)
 			profileStep('standardizeFootnotesCallouts', () => {
 				if (options.standardize) {
@@ -1211,6 +1218,25 @@ export class Defuddle {
 
 	private getComputedStyle(element: Element): CSSStyleDeclaration | null {
 		return getComputedStyle(element);
+	}
+
+	// Move footnote sections that live outside the main content element into it.
+	private adoptExternalFootnotes(mainContent: Element, root: Document | Element): void {
+		const body = (root as any).body || root;
+		if (!body || mainContent === body) return;
+
+		body.querySelectorAll('div, section, aside').forEach((el: Element) => {
+			const className = getClassName(el);
+			const id = (el as any).id || '';
+			if (!/footnote/i.test(className) && !/footnote/i.test(id)) return;
+
+			if (mainContent.contains(el) || el.contains(mainContent)) return;
+
+			const heading = el.querySelector('h1, h2, h3, h4, h5, h6');
+			if (!heading || !FOOTNOTE_SECTION_RE.test(heading.textContent?.trim() || '')) return;
+
+			mainContent.appendChild(el);
+		});
 	}
 
 	/**
