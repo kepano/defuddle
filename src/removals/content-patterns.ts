@@ -970,6 +970,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove related post card grids that lack a detectable heading
 	// (e.g. the heading was removed by removeLowScoring before this step runs).
 	// Matches a container whose children are predominantly image-bearing cards (img + heading).
+	const contentWordCount = countWords(contentText);
 	for (const el of mainContent.querySelectorAll('div')) {
 		if (!el.parentNode) continue;
 		if (el.children.length < 2) continue;
@@ -985,6 +986,10 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Must appear after substantial content (not a top-of-page listing)
 		const firstText = children[0].textContent?.trim().substring(0, 30) || '';
 		if (firstText.length < 5 || contentText.indexOf(firstText) < 500) continue;
+
+		// Skip grids whose text is a large share of total content (e.g. numbered takeaways).
+		const gridWords = countWords(el.textContent || '');
+		if (contentWordCount > 0 && gridWords / contentWordCount > 0.3) continue;
 
 		const target = walkUpIsolated(el, mainContent);
 		if (target === el) continue;
