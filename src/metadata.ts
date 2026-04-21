@@ -3,51 +3,20 @@ import { countWords } from './utils';
 
 export class MetadataExtractor {
 	static extract(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): DefuddleMetadata {
+		const url = this.getDocumentUrl(doc, schemaOrgData, metaTags);
 		let domain = '';
-		let url = '';
-
-		try {
-			// Try to get URL from document location
-			url = doc.location?.href || '';
-			
-			// If no URL from location, try other sources
-			if (!url) {
-				url = this.getMetaContent(metaTags, "property", "og:url") ||
-					this.getMetaContent(metaTags, "property", "twitter:url") ||
-					this.getSchemaProperty(schemaOrgData, 'url') ||
-					this.getSchemaProperty(schemaOrgData, 'mainEntityOfPage.url') ||
-					this.getSchemaProperty(schemaOrgData, 'mainEntity.url') ||
-					this.getSchemaProperty(schemaOrgData, 'WebSite.url') ||
-					doc.querySelector('link[rel="canonical"]')?.getAttribute('href') || '';
-			}
-
-			if (url) {
-				try {
-					domain = new URL(url).hostname.replace(/^www\./, '');
-				} catch (e) {
-					console.warn('Failed to parse URL:', e);
-				}
-			}
-		} catch (e) {
-			// If URL parsing fails, try to get from base tag
-			const baseTag = doc.querySelector('base[href]');
-			if (baseTag) {
-				try {
-					url = baseTag.getAttribute('href') || '';
-					domain = new URL(url).hostname.replace(/^www\./, '');
-				} catch (e) {
-					console.warn('Failed to parse base URL:', e);
-				}
+		if (url) {
+			try {
+				domain = new URL(url).hostname.replace(/^www\./, '');
+			} catch {
+				// Ignore invalid metadata URLs; extraction can still continue.
 			}
 		}
 
 		const siteName = this.getSiteName(schemaOrgData, metaTags);
 		const { title, detectedSiteName } = this.cleanTitle(this.getBestTitle(doc, schemaOrgData, metaTags, domain, siteName), siteName);
 		const author = this.getAuthor(doc, schemaOrgData, metaTags);
-		// Only use author as site fallback for short single-entity names (personal blogs);
-		// multi-author strings with commas are not suitable as site identifiers.
-		const authorAsSite = author && !author.includes(',') ? author : '';
-		const site = siteName || detectedSiteName || authorAsSite || domain || '';
+		const site = siteName || detectedSiteName || domain || '';
 
 		return {
 			title,
@@ -89,24 +58,15 @@ export class MetadataExtractor {
 	private static getAuthor(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		let authorsString: string | undefined;
 
-		// Meta tags - typically expect a single string, possibly comma-separated
-		authorsString = this.firstValid([
-			() => this.getMetaContent(metaTags, "name", "sailthru.author"),
-			() => this.getMetaContent(metaTags, "property", "article:author"),
-			() => this.getMetaContent(metaTags, "property", "author"),
-			() => this.getMetaContent(metaTags, "name", "author"),
-			() => this.getMetaContent(metaTags, "name", "byl"),
-			() => this.getMetaContent(metaTags, "name", "authorList"),
-		]);
-		if (authorsString) {
-			const cleaned = this.cleanAuthorString(authorsString);
-			if (cleaned) return cleaned;
-		}
-
-		// Conventions for research paper meta tags
+		// Structured author metadata is usually more reliable than generic author tags.
 		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author").filter(s => !this.isPlaceholderValue(s));
 		if (authorsStrings.length === 0) {
-			authorsStrings = this.getMetaContents(metaTags, "property", "dc.creator").filter(s => !this.isPlaceholderValue(s));
+			authorsStrings = [
+				...this.getMetaContents(metaTags, "property", "dc:creator"),
+				...this.getMetaContents(metaTags, "name", "dc:creator"),
+				...this.getMetaContents(metaTags, "property", "dc.creator"),
+				...this.getMetaContents(metaTags, "name", "dc.creator"),
+			].filter(s => !this.isPlaceholderValue(s));
 		}
 		if (authorsStrings.length > 0) {
 			authorsString = authorsStrings.map(s => {
@@ -119,6 +79,16 @@ export class MetadataExtractor {
 			}).join(', ');
 			return authorsString;
 		}
+
+		// Meta tags - typically expect a single string, possibly comma-separated
+		authorsString = this.getMetaContent(metaTags, "name", "parsely-author") ||
+			this.getMetaContent(metaTags, "property", "parsely-author") ||
+			this.getMetaContent(metaTags, "name", "sailthru.author") ||
+			this.getMetaContent(metaTags, "property", "author") ||
+			this.getMetaContent(metaTags, "name", "author") ||
+			this.getMetaContent(metaTags, "name", "byl") ||
+			this.getMetaContent(metaTags, "name", "authorList");
+		if (authorsString && !this.isPlaceholderValue(authorsString)) return this.cleanAuthorString(authorsString);
 
 		// 2. Schema.org data - deduplicate if it's a list
 		let schemaAuthors = this.getSchemaProperty(schemaOrgData, 'author.name') ||
@@ -304,7 +274,7 @@ export class MetadataExtractor {
 
 		// Reject candidates that are too long to be a real site name —
 		// some pages set og:site_name to the full page title.
-		if (candidate && countWords(candidate) > 6) {
+		if (candidate && countWords(candidate) > 8) {
 			return '';
 		}
 
@@ -312,32 +282,58 @@ export class MetadataExtractor {
 	}
 
 	private static getBestTitle(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[], domain: string, siteName: string): string {
-		const candidates = [
-			this.getMetaContent(metaTags, "property", "og:title"),
-			this.getMetaContent(metaTags, "name", "twitter:title"),
-			this.getSchemaProperty(schemaOrgData, 'headline'),
-			this.getMetaContent(metaTags, "name", "title"),
-			this.getMetaContent(metaTags, "name", "sailthru.title"),
-			doc.querySelector('title')?.textContent?.trim() || '',
-			doc.querySelector('h1')?.textContent?.trim() || '',
-		].filter(c => c && !this.isPlaceholderValue(c));
-
-		if (candidates.length === 0) return '';
-
 		const authorMeta = this.getMetaContent(metaTags, "property", "author") ||
 			this.getMetaContent(metaTags, "name", "author");
-
-		// Pre-normalize identifiers once rather than per candidate
 		const authorNorm = authorMeta.trim().toLowerCase();
 		const siteNorm = siteName.trim().toLowerCase();
 		const domainNorm = domain
 			? domain.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 			: '';
 
-		// Return the first candidate that isn't a site identifier (brand/domain name).
-		// Falls back to the first candidate if all are identifiers.
-		return candidates.find(c => !this.isSiteIdentifier(c, authorNorm, siteNorm, domainNorm))
-			?? candidates[0];
+		const sources = [
+			{ weight: 24, value: this.getMetaContent(metaTags, "property", "dc:title") },
+			{ weight: 24, value: this.getMetaContent(metaTags, "name", "dc:title") },
+			{ weight: 22, value: this.getSchemaProperty(schemaOrgData, 'headline') },
+			{ weight: 21, value: doc.querySelector('title')?.textContent?.trim() || '' },
+			{ weight: 12, value: this.getMetaContent(metaTags, "name", "parsely-title") },
+			{ weight: 11, value: doc.querySelector('h1')?.textContent?.trim() || '' },
+			{ weight: 10, value: this.getMetaContent(metaTags, "property", "og:title") },
+			{ weight: 9, value: this.getMetaContent(metaTags, "name", "twitter:title") },
+			{ weight: 9, value: this.getMetaContent(metaTags, "property", "twitter:title") },
+			{ weight: 8, value: this.getMetaContent(metaTags, "name", "title") },
+			{ weight: 8, value: this.getMetaContent(metaTags, "name", "sailthru.title") },
+		];
+
+		const buckets = new Map<string, { score: number; title: string; firstWeight: number }>();
+		for (const source of sources) {
+			const rawValue = source.value?.trim();
+			if (!rawValue || this.isPlaceholderValue(rawValue)) continue;
+			const cleanedValue = this.cleanTitle(rawValue, siteName).title.trim();
+			if (!cleanedValue || this.isPlaceholderValue(cleanedValue)) continue;
+			if (this.isSiteIdentifier(cleanedValue, authorNorm, siteNorm, domainNorm)) continue;
+
+			const key = this.normalizeTitleKey(cleanedValue);
+			const existing = buckets.get(key);
+			if (existing) {
+				existing.score += source.weight;
+				if (cleanedValue.length > existing.title.length) {
+					existing.title = cleanedValue;
+				}
+				existing.firstWeight = Math.max(existing.firstWeight, source.weight);
+			} else {
+				buckets.set(key, {
+					score: source.weight,
+					title: cleanedValue,
+					firstWeight: source.weight,
+				});
+			}
+		}
+
+		if (buckets.size === 0) return '';
+
+		return Array.from(buckets.values())
+			.sort((a, b) => b.score - a.score || b.firstWeight - a.firstWeight || b.title.length - a.title.length)[0]
+			.title;
 	}
 
 	private static isSiteIdentifier(candidate: string, authorNorm: string, siteNorm: string, domainNorm: string): boolean {
@@ -481,6 +477,9 @@ export class MetadataExtractor {
 
 	private static getDescription(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return this.firstValid([
+			() => this.getMetaContent(metaTags, "property", "dc:description"),
+			() => this.getMetaContent(metaTags, "name", "dc:description"),
+			() => this.getMetaContent(metaTags, "name", "parsely-description"),
 			() => this.getMetaContent(metaTags, "name", "description"),
 			() => this.getMetaContent(metaTags, "property", "description"),
 			() => this.getMetaContent(metaTags, "property", "og:description"),
@@ -531,13 +530,13 @@ export class MetadataExtractor {
 
 	private static getFavicon(doc: Document, baseUrl: string, metaTags: MetaTagItem[]): string {
 		const iconFromMeta = this.getMetaContent(metaTags, "property", "og:image:favicon");
-		if (iconFromMeta) return iconFromMeta;
+		if (iconFromMeta) return this.resolveUrl(iconFromMeta, baseUrl);
 
 		const iconLink = doc.querySelector("link[rel='icon']")?.getAttribute("href");
-		if (iconLink) return iconLink;
+		if (iconLink) return this.resolveUrl(iconLink, baseUrl);
 
 		const shortcutLink = doc.querySelector("link[rel='shortcut icon']")?.getAttribute("href");
-		if (shortcutLink) return shortcutLink;
+		if (shortcutLink) return this.resolveUrl(shortcutLink, baseUrl);
 
 		// Only try to construct favicon URL if we have a valid HTTP base URL
 		if (baseUrl && /^https?:\/\//.test(baseUrl)) {
@@ -554,6 +553,8 @@ export class MetadataExtractor {
 	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		const result = this.firstValid([
 			() => this.getSchemaProperty(schemaOrgData, 'datePublished'),
+			() => this.getMetaContent(metaTags, "name", "parsely-pub-date"),
+			() => this.getMetaContent(metaTags, "property", "parsely-pub-date"),
 			() => this.getMetaContent(metaTags, "name", "publishDate"),
 			() => this.getMetaContent(metaTags, "property", "article:published_time"),
 			() => (doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() || '',
@@ -587,9 +588,13 @@ export class MetadataExtractor {
 	}
 
 	private static getMetaContents(metaTags: MetaTagItem[], attr: string, value: string): string[] {
+		const normalizedTarget = value.toLowerCase();
 		return metaTags.filter(tag => {
 			const attributeValue = attr === 'name' ? tag.name : tag.property;
-			return attributeValue?.toLowerCase() === value.toLowerCase();
+			if (!attributeValue) return false;
+			const normalizedAttribute = attributeValue.toLowerCase().trim();
+			if (normalizedAttribute === normalizedTarget) return true;
+			return normalizedAttribute.split(/[\s,]+/).includes(normalizedTarget);
 		}).map(tag => tag.content?.trim() ?? "");
 	}
 
@@ -598,6 +603,45 @@ export class MetadataExtractor {
 		const element = Array.from(doc.querySelectorAll(selector))[0];
 		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
 		return content;
+	}
+
+	private static getDocumentUrl(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+		const baseUrl = doc.location?.href || doc.baseURI || (doc as any).URL || '';
+		const candidates = [
+			baseUrl,
+			this.getMetaContent(metaTags, "property", "og:url"),
+			this.getMetaContent(metaTags, "property", "twitter:url"),
+			this.getSchemaProperty(schemaOrgData, 'url'),
+			this.getSchemaProperty(schemaOrgData, 'mainEntityOfPage.url'),
+			this.getSchemaProperty(schemaOrgData, 'mainEntity.url'),
+			this.getSchemaProperty(schemaOrgData, 'WebSite.url'),
+			doc.querySelector('link[rel="canonical"]')?.getAttribute('href') || '',
+			doc.querySelector('base[href]')?.getAttribute('href') || '',
+		];
+
+		for (const candidate of candidates) {
+			const resolved = this.resolveUrl(candidate, baseUrl);
+			if (resolved) return resolved;
+		}
+
+		return '';
+	}
+
+	private static resolveUrl(candidate: string, baseUrl: string): string {
+		if (!candidate) return '';
+		try {
+			return baseUrl ? new URL(candidate, baseUrl).href : new URL(candidate).href;
+		} catch {
+			return '';
+		}
+	}
+
+	private static normalizeTitleKey(title: string): string {
+		return title
+			.toLowerCase()
+			.replace(/\s+/g, ' ')
+			.replace(/[^\p{L}\p{N}]+/gu, ' ')
+			.trim();
 	}
 
 	private static readonly MONTH_MAP: Record<string, string> = {

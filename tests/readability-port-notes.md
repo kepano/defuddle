@@ -27,8 +27,8 @@ Fixture-level port annotations:
 - `readability-port-annotations.ts`
   - Centralizes the small set of fixture-specific adaptations instead of
     scattering comments through the test body
-  - Unlisted fixtures are treated as baseline ports: they either worked with the
-    canonical harness immediately or are still expected to fail pending bug fixes
+  - Unlisted fixtures are treated as baseline ports unless they are called out in
+    the milestone notes below as requiring a Defuddle fix
   - Annotation buckets are:
     - `semantic-text`
       - Readability and Defuddle preserve the same extracted text, but Defuddle's
@@ -42,6 +42,31 @@ Fixture-level port annotations:
     - `metadata-variant`
       - The content is accepted, but a fixture also needs a title/byline variant
         because Defuddle's metadata choice is judged equivalent or better
+
+Milestone notes:
+
+- Baseline imports
+  - Any fixture that passes without an entry in `readability-port-annotations.ts`
+    worked as-is once the canonical harness was in place.
+- Phase 1: expectation adaptations
+  - Fixtures listed in `readability-port-annotations.ts`
+  - These remain compatibility tests, but their assertion mode or accepted
+    metadata variant is adjusted to match Defuddle's normalization choices.
+- Phase 2: Defuddle metadata/parser fixes
+  - Fixed in code rather than in fixture expectations:
+    `001`, `002`, `003-metadata-preferred`,
+    `004-metadata-space-separated-properties`,
+    `comment-inside-script-parsing`, `metadata-content-missing`,
+    `parsely-metadata`, `theverge`
+  - Fix categories:
+    title-source precedence, Dublin Core token handling, Parsely metadata
+    handling, site-name filtering, relative/protocol-relative URL resolution,
+    malformed-script text parsing, namespace normalization, and explicitly closed
+    void-element recovery
+- Phase 3: remaining failures
+  - At the current phase-2 baseline, the remaining failures are treated as real
+    extractor/content-selection issues unless later triage reclassifies them as
+    acceptable Defuddle differences.
 
 Not ported intentionally:
 

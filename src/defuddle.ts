@@ -1570,12 +1570,12 @@ export class Defuddle {
 				} else {
 					rawSchemaItems.push(jsonData);
 				}
-			} catch (error) {
-				console.error('Defuddle: Error parsing schema.org data:', error);
-				if (this.debug) {
-					console.error('Defuddle: Problematic JSON content:', jsonContent);
+				} catch (error) {
+					if (this.debug) {
+						console.error('Defuddle: Error parsing schema.org data:', error);
+						console.error('Defuddle: Problematic JSON content:', jsonContent);
+					}
 				}
-			}
 		});
 
 		const decodeStringsInObject = (item: any): any => {
