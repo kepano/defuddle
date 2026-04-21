@@ -181,6 +181,8 @@ export const EXACT_SELECTORS = [
 	'.meta',
 	'.tags',
 	'#tags',
+	'.reviewedBy_fmt',
+	'.contextual_links_fmt',
 	'[rel="tag"]',
 	'.headline',
 	'#headline',

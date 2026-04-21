@@ -77,6 +77,10 @@ Milestone notes:
     `yahoo-3`
     - Removed an over-broad partial selector so article prose that mentions
       Facebook keeps the inline anchor text instead of dropping it.
+  - Module cleanup selectors:
+    `webmd-1`, `webmd-2`
+    - Removed WebMD reviewer/context modules that were still leaking into the
+      extracted article after the container fix.
 
 Not ported intentionally:
 
