@@ -72,8 +72,14 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 	], {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
-		note: 'Defuddle drops leading site chrome or share/footer clutter that Readability keeps in the expected fixture.'
+		note: 'Defuddle drops leading site chrome or keeps title/deck details in metadata instead of duplicating them inside the article body.'
 	}),
+	'ars-1': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the article body and lead image in content, while the Ars section label and lower-deck remain in metadata instead of being duplicated in-body.',
+		expectedSelectorsToRemove: ['header']
+	},
 	'yahoo-3': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',

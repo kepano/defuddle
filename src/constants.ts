@@ -184,6 +184,7 @@ export const EXACT_SELECTORS = [
 	'#tags',
 	'.reviewedBy_fmt',
 	'.contextual_links_fmt',
+	'figcaption > .caption-credit:only-child',
 	'.related-wrap--small',
 	'.error-report',
 	'.taglist',

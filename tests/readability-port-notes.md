@@ -56,6 +56,15 @@ Milestone notes:
     `base-url`
     - Accepted as semantic-text because Defuddle resolves fragment-only links to
       absolute page URLs instead of preserving bare `#fragment` hrefs.
+  - Metadata-backed structural subsets:
+    `ars-1`
+    - Removed a standalone intro-image credit node so figure credits do not
+      leak into article prose as stray links.
+    - Accepted as a structural subset because Defuddle keeps the article body
+      and lead image in content while leaving the section label and lower-deck
+      in metadata rather than duplicating them in the body.
+    - The compat harness strips the expected-side Ars `header` block before
+      comparing the remaining article body.
 - Phase 2: Defuddle metadata/parser fixes
   - Fixed in code rather than in fixture expectations:
     `001`, `002`, `003-metadata-preferred`,
