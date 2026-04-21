@@ -109,6 +109,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'structural-subset',
 		note: 'Defuddle keeps the CNN article body while stripping the inline SmartAsset embed, paid-partner rail modules, and footer timestamp that Mozilla preserved.'
 	},
+	'dropbox-blog': {
+		porting: 'metadata-variant',
+		note: 'Defuddle keeps the full Dropbox article body and byline, but preserves the page-title variant with a colon instead of Mozilla’s typographic apostrophe-plus-dash title.',
+		titleAlternatives: ['How we designed Dropbox ATF: an async task framework']
+	},
 	'videos-2': {
 		content: 'expected-contains-actual-text',
 		porting: 'metadata-variant',

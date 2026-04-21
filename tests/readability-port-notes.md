@@ -231,6 +231,16 @@ Milestone notes:
       Taboola popover iframe container, and the CNET membership/signup flyout
       that were leaking into the selected article.
     - The fixture now passes without a per-fixture expectation override.
+  - Dropbox wrapper and table-tail preservation:
+    `dropbox-blog`
+    - Added Dropbox’s `.dr-article-content__content` wrapper as an entry point
+      and stripped the adjacent in-page side navigation.
+    - Fixed the trailing-boilerplate truncation pass so it does not treat the
+      table header cell `Comment` as a comments-footer marker and delete the
+      remainder of the article.
+    - Accepted with a title variant because Defuddle keeps Dropbox’s page-title
+      form (`How we designed Dropbox ATF: an async task framework`) instead of
+      Mozilla’s typographic apostrophe-plus-dash variant.
 
 Not ported intentionally:
 

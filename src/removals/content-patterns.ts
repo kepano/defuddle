@@ -1027,6 +1027,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	for (const el of boilerplateElements) {
 		if (!el.parentNode) continue;
 		if (el.closest('pre, code')) continue;
+		if (el.closest('table')) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 		if (words > 50 || words < 1) continue;
