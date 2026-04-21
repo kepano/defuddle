@@ -241,6 +241,14 @@ Milestone notes:
     - Accepted with a title variant because Defuddle keeps Dropbox’s page-title
       form (`How we designed Dropbox ATF: an async task framework`) instead of
       Mozilla’s typographic apostrophe-plus-dash variant.
+  - EBB body-vs-footer normalization:
+    `ebb-org`
+    - Accepted as a structural superset because Defuddle preserves the article
+      title as a heading and drops the trailing site disclaimer/footer block
+      that Mozilla preserved in the imported expected HTML.
+    - The compat harness strips the expected-side in-body date/byline line and
+      disclaimer text before checking that the remaining article prose is
+      contained in Defuddle’s output.
 
 Not ported intentionally:
 

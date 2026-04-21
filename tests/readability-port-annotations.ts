@@ -114,6 +114,20 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the full Dropbox article body and byline, but preserves the page-title variant with a colon instead of Mozilla’s typographic apostrophe-plus-dash title.',
 		titleAlternatives: ['How we designed Dropbox ATF: an async task framework']
 	},
+	'ebb-org': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-superset',
+		note: 'Defuddle keeps the EBB article body while preserving the article title as a heading and stripping the trailing site-disclaimer/footer block that Mozilla preserved.',
+		expectedTextSnippetsToRemove: [
+			'Tuesday 15 October 2019 by Bradley M. Kuhn',
+			'#include <std/disclaimer.h>',
+			'use Standard::Disclaimer;',
+			'from standard import disclaimer',
+			'SELECT full_text FROM standard WHERE type = \'disclaimer\';',
+			'Both previously and presently, I have been employed by and/or done work for various organizations that also have views on Free, Libre, and Open Source Software.',
+			'ebb <sup>℠</sup> is a service mark of Bradley M. Kuhn.'
+		]
+	},
 	'videos-2': {
 		content: 'expected-contains-actual-text',
 		porting: 'metadata-variant',
