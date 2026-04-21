@@ -106,6 +106,13 @@ Milestone notes:
       real article paragraphs.
     - The fixture is accepted as a structural subset because Defuddle omits the
       non-article `'GMA' Cookie Search` teaser banner that Mozilla kept.
+  - Yahoo Japan article chrome cleanup:
+    `yahoo-4`
+    - Removed the Yahoo Japan article shell around `#ym_newsarticle`
+      (`.hd`, `.snsButton`, related-article block, and footer metadata).
+    - The fixture keeps a title variant without the Yahoo suffix.
+    - The imported Mozilla byline is intentionally skipped because `個人` comes
+      from Yahoo navigation, not from the article itself.
 
 Not ported intentionally:
 

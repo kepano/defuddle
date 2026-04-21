@@ -75,6 +75,12 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'structural-subset',
 		note: 'Defuddle keeps the article body and byline but omits the non-article cookie-search teaser that Readability preserved.'
 	},
+	'yahoo-4': {
+		porting: 'metadata-variant',
+		note: 'Defuddle strips the Yahoo page chrome and keeps the article title variant; Mozilla’s byline here points to the Yahoo "個人" nav label rather than an author.',
+		skipByline: true,
+		titleAlternatives: ['トレンドマイクロ、公衆無線LANを安全に使うためのアプリ「フリーWi-Fiプロテクション」 （CNET Japan）']
+	},
 	'seattletimes-1': {
 		content: 'semantic-text',
 		porting: 'metadata-variant',

@@ -339,6 +339,10 @@ export const EXACT_SELECTORS = [
 	'[data-orientation="vertical"]',
 	'.gh-header-sticky', // GitHub
 	'[data-testid="issue-metadata-sticky"]', // GitHub
+	'#ym_newsarticle .ft',
+	'#ym_newsarticle .hd',
+	'#ym_newsarticle .snsButton',
+	'#ym_newsarticle .ynDetailRelArticle',
 ];
 
 export const EXACT_SELECTORS_JOINED = EXACT_SELECTORS.join(',');
