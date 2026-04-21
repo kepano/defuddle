@@ -51,6 +51,7 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		'comment-inside-script-parsing',
 		'embedded-videos',
 		'gmw',
+		'basic-tags-cleaning',
 		'mathjax',
 		'quanta-1',
 		'remove-aria-hidden',

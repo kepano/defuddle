@@ -109,6 +109,12 @@ Milestone notes:
     - The fixture is accepted as a structural superset because Defuddle keeps
       the lead and inline photo/caption blocks while preserving the article
       body intact.
+  - Inert iframe cleanup and heading-preservation superset:
+    `basic-tags-cleaning`
+    - Removed `iframe[src="about:blank"]` so inert fallback frames do not leak
+      into extracted article content.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      the article's semantic headings instead of flattening them away.
   - Yahoo story chrome and byline cleanup:
     `yahoo-3`
     - Removed Yahoo story header/share/preference bars from the selected
