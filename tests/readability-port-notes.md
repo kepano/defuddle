@@ -92,6 +92,11 @@ Milestone notes:
     - The fixture is accepted as a structural subset because Defuddle keeps the
       article and intentionally drops the timestamp header and footer junk that
       Mozilla's expected HTML still preserves.
+  - Channel-label cleanup and lead-media superset:
+    `aclu`
+    - Removed the blog-channel label from the extracted content.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      the lead image/caption block while preserving the article body intact.
 
 Not ported intentionally:
 

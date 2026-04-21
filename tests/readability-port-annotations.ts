@@ -45,6 +45,7 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the extracted article text but normalizes markdown differently from Readability.'
 	}),
 	...annotate([
+		'aclu',
 		'comment-inside-script-parsing',
 		'embedded-videos',
 		'gmw',

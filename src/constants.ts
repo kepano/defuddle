@@ -326,6 +326,7 @@ export const EXACT_SELECTORS = [
 	'#rss',
 	'#feed',
 	'.gutter',
+	'.blog_channel_header--title',
 	'.mbArticleShareBtn',
 	'#primaryaudio', // NPR
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
