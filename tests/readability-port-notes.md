@@ -217,6 +217,14 @@ Milestone notes:
       article.
     - The fixture is accepted as a structural superset because Defuddle still
       preserves the intro blurb and hero image block that Mozilla omitted.
+  - CNN inline partner-module cleanup:
+    `cnn`
+    - Removed the inline SmartAsset calculator block, Outbrain/sidebar partner
+      modules, and other paid-partner rail widgets that were leaking into the
+      selected article.
+    - The fixture is accepted as a structural subset because Defuddle also
+      drops the SmartAsset sponsor label and footer timestamp that Mozilla
+      preserved even though they are not part of the article body.
 
 Not ported intentionally:
 

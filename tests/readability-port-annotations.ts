@@ -104,6 +104,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the CityLab article body while leaving the author/date in metadata and stripping newsletter/about-author blocks from the body.',
 		titleAlternatives: ['A Brief History of Neon Signage']
 	},
+	'cnn': {
+		content: 'expected-contains-actual-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the CNN article body while stripping the inline SmartAsset embed, paid-partner rail modules, and footer timestamp that Mozilla preserved.'
+	},
 	'videos-2': {
 		content: 'expected-contains-actual-text',
 		porting: 'metadata-variant',
