@@ -195,6 +195,14 @@ Milestone notes:
     - The fixture is accepted as a structural subset because Defuddle now drops
       remaining share/reuse UI that Mozilla still preserved in the expected
       body, and it keeps the article title with the leading `The`.
+  - Hero/newsletter subset:
+    `breitbart`
+    - Accepted as a structural subset because Defuddle drops the hero image,
+      duplicate date line, and newsletter prompt that Mozilla preserved above
+      the article body.
+    - The imported Mozilla byline blob is intentionally skipped because it
+      mixes the author with date and engagement counters, while Defuddle keeps
+      the clean author name in metadata.
 
 Not ported intentionally:
 
