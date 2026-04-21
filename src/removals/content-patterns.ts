@@ -46,6 +46,22 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\u2018\u2019]/g, "'");
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
+
+function isSingleLinkParagraph(el: Element): boolean {
+	if (el.tagName !== 'P') return false;
+	if (el.querySelector('img, picture, video, figure, blockquote')) return false;
+
+	const text = el.textContent?.trim() || '';
+	const words = countWords(text);
+	if (words < 2 || words > 16) return false;
+	if (/[.!?]$/.test(text)) return false;
+
+	const children = Array.from(el.children);
+	if (children.length !== 1 || children[0].tagName !== 'A') return false;
+
+	const linkText = children[0].textContent?.trim() || '';
+	return linkText === text;
+}
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from .*|from|articles?|posts?|like this)|more to (?:read|explore)|explore more|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
 // CTA headings that are never real content — safe to remove even as direct children
 const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our)|search (?:the |our )?(?:site|blog|archives?|newsroom|website|catalog|store|shop|database))$/i;
@@ -342,6 +358,50 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'promotional banner link', text: textPreview(link) });
 			}
 			link.remove();
+		}
+	}
+
+	// Remove interstitial runs of promo links inserted between real paragraphs.
+	// These show up as consecutive <p><a>...</a></p> siblings surrounded by
+	// prose, especially on syndicated news pages.
+	const children = Array.from(mainContent.children);
+	let runStart = -1;
+	for (let i = 0; i <= children.length; i++) {
+		const child = children[i];
+		const inRun = !!child && isSingleLinkParagraph(child);
+
+		if (inRun) {
+			if (runStart < 0) runStart = i;
+			continue;
+		}
+
+		if (runStart >= 0) {
+			const run = children.slice(runStart, i);
+			const prev = runStart > 0 ? children[runStart - 1] : null;
+			const next = i < children.length ? children[i] : null;
+			const prevLooksLikeProse = !!prev &&
+				prev.tagName === 'P' &&
+				!isSingleLinkParagraph(prev) &&
+				countWords(prev.textContent || '') >= 8;
+			const nextLooksLikeProse = !!next &&
+				next.tagName === 'P' &&
+				!isSingleLinkParagraph(next) &&
+				countWords(next.textContent || '') >= 8;
+
+			if (run.length >= 2 && prevLooksLikeProse && nextLooksLikeProse) {
+				for (const linkPara of run) {
+					if (debug && debugRemovals) {
+						debugRemovals.push({
+							step: 'removeByContentPattern',
+							reason: 'interstitial promo link paragraph',
+							text: textPreview(linkPara)
+						});
+					}
+					linkPara.remove();
+				}
+			}
+
+			runStart = -1;
 		}
 	}
 

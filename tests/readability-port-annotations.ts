@@ -70,6 +70,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'structural-subset',
 		note: 'Defuddle drops leading site chrome or share/footer clutter that Readability keeps in the expected fixture.'
 	}),
+	'yahoo-3': {
+		content: 'expected-contains-actual-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the article body and byline but omits the non-article cookie-search teaser that Readability preserved.'
+	},
 	'seattletimes-1': {
 		content: 'semantic-text',
 		porting: 'metadata-variant',

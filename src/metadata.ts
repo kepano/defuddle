@@ -141,6 +141,8 @@ export class MetadataExtractor {
 		// (e.g. testimonials, comments, contributor lists)
 		const domAuthorSelectors: { selector: string; maxMatches?: number }[] = [
 			{ selector: '[itemprop="author"]' },
+			{ selector: 'cite.byline .fn', maxMatches: 3 },
+			{ selector: 'cite.byline', maxMatches: 3 },
 			{ selector: '.author', maxMatches: 3 },
 			{ selector: '[href*="/author/"]', maxMatches: 3 },
 			{ selector: '.authors a', maxMatches: 3 },

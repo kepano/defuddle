@@ -321,7 +321,9 @@ export const EXACT_SELECTORS = [
 	'[data-testid="load-more-posts"] + div', // NY Times lazy loader
 	'.copyright',
 	'#copyright',
+	'.credit-bar',
 	'.licensebox',
+	'.interest-bar',
 	'#page-info',
 	'#rss',
 	'#feed',
@@ -332,6 +334,7 @@ export const EXACT_SELECTORS = [
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
 	'[data-testid="photoviewer-children-figure"] > span', // NY Times
 	'table.infobox',
+	'.topic-bar',
 	'[data-optimizely="related-articles-section" i]', // The Economist
 	'[data-orientation="vertical"]',
 	'.gh-header-sticky', // GitHub

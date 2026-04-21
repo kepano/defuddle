@@ -97,6 +97,15 @@ Milestone notes:
     - Removed the blog-channel label from the extracted content.
     - The fixture is accepted as a structural superset because Defuddle keeps
       the lead image/caption block while preserving the article body intact.
+  - Yahoo story chrome and byline cleanup:
+    `yahoo-3`
+    - Removed Yahoo story header/share/preference bars from the selected
+      article container.
+    - Added author extraction support for `cite.byline` markup.
+    - Removed consecutive interstitial promo-link paragraphs inserted between
+      real article paragraphs.
+    - The fixture is accepted as a structural subset because Defuddle omits the
+      non-article `'GMA' Cookie Search` teaser banner that Mozilla kept.
 
 Not ported intentionally:
 
