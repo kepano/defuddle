@@ -252,6 +252,7 @@ export const EXACT_SELECTORS = [
 	// iframes
 	'instaread-player',
 	'iframe:not([src])',
+	'iframe[src*="giscus.app"]',
 	'iframe[src*="tinypass.com"]',
 	'iframe[src*="trinitymedia.ai"]',
 
@@ -352,6 +353,7 @@ export const PARTIAL_SELECTORS = [
 	'adlayout',
 	'ad-tldr',
 	'ad-placement',
+	'adplacehold',
 	'ads-container',
 	'_ad_',
 	'AdBlock_',
