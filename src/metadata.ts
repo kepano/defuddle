@@ -81,17 +81,20 @@ export class MetadataExtractor {
 		}
 
 		// Meta tags - typically expect a single string, possibly comma-separated
-		authorsString = this.getMetaContent(metaTags, "name", "parsely-author") ||
-			this.getMetaContent(metaTags, "property", "parsely-author") ||
-			this.getMetaContent(metaTags, "name", "sailthru.author") ||
-			this.getMetaContent(metaTags, "property", "article:author") ||
-			this.getMetaContent(metaTags, "property", "og:article:author") ||
-			this.getMetaContent(metaTags, "property", "author") ||
-			this.getMetaContent(metaTags, "name", "author") ||
-			this.getMetaContent(metaTags, "name", "byl") ||
-			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString && !this.isPlaceholderValue(authorsString)) {
-			const cleanedAuthor = this.cleanAuthorString(authorsString);
+		const metaAuthorCandidates = [
+			this.getMetaContent(metaTags, "name", "parsely-author"),
+			this.getMetaContent(metaTags, "property", "parsely-author"),
+			this.getMetaContent(metaTags, "name", "sailthru.author"),
+			this.getMetaContent(metaTags, "property", "article:author"),
+			this.getMetaContent(metaTags, "property", "og:article:author"),
+			this.getMetaContent(metaTags, "property", "author"),
+			this.getMetaContent(metaTags, "name", "author"),
+			this.getMetaContent(metaTags, "name", "byl"),
+			this.getMetaContent(metaTags, "name", "authorList"),
+		];
+		for (const candidate of metaAuthorCandidates) {
+			if (!candidate || this.isPlaceholderValue(candidate)) continue;
+			const cleanedAuthor = this.cleanAuthorString(candidate);
 			if (cleanedAuthor && !this.isPlaceholderValue(cleanedAuthor)) {
 				return cleanedAuthor;
 			}

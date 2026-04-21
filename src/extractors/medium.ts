@@ -110,7 +110,19 @@ export class MediumExtractor extends BaseExtractor {
 	}
 
 	private getAuthor(): string {
-		return this.document.querySelector('[data-testid="authorName"]')?.textContent?.trim() || '';
+		const selectorCandidates = [
+			'[data-testid="authorName"]',
+			'.postMetaInline--authorDateline a[href*="medium.com/@"]',
+			'.postMetaInline--author a[href*="medium.com/@"]',
+			'a[title^="Go to the profile of "][href*="medium.com/@"]',
+		];
+
+		for (const selector of selectorCandidates) {
+			const text = this.document.querySelector(selector)?.textContent?.trim() || '';
+			if (text) return text;
+		}
+
+		return this.document.querySelector('meta[name="author"]')?.getAttribute('content')?.trim() || '';
 	}
 
 	private getPublication(): string {

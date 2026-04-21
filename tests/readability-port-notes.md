@@ -168,6 +168,12 @@ Milestone notes:
       gallery counter.
     - Accepted with a metadata variant because Defuddle keeps the article title
       instead of Yahoo’s generic portal title.
+  - Author-meta fallback fix:
+    `keep-images`, `medium-2`
+    - Fixed generic author extraction so URL-only `article:author` metadata no
+      longer masks a later `meta[name="author"]` string.
+    - Added older-Medium author fallbacks in the site extractor so live Medium
+      pages without modern `data-testid` markup still keep the byline.
 
 Not ported intentionally:
 
