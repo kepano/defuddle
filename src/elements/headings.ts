@@ -21,7 +21,7 @@ export function isPermalinkAnchor(node: Element): boolean {
 	const className = (node.getAttribute('class') || '').toLowerCase();
 	const text = (node.textContent || '').trim();
 
-	if (href.startsWith('#') || href.includes('#')) return true;
+	if (href.startsWith('#')) return true;
 	if (title.includes('permalink')) return true;
 	const isPermalinkClass = className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link');
 	if (isPermalinkClass) return true;
