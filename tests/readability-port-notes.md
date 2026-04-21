@@ -210,6 +210,13 @@ Milestone notes:
     - Accepted with a title variant because Defuddle keeps the page's SEO title
       (`A Brief History of Neon Signage`) while Mozilla expected the social
       share title.
+  - BuzzFeed post-article cleanup:
+    `buzzfeed-1`
+    - Removed the BuzzFeed post-footer promo, author bio/contact box, share
+      block, Facebook comments hook, and "next on" module from the extracted
+      article.
+    - The fixture is accepted as a structural superset because Defuddle still
+      preserves the intro blurb and hero image block that Mozilla omitted.
 
 Not ported intentionally:
 

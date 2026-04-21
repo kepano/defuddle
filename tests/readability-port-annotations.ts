@@ -93,6 +93,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the Breitbart article body while dropping the hero image, duplicated date line, newsletter prompt, and noisy inline byline blob that Mozilla preserved.',
 		skipByline: true
 	},
+	'buzzfeed-1': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-superset',
+		note: 'Defuddle keeps the BuzzFeed article body while preserving the intro blurb and hero image block that Mozilla omitted, after stripping the post-article bio/share/next modules.'
+	},
 	'citylab-1': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
