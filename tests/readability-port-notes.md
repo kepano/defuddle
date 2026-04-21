@@ -186,6 +186,15 @@ Milestone notes:
       normalizes some paragraph boundaries around inline image captions and
       `<br>`-separated prose instead of reproducing Mozilla's exact markdown
       block splits.
+  - Independent related-module cleanup:
+    `bug-1255978`
+    - Removed the Independent's inline related-list, gallery, share-bar,
+      syndication, Taboola, and signpost modules from the extracted article.
+    - Trimmed extra Video.js control chrome that Defuddle was turning into body
+      text.
+    - The fixture is accepted as a structural subset because Defuddle now drops
+      remaining share/reuse UI that Mozilla still preserved in the expected
+      body, and it keeps the article title with the leading `The`.
 
 Not ported intentionally:
 

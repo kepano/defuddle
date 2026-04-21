@@ -92,6 +92,12 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'metadata-variant',
 		note: 'Defuddle keeps the multi-author byline in metadata instead of duplicating the author names at the tail of the article body.'
 	},
+	'bug-1255978': {
+		content: 'expected-contains-actual-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the Independent article body while stripping inline related-list/gallery/ad modules plus video/reuse chrome that Mozilla preserved.',
+		titleAlternatives: ["The seven secrets that hotel owners don't want you to know"]
+	},
 	'yahoo-3': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
