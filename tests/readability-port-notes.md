@@ -22,6 +22,27 @@ Ported suites:
   - Covers script text handling, entity decoding, base URI handling, namespace
     normalization, and malformed HTML recovery
 
+Fixture-level port annotations:
+
+- `readability-port-annotations.ts`
+  - Centralizes the small set of fixture-specific adaptations instead of
+    scattering comments through the test body
+  - Unlisted fixtures are treated as baseline ports: they either worked with the
+    canonical harness immediately or are still expected to fail pending bug fixes
+  - Annotation buckets are:
+    - `semantic-text`
+      - Readability and Defuddle preserve the same extracted text, but Defuddle's
+        markdown normalization differs
+    - `structural-superset`
+      - Defuddle preserves extra headings, hero media, or labels while keeping
+        the article text that Readability expected
+    - `structural-subset`
+      - Defuddle intentionally drops leading site chrome that Readability kept in
+        the expected fixture
+    - `metadata-variant`
+      - The content is accepted, but a fixture also needs a title/byline variant
+        because Defuddle's metadata choice is judged equivalent or better
+
 Not ported intentionally:
 
 - `test-isProbablyReaderable.js`
