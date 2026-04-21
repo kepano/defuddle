@@ -923,7 +923,7 @@ export class Defuddle {
 			profileStep('removeByContentPattern', () => {
 				if (options.removeContentPatterns && mainContent) {
 					const url = this.options.url || this.doc.URL || '';
-					removeByContentPattern(mainContent!, this.debug, url, metadata.title || '', debugRemovals);
+					removeByContentPattern(mainContent!, this.debug, url, metadata.title || '', metadata.description || '', debugRemovals);
 				}
 			});
 

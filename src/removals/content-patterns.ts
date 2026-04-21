@@ -1,13 +1,13 @@
 import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
-import { textPreview, countWords } from '../utils';
+import { textPreview, countWords, normalizeText } from '../utils';
 import { findContentStart, isAboveContentStart } from '../content-boundary';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago\b/i;
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\s+time)\s*:?\s*\d+\s*min(?:ute)?s?\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
-const STARTS_WITH_BY_PATTERN = /^by\s+\S/i;
+const STARTS_WITH_BY_PATTERN = /^(?:posted\s+)?by\s+\S/i;
 const BOILERPLATE_PATTERNS = [
 	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
@@ -300,12 +300,14 @@ export function removeEyebrowLabel(mainContent: Element, debug: boolean, debugRe
 	prev.remove();
 }
 
-export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, title: string, debugRemovals?: DebugRemoval[]) {
+export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, title: string, description: string, debugRemovals?: DebugRemoval[]) {
 	// Structural anchor for "where the prose body starts." Heuristics targeting
 	// pre-content use this as the authoritative above/below check — replacing
 	// ad-hoc `contentText.indexOf(text) < N` byte-offset thresholds.
 	const contentStart = findContentStart(mainContent, title);
 	const isPreContent = (el: Element): boolean => isAboveContentStart(el, contentStart);
+	const normalizedTitle = normalizeText(title);
+	const normalizedDesc = normalizeText(description);
 	const firstList = mainContent.querySelector('ul, ol');
 	if (firstList && isBreadcrumbList(firstList)) {
 		let target: Element = firstList;
@@ -493,6 +495,24 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			el.remove();
 			continue;
 		}
+
+		// Remove pre-content elements duplicating the page title or description.
+		// Targets non-heading title elements (div, span) on sites with non-semantic
+		// markup — the title/description are already extracted as metadata fields.
+		for (const [normalized, reason] of [
+			[normalizedTitle, 'duplicate title'],
+			[normalizedDesc, 'duplicate description'],
+		] as const) {
+			if (normalized && words >= 3 && isPreContent(el) &&
+				normalizeText(text) === normalized) {
+				if (debug && debugRemovals) {
+					debugRemovals.push({ step: 'removeByContentPattern', reason, text: textPreview(el) });
+				}
+				el.remove();
+				break;
+			}
+		}
+		if (!el.parentNode) continue;
 
 		// Remove article metadata header blocks (DIV/P) near the top of content.
 		// Catches Tailwind-based blog layouts with non-semantic date+category divs,

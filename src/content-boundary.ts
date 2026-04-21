@@ -99,7 +99,29 @@ export function findContentStart(mainContent: Element, title: string): Element |
 	}
 
 	if (leafHit) return leafHit;
-	if (containerHit) return containerHit;
+	if (containerHit) {
+		// Drill down through wrapper containers to find the most specific
+		// qualifying block. At each level, if exactly one child qualifies,
+		// descend into it. Stop when multiple children qualify (the content
+		// area has been reached) or none do.
+		let result = containerHit;
+		while (true) {
+			let qualifyingChild: Element | null = null;
+			let multiple = false;
+			for (const child of result.children) {
+				if (isProseBlock(child)) {
+					if (qualifyingChild) { multiple = true; break; }
+					qualifyingChild = child;
+				}
+			}
+			if (qualifyingChild && !multiple) {
+				result = qualifyingChild;
+			} else {
+				break;
+			}
+		}
+		return result;
+	}
 
 	// If we anchored on the title and found nothing after it, retry from the top.
 	if (start) return findContentStart(mainContent, '');
