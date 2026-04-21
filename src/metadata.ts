@@ -90,7 +90,12 @@ export class MetadataExtractor {
 			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
 			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString && !this.isPlaceholderValue(authorsString)) return this.cleanAuthorString(authorsString);
+		if (authorsString && !this.isPlaceholderValue(authorsString)) {
+			const cleanedAuthor = this.cleanAuthorString(authorsString);
+			if (cleanedAuthor && !this.isPlaceholderValue(cleanedAuthor)) {
+				return cleanedAuthor;
+			}
+		}
 
 		// 2. Schema.org data - deduplicate if it's a list
 		let schemaAuthors = this.getSchemaProperty(schemaOrgData, 'author.name') ||
@@ -734,6 +739,9 @@ export class MetadataExtractor {
 
 			if (Array.isArray(data)) {
 				const currentProp = props[0];
+				if (currentProp === '[]') {
+					return data.flatMap(item => searchSchema(item, props.slice(1), fullPath, isExactMatch));
+				}
 				if (/^\[\d+\]$/.test(currentProp)) {
 					const index = parseInt(currentProp.slice(1, -1));
 					if (data[index]) {

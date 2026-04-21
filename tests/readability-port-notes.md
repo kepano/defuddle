@@ -75,6 +75,14 @@ Milestone notes:
       Mozilla omits.
     - The compat harness strips decorative `img[alt="line"]` separator images
       from the expected side before comparing the remaining article text.
+  - Schema multi-author fix:
+    `videos-2`
+    - Fixed schema array traversal and URL-only `article:author` handling so
+      multi-author JSON-LD bylines are extracted instead of collapsing to an
+      empty author.
+    - The fixture is accepted as a metadata variant because Defuddle keeps the
+      byline in metadata rather than duplicating the author names at the end of
+      the article body.
 - Phase 2: Defuddle metadata/parser fixes
   - Fixed in code rather than in fixture expectations:
     `001`, `002`, `003-metadata-preferred`,

@@ -86,6 +86,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle preserves BBC inline video embeds, media captions, and one live-updates link that Mozilla omits, while stripping decorative separator images.',
 		expectedSelectorsToRemove: ['img[alt="line"]']
 	},
+	'videos-2': {
+		content: 'expected-contains-actual-text',
+		porting: 'metadata-variant',
+		note: 'Defuddle keeps the multi-author byline in metadata instead of duplicating the author names at the tail of the article body.'
+	},
 	'yahoo-3': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
