@@ -191,6 +191,7 @@ export const EXACT_SELECTORS = [
 	'.error-report',
 	'.taglist',
 	'.inline-block-related-list',
+	'.js-continue-reading-hidden',
 	'.container.grid-mod-gallery',
 	'.full-gallery',
 	'.syndication-btn',

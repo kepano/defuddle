@@ -291,6 +291,15 @@ Milestone notes:
     - Accepted as a structural subset because Defuddle keeps the full Firefox
       Nightly article body while dropping the trailing WordPress comments block
       that Mozilla preserved in the imported expected HTML.
+  - Folha footer trimming:
+    `folha`
+    - Required extractor cleanup. Defuddle was leaking Folha’s trailing
+      `js-continue-reading-hidden` footer block (`UOL`, `Envie sua notícia`,
+      `Erramos?`, related topics/comments scaffolding) into the article body.
+    - After removing that footer, Defuddle still preserves the lead image,
+      caption, dateline, and inline related image that Mozilla omitted. The
+      compat harness accepts that richer article rendering as a structural
+      superset.
 
 Not ported intentionally:
 

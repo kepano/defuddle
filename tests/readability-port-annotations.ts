@@ -128,6 +128,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'structural-subset',
 		note: 'Defuddle keeps the Firefox Nightly article body while dropping the trailing WordPress comments section Mozilla preserved.'
 	},
+	'folha': {
+		content: 'actual-contains-expected-text',
+		porting: 'extractor-fix',
+		note: 'Defuddle now trims the leaked Folha/UOL follow-on footer while keeping the lead image, caption, dateline, and inline related image that Mozilla omitted from the expected output.'
+	},
 	'ebb-org': {
 		content: 'actual-contains-expected-text',
 		porting: 'structural-superset',
