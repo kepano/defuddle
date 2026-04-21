@@ -250,6 +250,28 @@ Milestone notes:
     - The compat harness strips the expected-side in-body date/byline line and
       disclaimer text before checking that the remaining article prose is
       contained in Defuddle’s output.
+  - eHow chrome trimming:
+    `ehow-1`
+    - Accepted as a structural superset because Defuddle keeps the
+      instructional article body while dropping the non-article
+      "Found This Helpful" helper label that Mozilla preserved above the story
+      and emitting standalone image alt-text lines before captions.
+    - The compat harness strips that expected-side helper snippet and then
+      checks that Mozilla’s remaining article prose and figures appear in
+      Defuddle’s normalized output.
+  - eHow malformed span wrappers:
+    `ehow-2`
+    - Required extractor fixes. Defuddle was collapsing malformed
+      `span > span > div.step` wrappers down to bare figures during
+      standardization, which dropped most of the article prose.
+    - Fixes:
+      - Avoid self-replacement in `standardizeElements()` when a rule returns
+        the original element unchanged.
+      - Treat `span:has(img)` wrappers with nested block content as article
+        containers rather than image-only wrappers.
+    - After the fix, the compat harness strips Mozilla’s expected-side
+      author/save/related-search chrome and accepts Defuddle’s normalized
+      output, including standalone image alt-text lines before captions.
 
 Not ported intentionally:
 

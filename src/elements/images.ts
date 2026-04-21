@@ -217,12 +217,15 @@ export const imageRules = [
 				}
 
 				// Skip spans that are content containers rather than image wrappers.
-				// A span with block-level children (p, h1-h6, div, etc.) is a content
-				// container that happens to contain images, not an image wrapper.
-				for (const child of el.children) {
-					if (BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase())) {
-						return el;
-					}
+				// Malformed markup often nests real article content under span wrappers
+				// like <span><span><div class="step">...</div></span></span>. Treat any
+				// descendant block content outside image-specific wrappers as article
+				// structure that should be preserved as-is.
+				for (const descendant of Array.from(el.querySelectorAll('*'))) {
+					const tag = descendant.tagName.toLowerCase();
+					if (!BLOCK_LEVEL_ELEMENTS.has(tag)) continue;
+					if (tag === 'figure' || tag === 'figcaption') continue;
+					return el;
 				}
 
 				const imgElement = findMainImage(el);

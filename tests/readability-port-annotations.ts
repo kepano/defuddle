@@ -128,6 +128,24 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 			'ebb <sup>℠</sup> is a service mark of Bradley M. Kuhn.'
 		]
 	},
+	'ehow-1': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-superset',
+		note: 'Defuddle keeps the eHow article body while dropping the non-article helper label Mozilla preserved above the story and emitting standalone image alt-text lines before captions.',
+		expectedTextSnippetsToRemove: ['Found This Helpful']
+	},
+	'ehow-2': {
+		content: 'actual-contains-expected-text',
+		porting: 'extractor-fix',
+		note: 'Defuddle now preserves the full eHow article body and inline figures, while dropping the author-profile/save chrome above the story and the trailing related-search promotion Mozilla preserved. It also emits standalone image alt-text lines before captions.',
+		expectedTextSnippetsToRemove: [
+			'[![](http://img-aws.ehowcdn.com/60x60/cme/cme_public_images/www_demandstudios_com/sitelife.studiod.com/ver1.0/Content/images/store/9/2/d9dd6f61-b183-4893-927f-5b540e45be91.Small.jpg)](http://fakehost/contributor/gina_robertsgrey/)',
+			'Last updated September 14, 2016',
+			'Save',
+			'## Related Searches',
+			'Promoted By Zergnet'
+		]
+	},
 	'videos-2': {
 		content: 'expected-contains-actual-text',
 		porting: 'metadata-variant',

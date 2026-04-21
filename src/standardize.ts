@@ -1285,8 +1285,10 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 				if (rule.transform) {
 					// If there's a transform function, use it to create the new element
 					const transformed = rule.transform(el, doc);
-					el.replaceWith(transformed);
-					processedCount++;
+					if (transformed !== el) {
+						el.replaceWith(transformed);
+						processedCount++;
+					}
 				}
 			});
 		});
