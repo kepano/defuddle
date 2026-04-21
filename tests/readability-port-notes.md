@@ -73,6 +73,10 @@ Milestone notes:
     `aclu`, `gmw`, `qq`, `webmd-1`, `webmd-2`, `yahoo-3`, `yahoo-4`
     - Added explicit site containers so Defuddle scores the article subtree
       instead of the document body; cleanup-specific fixes may still follow.
+  - Link-preservation cleanup:
+    `yahoo-3`
+    - Removed an over-broad partial selector so article prose that mentions
+      Facebook keeps the inline anchor text instead of dropping it.
 
 Not ported intentionally:
 
