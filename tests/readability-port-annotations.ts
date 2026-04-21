@@ -75,6 +75,12 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'structural-subset',
 		note: 'Defuddle keeps the article body and byline but omits the non-article cookie-search teaser that Readability preserved.'
 	},
+	'yahoo-2': {
+		content: 'expected-contains-actual-text',
+		porting: 'metadata-variant',
+		note: 'Defuddle keeps the AP story body while omitting the non-article gallery counter and preserving the article title instead of Yahoo’s generic portal title.',
+		titleAlternatives: ['Russia: Space ship malfunctions, breaks up over Siberia']
+	},
 	'yahoo-4': {
 		porting: 'metadata-variant',
 		note: 'Defuddle strips the Yahoo page chrome and keeps the article title variant; Mozilla’s byline here points to the Yahoo "個人" nav label rather than an author.',

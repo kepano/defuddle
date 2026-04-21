@@ -113,6 +113,12 @@ Milestone notes:
     - The fixture keeps a title variant without the Yahoo suffix.
     - The imported Mozilla byline is intentionally skipped because `個人` comes
       from Yahoo navigation, not from the article itself.
+  - Yahoo AP gallery subset:
+    `yahoo-2`
+    - Accepted as a structural subset because Defuddle drops the `1 / 5`
+      gallery counter.
+    - Accepted with a metadata variant because Defuddle keeps the article title
+      instead of Yahoo’s generic portal title.
 
 Not ported intentionally:
 
