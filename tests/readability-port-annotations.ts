@@ -27,6 +27,7 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		'003-metadata-preferred',
 		'004-metadata-space-separated-properties',
 		'article-author-tag',
+		'base-url',
 		'base-url-base-element',
 		'base-url-base-element-relative',
 		'daringfireball-1',

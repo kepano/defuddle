@@ -52,6 +52,10 @@ Milestone notes:
   - Fixtures listed in `readability-port-annotations.ts`
   - These remain compatibility tests, but their assertion mode or accepted
     metadata variant is adjusted to match Defuddle's normalization choices.
+  - Link-normalization variants:
+    `base-url`
+    - Accepted as semantic-text because Defuddle resolves fragment-only links to
+      absolute page URLs instead of preserving bare `#fragment` hrefs.
 - Phase 2: Defuddle metadata/parser fixes
   - Fixed in code rather than in fixture expectations:
     `001`, `002`, `003-metadata-preferred`,
