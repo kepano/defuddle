@@ -164,6 +164,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		}
 		: <T>(_: string, fn: () => T): T => fn();
 
+	step('standardizeDropCaps', () => standardizeDropCaps(element));
 	step('standardizeSpaces', () => standardizeSpaces(element));
 	step('removeHtmlComments', () => removeHtmlComments(element));
 	step('standardizeHeadings', () => standardizeHeadings(element, metadata.title, doc));
@@ -564,6 +565,36 @@ function replaceCustomElements(element: Element, doc: Document): void {
 }
 
 const DATA_AS_ALLOWED = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote']);
+
+/**
+ * Merge drop cap elements into their surrounding text.
+ * Sites like The Economist use <span data-caps="initial">T</span><small>HE REST</small>
+ * which produces "T HE REST" as text. This merges them into "THE REST".
+ */
+function standardizeDropCaps(element: Element): void {
+	const caps = Array.from(element.querySelectorAll('span[data-caps="initial"]'));
+	let count = 0;
+
+	for (const span of caps) {
+		if (!span.parentNode) continue;
+		const next = span.nextElementSibling;
+
+		if (next && next.tagName === 'SMALL') {
+			const initial = span.textContent || '';
+			const rest = next.textContent || '';
+			const merged = span.ownerDocument.createTextNode(initial + rest);
+			span.parentNode.insertBefore(merged, span);
+			next.remove();
+			span.remove();
+		} else {
+			unwrapElement(span);
+		}
+		count++;
+	}
+
+	if (count > 0) element.normalize();
+	logDebug(_debug, 'Standardized drop caps:', count);
+}
 
 /**
  * Convert <span data-as="<tag>"> to a real element of that tag.

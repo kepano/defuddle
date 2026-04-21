@@ -46,7 +46,7 @@ function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\u2018\u2019]/g, "'");
 	return NEWSLETTER_PATTERN.test(normalizedText);
 }
-const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from|articles?|posts?|like this)|more to (?:read|explore)|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
+const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from .*|from|articles?|posts?|like this)|more to (?:read|explore)|explore more|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
 // CTA headings that are never real content — safe to remove even as direct children
 const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our)|search (?:the |our )?(?:site|blog|archives?|newsroom|website|catalog|store|shop|database))$/i;
 const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
@@ -105,6 +105,21 @@ function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: bo
 			});
 		}
 		element.remove();
+	}
+}
+
+// Remove `target` and all following siblings, then cascade upward removing
+// trailing siblings at each ancestor level up to `mainContent`.
+function removeTrailingWithCascade(target: Element, mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const ancestors: Element[] = [];
+	let anc = target.parentElement;
+	while (anc && anc !== mainContent) {
+		ancestors.push(anc);
+		anc = anc.parentElement;
+	}
+	removeTrailingSiblings(target, true, debug, debugRemovals);
+	for (const ancestor of ancestors) {
+		removeTrailingSiblings(ancestor, false, debug, debugRemovals);
 	}
 }
 
@@ -953,23 +968,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					continue;
 				}
 
-				// Collect ancestors before modifying the DOM
-				const ancestors: Element[] = [];
-				let anc = target.parentElement;
-				while (anc && anc !== mainContent) {
-					ancestors.push(anc);
-					anc = anc.parentElement;
-				}
-
-				// Remove target element and its following siblings
-				removeTrailingSiblings(target, true, debug, debugRemovals);
-
-				// Cascade upward: remove following siblings at each
-				// ancestor level too. Everything after the boilerplate
-				// in document order is non-content.
-				for (const ancestor of ancestors) {
-					removeTrailingSiblings(ancestor, false, debug, debugRemovals);
-				}
+				removeTrailingWithCascade(target, mainContent, debug, debugRemovals);
 				break;
 			}
 		}
@@ -997,7 +996,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			if (debug && debugRemovals) {
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content section', text: textPreview(target) });
 			}
-			removeTrailingSiblings(target, true, debug, debugRemovals);
+
+			removeTrailingWithCascade(target, mainContent, debug, debugRemovals);
 		}
 		break;
 	}
