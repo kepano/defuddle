@@ -63,10 +63,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 	}),
 	...annotate([
 		'clean-links',
+		'qq',
 	], {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
-		note: 'Defuddle drops leading site chrome that Readability keeps in the expected fixture.'
+		note: 'Defuddle drops leading site chrome or share/footer clutter that Readability keeps in the expected fixture.'
 	}),
 	'seattletimes-1': {
 		content: 'semantic-text',

@@ -326,6 +326,7 @@ export const EXACT_SELECTORS = [
 	'#rss',
 	'#feed',
 	'.gutter',
+	'.mbArticleShareBtn',
 	'#primaryaudio', // NPR
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
 	'[data-testid="photoviewer-children-figure"] > span', // NY Times

@@ -86,6 +86,12 @@ Milestone notes:
     - Removed the in-article ad iframe from the selected content; the remaining
       diff is accepted as semantic-text because Defuddle normalizes the caption
       indentation instead of preserving the original full-width spacing.
+  - Share-widget cleanup and chrome subset:
+    `qq`
+    - Removed the inline Tencent share widget from the article body.
+    - The fixture is accepted as a structural subset because Defuddle keeps the
+      article and intentionally drops the timestamp header and footer junk that
+      Mozilla's expected HTML still preserves.
 
 Not ported intentionally:
 
