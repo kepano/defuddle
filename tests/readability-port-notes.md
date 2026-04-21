@@ -67,6 +67,12 @@ Milestone notes:
   - At the current phase-2 baseline, the remaining failures are treated as real
     extractor/content-selection issues unless later triage reclassifies them as
     acceptable Defuddle differences.
+  - Extractor fixes are recorded in commit-sized batches by fixture so the port
+    can still be upstreamed without burying the harness in inline comments.
+  - Entry-point selector fixes:
+    `aclu`, `gmw`, `qq`, `webmd-1`, `webmd-2`, `yahoo-3`, `yahoo-4`
+    - Added explicit site containers so Defuddle scores the article subtree
+      instead of the document body; cleanup-specific fixes may still follow.
 
 Not ported intentionally:
 

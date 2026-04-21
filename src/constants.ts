@@ -1,6 +1,11 @@
 // Entry point elements
 // These are the elements that will be used to find the main content
 export const ENTRY_POINT_ELEMENTS = [
+	'#mediacontentstory',
+	'#ym_newsarticle',
+	'#Cnt-Main-Article-QQ',
+	'#contentMain',
+	'#textArea',
 	'#post',
 	'.post-content',
 	'.post-body',
