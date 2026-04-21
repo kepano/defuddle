@@ -203,6 +203,13 @@ Milestone notes:
     - The imported Mozilla byline blob is intentionally skipped because it
       mixes the author with date and engagement counters, while Defuddle keeps
       the clean author name in metadata.
+  - Metadata-led CityLab variant:
+    `citylab-1`
+    - Accepted as a structural subset because Defuddle strips the newsletter
+      signup and about-author boilerplate from the body.
+    - Accepted with a title variant because Defuddle keeps the page's SEO title
+      (`A Brief History of Neon Signage`) while Mozilla expected the social
+      share title.
 
 Not ported intentionally:
 

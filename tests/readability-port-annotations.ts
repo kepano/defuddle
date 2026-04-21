@@ -93,6 +93,12 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the Breitbart article body while dropping the hero image, duplicated date line, newsletter prompt, and noisy inline byline blob that Mozilla preserved.',
 		skipByline: true
 	},
+	'citylab-1': {
+		content: 'expected-contains-actual-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the CityLab article body while leaving the author/date in metadata and stripping newsletter/about-author blocks from the body.',
+		titleAlternatives: ['A Brief History of Neon Signage']
+	},
 	'videos-2': {
 		content: 'expected-contains-actual-text',
 		porting: 'metadata-variant',
