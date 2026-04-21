@@ -97,6 +97,18 @@ Milestone notes:
     - Removed the blog-channel label from the extracted content.
     - The fixture is accepted as a structural superset because Defuddle keeps
       the lead image/caption block while preserving the article body intact.
+  - Wrapper widening and inline-related cleanup:
+    `aktualne`
+    - Preferred the outer article wrapper over the inner `#article-content`
+      node so the article deck/perex is retained.
+    - Removed the inline related-story boxes, typo-report footer, and trailing
+      topic tag rail that were still leaking into the selected content.
+    - The imported Mozilla expected HTML still contains the typo-report module
+      as a flattened paragraph, so the compat harness strips that expected-side
+      boilerplate by text snippet before comparing the remaining article prose.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      the lead and inline photo/caption blocks while preserving the article
+      body intact.
   - Yahoo story chrome and byline cleanup:
     `yahoo-3`
     - Removed Yahoo story header/share/preference bars from the selected

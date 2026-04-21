@@ -216,7 +216,31 @@ function unwrapReadabilityPage(container: Element): void {
 	page.remove();
 }
 
-function canonicalizeFragment(html: string, title: string): string {
+function removeSelectors(root: Element, selectors: string[] = []): void {
+	for (const selector of selectors) {
+		root.querySelectorAll(selector).forEach(element => element.remove());
+	}
+}
+
+function removeTextSnippets(root: Element, snippets: string[] = []): void {
+	for (const snippet of snippets) {
+		const normalizedSnippet = normalizeText(snippet).toLowerCase();
+		if (!normalizedSnippet) continue;
+
+		for (const element of Array.from(root.querySelectorAll('p, div, section, article, li, figure, figcaption'))) {
+			const text = normalizeText(element.textContent).toLowerCase();
+			if (!text.includes(normalizedSnippet)) continue;
+			element.remove();
+		}
+	}
+}
+
+function canonicalizeFragment(
+	html: string,
+	title: string,
+	selectorsToRemove: string[] = [],
+	textSnippetsToRemove: string[] = []
+): string {
 	const doc = parseDocument(
 		'<!DOCTYPE html><html><head><title>fixture</title></head><body><div id="fixture-root"></div></body></html>',
 		BASE_URL
@@ -227,6 +251,8 @@ function canonicalizeFragment(html: string, title: string): string {
 	}
 
 	root.appendChild(parseHTML(doc, html));
+	removeSelectors(root, selectorsToRemove);
+	removeTextSnippets(root, textSnippetsToRemove);
 	unwrapReadabilityPage(root);
 	standardizeCallouts(root);
 	standardizeFootnotes(root);
@@ -235,8 +261,18 @@ function canonicalizeFragment(html: string, title: string): string {
 	return root.innerHTML.trim();
 }
 
-function toCanonicalMarkdown(html: string, title: string): string {
-	return normalizeMarkdown(createMarkdownContent(canonicalizeFragment(html, title), BASE_URL));
+function toCanonicalMarkdown(
+	html: string,
+	title: string,
+	selectorsToRemove: string[] = [],
+	textSnippetsToRemove: string[] = []
+): string {
+	return normalizeMarkdown(
+		createMarkdownContent(
+			canonicalizeFragment(html, title, selectorsToRemove, textSnippetsToRemove),
+			BASE_URL
+		)
+	);
 }
 
 describeReadability('Mozilla Readability Compatibility', () => {
@@ -267,7 +303,12 @@ describeReadability('Mozilla Readability Compatibility', () => {
 
 		const canonicalTitle = fixture.expectedMetadata.title || response.title || '';
 		const actualMarkdown = toCanonicalMarkdown(response.content, canonicalTitle);
-		const expectedMarkdown = toCanonicalMarkdown(fixture.expectedHtml, canonicalTitle);
+		const expectedMarkdown = toCanonicalMarkdown(
+			fixture.expectedHtml,
+			canonicalTitle,
+			annotation?.expectedSelectorsToRemove,
+			annotation?.expectedTextSnippetsToRemove
+		);
 
 		expectContentMatch(actualMarkdown, expectedMarkdown, annotation?.content);
 

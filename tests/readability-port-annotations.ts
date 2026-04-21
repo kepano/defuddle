@@ -10,6 +10,8 @@ export type ReadabilityPortAnnotation = {
 	note: string;
 	skipByline?: boolean;
 	titleAlternatives?: string[];
+	expectedSelectorsToRemove?: string[];
+	expectedTextSnippetsToRemove?: string[];
 };
 
 function annotate(
@@ -104,5 +106,13 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		porting: 'metadata-variant',
 		note: 'Defuddle keeps the article title variant and a hero image/caption block that Readability omits.',
 		titleAlternatives: ['The 21 best movies of 2017']
+	},
+	'aktualne': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-superset',
+		note: 'Defuddle retains the article deck and removes inline related/typo modules, but keeps the lead and inline photo/caption blocks that Readability omits.',
+		expectedTextSnippetsToRemove: [
+			'Pokud jste v článku zaznamenali chybu nebo překlep'
+		]
 	}
 };
