@@ -65,6 +65,16 @@ Milestone notes:
       in metadata rather than duplicating them in the body.
     - The compat harness strips the expected-side Ars `header` block before
       comparing the remaining article body.
+  - Metadata fix plus richer-media superset:
+    `bbc-1`
+    - Fixed author extraction so section labels in date-adjacent metadata no
+      longer override real bylines; `article:author` / `og:article:author`
+      metadata is now used when present.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      BBC inline video embeds, media captions, and one live-updates link that
+      Mozilla omits.
+    - The compat harness strips decorative `img[alt="line"]` separator images
+      from the expected side before comparing the remaining article text.
 - Phase 2: Defuddle metadata/parser fixes
   - Fixed in code rather than in fixture expectations:
     `001`, `002`, `003-metadata-preferred`,

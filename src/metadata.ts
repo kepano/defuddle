@@ -84,6 +84,8 @@ export class MetadataExtractor {
 		authorsString = this.getMetaContent(metaTags, "name", "parsely-author") ||
 			this.getMetaContent(metaTags, "property", "parsely-author") ||
 			this.getMetaContent(metaTags, "name", "sailthru.author") ||
+			this.getMetaContent(metaTags, "property", "article:author") ||
+			this.getMetaContent(metaTags, "property", "og:article:author") ||
 			this.getMetaContent(metaTags, "property", "author") ||
 			this.getMetaContent(metaTags, "name", "author") ||
 			this.getMetaContent(metaTags, "name", "byl") ||
@@ -188,7 +190,12 @@ export class MetadataExtractor {
 					// multiple links indicate category/tag lists, not a byline.
 					if (links.length === 1) {
 						const linkText = (links[0].textContent?.trim() || '').replace(/\u00a0/g, ' ');
-						if (linkText.length > 0 && linkText.length < 100 && !this.parseDateText(linkText)) {
+						if (
+							linkText.length > 0 &&
+							linkText.length < 100 &&
+							!this.parseDateText(linkText) &&
+							this.isLikelyAuthorLink(links[0], sibling)
+						) {
 							return linkText;
 						}
 					}
@@ -247,6 +254,22 @@ export class MetadataExtractor {
 			}
 		}
 		return null;
+	}
+
+	private static isLikelyAuthorLink(link: Element, context: Element): boolean {
+		const href = link.getAttribute('href')?.toLowerCase() || '';
+		const rel = link.getAttribute('rel')?.toLowerCase() || '';
+		const className = (link.getAttribute('class') || '').toLowerCase();
+		const contextClassName = (context.getAttribute('class') || '').toLowerCase();
+		const contextText = (context.textContent || '').toLowerCase();
+
+		if (rel.split(/\s+/).includes('author')) return true;
+		if (/(?:^|\/)(?:author|authors|profile|profiles|bio|bios)(?:\/|$)/.test(href)) return true;
+		if (/(author|authors|byline|contributor|reporter|writer)/.test(className)) return true;
+		if (/(author|authors|byline|contributor|reporter|writer)/.test(contextClassName)) return true;
+		if (/\bby\b/.test(contextText)) return true;
+
+		return false;
 	}
 
 	private static cleanAuthorString(s: string): string {

@@ -80,6 +80,12 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the article body and lead image in content, while the Ars section label and lower-deck remain in metadata instead of being duplicated in-body.',
 		expectedSelectorsToRemove: ['header']
 	},
+	'bbc-1': {
+		content: 'actual-contains-expected-text',
+		porting: 'structural-superset',
+		note: 'Defuddle preserves BBC inline video embeds, media captions, and one live-updates link that Mozilla omits, while stripping decorative separator images.',
+		expectedSelectorsToRemove: ['img[alt="line"]']
+	},
 	'yahoo-3': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
