@@ -49,6 +49,7 @@
 		"dev:node": "tsc --project tsconfig.node.json --watch",
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
 		"test": "TZ=UTC vitest run",
+		"test:readability": "TZ=UTC READABILITY_PORT=1 vitest run tests/readability-*.test.ts",
 		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
 		"playground": "node playground/server.js"
 	},
