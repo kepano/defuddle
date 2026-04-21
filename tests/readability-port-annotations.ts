@@ -123,6 +123,11 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 			'Gallery: Xbox One X screenshots | 9 Photos'
 		]
 	},
+	'firefox-nightly-blog': {
+		content: 'expected-contains-actual-text',
+		porting: 'structural-subset',
+		note: 'Defuddle keeps the Firefox Nightly article body while dropping the trailing WordPress comments section Mozilla preserved.'
+	},
 	'ebb-org': {
 		content: 'actual-contains-expected-text',
 		porting: 'structural-superset',

@@ -286,6 +286,11 @@ Milestone notes:
       Mozilla’s gallery teaser headings. The compat harness strips those
       expected-side gallery headings and checks that the remaining review text
       is contained in Defuddle’s normalized output.
+  - Firefox Nightly comment trimming:
+    `firefox-nightly-blog`
+    - Accepted as a structural subset because Defuddle keeps the full Firefox
+      Nightly article body while dropping the trailing WordPress comments block
+      that Mozilla preserved in the imported expected HTML.
 
 Not ported intentionally:
 
