@@ -225,6 +225,12 @@ Milestone notes:
     - The fixture is accepted as a structural subset because Defuddle also
       drops the SmartAsset sponsor label and footer timestamp that Mozilla
       preserved even though they are not part of the article body.
+  - CNET sprite and flyout cleanup:
+    `cnet`
+    - Removed the global SVG symbol-sheet blocks, floating video promo shell,
+      Taboola popover iframe container, and the CNET membership/signup flyout
+      that were leaking into the selected article.
+    - The fixture now passes without a per-fixture expectation override.
 
 Not ported intentionally:
 
