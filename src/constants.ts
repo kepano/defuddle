@@ -125,6 +125,7 @@ export const EXACT_SELECTORS = [
 	'[alt*="advert" i]',
 	'.promo',
 	'.Promo',
+	'#right-ads-rail',
 	'#barrier-page', // ft.com
 	'.alert',
 	'[rel="sponsored" i]',

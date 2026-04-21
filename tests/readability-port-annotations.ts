@@ -114,6 +114,15 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		note: 'Defuddle keeps the full Dropbox article body and byline, but preserves the page-title variant with a colon instead of Mozilla’s typographic apostrophe-plus-dash title.',
 		titleAlternatives: ['How we designed Dropbox ATF: an async task framework']
 	},
+	'engadget': {
+		content: 'actual-contains-expected-text',
+		porting: 'extractor-fix',
+		note: 'Defuddle now preserves the missing Engadget review sections and byline metadata. It keeps the inline review score box/pros-cons summary as part of the article body while omitting Mozilla’s gallery teaser headings.',
+		expectedTextSnippetsToRemove: [
+			'Gallery: Xbox One X | 14 Photos',
+			'Gallery: Xbox One X screenshots | 9 Photos'
+		]
+	},
 	'ebb-org': {
 		content: 'actual-contains-expected-text',
 		porting: 'structural-superset',

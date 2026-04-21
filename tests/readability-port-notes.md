@@ -272,6 +272,20 @@ Milestone notes:
     - After the fix, the compat harness strips Mozilla’s expected-side
       author/save/related-search chrome and accepts Defuddle’s normalized
       output, including standalone image alt-text lines before captions.
+  - Engadget review body preservation:
+    `engadget`
+    - Required extractor fixes. Defuddle was dropping real review sections
+      because the partial `hero[_\-a-z]` cleanup matched Engadget’s
+      `js-after-hero-quote` article blocks, and author extraction was falling
+      through to a lower-quality byline source instead of the page metadata.
+    - Fixes:
+      - Preserve contentful article blocks even when their classes include a
+        `hero-*` fragment.
+      - Prefer Engadget’s `blogger_name` meta tag for author extraction.
+    - Defuddle still keeps the inline review score/pros-cons summary and drops
+      Mozilla’s gallery teaser headings. The compat harness strips those
+      expected-side gallery headings and checks that the remaining review text
+      is contained in Defuddle’s normalized output.
 
 Not ported intentionally:
 

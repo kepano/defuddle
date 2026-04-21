@@ -8,7 +8,7 @@ import {
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
-import { textPreview, logDebug, isSVGElement } from '../utils';
+import { textPreview, logDebug, isSVGElement, countWords } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
@@ -106,6 +106,15 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 
 			// Check for partial match using single regex test
 			if (PARTIAL_SELECTORS_REGEX.test(attrs)) {
+				const isHeroPatternMatch = /hero[_\-a-z]/i.test(attrs);
+				if (
+					isHeroPatternMatch &&
+					el.closest('article') &&
+					el.querySelector('p') &&
+					countWords(el.textContent || '') > 40
+				) {
+					return;
+				}
 				const matchedPattern = individualRegexes
 					? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 					: undefined;

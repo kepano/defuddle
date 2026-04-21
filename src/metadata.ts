@@ -82,6 +82,7 @@ export class MetadataExtractor {
 
 		// Meta tags - typically expect a single string, possibly comma-separated
 		const metaAuthorCandidates = [
+			this.getMetaContent(metaTags, "name", "blogger_name"),
 			this.getMetaContent(metaTags, "name", "parsely-author"),
 			this.getMetaContent(metaTags, "property", "parsely-author"),
 			this.getMetaContent(metaTags, "name", "sailthru.author"),
