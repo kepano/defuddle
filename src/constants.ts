@@ -139,6 +139,10 @@ export const EXACT_SELECTORS = [
 	// use <header> as the main content wrapper rather than a navigation container.
 	// A single <p> (subtitle/deck) is still a page header, not article content.
 	'header:not(:has(p + p)):not(:has(img))',
+	// Position-fixed/sticky headers are always site navigation (never content wrappers),
+	// so they don't need the :not(:has(img)) guard — their images are logos/icons.
+	'header[class~="fixed"]',
+	'header[class~="sticky"]',
 	'.header:not(.banner)',
 	'#header',
 	'#Header',

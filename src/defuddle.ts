@@ -29,6 +29,9 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
+// CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
+const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
+
 
 export class Defuddle {
 	private readonly doc: Document;
@@ -318,6 +321,37 @@ export class Defuddle {
 			const winner = this._pickBestImage(best, group[i]);
 			(winner === best ? group[i] : best).remove();
 			best = winner;
+		}
+	}
+
+	/**
+	 * Remove the cover/hero image from content when it matches the page's
+	 * metadata image (og:image). The image is already captured as result.image;
+	 * keeping it inline duplicates information.
+	 * Only removes when the image is not inside a figure with a caption
+	 * (captioned figures are intentional content references).
+	 * Returns the highest-resolution URL from the image's srcset (if available)
+	 * so callers can upgrade the metadata image.
+	 */
+	private _removeCoverImage(body: Element, metadataImage: string): string | undefined {
+		if (!metadataImage) return;
+
+		const normalize = (url: string) => url.replace(/^https?:\/\//, '').split('?')[0];
+		const metaNorm = normalize(metadataImage);
+
+		for (const img of body.querySelectorAll('img')) {
+			const src = img.getAttribute('src') || '';
+			if (!src || src.startsWith('data:')) continue;
+			if (normalize(src) !== metaNorm) continue;
+
+			const bestUrl = this._getLargestImageSrc(img);
+
+			// Don't remove if inside a figure with a caption (intentional content use)
+			const figure = img.closest('figure');
+			if (figure && figure.querySelector('figcaption')) return bestUrl;
+
+			img.remove();
+			return bestUrl;
 		}
 	}
 
@@ -907,6 +941,13 @@ export class Defuddle {
 			// after all image processing and URL resolution is complete
 			this._deduplicateImages(mainContent!);
 
+			// Remove cover/hero image that duplicates the metadata image.
+			// If the content image has a higher-resolution srcset URL, upgrade metadata.
+			const bestCoverUrl = this._removeCoverImage(mainContent!, metadata.image || '');
+			if (bestCoverUrl) {
+				metadata.image = bestCoverUrl;
+			}
+
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();
 
@@ -1201,18 +1242,22 @@ export class Defuddle {
 	private getElementSelector(element: Element): string {
 		const parts: string[] = [];
 		let current: Element | null = element;
-		
+
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
 			if (current.id) {
 				selector += '#' + current.id;
 			} else if (getClassName(current)) {
-				selector += '.' + getClassName(current).trim().split(/\s+/).join('.');
+				const safe = getClassName(current).trim().split(/\s+/)
+					.filter(cls => !UNSAFE_CSS_CLASS_RE.test(cls));
+				if (safe.length) {
+					selector += '.' + safe.join('.');
+				}
 			}
 			parts.unshift(selector);
 			current = current.parentElement;
 		}
-		
+
 		return parts.join(' > ');
 	}
 

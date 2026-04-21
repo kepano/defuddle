@@ -333,7 +333,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 	// Remove "Listen to this article" audio player widgets.
 	// TTS services inject audio/video players with "Listen to this article/story" text.
-	// Find audio/video elements with sources and walk up to a short container.
+	// Also remove pre-content audio/video in short containers (player UI without prose).
 	for (const media of mainContent.querySelectorAll('audio, video')) {
 		if (!media.parentNode) continue;
 		if (!media.getAttribute('src') && !media.querySelector('source')) continue;
@@ -345,7 +345,13 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 
 		const containerText = container.textContent?.trim() || '';
-		if (/\blisten\s+to\s+(?:this\s+)?(?:article|story|post|episode|podcast)\b/i.test(containerText)) {
+		const isListenWidget = /\blisten\s+to\s+(?:this\s+)?(?:article|story|post|episode|podcast)\b/i.test(containerText);
+		// Pre-content audio/video in a short container is almost always a TTS
+		// widget — real podcast/media embeds appear within the article body.
+		const isPreContentPlayer = !isListenWidget && isPreContent(container) &&
+			countWords(containerText) <= 25;
+
+		if (isListenWidget || isPreContentPlayer) {
 			if (debug && debugRemovals) {
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'audio player widget', text: textPreview(container) });
 			}
