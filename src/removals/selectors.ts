@@ -84,19 +84,19 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 
 			// Get all relevant attributes and combine into a single string
 			// (Hardcoded to match TEST_ATTRIBUTES in constants.ts — avoids array allocation per element)
-			// For heading elements, exclude the id attribute — heading IDs are
-			// auto-generated slugs from content text (e.g. "3-ignore-the-error")
-			// that would falsely match partial selectors like "-error".
+			// For headings, only check class — IDs are auto-slugs and data-testid
+			// values (e.g. "article-header") cause false positives.
 			const isHeading = /^H[1-6]$/.test(tag);
-			const attrs = (
-				getClassName(el) + ' ' +
-				(isHeading ? '' : (el.id || '')) + ' ' +
-				(el.getAttribute('data-component') || '') + ' ' +
-				(el.getAttribute('data-test') || '') + ' ' +
-				(el.getAttribute('data-testid') || '') + ' ' +
-				(el.getAttribute('data-test-id') || '') + ' ' +
-				(el.getAttribute('data-qa') || '') + ' ' +
-				(el.getAttribute('data-cy') || '')
+			const attrs = (isHeading
+				? getClassName(el)
+				: getClassName(el) + ' ' +
+					(el.id || '') + ' ' +
+					(el.getAttribute('data-component') || '') + ' ' +
+					(el.getAttribute('data-test') || '') + ' ' +
+					(el.getAttribute('data-testid') || '') + ' ' +
+					(el.getAttribute('data-test-id') || '') + ' ' +
+					(el.getAttribute('data-qa') || '') + ' ' +
+					(el.getAttribute('data-cy') || '')
 			).toLowerCase();
 
 			// Skip if no attributes to check
