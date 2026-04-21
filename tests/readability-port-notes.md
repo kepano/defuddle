@@ -81,6 +81,11 @@ Milestone notes:
     `webmd-1`, `webmd-2`
     - Removed WebMD reviewer/context modules that were still leaking into the
       extracted article after the container fix.
+  - Inline ad cleanup:
+    `gmw`
+    - Removed the in-article ad iframe from the selected content; the remaining
+      diff is accepted as semantic-text because Defuddle normalizes the caption
+      indentation instead of preserving the original full-width spacing.
 
 Not ported intentionally:
 
