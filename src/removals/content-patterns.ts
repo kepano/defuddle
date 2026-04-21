@@ -38,6 +38,14 @@ function isOrContainsHeading(el: Element): boolean {
 	return HEADING_TAG_PATTERN.test(el.tagName) || !!el.querySelector(HEADING_SELECTOR);
 }
 
+function hasSignificantDirectTextFrom(start: Element | null): boolean {
+	for (let node = start; node; node = node.nextSibling) {
+		if (node.nodeType !== 3) continue;
+		if (countWords(node.textContent || '') > 5) return true;
+	}
+	return false;
+}
+
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
 	const words = countWords(text);
@@ -990,6 +998,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			const hasContent = trailingEls.some(el =>
 				el.querySelector(CONTENT_ELEMENT_SELECTOR)
 			);
+			const earliestTrailingEl = trailingEls[trailingEls.length - 1] || null;
+			const hasFlowText = hasSignificantDirectTextFrom(earliestTrailingEl);
 			// Multiple prose paragraphs indicate a conclusion, not a CTA/promo block.
 			let proseParagraphs = 0;
 			for (const el of trailingEls) {
@@ -997,7 +1007,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					proseParagraphs++;
 				}
 			}
-			if (hasHeading && !hasContent && proseParagraphs < 2) {
+			if (hasHeading && !hasContent && !hasFlowText && proseParagraphs < 2) {
 				for (const el of trailingEls) {
 					if (debug && debugRemovals) {
 						debugRemovals.push({ step: 'removeByContentPattern', reason: 'trailing thin section', text: textPreview(el) });

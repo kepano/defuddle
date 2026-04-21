@@ -30,6 +30,7 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 		'base-url',
 		'base-url-base-element',
 		'base-url-base-element-relative',
+		'blogger',
 		'daringfireball-1',
 		'data-url-image',
 		'lazy-image-3',

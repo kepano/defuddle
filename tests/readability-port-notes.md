@@ -174,6 +174,18 @@ Milestone notes:
       longer masks a later `meta[name="author"]` string.
     - Added older-Medium author fallbacks in the site extractor so live Medium
       pages without modern `data-testid` markup still keep the byline.
+  - Trailing flow-text preservation:
+    `blogger`
+    - Tightened the trailing thin-section remover so it does not delete
+      headings that are interleaved with direct text nodes in old `<br>`-driven
+      blog markup.
+    - This keeps legitimate end-of-article FAQ/getting-started sections instead
+      of stripping the headings and collapsing the remaining text into one long
+      paragraph.
+    - The fixture is accepted as semantic-text because Defuddle still
+      normalizes some paragraph boundaries around inline image captions and
+      `<br>`-separated prose instead of reproducing Mozilla's exact markdown
+      block splits.
 
 Not ported intentionally:
 
