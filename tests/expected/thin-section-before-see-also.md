@@ -18,3 +18,5 @@ The phrase has been used by numerous organizations to promote awareness of share
 ## Criticism
 
 Scholar [Jane Doe](https://thin-section-before-see-also/wiki/Example_Author) has argued that, if implemented, the concept would represent a significant constraint on [individual liberty](https://thin-section-before-see-also/wiki/Individual_Liberty) and local governance.[^1]
+
+[^1]: Doe, Jane (2024). "Governance and Constraint." *Journal of Policy Studies*. 15(3): 42-58.

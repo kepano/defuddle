@@ -86,6 +86,10 @@ function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: bo
 	let sibling = element.nextElementSibling;
 	while (sibling) {
 		const next = sibling.nextElementSibling;
+		if (sibling.id === 'footnotes') {
+			sibling = next;
+			continue;
+		}
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeByContentPattern',
