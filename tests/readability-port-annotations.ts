@@ -90,7 +90,7 @@ export const READABILITY_PORT_ANNOTATIONS: Record<string, ReadabilityPortAnnotat
 	'breitbart': {
 		content: 'expected-contains-actual-text',
 		porting: 'structural-subset',
-		note: 'Defuddle keeps the Breitbart article body while dropping the hero image, duplicated date line, newsletter prompt, and noisy inline byline blob that Mozilla preserved.',
+		note: 'Defuddle keeps the Breitbart article body while leaving the headline hero in metadata (`response.image`), dropping the duplicated date line and newsletter prompt, and skipping the noisy inline byline blob Mozilla preserved.',
 		skipByline: true
 	},
 	'buzzfeed-1': {
