@@ -14,6 +14,7 @@ const imageUrlPattern = /\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i;
 const widthPattern = /\s(\d+)w/;
 const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
+const absoluteUrlPattern = /^https?:\/\//;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -141,14 +142,14 @@ export const imageRules = [
 	
 	// Handle lazy-loaded images
 	{
-		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload',
+		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload, img[src^="data:image/svg+xml"]',
 		element: 'img',
 		transform: (el: Element, doc: Document): Element => {
 			// Check for base64 placeholder images
 			const src = el.getAttribute('src') || '';
 			const hasBetterSource = hasBetterImageSource(el);
 			
-			if (isBase64Placeholder(src) && hasBetterSource) {
+			if ((isBase64Placeholder(src) || isSvgDataUrl(src)) && hasBetterSource) {
 				// Remove the placeholder src if we have better alternatives
 				el.removeAttribute('src');
 			}
@@ -183,8 +184,13 @@ export const imageRules = [
 					// This looks like a srcset value
 					el.setAttribute('srcset', attr.value);
 				} else if (srcPattern.test(attr.value)) {
-					// This looks like a src value
-					el.setAttribute('src', attr.value);
+					const currentSrc = el.getAttribute('src') || '';
+					const hasAbsoluteSrc = absoluteUrlPattern.test(currentSrc);
+					const isAbsoluteNew = absoluteUrlPattern.test(attr.value);
+					// Prefer absolute URLs — don't replace one with a relative path
+					if (!hasAbsoluteSrc || isAbsoluteNew) {
+						el.setAttribute('src', attr.value);
+					}
 				}
 			}
 
@@ -478,7 +484,7 @@ function findMainImage(element: Element): Element | null {
 		const alt = img.getAttribute('alt') || '';
 		
 		// Skip SVG data URLs (placeholders)
-		if (src.includes('data:image/svg+xml')) {
+		if (isSvgDataUrl(src)) {
 			continue;
 		}
 		
