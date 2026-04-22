@@ -145,7 +145,7 @@ export class MetadataExtractor {
 		if (relAuthorEls.length > 0 && relAuthorEls.length <= 3) {
 			const relNames: string[] = [];
 			relAuthorEls.forEach(el => {
-				const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+				const text = this.getVisibleText(el);
 				const lower = text.toLowerCase();
 				if (text && text.length < 100 && lower !== 'author' && lower !== 'authors' && !this.isPlaceholderValue(text)) {
 					relNames.push(text);
@@ -179,7 +179,7 @@ export class MetadataExtractor {
 		for (const { selector, maxMatches } of domAuthorSelectors) {
 			const matches = doc.querySelectorAll(selector);
 			if (maxMatches && matches.length > maxMatches) continue;
-			matches.forEach(el => addDomAuthor(el.textContent));
+			matches.forEach(el => addDomAuthor(this.getAuthorName(el)));
 		}
 
 		if (collectedAuthorsFromDOM.length > 0) {
@@ -624,6 +624,31 @@ export class MetadataExtractor {
 		}
 
 		return '';
+	}
+
+	private static getVisibleText(el: Element): string {
+		const clone = el.cloneNode(true) as Element;
+		clone.querySelectorAll('script, style, noscript').forEach(s => s.remove());
+		return (clone.textContent || '').replace(/\s+/g, ' ').trim();
+	}
+
+	// Author cards often wrap name + role + avatar in one element.
+	// Clone once, strip non-visible content, then prefer a short child
+	// over the full (potentially concatenated) text.
+	private static getAuthorName(el: Element): string {
+		const clone = el.cloneNode(true) as Element;
+		clone.querySelectorAll('script, style, noscript').forEach(s => s.remove());
+		const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
+		if (!text) return '';
+
+		for (const child of clone.querySelectorAll('span, a, p')) {
+			const childText = (child.textContent || '').replace(/\s+/g, ' ').trim();
+			if (childText.length >= 2 && childText.length <= 50 && childText !== text) {
+				return childText;
+			}
+		}
+
+		return text.length <= 100 ? text : '';
 	}
 
 	private static getSchemaProperty(schemaOrgData: any, property: string, defaultValue: string = ''): string {
