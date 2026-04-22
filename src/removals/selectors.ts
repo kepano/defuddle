@@ -153,6 +153,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			}
 			return;
 		}
+		// Unwrap buttons in inline context to preserve text (e.g. LeetCode tooltip terms)
+		if (el.tagName === 'BUTTON' && el.closest('p, li, td, th, span, h1, h2, h3, h4, h5, h6')) {
+			el.replaceWith(...Array.from(el.childNodes));
+			return;
+		}
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeBySelector',

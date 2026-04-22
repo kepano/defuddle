@@ -178,7 +178,10 @@ export function createMarkdownContent(content: string, url: string) {
 	// Keep iframes, video, audio, sup, and sub elements
 	// @ts-ignore
 	turndownService.keep(['iframe', 'video', 'audio', 'sup', 'sub', 'svg', 'math']);
-	turndownService.remove(['button']);
+	turndownService.addRule('button', {
+		filter: 'button',
+		replacement: (content: string) => content
+	});
 
 	turndownService.addRule('list', {
 		filter: ['ul', 'ol'],
