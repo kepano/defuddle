@@ -24,6 +24,7 @@ import { DiscourseExtractor } from './extractors/discourse';
 import { MediumExtractor } from './extractors/medium';
 import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
+import { MastodonExtractor } from './extractors/mastodon';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -186,6 +187,11 @@ export class ExtractorRegistry {
 				'wikipedia.org',
 			],
 			extractor: WikipediaExtractor
+		});
+
+		this.register({
+			patterns: [/\/@[^/]+\/\d+/],
+			extractor: MastodonExtractor
 		});
 
 		this.register({
