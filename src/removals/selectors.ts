@@ -140,6 +140,19 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				return;
 			}
 		} catch (e) {}
+		// Buttons that contain media (e.g. Bloomberg image zoom overlays) —
+		// extract only the media, discard the button and its non-media children
+		// (SVG icons, overlay text) to avoid leaking UI chrome.
+		if (el.tagName === 'BUTTON' && el.querySelector('img, picture, video')) {
+			const parent = el.parentElement;
+			if (parent) {
+				for (const media of Array.from(el.querySelectorAll('img, picture, video'))) {
+					parent.insertBefore(media, el);
+				}
+				el.remove();
+			}
+			return;
+		}
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeBySelector',

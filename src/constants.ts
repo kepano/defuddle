@@ -484,6 +484,7 @@ export const PARTIAL_SELECTORS = [
 	'complementary',
 	'consent',
 	'contact-',
+	'contactus',
 	'cookie.law',
 	'content-card', // The Verge
 	'copycontent',
