@@ -22,6 +22,7 @@ import { ThreadsExtractor } from './extractors/threads';
 import { BlueskyExtractor } from './extractors/bluesky';
 import { DiscourseExtractor } from './extractors/discourse';
 import { MediumExtractor } from './extractors/medium';
+import { DuckDuckGoLiteExtractor } from './extractors/duckduckgo-lite';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -189,6 +190,13 @@ export class ExtractorRegistry {
 		this.register({
 			patterns: [/\/t\/[^/]+\/\d+/],
 			extractor: DiscourseExtractor
+		});
+
+		this.register({
+			patterns: [
+				'lite.duckduckgo.com',
+			],
+			extractor: DuckDuckGoLiteExtractor
 		});
 
 		this.register({
