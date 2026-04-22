@@ -1,7 +1,7 @@
 import { countWords } from './utils';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-const FETCH_TIMEOUT = 10_000; // 10s
+export const FETCH_TIMEOUT = 10_000; // 10s
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';

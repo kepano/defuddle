@@ -2,7 +2,7 @@ import { parseLinkedomHTML } from '../../src/utils/linkedom-compat';
 import { Defuddle } from '../../src/defuddle';
 import { toMarkdown } from '../../src/markdown';
 import { countWords } from '../../src/utils';
-import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from '../../src/fetch';
+import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA, DEFAULT_UA, FETCH_TIMEOUT } from '../../src/fetch';
 import type { DefuddleOptions, DefuddleResponse } from '../../src/types';
 
 function createDefuddle(html: string, targetUrl: string, opts?: Partial<DefuddleOptions>) {
@@ -39,6 +39,48 @@ function getYouTubeVideoId(url: string): string {
 		if (u.pathname.includes('/shorts/')) return u.pathname.split('/shorts/')[1].split('/')[0];
 		return u.searchParams.get('v') || '';
 	} catch { return ''; }
+}
+
+function isRedditUrl(url: string): boolean {
+	try {
+		const { hostname } = new URL(url);
+		return hostname === 'reddit.com' || hostname === 'www.reddit.com' || hostname === 'new.reddit.com';
+	} catch { return false; }
+}
+
+/**
+ * Fetch Reddit content via old.reddit.com to bypass bot verification pages.
+ * Resolves /s/ share links by following redirects first.
+ */
+async function fetchRedditContent(targetUrl: string, language?: string): Promise<DefuddleResponse> {
+	let resolvedUrl = targetUrl;
+
+	if (/\/r\/[^/]+\/s\//.test(targetUrl)) {
+		try {
+			let url = targetUrl;
+			for (let i = 0; i < 5; i++) {
+				const response = await fetch(url, {
+					redirect: 'manual',
+					headers: { 'User-Agent': DEFAULT_UA },
+					signal: AbortSignal.timeout(FETCH_TIMEOUT),
+				});
+				const location = response.headers.get('location');
+				if (location && response.status >= 300 && response.status < 400) {
+					url = new URL(location, url).href;
+				} else {
+					break;
+				}
+			}
+			if (url !== targetUrl) resolvedUrl = url;
+		} catch {
+			// Resolution failed — try with original URL
+		}
+	}
+
+	const oldUrl = new URL(resolvedUrl);
+	oldUrl.hostname = 'old.reddit.com';
+	const html = await fetchPage(oldUrl.toString(), DEFAULT_UA, language);
+	return defuddleHtmlAsync(html, resolvedUrl, language);
 }
 
 /**
@@ -85,6 +127,9 @@ export async function convertToHtml(targetUrl: string, language?: string): Promi
 	if (isYouTubeUrl(targetUrl)) {
 		return fetchYouTubeContent(targetUrl, language);
 	}
+	if (isRedditUrl(targetUrl)) {
+		return fetchRedditContent(targetUrl, language);
+	}
 
 	const initialUA = getInitialUA(targetUrl);
 	const html = await fetchPage(targetUrl, initialUA, language);
@@ -109,6 +154,11 @@ export async function convertToMarkdown(targetUrl: string, language?: string): P
 	// YouTube: bypass page fetch — use oEmbed + InnerTube API to avoid 429 rate-limiting
 	if (isYouTubeUrl(targetUrl)) {
 		const result = await fetchYouTubeContent(targetUrl, language);
+		toMarkdown(result, { markdown: true }, targetUrl);
+		return result;
+	}
+	if (isRedditUrl(targetUrl)) {
+		const result = await fetchRedditContent(targetUrl, language);
 		toMarkdown(result, { markdown: true }, targetUrl);
 		return result;
 	}
