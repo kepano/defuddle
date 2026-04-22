@@ -306,6 +306,9 @@ export const EXACT_SELECTORS = [
 	'[aria-label="Dismiss" i]',
 	'[aria-label="Close" i]',
 
+	// icon SVGs (Font Awesome)
+	'svg[data-icon]',
+
 	// other
 	'[data-testid="load-more-posts"] + div', // NY Times lazy loader
 	'.copyright',

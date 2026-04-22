@@ -313,6 +313,28 @@ export class Defuddle {
 				if (!img.parentElement) break; // img was the loser
 			}
 		}
+
+		// Remove lightbox duplicate images: a standalone <img> whose src matches
+		// the href of a sibling <a> that already contains its own <img>.
+		// Pattern: <a href="full.jpg"><img src="thumb.jpg"></a><img src="full.jpg">
+		for (const img of Array.from(body.querySelectorAll('img'))) {
+			if (!img.parentElement) continue;
+			if (img.closest('a, figure, noscript')) continue;
+
+			const src = img.getAttribute('src') || '';
+			if (!src || src.startsWith('data:')) continue;
+
+			const parent = img.parentElement;
+			const normalizedSrc = this._normalizeSrc(src);
+			for (const link of parent.querySelectorAll(':scope > a[href]')) {
+				if (!link.querySelector('img')) continue;
+				const href = link.getAttribute('href') || '';
+				if (normalizedSrc === this._normalizeSrc(href)) {
+					img.remove();
+					break;
+				}
+			}
+		}
 	}
 
 	private _keepBestImage(group: Element[]): void {
@@ -322,6 +344,11 @@ export class Defuddle {
 			(winner === best ? group[i] : best).remove();
 			best = winner;
 		}
+	}
+
+	/** Strip protocol and query string for loose URL comparison. */
+	private _normalizeSrc(url: string): string {
+		return url.replace(/^https?:\/\//, '').split('?')[0];
 	}
 
 	/**
@@ -336,13 +363,12 @@ export class Defuddle {
 	private _removeCoverImage(body: Element, metadataImage: string): string | undefined {
 		if (!metadataImage) return;
 
-		const normalize = (url: string) => url.replace(/^https?:\/\//, '').split('?')[0];
-		const metaNorm = normalize(metadataImage);
+		const metaNorm = this._normalizeSrc(metadataImage);
 
 		for (const img of body.querySelectorAll('img')) {
 			const src = img.getAttribute('src') || '';
 			if (!src || src.startsWith('data:')) continue;
-			if (normalize(src) !== metaNorm) continue;
+			if (this._normalizeSrc(src) !== metaNorm) continue;
 
 			const bestUrl = this._getLargestImageSrc(img);
 

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/gallery-post"} -->
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Gallery Post with Lightbox</title>
+</head>
+<body>
+	<article>
+		<h1>Gallery Post</h1>
+		<p>This article contains images in a lightbox pattern where each image appears twice: once as a clickable thumbnail and once as a hidden full-size duplicate for the lightbox modal overlay.</p>
+
+		<!-- Lightbox pattern: linked thumbnail + standalone full-size duplicate + close icon -->
+		<div>
+			<a href="https://www.example.com/uploads/photo-one.jpg"><img src="https://www.example.com/uploads/photo-one-1280x720.jpg"></a>
+			<img src="https://www.example.com/uploads/photo-one.jpg">
+			<div><a><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="xmark" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"></path></svg></a></div>
+		</div>
+
+		<p>Some text between images to provide content for the scoring algorithm to identify as meaningful article content.</p>
+
+		<!-- Second lightbox image -->
+		<div>
+			<a href="https://www.example.com/uploads/photo-two.jpg"><img src="https://www.example.com/uploads/photo-two-1280x720.jpg"></a>
+			<img src="https://www.example.com/uploads/photo-two.jpg">
+			<div><a><svg aria-hidden="true" focusable="false" data-prefix="fas" data-icon="xmark" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><path fill="currentColor" d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"></path></svg></a></div>
+		</div>
+
+		<p>More article text here with enough words for the content detection scoring algorithm to work properly with this test.</p>
+
+		<!-- Regular image (no lightbox) should be preserved as-is -->
+		<p><img src="https://www.example.com/uploads/inline-photo.jpg" alt="An inline photo"></p>
+
+		<p>Final paragraph of the article with some concluding remarks about the gallery images shown above.</p>
+	</article>
+</body>
+</html>
