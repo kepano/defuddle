@@ -892,6 +892,7 @@ export const PARTIAL_SELECTORS = [
 	'tag_list',
 	'tag-list',
 	'tag-module',
+	'takeaways',
 	'taxonomy',
 //	'table-content',
 	'table-of-contents',
