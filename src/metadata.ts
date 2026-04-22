@@ -90,12 +90,18 @@ export class MetadataExtractor {
 		let authorsString: string | undefined;
 
 		// Meta tags - typically expect a single string, possibly comma-separated
-		authorsString = this.getMetaContent(metaTags, "name", "sailthru.author") ||
-			this.getMetaContent(metaTags, "property", "author") ||
-			this.getMetaContent(metaTags, "name", "author") ||
-			this.getMetaContent(metaTags, "name", "byl") ||
-			this.getMetaContent(metaTags, "name", "authorList");
-		if (authorsString && !this.isPlaceholderValue(authorsString)) return this.cleanAuthorString(authorsString);
+		authorsString = this.firstValid([
+			() => this.getMetaContent(metaTags, "name", "sailthru.author"),
+			() => this.getMetaContent(metaTags, "property", "article:author"),
+			() => this.getMetaContent(metaTags, "property", "author"),
+			() => this.getMetaContent(metaTags, "name", "author"),
+			() => this.getMetaContent(metaTags, "name", "byl"),
+			() => this.getMetaContent(metaTags, "name", "authorList"),
+		]);
+		if (authorsString) {
+			const cleaned = this.cleanAuthorString(authorsString);
+			if (cleaned) return cleaned;
+		}
 
 		// Conventions for research paper meta tags
 		let authorsStrings: string[] = this.getMetaContents(metaTags, "name", "citation_author").filter(s => !this.isPlaceholderValue(s));
