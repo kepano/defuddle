@@ -699,6 +699,7 @@ export const PARTIAL_SELECTORS = [
 	'onward-journey', // FT.com
 	'open-slideshow',
 	'originally-published', // Mercury News
+	'osano-cm',
 	'other-blogs',
 	'outline-view',
 //	'overlay',
@@ -942,6 +943,7 @@ export const PARTIAL_SELECTORS = [
 	'visually-hidden',
 	'welcomebox',
 	'widget_pages',
+	'window__widget',
 //	'widget-'
 	// Webflow form state messages — shown after form submit, never article content
 	'w-form-done',
