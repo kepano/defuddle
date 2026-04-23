@@ -76,17 +76,7 @@ function getBestImageSrc(node: GenericElement): string {
 	return node.getAttribute('src') || '';
 }
 
-export function createMarkdownContent(content: string, url: string) {
-	const footnotes: { [key: string]: string } = {};
-	const turndownService = new TurndownService({
-		headingStyle: 'atx',
-		hr: '---',
-		bulletListMarker: '-',
-		codeBlockStyle: 'fenced',
-		emDelimiter: '*',
-		preformattedCode: true,
-	});
-
+export function addDefuddleRules(turndownService: TurndownService): void {
 	turndownService.addRule('table', {
 		filter: 'table',
 		replacement: function(content, node) {
@@ -757,6 +747,19 @@ export function createMarkdownContent(content: string, url: string) {
 		}
 		return '';
 	}
+}
+
+export function createMarkdownContent(content: string, url: string) {
+	const turndownService = new TurndownService({
+		headingStyle: 'atx',
+		hr: '---',
+		bulletListMarker: '-',
+		codeBlockStyle: 'fenced',
+		emDelimiter: '*',
+		preformattedCode: true,
+	});
+
+	addDefuddleRules(turndownService);
 
 	try {
 		// Strip <wbr> tags — word break opportunity hints that are invisible in
@@ -783,14 +786,6 @@ export function createMarkdownContent(content: string, url: string) {
 
 		// Remove any consecutive newlines more than two
 		markdown = markdown.replace(/\n{3,}/g, '\n\n');
-
-		// Append footnotes at the end of the document
-		if (Object.keys(footnotes).length > 0) {
-			markdown += '\n\n---\n\n';
-			for (const [id, content] of Object.entries(footnotes)) {
-				markdown += `[^${id}]: ${content}\n\n`;
-			}
-		}
 		
 		return markdown.trim();
 	} catch (error) {
