@@ -7,7 +7,8 @@ internals.
 Ported suites:
 
 - `readability-compat.test.ts`
-  - Imports the upstream `test-pages` corpus from `/tmp/readability/test/test-pages`
+  - Uses the vendored upstream `test-pages` corpus in `tests/fixtures/readability-test-pages`
+  - `READABILITY_FIXTURES_DIR` can still override the default fixture location when needed
   - Compares Defuddle output against a Defuddle-canonicalized form of Mozilla's
     `expected.html`
   - Keeps the bar on content fidelity while tolerating intentional Defuddle
@@ -29,6 +30,9 @@ Fixture-level port annotations:
     scattering comments through the test body
   - Unlisted fixtures are treated as baseline ports unless they are called out in
     the milestone notes below as requiring a Defuddle fix
+  - Collection-front fixtures may also skip top-level byline assertions when
+    Defuddle preserves per-card bylines in-body rather than inventing a single
+    page-level author
   - Annotation buckets are:
     - `semantic-text`
       - Readability and Defuddle preserve the same extracted text, but Defuddle's
@@ -211,6 +215,16 @@ Milestone notes:
     - Accepted with a title variant because Defuddle keeps the page's SEO title
       (`A Brief History of Neon Signage`) while Mozilla expected the social
       share title.
+  - Fukumusume structural subset:
+    `hukumusume`
+    - Accepted as a structural superset because Defuddle keeps the breadcrumb,
+      hero image, origami box, audio widget, and story body while
+      intentionally dropping the decorative side columns, trivia rail, and
+      back-button footer that Mozilla preserved from the surrounding table
+      layout.
+    - Defuddle also preserves the inline origami links and audio block more
+      completely than the imported expected HTML, so the expected side is
+      trimmed before comparison.
   - BuzzFeed post-article cleanup:
     `buzzfeed-1`
     - Removed the BuzzFeed post-footer promo, author bio/contact box, share
@@ -218,6 +232,57 @@ Milestone notes:
       article.
     - The fixture is accepted as a structural superset because Defuddle still
       preserves the intro blurb and hero image block that Mozilla omitted.
+  - Medium structural supersets:
+    `medium-1`, `medium-3`
+    - Accepted as structural supersets because Defuddle preserves more of the
+      authored Medium structure than Mozilla's imported expected HTML:
+      `medium-1` keeps the lead hero/project heading and later image-backed
+      sections, while `medium-3` uses the Medium extractor once the fixture
+      runs under its canonical URL and keeps the authored thematic breaks.
+  - Mozilla landing-page header preservation:
+    `mozilla-1`, `mozilla-2`
+    - Narrowed the generic `header` cleanup selector so Defuddle keeps authored
+      intro standfirsts and section-heading wrappers instead of dropping them
+      as if they were site chrome.
+    - `mozilla-1` is accepted as a structural superset because Defuddle keeps
+      the authored top heading and trailing Firefox Sync section that the
+      imported expected HTML omits.
+    - `mozilla-2` is now treated as an extractor fix: Defuddle preserves the
+      intro sentence and the “Features and tools” heading, but still drops the
+      repeated feature screenshots, so the imported expected HTML remains a
+      structural superset.
+  - New York Times caption/chrome normalization:
+    `nytimes-1`, `nytimes-2`
+    - Accepted as structural supersets because Defuddle keeps the article body
+      and lead image while emitting cleaner caption lines without NYT’s
+      `Photo`/`Credit` wrappers and stripping the in-body “Continue reading the
+      main story” prompts preserved in the imported expected HTML.
+  - Mercurial generated-TOC normalization:
+    `mercurial`
+    - Accepted as a structural superset because Defuddle keeps the authored top
+      heading while intentionally flattening away the generated table of
+      contents and Sphinx permalink anchors preserved in the imported expected
+      HTML.
+  - Guardian headline retention:
+    `guardian-1`
+    - After removing the leaked Seascape sponsorship badge, Defuddle still
+      keeps the article headline inline. The fixture is accepted as a
+      structural superset because the imported expected HTML starts directly at
+      the first paragraph.
+  - Wikia promo trimming:
+    `wikia`
+    - Accepted as a structural subset because Defuddle drops the trailing
+      Fandom contributor-program promo and the heading-adjacent hero image that
+      are preserved in the imported expected HTML.
+  - LWN roundup trimming:
+    `lwn-1`
+    - Fixed the roundup cleanup so terminal-comments trimming removes all
+      following sibling nodes, not just the first following element.
+    - Fixed the repeated-summary fallback so it trims from the next story
+      boundary instead of accidentally starting at the lead story byline.
+    - The fixture is now accepted as a structural subset because Defuddle
+      intentionally keeps only the lead Arduino article rather than the full
+      weekly roundup.
   - CNN inline partner-module cleanup:
     `cnn`
     - Removed the inline SmartAsset calculator block, Outbrain/sidebar partner
@@ -242,6 +307,9 @@ Milestone notes:
     - Accepted with a title variant because Defuddle keeps Dropbox’s page-title
       form (`How we designed Dropbox ATF: an async task framework`) instead of
       Mozilla’s typographic apostrophe-plus-dash variant.
+    - The imported expected-side inline figures are stripped before comparison
+      because canonical fixture URLs now resolve those image hosts against
+      Dropbox’s real site instead of `fakehost`.
   - EBB body-vs-footer normalization:
     `ebb-org`
     - Accepted as a structural superset because Defuddle preserves the article
@@ -250,6 +318,82 @@ Milestone notes:
     - The compat harness strips the expected-side in-body date/byline line and
       disclaimer text before checking that the remaining article prose is
       contained in Defuddle’s output.
+  - Google SRE glossary-label preservation:
+    `google-sre-book-1`
+    - Narrowed the partial cleanup pattern `subhead` so it no longer removes
+      definition-list term labels whose class is `subheaders`.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      the glossary labels (`Monitoring`, `White-box monitoring`, `Node and machine`,
+      etc.) and cleaner footnote output, while the imported Mozilla expected
+      HTML flattens some of those terms away and renders several stray
+      `[^undefined]` footnotes.
+  - GitLab blog hero-shell trimming:
+    `gitlab-blog`
+    - Removed GitLab's `.slp-container.container .wrapper .hero` header shell,
+      which was leaking breadcrumb links plus the hero standfirst/dek above
+      the actual article body.
+    - Also removed the lower CTA/footer promo wrappers
+      `.contact-cta-container` and `.slp-partial-charcoal-background.half-charcoal`.
+  - Guardian sponsor-badge trimming:
+    `guardian-1`
+    - Removed the Guardian sponsorship badge wrapper `.badge--alt`, which was
+      leaking the Seascape funding disclosure and “About this content” link
+      ahead of the article body.
+  - Herald Sun rail trimming:
+    `herald-sun-1`
+    - Removed the leaked `Other Opinion Columns` rail via
+      `.text-g-other-opinion-columns`.
+    - The fixture is accepted as a structural superset because Defuddle keeps
+      the author/title headings in the article content and leaves the lead
+      image in metadata instead of duplicating it inline.
+    - The imported Mozilla expected metadata points to the wrong byline for
+      this source fixture; the page markup and meta tags identify
+      `Laurie Oakes`.
+  - Heise timestamp retention:
+    `heise`
+    - Accepted as a metadata-variant fixture because Defuddle keeps the
+      publication timestamp as a leading content line while the remaining
+      article body matches Mozilla's expected output.
+  - IAB ad-module trimming:
+    `iab-1`
+    - Removed the leaked top ad wrapper `.module--ad`.
+    - Accepted as a structural superset because Defuddle keeps the larger lead
+      hero image at the top of the article instead of only the later linked
+      300x250 image Mozilla preserved inline.
+  - IETF toolbar/footer trimming:
+    `ietf-1`
+    - Accepted as a structural subset because Defuddle keeps the RFC draft body
+      but drops the IETF document-toolbar link bar, version picker, and the
+      generated `rfcmarkup` footer.
+  - Factorio table-icon normalization:
+    `keep-tabular-data`
+    - Accepted as a structural superset because Defuddle preserves the table
+      structure, keeps the post title as a heading, drops the imported leading
+      byline/date line, and normalizes away the repetitive status-icon images
+      in each cell.
+  - La Nación comment/ranking trim:
+    `la-nacion`
+    - Fixed in Defuddle by removing the post-article `#comunidad` comment block
+      and `#ranking-nota` most-read rail so extraction stops at the article
+      body like Mozilla’s fixture does.
+  - Medium lazy-image cleanup:
+    `lazy-image-1`
+    - Fixed in Defuddle by promoting Medium’s full-size noscript images over
+      the blurred `/max/60/...q=20` placeholders and dropping zero-dimension
+      media iframes. Accepted as a structural superset because Defuddle keeps
+      the author avatar, syntax-tagged code fences, and two inline charts that
+      Mozilla omitted.
+  - Le Monde metadata leader:
+    `lemonde-1`
+    - Accepted as a metadata-variant fixture because Defuddle keeps the
+      leading update/byline line above the body and normalizes the
+      protocol-relative Dailymotion embed URL to an absolute URL.
+  - Libération lead-media retention:
+    `liberation-1`
+    - Accepted as a metadata-variant fixture because Defuddle keeps the
+      publish/update line, hero image/caption, and standfirst above the body.
+      The imported Mozilla byline is wrong here: the source article author is
+      `AFP`, while `Par Sébastien Farcis` comes from the related-content rail.
   - eHow chrome trimming:
     `ehow-1`
     - Accepted as a structural superset because Defuddle keeps the
@@ -322,7 +466,7 @@ Not ported intentionally:
 Output artifacts used during porting:
 
 - `/tmp/readability`
-  - upstream Mozilla Readability checkout used as the source of truth
+  - upstream Mozilla Readability checkout used as the source of truth while importing the now-vendored fixture corpus
 - `/tmp/defuddle-readability-results.json`
   - JSON report from the page-compat suite
 - `/tmp/defuddle-readability-all-results.json`

@@ -16,7 +16,7 @@ type Fixture = {
 
 const BASE_URL = 'http://fakehost/test/page.html';
 const READABILITY_FIXTURES_DIR =
-	process.env.READABILITY_FIXTURES_DIR || '/tmp/readability/test/test-pages';
+	process.env.READABILITY_FIXTURES_DIR || join(__dirname, 'fixtures', 'readability-test-pages');
 const runSuite = process.env.READABILITY_PORT === '1';
 const describeReadability = runSuite ? describe : describe.skip;
 
