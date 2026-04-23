@@ -25,6 +25,7 @@ import { MediumExtractor } from './extractors/medium';
 import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
 import { MastodonExtractor } from './extractors/mastodon';
+import { RoyalRoadExtractor } from './extractors/royalroad';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -157,6 +158,14 @@ export class ExtractorRegistry {
 				/\.medium\.com/,
 			],
 			extractor: MediumExtractor
+		});
+
+		this.register({
+			patterns: [
+				'royalroad.com',
+				'www.royalroad.com',
+			],
+			extractor: RoyalRoadExtractor
 		});
 
 		this.register({

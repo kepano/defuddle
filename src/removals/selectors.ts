@@ -118,6 +118,15 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				const matchedPattern = individualRegexes
 					? individualRegexes.find(r => r.regex.test(attrs))?.pattern
 					: undefined;
+				const isBylineMatch = matchedPattern === 'byline' || /(?:^|\W)byline(?:\W|$)/i.test(attrs);
+				// Keep inline author-name spans like NYT's <span class="last-byline">.
+				// Block-level byline chrome is still removed by content-pattern cleanup.
+				if (
+					isBylineMatch &&
+					['span', 'a', 'em', 'strong', 'small', 'cite'].includes(tag.toLowerCase())
+				) {
+					return;
+				}
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 				partialSelectorCount++;
 			}

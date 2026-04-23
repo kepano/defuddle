@@ -70,6 +70,28 @@ function isSingleLinkParagraph(el: Element): boolean {
 	const linkText = children[0].textContent?.trim() || '';
 	return linkText === text;
 }
+
+function isSingleLinkPromoCard(el: Element): boolean {
+	const text = el.textContent?.trim().replace(/\s+/g, ' ') || '';
+	const words = countWords(text);
+	if (words < 3 || words > 35) return false;
+
+	const links = el.querySelectorAll('a[href]');
+	if (links.length !== 1) return false;
+	if (!el.querySelector('img, picture, video, time')) return false;
+
+	// Promo cards typically contain a title/date/media payload rather than real
+	// prose paragraphs. If there's a substantial paragraph, treat it as content.
+	for (const p of el.querySelectorAll('p')) {
+		if (countWords(p.textContent || '') > 12) return false;
+	}
+
+	const onlyLink = links[0];
+	const linkText = onlyLink.textContent?.trim().replace(/\s+/g, ' ') || '';
+	if (countWords(linkText) < 2) return false;
+
+	return text === linkText || linkText.length / text.length > 0.65;
+}
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from .*|from|articles?|posts?|like this)|more to (?:read|explore)|explore more|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
 // CTA headings that are never real content — safe to remove even as direct children
 const CTA_HEADING_PATTERN = /^(?:subscribe|sign up|follow us|share this|stay (?:updated|connected)|join (?:us|our)|search (?:the |our )?(?:site|blog|archives?|newsroom|website|catalog|store|shop|database))$/i;
@@ -191,6 +213,78 @@ function removeThinPrecedingSection(target: Element, debug: boolean, debugRemova
 	prevSib.remove();
 }
 
+function looksLikeChartTickLabel(el: Element): boolean {
+	if (el.tagName !== 'P') return false;
+	if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) return false;
+
+	const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+	if (!text || text.length > 24) return false;
+	if (/[.!?]$/.test(text)) return false;
+
+	// SVG/chart fallbacks often surface as many direct-child paragraphs that are
+	// just axis ticks or legend labels (e.g. "100", "%", "'20", "AUTE").
+	// Treat those as non-prose only when the text is very short and matches a
+	// tick-like token shape rather than a real sentence fragment.
+	return (
+		/^[’']?\d{1,4}(?:\.\d+)?%?$/.test(text) ||
+		/^\$?\d{1,4}(?:\.\d+)?$/.test(text) ||
+		/^[A-Z][A-Z\s]{1,14}$/.test(text)
+	);
+}
+
+function removeChartLabelRuns(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const containers = [
+		mainContent,
+		...Array.from(mainContent.querySelectorAll('article, section, div')).filter(
+			el => el.children.length >= 8 && !!el.querySelector('img, figure, picture')
+		),
+	];
+
+	for (const container of containers) {
+		const children = Array.from(container.children);
+		let runStart = -1;
+
+		const flushRun = (endIndex: number) => {
+			if (runStart < 0) return;
+
+			const startIndex = runStart;
+			const run = children.slice(startIndex, endIndex);
+			runStart = -1;
+			if (run.length < 6) return;
+
+			const prev = startIndex > 0 ? children[startIndex - 1] : null;
+			const next = endIndex < children.length ? children[endIndex] : null;
+			const nearGraphic = [prev, next].some(
+				el => !!el && (el.tagName === 'IMG' || el.tagName === 'FIGURE' || el.tagName === 'PICTURE')
+			);
+			if (!nearGraphic) return;
+
+			for (const el of run) {
+				if (debug && debugRemovals) {
+					debugRemovals.push({
+						step: 'removeByContentPattern',
+						reason: 'chart tick label run',
+						text: textPreview(el)
+					});
+				}
+				el.remove();
+			}
+		};
+
+		for (let i = 0; i <= children.length; i++) {
+			const child = children[i];
+			const inRun = !!child && looksLikeChartTickLabel(child);
+
+			if (inRun) {
+				if (runStart < 0) runStart = i;
+				continue;
+			}
+
+			flushRun(i);
+		}
+	}
+}
+
 /**
  * Remove "hero header" blocks — wrappers that group a heading, a <time>, and
  * typically a hero image/byline at the top of a blog post. Individual metadata
@@ -215,6 +309,13 @@ function removeHeroHeader(mainContent: Element, contentStart: Element | null, de
 		let current: Element | null = time.parentElement;
 
 		while (current && current !== mainContent) {
+			// Stop once we've reached a block that clearly contains the article
+			// body itself. Some sites place a short standfirst inside the same
+			// wrapper as the title/date, and that prose should be preserved.
+			if (current.querySelector('[itemprop~="articleBody"], [itemprop="articleBody"], .article_body, .articleBody')) {
+				break;
+			}
+
 			// Must contain both a heading and a time element
 			const hasHeadingAndTime = current.querySelector('h1, h2') && current.querySelector('time');
 			if (hasHeadingAndTime) {
@@ -260,6 +361,117 @@ function removeHeroHeader(mainContent: Element, contentStart: Element | null, de
 			bestBlock.remove();
 			return;
 		}
+	}
+}
+
+// Some roundup pages start with one full article and then continue with a list
+// of sibling teaser/article blocks that reuse the same summary heading class.
+// Keep the first article and trim the follow-on summaries from the second
+// repeated heading onward.
+function trimRepeatedFeatureSummaries(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	const repeatedSummaryHeadings = Array.from(mainContent.querySelectorAll('h2.SummaryHL'));
+	if (repeatedSummaryHeadings.length < 2) return;
+
+	const firstHeading = repeatedSummaryHeadings[0];
+	const secondHeading = repeatedSummaryHeadings[1];
+	if (firstHeading.parentElement && firstHeading.parentElement === secondHeading.parentElement) {
+		const container = firstHeading.parentElement;
+		let commentBlock: Element | null = null;
+		for (let node = firstHeading.nextElementSibling; node; node = node.nextElementSibling) {
+			if (node.querySelector('a[href*="#Comments"]')) {
+				commentBlock = node;
+				break;
+			}
+			if (node.matches('h2.SummaryHL')) break;
+		}
+
+		if (commentBlock) {
+			const removedText = textPreview(secondHeading);
+			let child = container.firstElementChild;
+			while (child && child !== firstHeading) {
+				const next = child.nextElementSibling;
+				child.remove();
+				child = next;
+			}
+
+			let tail = commentBlock.nextSibling;
+			while (tail) {
+				const next = tail.nextSibling;
+				tail.parentNode?.removeChild(tail);
+				tail = next;
+			}
+
+			if (debug && debugRemovals) {
+				debugRemovals.push({
+					step: 'removeByContentPattern',
+					reason: 'repeated feature summary block',
+					text: removedText
+				});
+			}
+			return;
+		}
+	}
+
+	let removalStart: Element = secondHeading;
+	for (let cursor: Element | null = secondHeading.previousElementSibling; cursor && cursor.tagName === 'P'; cursor = cursor.previousElementSibling) {
+		const text = (cursor.textContent || '').trim();
+		const commentsLink = cursor.querySelector('a[href*="#Comments"]');
+		if (commentsLink || /^comments\s*\(\d+\s+posted\)$/i.test(text)) {
+			secondHeading.parentElement?.insertBefore(cursor, secondHeading);
+			removalStart = cursor;
+			break;
+		}
+	}
+
+	const removedText = textPreview(removalStart);
+	let node: ChildNode | null = removalStart;
+	while (node) {
+		const next = node.nextSibling;
+		node.parentNode?.removeChild(node);
+		node = next;
+	}
+
+	if (debug && debugRemovals) {
+		debugRemovals.push({
+			step: 'removeByContentPattern',
+			reason: 'repeated feature summary block',
+			text: removedText
+		});
+	}
+}
+
+// Some index/weekly-edition pages end the real article with a tiny comments
+// link block and then continue with the next teaser/article. Remove that tail
+// from the comments block onward.
+function trimAfterTerminalCommentsLink(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	for (const link of mainContent.querySelectorAll('a[href*="#Comments"]')) {
+		let block: Element | null = link;
+		while (block && block.parentElement && block.parentElement !== mainContent && !block.nextElementSibling) {
+			block = block.parentElement;
+		}
+		if (!block || block === mainContent || !block.parentElement) continue;
+
+		const text = (block.textContent || '').replace(/\s+/g, ' ').trim();
+		if (countWords(text) > 12) continue;
+
+		let hasFollowingSibling = false;
+		for (let sibling = block.nextSibling; sibling;) {
+			const next = sibling.nextSibling;
+			hasFollowingSibling = true;
+			sibling.parentNode?.removeChild(sibling);
+			sibling = next;
+		}
+		if (!hasFollowingSibling) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({
+				step: 'removeByContentPattern',
+				reason: 'trim after terminal comments link',
+				text: textPreview(block)
+			});
+		}
+		block.remove();
+		return;
 	}
 }
 
@@ -326,6 +538,32 @@ export function removeEyebrowLabel(mainContent: Element, debug: boolean, debugRe
 		debugRemovals.push({ step: 'removeEyebrowLabel', reason: 'eyebrow label', text: textPreview(prev) });
 	}
 	prev.remove();
+}
+
+// Some legacy news CMSes split the body across an inline "Read more" gate:
+// intro paragraphs remain visible, while the rest of the article sits inside a
+// sibling `#read-more-content` wrapper next to a toggle link and ad slot.
+// Unwrap the hidden continuation before scoring so the scorer sees one article,
+// not a short intro plus a low-quality widget.
+export function expandReadMoreBlocks(mainContent: Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
+	for (const wrapper of mainContent.querySelectorAll('#read-more')) {
+		const expanded = wrapper.querySelector('#read-more-content');
+		if (!expanded || !wrapper.parentElement) continue;
+
+		if (debug && debugRemovals) {
+			debugRemovals.push({
+				step: 'removeByContentPattern',
+				reason: 'expanded read-more block',
+				text: textPreview(expanded)
+			});
+		}
+
+		const fragment = wrapper.ownerDocument.createDocumentFragment();
+		while (expanded.firstChild) {
+			fragment.appendChild(expanded.firstChild);
+		}
+		wrapper.replaceWith(fragment);
+	}
 }
 
 export function removeByContentPattern(mainContent: Element, debug: boolean, url: string, title: string, description: string, debugRemovals?: DebugRemoval[]) {
@@ -419,6 +657,19 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// After individual metadata elements are stripped, these leave behind
 	// orphaned images and empty wrappers. Detect and remove the whole block.
 	removeHeroHeader(mainContent, contentStart, debug, debugRemovals);
+
+	// Some roundup pages append the next teaser/article after a terminal
+	// comments link for the current story. Trim that tail before later cleanup.
+	trimAfterTerminalCommentsLink(mainContent, debug, debugRemovals);
+
+	// Trim repeated summary/article blocks on roundup pages after the first
+	// full article so the extracted content doesn't run into the next story.
+	trimRepeatedFeatureSummaries(mainContent, debug, debugRemovals);
+
+	// Some sites inline chart SVG fallback text as dozens of tiny direct-child
+	// paragraphs around an image. Remove those tick-label runs before the
+	// metadata and boilerplate passes so they don't pollute article prose.
+	removeChartLabelRuns(mainContent, debug, debugRemovals);
 
 	// Remove "Listen to this article" audio player widgets.
 	// TTS services inject audio/video players with "Listen to this article/story" text.
@@ -1143,6 +1394,25 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		if (debug && debugRemovals) {
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related post cards', text: textPreview(target) });
+		}
+		removeTrailingSiblings(target, true, debug, debugRemovals);
+		break;
+	}
+
+	// Remove a single trailing promo card after the article body.
+	// Some sites append one related-story teaser (title + date + image) instead
+	// of a full card grid. These survive the multi-card cleanup above because
+	// they're just one link-heavy block.
+	for (const child of mainContent.querySelectorAll('div, section, aside')) {
+		if (!child.parentNode) continue;
+		if (!isSingleLinkPromoCard(child)) continue;
+
+		const text = child.textContent?.trim() || '';
+		if (contentText.indexOf(text) < 500) continue;
+
+		const target = walkUpIsolated(child, mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'trailing promo card', text: textPreview(target) });
 		}
 		removeTrailingSiblings(target, true, debug, debugRemovals);
 		break;

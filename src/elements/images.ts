@@ -148,10 +148,21 @@ export const imageRules = [
 			// Check for base64 placeholder images
 			const src = el.getAttribute('src') || '';
 			const hasBetterSource = hasBetterImageSource(el);
+			const dataOldSrc = el.getAttribute('data-old-src');
 			
 			if ((isBase64Placeholder(src) || isSvgDataUrl(src)) && hasBetterSource) {
 				// Remove the placeholder src if we have better alternatives
 				el.removeAttribute('src');
+			}
+
+			// Medium-style blur-up images keep a tiny q=20 placeholder in src and
+			// expose the real asset in data-old-src. Prefer the higher-fidelity URL.
+			if (
+				dataOldSrc &&
+				(src.includes('/max/60/') || src.includes('q=20')) &&
+				!isBase64Placeholder(dataOldSrc)
+			) {
+				el.setAttribute('src', dataOldSrc);
 			}
 
 			// Handle data-src
@@ -199,6 +210,7 @@ export const imageRules = [
 			el.removeAttribute('data-ll-status');
 			el.removeAttribute('data-src');
 			el.removeAttribute('data-srcset');
+			el.removeAttribute('data-old-src');
 			el.removeAttribute('loading');
 			
 			return el;
@@ -266,12 +278,13 @@ export const imageRules = [
 		element: 'figure',
 		transform: (el: Element, doc: Document): Element => {
 			try {
-				const hasImage = containsImage(el);
-				if (!hasImage) {
+				const realImgElement = findMainImage(el);
+				const syntheticImg = realImgElement ? null : createImageFromElementAttributes(el, doc);
+				if (!realImgElement && !syntheticImg) {
 					return el; 
 				}
 				
-				const imgElement = findMainImage(el); // Initial find (might be picture)
+				const imgElement = syntheticImg || realImgElement; // Initial find (might be picture)
 				if (!imgElement) {
 					return el; 
 				}
@@ -283,7 +296,7 @@ export const imageRules = [
 				if (caption && hasMeaningfulCaption(caption)) {
 					// Find the *current* image element inside 'el' again.
 					// It might have been modified (e.g., picture rule -> img)
-					const currentImg = findMainImage(el); 
+					const currentImg = syntheticImg || findMainImage(el); 
 					let imageToAdd: Element;
 
 					if (currentImg) {
@@ -300,9 +313,16 @@ export const imageRules = [
 					// The helper clones the imageToAdd before appending.
 					return createFigureWithCaption(imageToAdd, caption, doc);
 				} else {
-					// No meaningful caption found. Return the original element 'el'.
-					// Preceding rules should have processed the image content *within* 'el'.
-					return el;
+					// No meaningful caption found. Preserve synthesized figures created
+					// from lazy-image attributes; otherwise keep the original element and
+					// rely on preceding rules to have processed its image content.
+					if (syntheticImg) {
+						const figure = doc.createElement('figure');
+						figure.appendChild(syntheticImg);
+						return figure;
+					}
+
+					return el; 
 				}
 			} catch (error) {
 				// Failed to process complex image element, return as-is
@@ -445,10 +465,17 @@ function containsImage(element: Element): boolean {
 	if (isImageElement(element)) {
 		return true;
 	}
-	
+
 	// Check if element contains an image
 	const images = element.querySelectorAll('img, video, picture, source');
-	return images.length > 0;
+	if (images.length > 0) {
+		return true;
+	}
+
+	// Some sites store the real image URL on the figure itself and render the
+	// image client-side. Treat those figures as image-bearing so they can be
+	// standardized instead of degrading to placeholder labels.
+	return !!extractImageUrlFromAttributes(element);
 }
 
 /**
@@ -683,10 +710,16 @@ function extractUniqueCaptionContent(caption: Element): string {
 				processedTexts.add(text);
 			}
 		} else if (isElement(node)) {
+			if (['BR', 'P', 'DIV', 'FIGCAPTION'].includes(node.tagName) && textNodes[textNodes.length - 1] !== ' ') {
+				textNodes.push(' ');
+			}
 			// Process child nodes
 			const childNodes = node.childNodes;
 			for (let i = 0; i < childNodes.length; i++) {
 				processNode(childNodes[i]);
+			}
+			if (['SPAN', 'A', 'SMALL', 'CITE'].includes(node.tagName) && textNodes[textNodes.length - 1] !== ' ') {
+				textNodes.push(' ');
 			}
 		}
 	};
@@ -699,7 +732,7 @@ function extractUniqueCaptionContent(caption: Element): string {
 	
 	// If we found unique text nodes, use them
 	if (textNodes.length > 0) {
-		return textNodes.join(' ');
+		return textNodes.join('').replace(/\s+/g, ' ').trim();
 	}
 	
 	// Otherwise, just use the inner HTML but try to clean it up
@@ -744,6 +777,8 @@ function processImageElement(element: Element, doc: Document): Element {
 	// Handle different types of image elements
 	if (tagName === 'img') {
 		return processImgElement(element, doc);
+	} else if (tagName === 'video') {
+		return processVideoElement(element, doc);
 	} else if (tagName === 'picture') {
 		// The picture rule modifies the img inside the picture and returns the picture itself.
 		// This function might be called by rules like 'span:has(img)' or 'figure'.
@@ -758,12 +793,99 @@ function processImageElement(element: Element, doc: Document): Element {
 	return element.cloneNode(true) as Element;
 }
 
+function createImageFromElementAttributes(element: Element, doc: Document): Element | null {
+	const imageUrl = extractImageUrlFromAttributes(element);
+	if (!imageUrl) {
+		return null;
+	}
+
+	const img = doc.createElement('img');
+	img.setAttribute('src', imageUrl);
+
+	const alt = element.getAttribute('alt') || element.getAttribute('aria-label') || '';
+	if (alt && alt.toLowerCase() !== 'media') {
+		img.setAttribute('alt', alt);
+	}
+
+	return img;
+}
+
+function extractImageUrlFromAttributes(element: Element): string | null {
+	const urlishAttributePattern = /^(?:src|data-src|data-srcset|data-url|data-image|data-img|data-original|data-old-src|data-lazy(?:-src|-image)?|poster|data-postersrc|data-anim-src|data-webmsrc|data-mp4src)$/i;
+
+	for (let i = 0; i < element.attributes.length; i++) {
+		const attr = element.attributes[i];
+		if (attr.name === 'srcset') {
+			const firstUrl = extractFirstUrlFromSrcset(attr.value);
+			if (firstUrl && isValidImageUrl(firstUrl)) {
+				return firstUrl;
+			}
+			continue;
+		}
+
+		if (!urlishAttributePattern.test(attr.name)) {
+			continue;
+		}
+
+		if (/\s/.test(attr.value)) {
+			continue;
+		}
+
+		if (isValidImageUrl(attr.value)) {
+			return attr.value;
+		}
+	}
+
+	return null;
+}
+
+function processVideoElement(element: Element, doc: Document): Element {
+	const img = doc.createElement('img');
+	const candidateSources = [
+		element.getAttribute('data-anim-src'),
+		element.getAttribute('data-postersrc'),
+		element.getAttribute('poster'),
+	];
+
+	for (const source of candidateSources) {
+		if (!source || isBase64Placeholder(source) || isSvgDataUrl(source) || !isValidImageUrl(source)) {
+			continue;
+		}
+		img.setAttribute('src', source);
+		break;
+	}
+
+	const alt =
+		element.getAttribute('data-alt') ||
+		element.getAttribute('aria-label') ||
+		element.getAttribute('title') ||
+		'';
+	if (alt) {
+		img.setAttribute('alt', alt.replace(/ em([A-Za-z])/g, ' $1'));
+	}
+
+	return img.hasAttribute('src') ? img : (element.cloneNode(true) as Element);
+}
+
 /**
  * Process an img element
  */
 function processImgElement(element: Element, doc: Document): Element {
 	// For img elements, check if it's a placeholder
 	const src = element.getAttribute('src') || '';
+	const dataOldSrc = element.getAttribute('data-old-src') || '';
+	const shouldPromoteOldSrc = !!dataOldSrc && (src.includes('/max/60/') || src.includes('q=20') || !src);
+
+	// Medium-style progressive images keep a tiny blurred asset in src and the
+	// real image in data-old-src. Promote the real asset before cloning so
+	// figures and standalone images retain the canonical source URL.
+	if (shouldPromoteOldSrc && !isBase64Placeholder(dataOldSrc) && !isSvgDataUrl(dataOldSrc)) {
+		const clonedImg = element.cloneNode(true) as Element;
+		clonedImg.setAttribute('src', dataOldSrc);
+		clonedImg.removeAttribute('data-old-src');
+		return clonedImg;
+	}
+
 	if (isBase64Placeholder(src) || isSvgDataUrl(src)) {
 		// Try to find a better image in the parent
 		const parent = element.parentElement;

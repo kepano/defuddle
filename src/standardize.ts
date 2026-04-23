@@ -20,7 +20,7 @@ import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE }
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
+import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText, countWords } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 
 // Module-level debug flag, set by standardizeContent for child functions
@@ -179,6 +179,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('unwrapLayoutTables', () => unwrapLayoutTables(element));
 		step('flattenWrapperElements[1]', () => flattenWrapperElements(element, doc));
 		step('removePermalinkAnchors', () => removePermalinkAnchors(element));
+		step('unwrapStructuredNameSpans', () => unwrapStructuredNameSpans(element));
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('unwrapBareSpans', () => unwrapBareSpans(element));
 
@@ -222,11 +223,68 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('removeOrphanedDividers[2]', () => removeOrphanedDividers(element));
 		step('stripExtraBrElements', () => stripExtraBrElements(element));
 		step('removeEmptyLines', () => removeEmptyLines(element, doc));
+		step('removeStandaloneChartLabels', () => removeStandaloneChartLabels(element));
 	} else {
+		step('unwrapStructuredNameSpans', () => unwrapStructuredNameSpans(element));
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
 		step('stripExtraBrElements', () => stripExtraBrElements(element));
+		step('removeStandaloneChartLabels', () => removeStandaloneChartLabels(element));
 		logDebug(_debug, 'Debug mode: Skipping div flattening to preserve structure');
+	}
+}
+
+function looksLikeStandaloneChartLabel(el: Element): boolean {
+	if (el.tagName !== 'P') return false;
+	if (el.querySelector('img, picture, video, audio, iframe, table, svg, math')) return false;
+
+	const text = normalizeText(el.textContent || '');
+	if (!text || text.length > 90) return false;
+	if (countWords(text) > 12) return false;
+	if (/[.!?]$/.test(text)) return false;
+
+	return true;
+}
+
+function removeStandaloneChartLabels(root: Element): void {
+	const containers = [
+		root,
+		...Array.from(root.querySelectorAll('article, section, div')).filter(
+			el => el.children.length >= 8 && !!el.querySelector('img, figure, picture')
+		),
+	];
+
+	for (const container of containers) {
+		const children = Array.from(container.children);
+		let runStart = -1;
+
+		const flushRun = (endIndex: number) => {
+			if (runStart < 0) return;
+
+			const startIndex = runStart;
+			const run = children.slice(startIndex, endIndex);
+			runStart = -1;
+			if (run.length < 6) return;
+
+			const prev = startIndex > 0 ? children[startIndex - 1] : null;
+			const next = endIndex < children.length ? children[endIndex] : null;
+			const nearGraphic = [prev, next].some(
+				el => !!el && (el.tagName === 'IMG' || el.tagName === 'FIGURE' || el.tagName === 'PICTURE')
+			);
+			if (!nearGraphic) return;
+
+			run.forEach(el => el.remove());
+		};
+
+		for (let i = 0; i <= children.length; i++) {
+			const child = children[i];
+			if (child && looksLikeStandaloneChartLabel(child)) {
+				if (runStart < 0) runStart = i;
+				continue;
+			}
+
+			flushRun(i);
+		}
 	}
 }
 
@@ -499,6 +557,17 @@ function unwrapElement(el: Element): void {
 		el.parentNode?.insertBefore(el.firstChild, el);
 	}
 	el.remove();
+}
+
+function unwrapStructuredNameSpans(element: Element): void {
+	// Preserve inline structured names before later wrapper cleanup. Sites like
+	// NYT render bylines as "By/Por <span itemprop=name>Author</span>", and
+	// later normalization should not turn that into a bare "By/Por".
+	Array.from(element.querySelectorAll('span[itemprop~="name"], span[itemprop="name"]'))
+		.forEach(span => {
+			if (span.closest('figure, figcaption, pre, code')) return;
+			unwrapElement(span);
+		});
 }
 
 /**

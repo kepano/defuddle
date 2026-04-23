@@ -148,14 +148,34 @@ export class MetadataExtractor {
 			});
 		};
 
+		// Prefer explicitly named author nodes inside structured itemprop containers.
+		// Some sites use tokenized values such as itemprop="author creator", so
+		// exact [itemprop="author"] matching misses them entirely.
+		const structuredAuthorNameEls = doc.querySelectorAll(
+			'[itemprop~="author"] [itemprop~="name"], [itemprop="author"] [itemprop~="name"]'
+		);
+		if (structuredAuthorNameEls.length > 0 && structuredAuthorNameEls.length <= 10) {
+			structuredAuthorNameEls.forEach(el => addDomAuthor(el.textContent));
+			const uniqueStructuredAuthors = [...new Set(collectedAuthorsFromDOM.map(name => name.trim()).filter(Boolean))];
+			if (uniqueStructuredAuthors.length > 0) {
+				return uniqueStructuredAuthors.join(', ');
+			}
+			collectedAuthorsFromDOM.length = 0;
+		}
+
 		// maxMatches: skip ambiguous selectors with too many matches
 		// (e.g. testimonials, comments, contributor lists)
 		const domAuthorSelectors: { selector: string; maxMatches?: number }[] = [
-			{ selector: '[itemprop="author"]' },
+			{ selector: '[itemprop~="author"]', maxMatches: 5 },
+			{ selector: '[itemprop="author"]', maxMatches: 5 },
+			{ selector: '.FeatureByline b', maxMatches: 3 },
+			{ selector: '.author_byline', maxMatches: 3 },
 			{ selector: 'cite.byline .fn', maxMatches: 3 },
 			{ selector: 'cite.byline', maxMatches: 3 },
 			{ selector: '.author', maxMatches: 3 },
 			{ selector: '[href*="/author/"]', maxMatches: 3 },
+			{ selector: '[href*="/authors/"]', maxMatches: 3 },
+			{ selector: '[href*="/auteur/"]', maxMatches: 3 },
 			{ selector: '.authors a', maxMatches: 3 },
 		];
 

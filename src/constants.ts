@@ -6,6 +6,7 @@ export const ENTRY_POINT_ELEMENTS = [
 	'#Cnt-Main-Article-QQ',
 	'#contentMain',
 	'#textArea',
+	'.ArticleText',
 	'.article:has(> .article__perex):has(> #article-content)',
 	'#post',
 	'.post-content',
@@ -130,6 +131,7 @@ export const EXACT_SELECTORS = [
 	'.alert',
 	'[rel="sponsored" i]',
 	'[href*="source=promotion" i]',
+	'iframe[src*="facebook.com/plugins/like.php"]',
 
 	// comments
 	'[id="comments" i]',
@@ -143,10 +145,9 @@ export const EXACT_SELECTORS = [
 	'ads-breadcrumbs',
 
 	// header, nav
-	// Exclude headers that contain multiple paragraphs — some sites (e.g. Webflow blogs)
-	// use <header> as the main content wrapper rather than a navigation container.
-	// A single <p> (subtitle/deck) is still a page header, not article content.
-	'header:not(:has(p + p)):not(:has(img))',
+	// Exclude obvious utility/page-header wrappers, but keep authored content
+	// headers used for standfirsts or section headings inside article bodies.
+	'header:has(nav, ul, ol, time, button, form):not(:has(p)):not(:has(img))',
 	// Position-fixed/sticky headers are always site navigation (never content wrappers),
 	// so they don't need the :not(:has(img)) guard — their images are logos/icons.
 	'header[class~="fixed"]',
@@ -164,6 +165,8 @@ export const EXACT_SELECTORS = [
 	'[role="dialog" i]',
 	'[role="alertdialog" i]',
 	'[role*="complementary" i]',
+	'.modal',
+	'.modal-backdrop',
 	'[class*="pagination" i]',
 	'.menu',
 	// '#menu', // see issue #106
@@ -192,11 +195,28 @@ export const EXACT_SELECTORS = [
 	'.taglist',
 	'.inline-block-related-list',
 	'.js-continue-reading-hidden',
+	'.badge--alt',
+	'.slp-container.container .wrapper .hero',
+	'.contact-cta-container',
+	'.slp-partial-charcoal-background.half-charcoal',
+	'.text-g-other-opinion-columns',
+	'#story > .story-header',
+	'#read-more-link',
+	'#middleAd',
+	'.module--ad',
+	'#comunidad',
+	'#ranking-nota',
 	'.container.grid-mod-gallery',
 	'.full-gallery',
+	'.pb-f-gallery-gallery',
+	'.wp-volt-gal',
+	'.inline-content.inline-graphic-linked',
 	'.syndication-btn',
 	'.email-signpost',
+	'.article-keyword',
 	'.taboola',
+	'#stream-panel',
+	'nav.tab-navigation',
 	'.gig-bar-container',
 	'.vjs-volume-menu-button',
 	'.vjs-live-control',
@@ -209,8 +229,10 @@ export const EXACT_SELECTORS = [
 	'.vjs-audio-button',
 	'.user-bio',
 	'.bottom_shares',
+	'.take-me-to-community',
 	'#fb_comments_nexton',
 	'#next_on',
+	'#pix_article_switch_content',
 	'p.print.c',
 	'#smartassetcontainer',
 	'.sa-iframe',
@@ -311,6 +333,7 @@ export const EXACT_SELECTORS = [
 	'iframe[src*="giscus.app"]',
 	'iframe[src*="tinypass.com"]',
 	'iframe[src*="trinitymedia.ai"]',
+	'iframe[width="0"][height="0"]',
 
 	// logos
 	'[class="logo" i]',
@@ -797,7 +820,6 @@ export const PARTIAL_SELECTORS = [
 	'post_info',
 	'post-inline-date',
 	'post-links',
-	'postlist',
 	'post_list',
 	'post_meta',
 	'post-meta',
@@ -948,7 +970,7 @@ export const PARTIAL_SELECTORS = [
 	'storysmall',
 	'storypublishdate', // Medium
 	'subject-label',
-	'subhead',
+	'subhead(?!ers?\\b)',
 	'submenu',
 //	'subscribe',
 	'-subscribe-',

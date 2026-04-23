@@ -16,7 +16,7 @@ import { ContentScorer, ContentScore } from './removals/scoring';
 import { findSmallImages, removeSmallImages } from './removals/small-images';
 import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
-import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
+import { expandReadMoreBlocks, removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords, isSVGElement } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
@@ -428,6 +428,9 @@ export class Defuddle {
 	}
 
 	private _resolveNoscriptImages(body: Element): void {
+		const isPlaceholderSrc = (src: string) =>
+			src.startsWith('data:') || src.includes('/max/60/') || src.includes('q=20');
+
 		const noscripts = body.querySelectorAll('noscript');
 		for (const noscript of noscripts) {
 			// Try direct child query first (linkedom parses noscript children).
@@ -453,12 +456,13 @@ export class Defuddle {
 			if (!parent) continue;
 
 			let matched = false;
-			const siblingImgs = parent.querySelectorAll(':scope > img');
+			const siblingImgs = parent.querySelectorAll('img');
 			for (const img of siblingImgs) {
+				if (img.closest('noscript')) continue;
 				const src = img.getAttribute('src') || '';
-				if (!src.startsWith('data:')) continue;
+				if (!isPlaceholderSrc(src)) continue;
 				// Match by alt text; require a non-empty alt to avoid false matches
-				if (!alt || img.getAttribute('alt') !== alt) continue;
+				if (alt && img.getAttribute('alt') !== alt) continue;
 
 				img.setAttribute('src', realSrc);
 				const srcset = noscriptImg.getAttribute('srcset') || '';
@@ -481,7 +485,7 @@ export class Defuddle {
 				for (const img of existingImgs) {
 					if (img.closest('noscript')) continue;
 					const src = img.getAttribute('src') || '';
-					if (src && !src.startsWith('data:')) {
+					if (src && !isPlaceholderSrc(src)) {
 						hasRealImage = true;
 						break;
 					}
@@ -823,6 +827,17 @@ export class Defuddle {
 			// Apply mobile styles to clone
 			profileStep('applyMobileStyles', () => this.applyMobileStyles(clone, mobileStyles));
 
+			// Expand legacy "Read more" gates before main-content detection so the
+			// scorer sees the full article instead of a short visible intro.
+			profileStep('expandReadMoreBlocks', () => {
+				if (options.removeContentPatterns) {
+					const root = clone.body || clone.documentElement;
+					if (root) {
+						expandReadMoreBlocks(root, this.debug, debugRemovals);
+					}
+				}
+			});
+
 			// Find main content
 			const mainContent = profileStep('findMainContent', (): Element | null => {
 				let found: Element | null = null;
@@ -1147,6 +1162,14 @@ export class Defuddle {
 				// Add score based on content analysis
 				score += ContentScorer.scoreElement(element);
 
+				// Some roundup/newsletter pages keep the lead story and follow-on
+				// summaries inside a single article container. Favor that container
+				// so later cleanup can trim it to the first story instead of
+				// scoring an arbitrary later excerpt as the "best" content block.
+				if (element.querySelectorAll('h2.SummaryHL').length > 1) {
+					score += 500;
+				}
+
 				candidates.push({ element, score, selectorIndex: index });
 			});
 		});
@@ -1240,6 +1263,12 @@ export class Defuddle {
 		const bestCell = ContentScorer.findBestElement(cells);
 		if (!bestCell) return null;
 
+		const roundupContent = bestCell.querySelector('.ArticleText');
+		if (roundupContent?.querySelectorAll('h2.SummaryHL').length && roundupContent.querySelectorAll('h2.SummaryHL').length > 1) {
+			this.trimToLeadSummary(roundupContent);
+			return roundupContent;
+		}
+
 		// If there's more text outside the best cell than inside it,
 		// tables are peripheral (TOC, intro boxes, data tables) — not the
 		// main content container. Fall back to body.
@@ -1250,6 +1279,33 @@ export class Defuddle {
 		}
 
 		return bestCell;
+	}
+
+	private trimToLeadSummary(container: Element): void {
+		const headings = Array.from(container.querySelectorAll('h2.SummaryHL'));
+		if (headings.length < 2) return;
+
+		const firstHeading = headings[0];
+		let endBlock: Element | null = null;
+		for (let node = firstHeading.nextElementSibling; node; node = node.nextElementSibling) {
+			if (node.matches('h2.SummaryHL')) break;
+			if (node.querySelector('a[href*="#Comments"]') || /^comments\s*\(\d+\s+posted\)$/i.test((node.textContent || '').trim())) {
+				endBlock = node;
+			}
+		}
+		if (!endBlock) return;
+
+		for (let child = container.firstElementChild; child && child !== firstHeading;) {
+			const next = child.nextElementSibling;
+			child.remove();
+			child = next;
+		}
+
+		for (let child = endBlock.nextElementSibling; child;) {
+			const next = child.nextElementSibling;
+			child.remove();
+			child = next;
+		}
 	}
 
 	private findContentByScoring(doc: Document): Element | null {

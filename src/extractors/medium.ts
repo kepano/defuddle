@@ -84,6 +84,127 @@ export class MediumExtractor extends BaseExtractor {
 		// Remove author photo, name, and read time
 		this.article.querySelectorAll('[data-testid="authorPhoto"], [data-testid="authorName"], [data-testid="storyReadTime"]').forEach(el => el.remove());
 
+		// Older Medium markup exposes the title and author/date row as plain
+		// elements rather than data-testid hooks. Strip those metadata wrappers
+		// so they do not get merged into the article subtitle/body.
+		const heading = this.article.querySelector('h1');
+		let metadataSibling = heading?.nextElementSibling || null;
+		for (let i = 0; i < 3 && metadataSibling; i++) {
+			const text = metadataSibling.textContent?.replace(/\s+/g, ' ').trim() || '';
+			const hasProfileLink = !!metadataSibling.querySelector('a[href*="/@"]');
+			const looksLikeMeta =
+				hasProfileLink ||
+				/\bfollow\b/i.test(text) ||
+				/\bmin read\b/i.test(text) ||
+				/^[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/.test(text) ||
+				/\b[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\b/.test(text);
+			const hasContentBlocks = !!metadataSibling.querySelector('p[id], blockquote, figure, ul, ol, h2, h3, h4');
+			if (looksLikeMeta && !hasContentBlocks) {
+				const next = metadataSibling.nextElementSibling;
+				metadataSibling.remove();
+				metadataSibling = next;
+				continue;
+			}
+			break;
+		}
+
+		// Newer Medium markup often keeps the metadata shell as a sibling div
+		// between the title and the first substantive paragraph/blockquote.
+		// Drop those preceding siblings while leaving the actual lead intact.
+		const leadContentBlock = heading?.parentElement?.querySelector('p[id], blockquote, figure, ol, ul');
+		if (heading?.parentElement && leadContentBlock?.parentElement === heading.parentElement) {
+			for (let sibling = heading.nextElementSibling; sibling && sibling !== leadContentBlock;) {
+				const next = sibling.nextElementSibling;
+				sibling.remove();
+				sibling = next;
+			}
+		}
+
+		// Older Medium pages often duplicate the author as a plain text profile
+		// link near the top of the body. Keep the avatar link, but remove the
+		// stray text-only author link so it does not merge into the subtitle.
+		const author = this.getAuthor();
+		this.article.querySelectorAll('a[href*="/@"], a[href*="medium.com/@"]').forEach(link => {
+			if (link.querySelector('img')) return;
+			const text = link.textContent?.replace(/\s+/g, ' ').trim() || '';
+			if (!text || text !== author) return;
+
+			const wrapper = link.closest('p, div, span');
+			const wrapperText = wrapper?.textContent?.replace(/\s+/g, ' ').trim() || '';
+			if (wrapper && wrapper !== this.article && wrapperText.length <= text.length + 20) {
+				wrapper.remove();
+			} else {
+				link.remove();
+			}
+		});
+
+		// Some pages render the author link as its own paragraph directly above
+		// the subtitle, with an avatar-only block before it and a bookmark/share
+		// icon block after it. Remove that trio so the article starts at the
+		// subtitle rather than duplicated author UI.
+		this.article.querySelectorAll('p').forEach(p => {
+			const text = p.textContent?.replace(/\s+/g, ' ').trim() || '';
+			const authorLink = p.querySelector('a[href*="/@"], a[href*="medium.com/@"]');
+			if (!authorLink || text !== author) return;
+
+			const prev = p.previousElementSibling;
+			if (prev && prev.querySelector('img') && !(prev.textContent || '').trim()) {
+				prev.remove();
+			}
+
+			const next = p.nextElementSibling;
+			if (next && next.querySelector('svg') && (next.textContent?.replace(/\s+/g, ' ').trim() || '').length < 8) {
+				next.remove();
+			}
+
+			p.remove();
+		});
+
+		// Some archived Medium pages place a small metadata shell before the real
+		// story body: avatar-only block, author link paragraph, bookmark/share
+		// icon wrapper, then the actual subtitle/body. Drop those leading blocks
+		// so the article starts at substantive content.
+		const looksLikeLeadingMeta = (el: Element): boolean => {
+			const text = el.textContent?.replace(/\s+/g, ' ').trim() || '';
+			if (!text) return !!el.querySelector('img, svg');
+			if (text === author) return true;
+			if (/^\d+\s*min\s*read$/i.test(text)) return true;
+			if (/^[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}$/.test(text)) return true;
+			if (/^(follow|listen|share|bookmark)$/i.test(text)) return true;
+			if (el.querySelector('svg') && text.length <= 24) return true;
+			if (el.querySelector('img') && text.length <= author.length + 20) return true;
+			const links = Array.from(el.querySelectorAll('a[href]'));
+			if (links.length > 0 && links.every(link => {
+				const href = link.getAttribute('href') || '';
+				return href.includes('/@') || href.includes('medium.com/m/signin');
+			}) && text.length <= author.length + 20) {
+				return true;
+			}
+			return false;
+		};
+
+		const isSubstantiveLead = (el: Element): boolean => {
+			if (el.matches('blockquote, ol, ul, figure, h2, h3, h4')) return true;
+			const text = el.textContent?.replace(/\s+/g, ' ').trim() || '';
+			if (text.length < 20) return false;
+			if (text === author) return false;
+			if (/^\d+\s*min\s*read$/i.test(text)) return false;
+			if (/^[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}$/.test(text)) return false;
+			return true;
+		};
+
+		const leadContainer =
+			this.article.children.length === 1 && this.article.firstElementChild?.tagName === 'DIV'
+				? this.article.firstElementChild
+				: this.article;
+
+		for (const block of Array.from(leadContainer.children)) {
+			if (isSubstantiveLead(block)) break;
+			if (looksLikeLeadingMeta(block)) {
+				block.remove();
+			}
+		}
+
 		// Remove UI text, dates, read-time, and standalone noise
 		const UI_TEXT = new Set([
 			'Member-only story', 'Listen', 'Share', 'Top highlight', '·',
