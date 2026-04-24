@@ -452,6 +452,30 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		break;
 	}
 
+	// Remove compact author byline lists near the top of content. The broad
+	// href-based selector removal is intentionally disabled so body links to
+	// author pages are preserved; pre-content author lists are metadata.
+	for (const list of mainContent.querySelectorAll('ul, ol')) {
+		if (!list.parentNode) continue;
+		if (!isPreContent(list)) continue;
+		if (countWords(list.textContent || '') > 10) continue;
+		if (list.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+
+		const links = Array.from(list.querySelectorAll('a[href]'));
+		if (links.length === 0) continue;
+		const allAuthorLinks = links.every(link => {
+			const href = link.getAttribute('href') || '';
+			return href.includes('/author/') || href.includes('/author?') || /\/author\/?$/.test(href);
+		});
+		if (!allAuthorLinks) continue;
+
+		const target = walkUpToWrapper(list, list.textContent?.trim() || '', mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'author byline list', text: textPreview(target) });
+		}
+		target.remove();
+	}
+
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
 
 	// Single pass over candidates for all metadata-removal checks.
