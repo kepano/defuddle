@@ -4,27 +4,27 @@ import { escapeHtml } from '../utils/dom';
 import { countWords, CJK_CHAR_RANGES } from '../utils';
 import { buildTranscript } from '../utils/transcript';
 
-const CJK_SENTENCE_PUNCT = '\u3002\uFF01\uFF1F';  // 。！？
-const CJK_CLOSE_QUOTES = '\u300D\u300F\uFF09';    // 」』）
-const SENTENCE_END = new RegExp(`[.!?${CJK_SENTENCE_PUNCT}]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
-const QUESTION_END = new RegExp(`[?\\uFF1F]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
-const SPEAKER_MARKER = /^(>>|-\s)/;
-const SPEAKER_STRIP = /^(>>\s*|-\s+)/;
-const TRAILING_COMMA = /,\s*$/;
-const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
-const TRANSCRIPT_MAX_GROUP_SECONDS = 30;
+export const CJK_SENTENCE_PUNCT = '\u3002\uFF01\uFF1F';  // 。！？
+export const CJK_CLOSE_QUOTES = '\u300D\u300F\uFF09';    // 」』）
+export const SENTENCE_END = new RegExp(`[.!?${CJK_SENTENCE_PUNCT}]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
+export const QUESTION_END = new RegExp(`[?\\uFF1F]["'\\u2019\\u201D)${CJK_CLOSE_QUOTES}]*\\s*$`);
+export const SPEAKER_MARKER = /^(>>|-\s)/;
+export const SPEAKER_STRIP = /^(>>\s*|-\s+)/;
+export const TRAILING_COMMA = /,\s*$/;
+export const TRANSCRIPT_GROUP_GAP_SECONDS = 20;
+export const TRANSCRIPT_MAX_GROUP_SECONDS = 30;
 // Latin: sentence punct + optional quotes + whitespace + uppercase letter
 // CJK: fullwidth sentence punct + optional close quotes + any CJK character (no space needed)
-const MID_TEXT_SENTENCE_BOUNDARY = new RegExp(
+export const MID_TEXT_SENTENCE_BOUNDARY = new RegExp(
 	`^(.*[.!?]["'\\u2019\\u201D)]*)\\s+([A-Z].*)$` +
 	`|^(.*[${CJK_SENTENCE_PUNCT}][${CJK_CLOSE_QUOTES}]*)([${CJK_CHAR_RANGES}].*)$`
 );
-const TURN_MERGE_MAX_WORDS = 80;
-const TURN_MERGE_MAX_SPAN_SECONDS = 45;
-const SHORT_UTTERANCE_MAX_WORDS = 3;
-const FIRST_GROUP_MERGE_MIN_WORDS = 8;
+export const TURN_MERGE_MAX_WORDS = 80;
+export const TURN_MERGE_MAX_SPAN_SECONDS = 45;
+export const SHORT_UTTERANCE_MAX_WORDS = 3;
+export const FIRST_GROUP_MERGE_MIN_WORDS = 8;
 
-const FETCH_TIMEOUT_MS = 4000;
+export const FETCH_TIMEOUT_MS = 4000;
 
 // Unofficial InnerTube API. Uses Android client context to get caption track URLs.
 // Version may need updating if Google changes the API.

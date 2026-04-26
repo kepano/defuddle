@@ -349,7 +349,8 @@ export function createMarkdownContent(content: string, url: string) {
 			const src = node.getAttribute('src');
 			return !!src && (
 				!!src.match(/(?:youtube\.com|youtube-nocookie\.com|youtu\.be)/) ||
-				!!src.match(/(?:twitter\.com|x\.com)/)
+				!!src.match(/(?:twitter\.com|x\.com)/) ||
+				!!src.match(/(?:bilibili\.com|bilibili\.tv)/)
 			);
 		},
 		replacement: function (content: string, node: Node): string {
