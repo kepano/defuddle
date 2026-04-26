@@ -252,6 +252,7 @@ export const EXACT_SELECTORS = [
 	// iframes
 	'instaread-player',
 	'iframe:not([src])',
+	'iframe[src*="blink.net"]',
 	'iframe[src*="giscus.app"]',
 	'iframe[src*="tinypass.com"]',
 	'iframe[src*="trinitymedia.ai"]',
@@ -301,6 +302,9 @@ export const EXACT_SELECTORS = [
 	// skip links
 	'[data-link-name*="skip" i]',
 	'[aria-label*="skip" i]',
+
+	// social
+	'[title^="Share on" i]',
 
 	// dismiss/close buttons
 	'[aria-label="Dismiss" i]',
@@ -878,6 +882,7 @@ export const PARTIAL_SELECTORS = [
 //	'-stats',
 	'_stats',
 //	'sticky',
+	'sticky-social',
 	'story-date',
 	'story-navigation',
 	'storyreadtime', // Medium
