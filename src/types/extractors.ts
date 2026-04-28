@@ -1,3 +1,9 @@
+export interface TranscriptResult {
+	html: string;
+	text: string;
+	languageCode?: string;
+}
+
 export interface ConversationMessage {
 	author: string;
 	content: string;

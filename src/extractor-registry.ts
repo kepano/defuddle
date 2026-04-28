@@ -4,6 +4,7 @@ import { BaseExtractor, ExtractorOptions } from './extractors/_base';
 import { RedditExtractor } from './extractors/reddit';
 import { TwitterExtractor } from './extractors/twitter';
 import { XArticleExtractor } from './extractors/x-article';
+import { BilibiliExtractor } from './extractors/bilibili';
 import { YoutubeExtractor } from './extractors/youtube';
 import { HackerNewsExtractor } from './extractors/hackernews';
 import { ChatGPTExtractor } from './extractors/chatgpt';
@@ -82,6 +83,13 @@ export class ExtractorRegistry {
 				/youtu\.be\/.*/
 			],
 			extractor: YoutubeExtractor
+		});
+
+		this.register({
+			patterns: [
+				'bilibili.com',
+			],
+			extractor: BilibiliExtractor
 		});
 
 		this.register({
