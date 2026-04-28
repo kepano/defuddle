@@ -8,7 +8,7 @@ import {
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
-import { textPreview, logDebug, isSVGElement } from '../utils';
+import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
@@ -36,9 +36,6 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements inside code blocks (e.g. syntax highlighting spans)
 				if (el.closest('pre, code')) {
-					return;
-				}
-				if (el.tagName === 'STYLE' && isSVGElement(el)) {
 					return;
 				}
 				// Skip elements with responsive show classes (e.g. "hidden sm:flex")

@@ -18,7 +18,7 @@ import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
-import { getComputedStyle, textPreview, countWords, isSVGElement } from './utils';
+import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
 
 interface StyleChange {
@@ -222,12 +222,14 @@ export class Defuddle {
 		// isolates them, and they're widely used for legitimate media embeds.
 		// Dangerous iframe attributes (srcdoc, javascript: src) are stripped
 		// in the attribute pass below. Math scripts are preserved for LaTeX
-		// content (matching the EXACT_SELECTORS approach).
+		// content (matching the EXACT_SELECTORS approach). SVG <style> is
+		// removed too: CSS @import / url() inside it can fetch external
+		// resources from the reader's IP. applySvgFallbackStyles in
+		// standardize.ts reconstructs basic fill/stroke from class names.
 		const dangerousElements = body.querySelectorAll(
 			'script:not([type^="math/"]), style, noscript, frame, frameset, object, embed, applet, base'
 		);
 		for (const el of dangerousElements) {
-			if (el.tagName === 'STYLE' && isSVGElement(el)) continue;
 			el.remove();
 		}
 
