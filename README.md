@@ -88,6 +88,9 @@ npx defuddle parse page.html --output result.html
 
 # Enable debug mode
 npx defuddle parse page.html --debug
+
+# Use a custom User-Agent (helps with sites that return 403 to the default UA)
+npx defuddle parse https://example.com/article --user-agent "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 ```
 
 #### CLI Options
@@ -101,6 +104,7 @@ npx defuddle parse page.html --debug
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
 | `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
+| `--user-agent <string>` | `-u` | Custom `User-Agent` header for HTTP requests (helps with 403/FORBIDDEN responses) |
 
 ## Installation
 
