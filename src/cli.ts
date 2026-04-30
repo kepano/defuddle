@@ -16,6 +16,7 @@ interface ParseOptions {
 	debug?: boolean;
 	property?: string;
 	lang?: string;
+	userAgent?: string;
 }
 
 // ANSI color helpers (avoids chalk dependency which is ESM-only)
@@ -46,6 +47,7 @@ program
 	.option('-p, --property <name>', 'Extract a specific property (e.g., title, description, domain)')
 	.option('--debug', 'Enable debug mode')
 	.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
+	.option('-u, --user-agent <string>', 'Custom User-Agent header for HTTP requests (helps with 403/FORBIDDEN responses)')
 	.action(async (source: string, options: ParseOptions) => {
 		try {
 			// Handle --md alias
@@ -67,7 +69,7 @@ program
 			const isUrl = source.startsWith('http://') || source.startsWith('https://');
 			if (isUrl) {
 				url = source;
-				const initialUA = getInitialUA(source);
+				const initialUA = options.userAgent || getInitialUA(source);
 				html = await fetchPage(source, initialUA, options.lang);
 			} else {
 				const filePath = resolve(process.cwd(), source);
@@ -79,7 +81,8 @@ program
 
 			// If no content was extracted from a URL, retry with bot UA.
 			// Some sites (e.g. Obsidian Publish) serve pre-rendered content to bots.
-			if (isUrl && result.wordCount === 0) {
+			// Skipped when the user explicitly set a UA — respect their choice.
+			if (isUrl && result.wordCount === 0 && !options.userAgent) {
 				try {
 					const botHtml = await fetchPage(source, BOT_UA, options.lang);
 
