@@ -41,6 +41,16 @@ export function asGenericElement(node: any): GenericElement {
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
 
+function formatMarkdownLinkDestination(href: string): string {
+	if (!/\s/.test(href)) return href.replace(/([()])/g, '\\$1');
+	return `<${href.replace(/>/g, '\\>')}>`;
+}
+
+function formatMarkdownLinkTitle(title: string | null): string {
+	if (!title) return '';
+	return ` "${title.replace(/(\n+\s*)+/g, '\n').replace(/"/g, '\\"')}"`;
+}
+
 function getBestImageSrc(node: GenericElement): string {
 	const srcset = node.getAttribute('srcset');
 	if (srcset) {
@@ -392,6 +402,18 @@ export function createMarkdownContent(content: string, url: string) {
 		}
 	});
 
+	turndownService.addRule('link', {
+		filter: 'a',
+		replacement: function(content, node) {
+			if (!isGenericElement(node)) return content;
+			const href = node.getAttribute('href');
+			if (!href) return content;
+			const title = formatMarkdownLinkTitle(node.getAttribute('title'));
+			const destination = formatMarkdownLinkDestination(href);
+			return `[${content}](${destination}${title})`;
+		}
+	});
+
 	// Add a new custom rule for complex link structures
 	turndownService.addRule('complexLinkStructure', {
 		filter: function (node, options) {
@@ -421,10 +443,7 @@ export function createMarkdownContent(content: string, url: string) {
 			// Construct the new markdown
 			let markdown = `${headingContent}\n\n${remainingContent}\n\n`;
 			if (href) {
-				markdown += `[View original](${href})`;
-				if (title) {
-					markdown += ` "${title}"`;
-				}
+				markdown += `[View original](${formatMarkdownLinkDestination(href)}${formatMarkdownLinkTitle(title)})`;
 			}
 			
 			return markdown;
