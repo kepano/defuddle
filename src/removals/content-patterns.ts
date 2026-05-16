@@ -8,6 +8,7 @@ const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year
 const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\s+time)\s*:?\s*\d+\s*min(?:ute)?s?\b/i;
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^(?:posted\s+)?by\s+\S/i;
+const METADATA_LABEL_PATTERN = /^(?:date|published|updated|posted|from|to|subject)\s*:/i;
 const BOILERPLATE_PATTERNS = [
 	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
 	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
@@ -54,6 +55,7 @@ const RELATED_INTRO_PATTERN = /^for more (?:on|about)\b/i;
 // Shared date/number patterns for stripping metadata text.
 const METADATA_STRIP_BASE = [
 	/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi,
+	/\b(?:Mon(?:day)?|Tue(?:s(?:day)?)?|Wed(?:nesday)?|Thu(?:rs(?:day)?)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\b/gi,
 	/\b\d+(?:st|nd|rd|th)?\b/g,
 	/\d{4}[-/]\d{1,2}[-/]\d{1,2}/g,
 ];
@@ -521,7 +523,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Remove article metadata header blocks (DIV/P) near the top of content.
 		// Catches Tailwind-based blog layouts with non-semantic date+category divs,
 		// and news site eyebrows with relative timestamps (e.g. "21 hours ago - Politics & Policy").
-		if ((tag === 'DIV' || tag === 'P') && words >= 1 && words <= 10 && (hasDate || RELATIVE_TIME_PATTERN.test(text)) && !/[.!?]/.test(text) && isPreContent(el)) {
+		if ((tag === 'DIV' || tag === 'P') && words >= 1 && words <= 10 && (hasDate || RELATIVE_TIME_PATTERN.test(text)) && !METADATA_LABEL_PATTERN.test(text) && !/[.!?]/.test(text) && isPreContent(el)) {
 			if (!Array.from(el.querySelectorAll('p, h1, h2, h3, h4, h5, h6')).some(b => countWords(b.textContent || '') > 8)) {
 				if (debug && debugRemovals) {
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'article metadata header block', text: textPreview(el) });
@@ -579,7 +581,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		}
 
 		// Remove author + date bylines (name + date, any order) near the start.
-		if (!authorDateFound && words >= 2 && words <= 10 && hasDate && isPreContent(el)) {
+		if (!authorDateFound && words >= 2 && words <= 10 && hasDate && !METADATA_LABEL_PATTERN.test(text) && isPreContent(el)) {
 			let residual = text;
 			for (const pattern of BYLINE_STRIP_PATTERNS) {
 				residual = residual.replace(pattern, '');
