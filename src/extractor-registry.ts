@@ -25,6 +25,7 @@ import { MediumExtractor } from './extractors/medium';
 import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
 import { MastodonExtractor } from './extractors/mastodon';
+import { XiaohongshuExtractor } from './extractors/xiaohongshu';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -211,6 +212,16 @@ export class ExtractorRegistry {
 				'lwn.net',
 			],
 			extractor: LwnExtractor
+		});
+
+		this.register({
+			patterns: [
+				'xiaohongshu.com',
+				'www.xiaohongshu.com',
+				/^https?:\/\/www\.xiaohongshu\.com\/explore\/.*/,
+				/^https?:\/\/www\.xiaohongshu\.com\/discovery\/item\/.*/,
+			],
+			extractor: XiaohongshuExtractor
 		});
 
 		this.register({
