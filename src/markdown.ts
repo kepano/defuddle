@@ -143,13 +143,13 @@ export function createMarkdownContent(content: string, url: string) {
 				: Array.from(node.querySelectorAll('tr')).filter(
 					(tr: any) => isDirectTableChild(tr, node)
 				);
-			const rows = rowElements.map((row: any) => {
+			const rows: string[][] = rowElements.map((row: any) => {
 				const cellElements: any[] = row.cells && row.cells.length > 0
 					? Array.from(row.cells)
 					: Array.from(row.querySelectorAll('td, th')).filter(
 						(cell: any) => cell.parentNode === row
 					);
-				const cellContents = cellElements.map((cell: any) => {
+				return cellElements.map((cell: any) => {
 					// Remove newlines and trim the content
 					let cellContent = turndownService.turndown(serializeHTML(cell))
 						.replace(/\n/g, ' ')
@@ -158,16 +158,34 @@ export function createMarkdownContent(content: string, url: string) {
 					cellContent = cellContent.replace(/\|/g, '\\|');
 					return cellContent;
 				});
-				return `| ${cellContents.join(' | ')} |`;
 			});
 
 			if (!rows.length) return content;
 
-			// Create the separator row
-			const separatorRow = `| ${Array(rows[0].split('|').length - 2).fill('---').join(' | ')} |`;
+			// A markdown table's width is fixed by its separator row; parsers
+			// drop body cells beyond it and pad rows that fall short. Source
+			// tables can be ragged, so size every row to the widest one. This
+			// preserves trailing columns the old "use row 0" logic dropped, and
+			// counting cell elements (not splitting the rendered string on '|')
+			// avoids miscounting escaped pipes inside cell content.
+			const columnCount = Math.max(...rows.map(r => r.length));
+			if (columnCount === 0) return content;
+
+			const formatRow = (cells: string[]): string => {
+				const padded = cells.length < columnCount
+					? [...cells, ...Array(columnCount - cells.length).fill('')]
+					: cells;
+				return `| ${padded.join(' | ')} |`;
+			};
+
+			const separatorRow = `| ${Array(columnCount).fill('---').join(' | ')} |`;
 
 			// Combine all rows
-			const tableContent = [rows[0], separatorRow, ...rows.slice(1)].join('\n');
+			const tableContent = [
+				formatRow(rows[0]),
+				separatorRow,
+				...rows.slice(1).map(formatRow)
+			].join('\n');
 
 			return `\n\n${tableContent}\n\n`;
 		}
