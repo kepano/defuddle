@@ -43,8 +43,8 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 			const currentAuthorRole = messageEl?.getAttribute('data-message-author-role') || '';
 
-			// Assistant turns may be split around the reasoning control, so merge all
-			// message content fragments for the turn
+			// Assistant turns may have content before and after the Thought section,
+			// so merge all message content fragments for the turn.
 			const contentHtmlParts = messageEls.flatMap(el => {
 				const contentElements = this.getMessageContentElements(el);
 				return contentElements.length > 0

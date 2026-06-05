@@ -1,6 +1,6 @@
 ```json
 {
-  "title": "ChatGPT reasoning split fixture",
+  "title": "ChatGPT post-Thought content fixture",
   "author": "",
   "site": "ChatGPT",
   "published": ""
