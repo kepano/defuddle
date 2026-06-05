@@ -80,7 +80,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					if (hashParts.length > 1) {
 						fragmentText = decodeURIComponent(hashParts[1]);
 						fragmentText = fragmentText.replace(/%2C/g, ',');
-						
+
 						const parts = fragmentText.split(',');
 						if (parts.length > 1 && parts[0].trim()) {
 							fragmentText = ` — ${parts[0].trim()}...`;
@@ -92,7 +92,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					}
 				} catch (e) {
 					console.error(`Failed to parse URL: ${url}`, e);
-					domain = url; 
+					domain = url;
 				}
 
 				// Check if this URL already exists in our footnotes
@@ -102,14 +102,14 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				if (footnoteIndex === -1) {
 					this.footnoteCounter++;
 					footnoteNumber = this.footnoteCounter;
-					this.footnotes.push({ 
-						url, 
+					this.footnotes.push({
+						url,
 						text: `<a href="${url}">${domain}</a>${fragmentText}`
 					});
 				} else {
 					footnoteNumber = footnoteIndex + 1;
 				}
-				
+
 				// Return just the footnote reference, replacing the ZWS (if captured) and the entire span structure
 				return `<sup id="fnref:${footnoteNumber}"><a href="#fn:${footnoteNumber}">${footnoteNumber}</a></sup>`;
 			});
@@ -178,4 +178,4 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 		return 'ChatGPT Conversation';
 	}
-} 
+}

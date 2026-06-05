@@ -23,7 +23,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 		tempDoc.body.appendChild(container);
 
 		// Run Defuddle on our formatted content
-		const defuddled = new Defuddle(tempDoc, { url: this.url || 'about:blank' }).parse();
+		const defuddled = new Defuddle(tempDoc, { url: 'about:blank' }).parse();
 		const contentHtml = defuddled.content;
 
 		return {
@@ -57,7 +57,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 
 	protected createContentHtml(messages: ConversationMessage[], footnotes: Footnote[]): string {
 		const messagesHtml = messages.map((message, index) => {
-			const timestampHtml = message.timestamp ? 
+			const timestampHtml = message.timestamp ?
 				`<div class="message-timestamp">${message.timestamp}</div>` : '';
 
 			// Check if content already has paragraph tags
@@ -65,7 +65,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 			const contentHtml = hasParagraphs ? message.content : `<p>${message.content}</p>`;
 
 			// Add metadata to data attributes
-			const dataAttributes = message.metadata ? 
+			const dataAttributes = message.metadata ?
 				Object.entries(message.metadata)
 					.map(([key, value]) => `data-${key}="${value}"`)
 					.join(' ') : '';
@@ -98,4 +98,4 @@ export abstract class ConversationExtractor extends BaseExtractor {
 
 		return `${messagesHtml}\n${footnotesHtml}`.trim();
 	}
-} 
+}
