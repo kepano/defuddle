@@ -77,6 +77,12 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 	if (dataMath) {
 		return dataMath;                                                                                                                                             
 	}
+	const parentDataEntry = el.parentElement?.classList.contains('hurmet-tex')
+		? el.parentElement.getAttribute('data-entry')
+		: null;
+	if (parentDataEntry) {
+		return parentDataEntry;
+	}
 	
 	// WordPress LaTeX images
 	if (el.tagName.toLowerCase() === 'img' && el.classList.contains('latex')) {

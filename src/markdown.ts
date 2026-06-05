@@ -16,10 +16,13 @@ type GenericElement = {
 		cells?: ArrayLike<{}>;
 	}>;
 	parentNode?: GenericElement | null;
+	previousSibling?: Node | null;
 	nextSibling?: GenericElement | null;
 	nodeName: string;
 	innerHTML: string;
+	outerHTML?: string;
 	children?: ArrayLike<GenericElement>;
+	childNodes?: ArrayLike<Node>;
 	cloneNode: (deep?: boolean) => Node;
 	textContent?: string | null;
 	attributes?: NamedNodeMap;
@@ -628,11 +631,13 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isInTable && (
 				node.getAttribute('display') === 'block' || 
 				node.classList?.contains('mwe-math-fallback-image-display') || 
+				isOnlyMathInParagraph(node) ||
 				(node.parentNode && isGenericElement(node.parentNode) && 
 				node.parentNode.classList?.contains('mwe-math-element') && 
 				node.parentNode.previousSibling && isGenericElement(node.parentNode.previousSibling) && 
 				node.parentNode.previousSibling.nodeName.toLowerCase() === 'p')
 			)) {
+				latex = formatBlockLatex(latex);
 				return `\n$$\n${latex}\n$$\n`;
 			} else {
 				// For inline math, ensure there's a space before and after only if needed
@@ -775,24 +780,128 @@ export function createMarkdownContent(content: string, url: string) {
 	}
 
 	function extractLatex(element: GenericElement): string {
-		let latex = element.getAttribute('data-latex');
+		const annotation = element.querySelector('annotation[encoding="application/x-tex"]');
+		if (annotation?.textContent?.trim()) {
+			return annotation.textContent.trim();
+		}
+
+		const latex = element.getAttribute('data-latex');
 		const alttext = element.getAttribute('alttext');
-		if (latex) {
+		const hasMathML = hasMathMLChildren(element);
+		const hasComplexMathML = hasComplexMathMLChildren(element);
+
+		if (latex && (!hasMathML || isTrustworthyLatexAttribute(latex, hasComplexMathML))) {
 			return latex.trim();
-		} else if (alttext) {
+		} else if (alttext && (!hasMathML || isTrustworthyLatexAttribute(alttext, hasComplexMathML))) {
 			return alttext.trim();
 		}
+
 		// Fallback: convert MathML → LaTeX for renderers like MathJax SVG that embed no LaTeX.
 		// Fails silently when mathml-to-latex is unavailable (core bundle).
-		if (element.nodeName.toLowerCase() === 'math') {
-			try {
-				const { MathMLToLaTeX } = require('mathml-to-latex');
-				return MathMLToLaTeX.convert(`<math>${element.innerHTML}</math>`).trim();
-			} catch (e) {
-				// not available or conversion failed
+		if (element.nodeName.toLowerCase() === 'math' && hasMathML) {
+			const converted = convertMathMLToLatex(element);
+			if (converted) return converted;
+		}
+
+		if (latex) return latex.trim();
+		if (alttext) return alttext.trim();
+		return '';
+	}
+
+	function hasMathMLChildren(element: GenericElement): boolean {
+		const mathMLNodeNames = new Set([
+			'annotation', 'maction', 'math', 'menclose', 'merror', 'mfenced', 'mfrac', 'mi',
+			'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mprescripts',
+			'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup',
+			'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'munderover', 'none',
+			'semantics'
+		]);
+
+		return Array.from(element.children || []).some(child => {
+			const namespace = (child as unknown as Element).namespaceURI;
+			return namespace === 'http://www.w3.org/1998/Math/MathML' ||
+				mathMLNodeNames.has(child.nodeName.toLowerCase());
+		});
+	}
+
+	function hasComplexMathMLChildren(element: GenericElement): boolean {
+		const complexMathMLNodeNames = new Set([
+			'menclose', 'mfrac', 'mmultiscripts', 'mover', 'mroot', 'msqrt', 'msub',
+			'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder', 'munderover'
+		]);
+
+		const visit = (node: GenericElement): boolean => {
+			if (complexMathMLNodeNames.has(node.nodeName.toLowerCase())) {
+				return true;
 			}
+
+			return Array.from(node.children || []).some(child => visit(child));
+		};
+
+		return visit(element);
+	}
+
+	function convertMathMLToLatex(element: GenericElement): string {
+		try {
+			const { MathMLToLaTeX } = require('mathml-to-latex');
+			const mathML = (element.outerHTML || `<math>${element.innerHTML}</math>`)
+				.replace(/&amp;nbsp;/g, '&#xA0;')
+				.replace(/&nbsp;/g, '&#xA0;');
+			return MathMLToLaTeX.convert(mathML).trim();
+		} catch (e) {
+			// not available or conversion failed
 		}
 		return '';
+	}
+
+	function isLikelyLatexSource(value: string): boolean {
+		return /\\[a-zA-Z]+|[_^{}]|[$&]|\\\\|\\begin\{/.test(value);
+	}
+
+	function isTrustworthyLatexAttribute(value: string, hasComplexMathML: boolean): boolean {
+		if (isLikelyLatexSource(value)) return true;
+
+		const trimmed = value.trim();
+		if (!trimmed) return false;
+
+		if (hasComplexMathML) return false;
+
+		// Rendered prose fragments such as "fan-outfan-in" can be written into
+		// data-latex by upstream normalizers. Keep simple symbolic text like
+		// "AB", "A, B", or "∑", but prefer MathML for hyphenated word fragments.
+		return !/[a-zA-Z]{3,}-[a-zA-Z]{2,}/.test(trimmed);
+	}
+
+	function hasLatexEnvironment(value: string): boolean {
+		return /\\begin\{[^}]+\}/.test(value);
+	}
+
+	function formatBlockLatex(value: string): string {
+		const latex = value.trim();
+		if (!latex || hasLatexEnvironment(latex)) return latex;
+
+		if (latex.includes('\\\\') || latex.includes('&')) {
+			return `\\begin{aligned}\n${latex}\n\\end{aligned}`;
+		}
+
+		return latex;
+	}
+
+	function isOnlyMathInParagraph(element: GenericElement): boolean {
+		const parent = element.parentNode;
+		if (!parent || !isGenericElement(parent) || parent.nodeName.toLowerCase() !== 'p') {
+			return false;
+		}
+
+		const elementChildren = Array.from(parent.children || []);
+		if (elementChildren.length !== 1 || elementChildren[0] !== element) {
+			return false;
+		}
+
+		const currentNode = element as unknown as Node;
+		return Array.from(parent.childNodes || []).every(child => {
+			return child === currentNode || (isTextNode(child) && child.textContent?.trim() === '');
+		});
 	}
 
 	try {

@@ -22,7 +22,9 @@ $$
 ## The Lorenz Equations
 
 $$
+\begin{aligned}
 \overset{\cdot}{x} & = \sigma \left(\right. y - x \left.\right) \\ \overset{\cdot}{y} & = \rho x - y - x z \\ \overset{\cdot}{z} & = - \beta z + x y
+\end{aligned}
 $$
 
 ## The Cauchy-Schwarz Inequality
@@ -34,7 +36,9 @@ $$
 ## A Cross Product Formula
 
 $$
+\begin{aligned}
 \mathbf{V}_{1} \times \mathbf{V}_{2} = \left|\right. \mathbf{i} & \mathbf{j} & \mathbf{k} \\ \frac{\partial X}{\partial u} & \frac{\partial Y}{\partial u} & 0 \\ \frac{\partial X}{\partial v} & \frac{\partial Y}{\partial v} & 0 \left|\right.
+\end{aligned}
 $$
 
 ## The probability of getting
@@ -59,7 +63,9 @@ $$
 ## Maxwell's Equations
 
 $$
+\begin{aligned}
 \nabla \times \overset{\rightarrow}{\mathbf{B}} - \frac{1}{c} \frac{\partial \overset{\rightarrow}{\mathbf{E}}}{\partial t} & = \frac{4 \pi}{c} \overset{\rightarrow}{\mathbf{j}} \\ \nabla \cdot \overset{\rightarrow}{\mathbf{E}} & = 4 \pi \rho \\ \nabla \times \overset{\rightarrow}{\mathbf{E}} + \frac{1}{c} \frac{\partial \overset{\rightarrow}{\mathbf{B}}}{\partial t} & = \overset{\rightarrow}{0} \\ \nabla \cdot \overset{\rightarrow}{\mathbf{B}} & = 0
+\end{aligned}
 $$
 
 ## In-line Mathematics

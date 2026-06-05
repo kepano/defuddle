@@ -177,4 +177,121 @@ describe('Markdown conversion', () => {
 			expect(result.contentMarkdown).not.toContain('| --- | --- | --- |');
 		});
 	});
+
+	describe('math conversion', () => {
+		test('should prefer MathML over degraded data-latex', () => {
+			const markdown = createMarkdownContent(`
+				<p>
+					Test
+					<math data-latex="fan-outfan-in">
+						<mrow>
+							<msqrt><mi>x</mi></msqrt>
+							<mo>&#x2190;</mo>
+							<mi>y</mi>
+						</mrow>
+					</math>
+				</p>
+			`, 'https://example.com');
+
+			expect(markdown).toContain('\\sqrt');
+			expect(markdown).toContain('\\leftarrow');
+			expect(markdown).not.toContain('fan-outfan-in');
+		});
+
+		test('should prefer complex MathML over rendered text data-latex', () => {
+			const markdown = createMarkdownContent(`
+				<p>
+					<math display="inline" data-latex="rt(θ)=πθ(at|st)πθold(at|st)">
+						<mrow>
+							<msub><mi>r</mi><mi>t</mi></msub>
+							<mo stretchy="false">(</mo><mi>θ</mi><mo stretchy="false">)</mo>
+							<mo>=</mo>
+							<mfrac>
+								<mrow>
+									<msub><mi>π</mi><mrow><mi>θ</mi></mrow></msub>
+									<mo stretchy="false">(</mo>
+									<msub><mi>a</mi><mi>t</mi></msub>
+									<mo stretchy="false">|</mo>
+									<msub><mi>s</mi><mi>t</mi></msub>
+									<mo stretchy="false">)</mo>
+								</mrow>
+								<mrow>
+									<msub>
+										<mi>π</mi>
+										<mrow><msub><mi>θ</mi><mrow><mtext>old</mtext></mrow></msub></mrow>
+									</msub>
+									<mo stretchy="false">(</mo>
+									<msub><mi>a</mi><mi>t</mi></msub>
+									<mo stretchy="false">|</mo>
+									<msub><mi>s</mi><mi>t</mi></msub>
+									<mo stretchy="false">)</mo>
+								</mrow>
+							</mfrac>
+						</mrow>
+					</math>
+				</p>
+			`, 'https://example.com');
+
+			expect(markdown).toContain('$$');
+			expect(markdown).toContain('\\frac');
+			expect(markdown).toContain('r_{t}');
+			expect(markdown).toContain('\\pi_{\\theta}');
+			expect(markdown).toContain('\\theta_{\\text{old}}');
+			expect(markdown).not.toContain('rt(θ)=πθ(at|st)πθold(at|st)');
+		});
+
+		test('should wrap block aligned MathML in an aligned environment', () => {
+			const markdown = createMarkdownContent(`
+				<p>
+					<math display="block">
+						<mtable>
+							<mtr>
+								<mtd><mi>a</mi></mtd>
+								<mtd><mo>=</mo></mtd>
+								<mtd><mi>b</mi></mtd>
+							</mtr>
+							<mtr>
+								<mtd><mi>c</mi></mtd>
+								<mtd><mo>=</mo></mtd>
+								<mtd><mi>d</mi></mtd>
+							</mtr>
+						</mtable>
+					</math>
+				</p>
+			`, 'https://example.com');
+
+			expect(markdown).toContain('$$');
+			expect(markdown).toContain('\\begin{aligned}');
+			expect(markdown).toContain('&');
+			expect(markdown).toContain('\\\\');
+			expect(markdown).toContain('\\end{aligned}');
+		});
+
+		test('should treat paragraph-only inline math as block math', () => {
+			const markdown = createMarkdownContent(`
+				<p><math display="inline" data-latex="x^2">x2</math></p>
+			`, 'https://example.com');
+
+			expect(markdown.trim()).toBe('$$\nx^2\n$$');
+		});
+
+		test('should preserve valid inline data-latex without MathML', () => {
+			const markdown = createMarkdownContent(`
+				<p>Value <math data-latex="x^2">x2</math> now.</p>
+			`, 'https://example.com');
+
+			expect(markdown).toContain('Value $x^2$ now.');
+		});
+
+		test('should not double-wrap existing LaTeX environments', () => {
+			const latex = '\\begin{align*}a&=b\\\\c&=d\\end{align*}';
+			const markdown = createMarkdownContent(`
+				<p><math data-latex="${latex}">${latex}</math></p>
+			`, 'https://example.com');
+
+			expect(markdown).toContain('\\begin{align*}');
+			expect(markdown).toContain('\\end{align*}');
+			expect(markdown).not.toContain('\\begin{aligned}');
+		});
+	});
 });
