@@ -36,13 +36,23 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
 				|| '';
 
-			const messageEl = turn.querySelector('[data-message-author-role]');
+			// ChatGPT can split one assistant turn into multiple message elements
+			const messageEls = Array.from(turn.querySelectorAll('[data-message-author-role]'))
+				.filter(el => el.closest('[data-testid^="conversation-turn-"]') === turn);
+			const messageEl = messageEls[0];
 
 			const currentAuthorRole = messageEl?.getAttribute('data-message-author-role') || '';
 
-			const contentEl = messageEl?.querySelector('.markdown, .whitespace-pre-wrap') || messageEl || turn;
+			// Assistant turns may be split around the reasoning control, so merge all
+			// message content fragments for the turn
+			const contentHtmlParts = messageEls.flatMap(el => {
+				const contentElements = this.getMessageContentElements(el);
+				return contentElements.length > 0
+					? contentElements.map(contentEl => serializeHTML(contentEl))
+					: [serializeHTML(el)];
+			});
 
-			let messageContent = serializeHTML(contentEl);
+			let messageContent = (contentHtmlParts.length > 0 ? contentHtmlParts : [serializeHTML(turn)]).join('\n');
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
@@ -120,6 +130,18 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 		this.cachedMessages = messages;
 		return messages;
+	}
+
+	private getMessageContentElements(messageEl: Element): Element[] {
+		const contentSelector = '.markdown, .whitespace-pre-wrap';
+		const candidates = [
+			...(messageEl.matches(contentSelector) ? [messageEl] : []),
+			...Array.from(messageEl.querySelectorAll(contentSelector))
+		];
+
+		return candidates.filter(candidate =>
+			!candidates.some(other => other !== candidate && other.contains(candidate))
+		);
 	}
 
 	protected getFootnotes(): Footnote[] {

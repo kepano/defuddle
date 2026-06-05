@@ -17,13 +17,13 @@ export abstract class ConversationExtractor extends BaseExtractor {
 		const rawContentHtml = this.createContentHtml(messages, footnotes);
 
 		// Create a temporary document to run Defuddle on our content
-		const tempDoc = this.document.implementation.createHTMLDocument();
+		const tempDoc = this.createTemporaryDocument();
 		const container = tempDoc.createElement('article');
 		container.appendChild(parseHTML(tempDoc, rawContentHtml));
 		tempDoc.body.appendChild(container);
 
 		// Run Defuddle on our formatted content
-		const defuddled = new Defuddle(tempDoc).parse();
+		const defuddled = new Defuddle(tempDoc, { url: this.url || 'about:blank' }).parse();
 		const contentHtml = defuddled.content;
 
 		return {
@@ -39,6 +39,20 @@ export abstract class ConversationExtractor extends BaseExtractor {
 				wordCount: defuddled.wordCount?.toString() || '',
 			}
 		};
+	}
+
+	private createTemporaryDocument(): Document {
+		const implementation = this.document.implementation;
+		if (implementation?.createHTMLDocument) {
+			return implementation.createHTMLDocument();
+		}
+
+		const DOMParserCtor = this.document.defaultView?.DOMParser || globalThis.DOMParser;
+		if (DOMParserCtor) {
+			return new DOMParserCtor().parseFromString('<!doctype html><html><body></body></html>', 'text/html');
+		}
+
+		throw new Error('Unable to create a temporary document for conversation extraction');
 	}
 
 	protected createContentHtml(messages: ConversationMessage[], footnotes: Footnote[]): string {
