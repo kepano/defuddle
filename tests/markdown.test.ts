@@ -1,8 +1,47 @@
 import { describe, test, expect } from 'vitest';
+import { createMarkdownContent } from '../src/markdown';
 import { Defuddle } from '../src/node';
 import { parseDocument } from './helpers';
 
 describe('Markdown conversion', () => {
+	describe('links with spaces', () => {
+		test('should wrap link destinations containing spaces in angle brackets', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><a href="myapp:open shared page">Open page</a></p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('[Open page](<myapp:open shared page>)');
+		});
+
+		test('should keep normal link destinations unchanged', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><a href="https://example.com/page">Open page</a></p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('[Open page](https://example.com/page)');
+		});
+
+		test('should preserve existing parenthesis escaping for normal link destinations', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><a href="https://example.com/page(1)">Open page</a></p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('[Open page](https://example.com/page\\(1\\))');
+		});
+
+		test('should preserve titles on link destinations containing spaces', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><a href="myapp:open shared page" title="Shared page">Open page</a></p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('[Open page](<myapp:open shared page> "Shared page")');
+		});
+	});
+
 	describe('exclamation mark before image', () => {
 		test('should add space between ! and image syntax', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Yey!<img src="https://example.com/img.png" alt="IMG"></p></article></body></html>`;
