@@ -44,6 +44,24 @@ export function asGenericElement(node: any): GenericElement {
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
 
+// MathML element names, used to detect whether a <math> has real MathML to fall
+// back on (vs. only a rendered-text annotation). Hoisted so the sets aren't
+// rebuilt on every math element during conversion.
+const MATHML_NODE_NAMES = new Set([
+	'annotation', 'maction', 'math', 'menclose', 'merror', 'mfenced', 'mfrac', 'mi',
+	'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mprescripts',
+	'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup',
+	'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'munderover', 'none',
+	'semantics'
+]);
+
+// MathML elements whose structure can't be faithfully represented by a flat
+// rendered-text data-latex/alttext, so we prefer converting the MathML instead.
+const COMPLEX_MATHML_NODE_NAMES = new Set([
+	'menclose', 'mfrac', 'mmultiscripts', 'mover', 'mroot', 'msqrt', 'msub',
+	'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder', 'munderover'
+]);
+
 function formatMarkdownLinkDestination(href: string): string {
 	if (!/\s/.test(href)) return href.replace(/([()])/g, '\\$1');
 	return `<${href.replace(/>/g, '\\>')}>`;
@@ -809,29 +827,16 @@ export function createMarkdownContent(content: string, url: string) {
 	}
 
 	function hasMathMLChildren(element: GenericElement): boolean {
-		const mathMLNodeNames = new Set([
-			'annotation', 'maction', 'math', 'menclose', 'merror', 'mfenced', 'mfrac', 'mi',
-			'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mprescripts',
-			'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup',
-			'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'munderover', 'none',
-			'semantics'
-		]);
-
 		return Array.from(element.children || []).some(child => {
 			const namespace = (child as unknown as Element).namespaceURI;
 			return namespace === 'http://www.w3.org/1998/Math/MathML' ||
-				mathMLNodeNames.has(child.nodeName.toLowerCase());
+				MATHML_NODE_NAMES.has(child.nodeName.toLowerCase());
 		});
 	}
 
 	function hasComplexMathMLChildren(element: GenericElement): boolean {
-		const complexMathMLNodeNames = new Set([
-			'menclose', 'mfrac', 'mmultiscripts', 'mover', 'mroot', 'msqrt', 'msub',
-			'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder', 'munderover'
-		]);
-
 		const visit = (node: GenericElement): boolean => {
-			if (complexMathMLNodeNames.has(node.nodeName.toLowerCase())) {
+			if (COMPLEX_MATHML_NODE_NAMES.has(node.nodeName.toLowerCase())) {
 				return true;
 			}
 
