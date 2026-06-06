@@ -65,7 +65,7 @@ _Note: for `defuddle/node` to import properly, the module format in your `packag
 
 ### CLI
 
-Defuddle includes a command-line interface for parsing web pages directly from the terminal. You can run it with `npx` or [install it globally](#cli-installation).
+Defuddle includes a command-line interface for parsing web pages directly from the terminal. You can run it with `npx` or [install it globally](#cli-installation). The CLI accepts a file path, a URL, or HTML piped over stdin.
 
 ```bash
 # Parse a local HTML file
@@ -73,6 +73,12 @@ npx defuddle parse page.html
 
 # Parse a URL
 npx defuddle parse https://example.com/article
+
+# Parse HTML from stdin
+cat page.html | npx defuddle parse
+
+# Parse fetched HTML from stdin as markdown
+curl -L https://stephango.com/saw | npx defuddle parse --markdown
 
 # Output as markdown
 npx defuddle parse page.html --markdown
@@ -101,6 +107,8 @@ npx defuddle parse page.html --debug
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
 | `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
+
+When no `<source>` argument is provided, `defuddle parse` reads HTML from stdin. You can also pass `-` explicitly to force stdin input.
 
 ## Installation
 
