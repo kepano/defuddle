@@ -36,13 +36,23 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				?.replace(/:\s*$/, '') // Remove colon and any trailing whitespace
 				|| '';
 
-			const messageEl = turn.querySelector('[data-message-author-role]');
+			// ChatGPT can split one assistant turn into multiple message elements
+			const messageEls = Array.from(turn.querySelectorAll('[data-message-author-role]'))
+				.filter(el => el.closest('[data-testid^="conversation-turn-"]') === turn);
+			const messageEl = messageEls[0];
 
 			const currentAuthorRole = messageEl?.getAttribute('data-message-author-role') || '';
 
-			const contentEl = messageEl?.querySelector('.markdown, .whitespace-pre-wrap') || messageEl || turn;
+			// Assistant turns may have content before and after the Thought section,
+			// so merge all message content fragments for the turn.
+			const contentHtmlParts = messageEls.flatMap(el => {
+				const contentElements = this.getMessageContentElements(el);
+				return contentElements.length > 0
+					? contentElements.map(contentEl => serializeHTML(contentEl))
+					: [serializeHTML(el)];
+			});
 
-			let messageContent = serializeHTML(contentEl);
+			let messageContent = (contentHtmlParts.length > 0 ? contentHtmlParts : [serializeHTML(turn)]).join('\n');
 			messageContent = messageContent.replace(/\u200B/g, '');
 
 			// Remove specific elements from the message content
@@ -70,7 +80,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					if (hashParts.length > 1) {
 						fragmentText = decodeURIComponent(hashParts[1]);
 						fragmentText = fragmentText.replace(/%2C/g, ',');
-						
+
 						const parts = fragmentText.split(',');
 						if (parts.length > 1 && parts[0].trim()) {
 							fragmentText = ` — ${parts[0].trim()}...`;
@@ -82,7 +92,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					}
 				} catch (e) {
 					console.error(`Failed to parse URL: ${url}`, e);
-					domain = url; 
+					domain = url;
 				}
 
 				// Check if this URL already exists in our footnotes
@@ -92,14 +102,14 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				if (footnoteIndex === -1) {
 					this.footnoteCounter++;
 					footnoteNumber = this.footnoteCounter;
-					this.footnotes.push({ 
-						url, 
+					this.footnotes.push({
+						url,
 						text: `<a href="${url}">${domain}</a>${fragmentText}`
 					});
 				} else {
 					footnoteNumber = footnoteIndex + 1;
 				}
-				
+
 				// Return just the footnote reference, replacing the ZWS (if captured) and the entire span structure
 				return `<sup id="fnref:${footnoteNumber}"><a href="#fn:${footnoteNumber}">${footnoteNumber}</a></sup>`;
 			});
@@ -120,6 +130,18 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 		this.cachedMessages = messages;
 		return messages;
+	}
+
+	private getMessageContentElements(messageEl: Element): Element[] {
+		const contentSelector = '.markdown, .whitespace-pre-wrap';
+		const candidates = [
+			...(messageEl.matches(contentSelector) ? [messageEl] : []),
+			...Array.from(messageEl.querySelectorAll(contentSelector))
+		];
+
+		return candidates.filter(candidate =>
+			!candidates.some(other => other !== candidate && other.contains(candidate))
+		);
 	}
 
 	protected getFootnotes(): Footnote[] {
@@ -156,4 +178,4 @@ export class ChatGPTExtractor extends ConversationExtractor {
 
 		return 'ChatGPT Conversation';
 	}
-} 
+}
