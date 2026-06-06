@@ -9,7 +9,7 @@
 
 Date: Wed, 08 Apr 2026
 
-From: Example <hello@example.com>
+From: Example Team <hello@example.com>
 
 To: Readers
 
