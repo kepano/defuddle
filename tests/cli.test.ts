@@ -4,7 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { Readable } from 'stream';
 import { Defuddle } from '../src/node';
-import { parseSource } from '../src/cli';
+import { parseSource, createProgram } from '../src/cli';
 import { parseDocument } from './helpers';
 
 const fixturePath = join(__dirname, 'fixtures', 'general--appendix-heading.html');
@@ -67,5 +67,15 @@ describe('CLI parseSource', () => {
 		await expect(parseSource(undefined, {}, stdin)).rejects.toThrow(
 			'No input source provided. Pass a file path or URL, or pipe HTML to stdin.'
 		);
+	});
+
+	test('registers the --user-agent flag with a -u alias', () => {
+		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
+		const option = parseCommand?.options.find((o) => o.long === '--user-agent');
+
+		expect(option).toBeDefined();
+		expect(option?.short).toBe('-u');
+		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
+		expect(option?.attributeName()).toBe('userAgent');
 	});
 });
