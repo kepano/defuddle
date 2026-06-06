@@ -68,4 +68,71 @@ describe('Markdown conversion', () => {
 			expect(result.contentMarkdown).toContain('longword');
 		});
 	});
+
+	describe('ragged table columns', () => {
+		test('should preserve trailing columns when body rows are wider than header', async () => {
+			const html = `<html><head><title>Test</title></head><body><article>
+				<table>
+					<tr><th>A</th><th>B</th></tr>
+					<tr><td>1</td><td>2</td><td>3</td></tr>
+					<tr><td>4</td><td>5</td><td>6</td></tr>
+				</table>
+			</article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			// The table should expand to 3 columns, padding the header with an empty cell
+			expect(result.contentMarkdown).toContain('| A | B |  |');
+			expect(result.contentMarkdown).toContain('| --- | --- | --- |');
+			expect(result.contentMarkdown).toContain('| 1 | 2 | 3 |');
+			expect(result.contentMarkdown).toContain('| 4 | 5 | 6 |');
+		});
+
+		test('should pad short rows when header is wider than body', async () => {
+			const html = `<html><head><title>Test</title></head><body><article>
+				<table>
+					<tr><th>A</th><th>B</th><th>C</th></tr>
+					<tr><td>1</td><td>2</td></tr>
+					<tr><td>3</td></tr>
+				</table>
+			</article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			// Short rows should be padded with empty cells
+			expect(result.contentMarkdown).toContain('| A | B | C |');
+			expect(result.contentMarkdown).toContain('| --- | --- | --- |');
+			expect(result.contentMarkdown).toContain('| 1 | 2 |  |');
+			expect(result.contentMarkdown).toContain('| 3 |  |  |');
+		});
+
+		test('should handle tables starting with an empty or narrow row', async () => {
+			const html = `<html><head><title>Test</title></head><body><article>
+				<table>
+					<tr><th></th></tr>
+					<tr><td>1</td><td>2</td></tr>
+				</table>
+			</article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			// The first row should be padded to match the widest row
+			expect(result.contentMarkdown).toContain('|  |  |');
+			expect(result.contentMarkdown).toContain('| --- | --- |');
+			expect(result.contentMarkdown).toContain('| 1 | 2 |');
+		});
+
+		test('should not miscount columns when cells contain escaped pipes', async () => {
+			const html = `<html><head><title>Test</title></head><body><article>
+				<table>
+					<tr><th>Operator</th><th>Example</th></tr>
+					<tr><td>OR</td><td>A | B</td></tr>
+				</table>
+			</article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+
+			// The pipe inside "A | B" should be escaped, and the table should have exactly 2 columns
+			expect(result.contentMarkdown).toContain('| --- | --- |');
+			expect(result.contentMarkdown).toContain('A \\| B');
+			// Should NOT have 3 or more separator columns
+			expect(result.contentMarkdown).not.toContain('| --- | --- | --- |');
+		});
+	});
 });
