@@ -120,10 +120,13 @@ describe('Markdown conversion', () => {
 		});
 
 		test('should not miscount columns when cells contain escaped pipes', async () => {
+			// The escaped pipe must live in the header row: the old separator
+			// count came from splitting the rendered first row on '|', so only a
+			// pipe there triggers the miscount.
 			const html = `<html><head><title>Test</title></head><body><article>
 				<table>
-					<tr><th>Operator</th><th>Example</th></tr>
-					<tr><td>OR</td><td>A | B</td></tr>
+					<tr><th>A | B</th><th>Example</th></tr>
+					<tr><td>OR</td><td>value</td></tr>
 				</table>
 			</article></body></html>`;
 			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
