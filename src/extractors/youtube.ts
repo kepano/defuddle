@@ -404,7 +404,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		// If we found a VideoObject with comments but no description, return it as a fallback to at least get the title and thumbnail.
 		if (fallbackVideoObject) return fallbackVideoObject;
 
-		// Fall back to og:* meta tags. YouTube usually do not updates these after SPA navigation.
+		// Fall back to og:* meta tags. YouTube usually does not update these after SPA navigation.
 		if (videoId) {
 			const ogUrl = this.document.querySelector('meta[property="og:url"]')?.getAttribute('content') || '';
 			// Validate that the og:url corresponds to the current video ID to avoid using stale metadata after SPA navigation.
