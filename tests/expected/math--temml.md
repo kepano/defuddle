@@ -11,34 +11,34 @@ A variety of Temml-rendered math elements using the `hurmet-tex` pattern.
 
 ## Accents
 
-| $F→$ `\vec{F}` | $a~$ `\tilde{a}` | $θ^$ `\hat{\theta}` |
+| $\vec{F}$ `\vec{F}` | $\tilde{a}$ `\tilde{a}` | $\hat{\theta}$ `\hat{\theta}` |
 | --- | --- | --- |
-| $a˙$ `\dot{a}` | $AB$ `\overline{AB}` | $AB⏞$ `\overbrace{AB}` |
+| $\dot{a}$ `\dot{a}` | $\overline{AB}$ `\overline{AB}` | $\overbrace{AB}$ `\overbrace{AB}` |
 
 ## Fractions and Roots
 
-Inline fraction: $ab$ and square root: $x2+y2$.
+Inline fraction: $\frac{a}{b}$ and square root: $\sqrt{x^2+y^2}$.
 
-Cube root: $83$
+Cube root: $\sqrt[3]{8}$
 
 ## Display Math
 
 $$
-E=mc2
+E = mc^2
 $$
 
 ## Operators
 
-| $∑$ `\sum` | $∫$ `\int` | $∏$ `\prod` | $∮$ `\oint` |
+| $\sum$ `\sum` | $\int$ `\int` | $\prod$ `\prod` | $\oint$ `\oint` |
 | --- | --- | --- | --- |
 
 ## Environments
 
-| $(abcd)$ | `\begin{pmatrix}`   `a & b \\`   `c & d`   `\end{pmatrix}` |
+| $\begin{pmatrix} a & b \\ c & d \end{pmatrix}$ | `\begin{pmatrix}`   `a & b \\`   `c & d`   `\end{pmatrix}` |
 | --- | --- |
 
 ## Greek and Symbols
 
-Greek letters: $α$, $β$, $γ$, $Ω$
+Greek letters: $\alpha$, $\beta$, $\gamma$, $\Omega$
 
-Relation: $a≤b$, not equal: $x≠y$
+Relation: $a \leq b$, not equal: $x \neq y$
