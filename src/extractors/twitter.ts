@@ -13,7 +13,8 @@ export class TwitterExtractor extends BaseExtractor {
 		super(document, url);
 
 		// Get all tweets from the timeline
-		const timeline = document.querySelector('[aria-label="Timeline: Conversation"]');
+		const timeline = Array.from(document.querySelectorAll('[aria-label]'))
+			.find(el => el.querySelector('[data-testid="cellInnerDiv"]') !== null) ?? null;
 		if (!timeline) {
 			// Try to find a single tweet if not in timeline view
 			const singleTweet = document.querySelector('article[data-testid="tweet"]');
