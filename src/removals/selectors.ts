@@ -8,8 +8,65 @@ import {
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
-import { textPreview, logDebug } from '../utils';
+import { textPreview, logDebug, countWords } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+
+function normalizeAnchorText(text: string): string {
+	return text.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+const HEADING_ANCHOR_CLUTTER_PATTERN = /^(?:related|relatedposts?|relatedarticles?|relatedcontent|relatedstories|relatedreads?|relatedreading|furtherreading|seealso|readnext|readmore|readalso|morearticles?|moreposts?|morelikethis|recommended|recommendations|youmightalsolike|youmayalsolike|youcouldalsolike|aboutauthor|abouttheauthor|latestnews|latestevents?|latestposts?|latestarticles?|lateststories)$/;
+
+function isHeadingAnchoredContentSection(el: Element, mainContent?: Element | null): boolean {
+	if (!mainContent || !mainContent.contains(el)) {
+		return false;
+	}
+	if (!['SECTION', 'ARTICLE'].includes(el.tagName)) {
+		return false;
+	}
+
+	const id = el.id || '';
+	if (!id) {
+		return false;
+	}
+
+	const heading = el.querySelector('h1, h2, h3, h4, h5, h6');
+	if (!heading) {
+		return false;
+	}
+
+	// Many article pages use section ids as heading permalinks. Treat those ids
+	// as anchors, not clutter signals, when the section contains real prose.
+	const normalizedHeading = normalizeAnchorText(heading.textContent || '');
+	if (HEADING_ANCHOR_CLUTTER_PATTERN.test(normalizedHeading)) {
+		return false;
+	}
+	if (normalizeAnchorText(id) !== normalizedHeading) {
+		return false;
+	}
+
+	if (!el.querySelector('p, blockquote, pre, table, figure')) {
+		return false;
+	}
+
+	return countWords(el.textContent || '') >= 15;
+}
+
+function isFigureLikeContent(el: Element, mainContent?: Element | null): boolean {
+	if (!mainContent || !mainContent.contains(el)) {
+		return false;
+	}
+	if (el.tagName === 'FIGURE') {
+		return !!el.querySelector('img, picture, video, svg');
+	}
+
+	const className = getClassName(el).toLowerCase();
+	return className.includes('figure') && !!el.querySelector('img, picture, video, svg');
+}
+
+function shouldIgnoreIdForPartialMatching(el: Element, mainContent?: Element | null): boolean {
+	return isHeadingAnchoredContentSection(el, mainContent) || isFigureLikeContent(el, mainContent);
+}
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -84,10 +141,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// For headings, only check class — IDs are auto-slugs and data-testid
 			// values (e.g. "article-header") cause false positives.
 			const isHeading = /^H[1-6]$/.test(tag);
+			const useId = !isHeading && !shouldIgnoreIdForPartialMatching(el, mainContent);
 			const attrs = (isHeading
 				? getClassName(el)
 				: getClassName(el) + ' ' +
-					(el.id || '') + ' ' +
+					(useId ? (el.id || '') : '') + ' ' +
 					(el.getAttribute('data-component') || '') + ' ' +
 					(el.getAttribute('data-test') || '') + ' ' +
 					(el.getAttribute('data-testid') || '') + ' ' +

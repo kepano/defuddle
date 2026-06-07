@@ -1,0 +1,31 @@
+<!-- {"url":"https://example.com/heading-anchor-related-section"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Related section selector regression</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Preserve Real Heading Anchors</h1>
+
+      <p>This article starts with a short explanation before an unrelated recommendations block. The recommendations block uses a heading-derived id and enough link text to look substantial, but it is not article prose.</p>
+
+      <section id="related">
+        <h2>Related</h2>
+        <p>Recommended articles with short snippets are still site chrome, even when they contain paragraph text and look like prose-bearing sections.</p>
+        <ul>
+          <li><a href="/one">A long related article title that should not become extracted content</a><p>A snippet that would otherwise satisfy a simple prose check.</p></li>
+          <li><a href="/two">Another recommendation card title with enough words to pass simple word thresholds</a><p>A second snippet that makes this block look more article-like.</p></li>
+          <li><a href="/three">Further reading that belongs to site chrome instead of the article body</a><p>A third snippet keeps the fixture representative of recommendation blocks.</p></li>
+        </ul>
+      </section>
+
+      <section id="ImplementationDetails">
+        <h2>Implementation Details</h2>
+        <p>The real article section contains prose under a heading-derived id. This is the content that should remain available after selector cleanup.</p>
+      </section>
+    </article>
+  </main>
+</body>
+</html>
