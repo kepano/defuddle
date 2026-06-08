@@ -288,32 +288,36 @@ export class Defuddle {
 			}
 		}
 
-		// Also deduplicate adjacent images outside figures (same alt, different src)
+		// Also deduplicate images outside figures that are the same image rendered
+		// twice by lazy-load hydration: a placeholder/low-res copy *alongside* the
+		// real one. Only collapse when the two <img> are genuinely adjacent in the
+		// DOM — distinct article images separated by text are real content even when
+		// they share generic or boilerplate alt text (e.g. alt="image", or a CMS that
+		// reuses the article title as alt), so they must be kept (#286).
 		const imgs = Array.from(body.querySelectorAll('img'));
-		for (let i = 0; i < imgs.length; i++) {
+		for (let i = 0; i < imgs.length - 1; i++) {
 			const img = imgs[i];
+			if (!img.parentElement) continue; // already removed as a loser
 			if (img.closest('noscript') || img.closest('figure')) continue;
-			if (!img.parentElement) continue;
 
 			const alt = (img.getAttribute('alt') || '').trim();
 			if (!alt) continue;
 			const src = img.getAttribute('src') || '';
 			if (!src || src.startsWith('data:')) continue;
 
-			for (let j = i + 1; j < imgs.length; j++) {
-				const other = imgs[j];
-				if (other.closest('noscript') || other.closest('figure')) continue;
-				if (!other.parentElement) continue;
+			const other = imgs[i + 1];
+			if (!other.parentElement) continue;
+			if (other.closest('noscript') || other.closest('figure')) continue;
 
-				const otherAlt = (other.getAttribute('alt') || '').trim();
-				if (otherAlt !== alt) break;
-				const otherSrc = other.getAttribute('src') || '';
-				if (!otherSrc || otherSrc.startsWith('data:')) continue;
-				if (otherSrc === src) break; // legitimate repeat
+			if ((other.getAttribute('alt') || '').trim() !== alt) continue;
+			const otherSrc = other.getAttribute('src') || '';
+			if (!otherSrc || otherSrc.startsWith('data:')) continue;
+			if (otherSrc === src) continue; // legitimate repeat (same image twice)
 
-				this._keepBestImage([img, other]);
-				if (!img.parentElement) break; // img was the loser
-			}
+			// Require true adjacency: only whitespace/wrapper markup between them.
+			if (!this._noVisibleContentBetween(img, other)) continue;
+
+			this._keepBestImage([img, other]);
 		}
 
 		// Remove lightbox duplicate images: a standalone <img> whose src matches
@@ -346,6 +350,31 @@ export class Defuddle {
 			(winner === best ? group[i] : best).remove();
 			best = winner;
 		}
+	}
+
+	/**
+	 * True when nothing but whitespace and wrapper markup sits between `a` and `b`
+	 * in document order (`a` must precede `b`). Used to confirm two <img> are a
+	 * genuine lazy-load duplicate pair rather than distinct images separated by text.
+	 */
+	private _noVisibleContentBetween(a: Node, b: Node): boolean {
+		const next = (node: Node | null): Node | null => {
+			if (!node) return null;
+			if (node.firstChild) return node.firstChild;
+			let n: Node | null = node;
+			while (n) {
+				if (n.nextSibling) return n.nextSibling;
+				n = n.parentNode;
+			}
+			return null;
+		};
+		const TEXT_NODE = 3;
+		for (let node = next(a); node && node !== b; node = next(node)) {
+			if (node.nodeType === TEXT_NODE) {
+				if ((node.textContent || '').trim()) return false;
+			}
+		}
+		return true;
 	}
 
 	/** Strip protocol and query string for loose URL comparison. */
