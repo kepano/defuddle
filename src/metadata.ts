@@ -56,7 +56,7 @@ export class MetadataExtractor {
 			favicon: this.getFavicon(doc, url, metaTags),
 			image: this.getImage(doc, schemaOrgData, metaTags),
 			language: this.getLanguage(doc, schemaOrgData, metaTags),
-			published: this.getPublished(doc, schemaOrgData, metaTags),
+			published: this.getPublished(doc, schemaOrgData, metaTags, url),
 			author,
 			site,
 			schemaOrgData,
@@ -551,13 +551,13 @@ export class MetadataExtractor {
 		return '';
 	}
 
-	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[], url: string): string {
 		const result = this.firstValid([
 			() => this.getSchemaProperty(schemaOrgData, 'datePublished'),
 			() => this.getMetaContent(metaTags, "name", "publishDate"),
 			() => this.getMetaContent(metaTags, "property", "article:published_time"),
 			() => (doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() || '',
-			() => this.getTimeElement(doc),
+			() => this.getTimeElement(doc, url),
 			() => this.getMetaContent(metaTags, "name", "sailthru.date"),
 		]);
 		if (result) return result;
@@ -593,11 +593,38 @@ export class MetadataExtractor {
 		}).map(tag => tag.content?.trim() ?? "");
 	}
 
-	private static getTimeElement(doc: Document): string {
-		const selector = `time`;
-		const element = Array.from(doc.querySelectorAll(selector))[0];
-		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
-		return content;
+	private static getTimeElement(doc: Document, url: string): string {
+		// Skip <time> elements that belong to a link pointing at a different page —
+		// related/suggested-post cards wrap their own date in an <a>, and that date is
+		// not the current article's (see #295, openai.com blog).
+		for (const element of Array.from(doc.querySelectorAll('time'))) {
+			if (this.isLinkedToOtherPage(element, url)) continue;
+			const content = element.getAttribute("datetime")?.trim() || element.textContent?.trim() || "";
+			if (content) return content;
+		}
+		return "";
+	}
+
+	// True when `el` sits inside an <a> linking to another page on the SAME site —
+	// i.e. a related/suggested-post card whose date is not the current article's
+	// (see #295, openai.com). Links to the same page (self/permalink, in-page anchor)
+	// and links to external sites (e.g. an article date that links to its social-media
+	// thread) are kept, since those still describe the current article.
+	private static isLinkedToOtherPage(el: Element, pageUrl: string): boolean {
+		if (!pageUrl) return false;
+		const anchor = el.closest('a[href]');
+		if (!anchor) return false;
+		const href = anchor.getAttribute('href')?.trim() || '';
+		if (!href || href.startsWith('#')) return false;
+		try {
+			const target = new URL(href, pageUrl);
+			const current = new URL(pageUrl);
+			if (target.origin !== current.origin) return false; // external link — keep
+			const norm = (p: string) => p.replace(/\/+$/, '');
+			return norm(target.pathname) !== norm(current.pathname);
+		} catch {
+			return false;
+		}
 	}
 
 	private static readonly MONTH_MAP: Record<string, string> = {
