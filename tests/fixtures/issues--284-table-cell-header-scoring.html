@@ -1,0 +1,30 @@
+<!-- {"url":"https://www.example.com/reference/types/size_t"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>example_size_t - Reference</title></head>
+<body>
+<div id="content">
+	<h1>example::size_t</h1>
+
+	<table class="t-dcl-begin"><tbody>
+		<tr class="t-dsc-header"><td><div>Defined in header <code>&lt;cstddef&gt;</code></div></td><td></td><td></td></tr>
+		<tr class="t-dsc-header"><td><div>Defined in header <code>&lt;cstdlib&gt;</code></div></td><td></td><td></td></tr>
+		<tr class="t-dcl"><td><div><pre>typedef /* implementation-defined */ size_t;</pre></div></td><td></td><td><div>(since C++17)</div></td></tr>
+	</tbody></table>
+
+	<p><code>example::size_t</code> is the unsigned integer type of the result of the
+	<code>sizeof</code> operator. It is widely used to represent sizes and counts in
+	portable code, and it can store the maximum size of any theoretically possible
+	object on the target platform regardless of its declared type.</p>
+
+	<p><code>example::size_t</code> is commonly used for array indexing and loop counting.
+	Programs that use other types for array indexing may fail on large systems when the
+	index exceeds the range those narrower types can represent without overflow.</p>
+
+	<h3>Notes</h3>
+	<p>On most platforms <code>example::size_t</code> can safely store the value of any
+	non-member pointer, in which case it is as wide as the platform's pointer type and
+	can round-trip pointer values through integer arithmetic without loss of information.</p>
+</div>
+</body>
+</html>

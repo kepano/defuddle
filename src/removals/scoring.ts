@@ -282,6 +282,16 @@ export class ContentScorer {
 				return;
 			}
 
+			// Skip elements inside table cells — a cell's content is structural, not a
+			// standalone navigation block, and removing individual cells leaves the table
+			// malformed. The table element itself is still scored as a whole, so genuine
+			// navigation tables are still removed. Common-word navigation indicators such
+			// as "header" otherwise strip legitimate cells (e.g. cppreference's
+			// "Defined in header <cstddef>" declaration rows, #284).
+			if (element.closest('td, th')) {
+				return;
+			}
+
 			// Skip elements that are likely to be content
 			if (ContentScorer.isLikelyContent(element)) {
 				return;
