@@ -990,6 +990,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
 	'sup[id^="ftnt_ref"] a[href^="#ftnt"]', // Google Docs/Sites
 	'span.easy-footnote > a[href^="#easy-footnote-bottom-"]', // Easy Footnotes WP plugin
+	'a[data-type="noteref"]', // O'Reilly / HTMLBook
 ].join(',');
 
 export const FOOTNOTE_LIST_SELECTORS = [

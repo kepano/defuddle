@@ -92,6 +92,9 @@ const INLINE_REF_EXTRACTORS: Array<{ selector: string; extract: (el: any) => str
 	{ selector: 'span.footnote-link', extract: (el) => el.getAttribute('data-footnote-id') || '' },
 	{ selector: 'a.citation', extract: (el) => el.textContent?.trim() || '' },
 	{ selector: 'a[id^="fnref"]', extract: (el) => el.id.replace('fnref', '').toLowerCase() },
+	// O'Reilly/HTMLBook: <a data-type="noteref" href="chNN.html#chMMfnK"> — the id is the
+	// href fragment, which may include a same-document filename prefix.
+	{ selector: 'a[data-type="noteref"]', extract: (el) => getHrefFragment(el) },
 ];
 
 class FootnoteHandler {
@@ -284,6 +287,7 @@ class FootnoteHandler {
 		});
 
 		const fallbacks = [
+			this.tryDataTypeFootnotes,
 			this.tryGenericIdDetection,
 			this.tryWordExport,
 			this.tryGoogleDocs,
@@ -297,6 +301,30 @@ class FootnoteHandler {
 		}
 
 		return state.footnotes;
+	}
+
+	// O'Reilly / HTMLBook: footnote definitions are <p data-type="footnote" id="chNNfnK">,
+	// each opening with a <sup><a href="#…-marker">K</a></sup> backlink. The body text
+	// (including the inline <a data-type="noteref"> markers) is otherwise indistinguishable
+	// from definitions to tryGenericIdDetection, which would mis-collect surrounding
+	// paragraphs as footnote content (#296), so handle this explicit markup first.
+	private tryDataTypeFootnotes(element: any, state: CollectState): void {
+		const defs = element.querySelectorAll('p[data-type="footnote"][id]');
+		defs.forEach((def: any) => {
+			const id = (def.id || '').toLowerCase();
+			if (!id) return;
+			const contentDiv = element.ownerDocument.createElement('div');
+			const clone = def.cloneNode(true);
+			// Strip the leading backlink marker (<sup><a href="#…-marker">K</a></sup>).
+			const marker = clone.firstElementChild;
+			if (marker && marker.tagName.toLowerCase() === 'sup' && marker.querySelector('a[href*="#"]')) {
+				marker.remove();
+				this.trimLeadingWhitespace(clone);
+			}
+			contentDiv.appendChild(clone);
+			this.addFootnote(state, id, contentDiv);
+			this.pendingRemovals.push(def);
+		});
 	}
 
 	// Generic fallback: detect footnotes by numeric anchor text referencing an in-container id.
