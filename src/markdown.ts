@@ -118,6 +118,16 @@ export function createMarkdownContent(content: string, url: string) {
 		preformattedCode: true,
 	});
 
+	// Escape tag-like sequences (e.g. a post titled "Monte<video>") in text nodes so
+	// CommonMark renderers such as Obsidian don't parse them as raw HTML and swallow the
+	// following content (#285). Only escape "<" that opens an HTML tag — a name directly
+	// followed by whitespace, "/", or ">". Email/URL autolinks like <a@b.com> or
+	// <https://x> have "@"/":" after the name and are left intact, as is "a < b". Real
+	// kept elements (video/iframe/svg/…) are DOM nodes, not text, so keep rules are safe.
+	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
+	turndownService.escape = (s: string) =>
+		baseEscape(s).replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<');
+
 	turndownService.addRule('table', {
 		filter: 'table',
 		replacement: function(content, node) {

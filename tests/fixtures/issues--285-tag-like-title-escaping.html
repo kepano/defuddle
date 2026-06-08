@@ -1,0 +1,42 @@
+<!-- {"url":"https://www.example.com/blog/"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Blog Posts</title></head>
+<body>
+<article class="markdown">
+	<section>
+		<h1>Blog Posts</h1>
+		<p>This is a list of blog posts. One of the titles contains angle brackets that
+		look like an HTML tag, which must be escaped so a Markdown reader does not treat
+		it as raw HTML and swallow everything that follows it on the page.</p>
+
+		<article>
+			<a href="/blog/first-post"><img src="/blog/first-post/cover.png" alt="blog cover"></a>
+			<div>
+				<a href="/blog/first-post">An Ordinary First Post</a>
+				<div>A gentle introduction with nothing unusual in its title at all.</div>
+				<div>by author</div>
+			</div>
+		</article>
+
+		<article>
+			<a href="/blog/monte-video"><img src="/blog/monte-video/cover.png" alt="blog cover"></a>
+			<div>
+				<a href="/blog/monte-video">Monte&lt;video&gt;: A Real Place</a>
+				<div>A post whose title embeds a tag-like token. Reach us at &lt;hello@example.com&gt;.</div>
+				<div>by author</div>
+			</div>
+		</article>
+
+		<article>
+			<a href="/blog/third-post"><img src="/blog/third-post/cover.png" alt="blog cover"></a>
+			<div>
+				<a href="/blog/third-post">A Third Post Worth Reading</a>
+				<div>The final entry, included so there is content after the tricky title.</div>
+				<div>by author</div>
+			</div>
+		</article>
+	</section>
+</article>
+</body>
+</html>
