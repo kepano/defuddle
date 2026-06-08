@@ -288,31 +288,35 @@ export class Defuddle {
 			}
 		}
 
-		// Also deduplicate adjacent images outside figures (same alt, different src)
-		const imgs = Array.from(body.querySelectorAll('img'));
+		// Also deduplicate images outside figures that are the SAME underlying
+		// image appearing twice (e.g. lazy-load / reader-mode hydration emitting
+		// a second copy at a different size). Two images are duplicates only when
+		// their normalized src (host + path, ignoring the query string) matches
+		// but the raw src differs. Distinct images are NOT merged just because
+		// they share alt text: galleries — and WeChat 公众号 articles in
+		// particular — give every image the same generic alt such as "Image" (or
+		// none at all), and keying dedup on alt collapsed them all to one image.
+		// (kepano/defuddle#286)
+		const imgs = Array.from(body.querySelectorAll('img'))
+			.filter(img => !img.closest('noscript') && !img.closest('figure') && img.parentElement);
 		for (let i = 0; i < imgs.length; i++) {
 			const img = imgs[i];
-			if (img.closest('noscript') || img.closest('figure')) continue;
-			if (!img.parentElement) continue;
-
-			const alt = (img.getAttribute('alt') || '').trim();
-			if (!alt) continue;
+			if (!img.parentElement) continue; // removed earlier as a duplicate loser
 			const src = img.getAttribute('src') || '';
 			if (!src || src.startsWith('data:')) continue;
+			const norm = this._normalizeSrc(src);
 
 			for (let j = i + 1; j < imgs.length; j++) {
 				const other = imgs[j];
-				if (other.closest('noscript') || other.closest('figure')) continue;
 				if (!other.parentElement) continue;
-
-				const otherAlt = (other.getAttribute('alt') || '').trim();
-				if (otherAlt !== alt) break;
 				const otherSrc = other.getAttribute('src') || '';
 				if (!otherSrc || otherSrc.startsWith('data:')) continue;
-				if (otherSrc === src) break; // legitimate repeat
+				if (otherSrc === src) continue; // identical src → legitimate repeat, keep both
+				if (this._normalizeSrc(otherSrc) !== norm) continue; // different image → keep both
 
+				// Same asset, different size/query variant → keep the best one
 				this._keepBestImage([img, other]);
-				if (!img.parentElement) break; // img was the loser
+				if (!img.parentElement) break; // img was the loser; advance to next i
 			}
 		}
 
