@@ -128,8 +128,11 @@ export function createMarkdownContent(content: string, url: string) {
 				return handleNestedEquations(node);
 			}
 
-			// Detect layout tables (used for styling/positioning, not data)
-			const hasNestedTables = node.querySelector('table') !== null;
+			// Detect layout tables (used for styling/positioning, not data).
+			// Exclude the node itself: turndown's DOM has a non-spec querySelector that
+			// matches the context element, so `node.querySelector('table')` returns the
+			// table itself — querySelectorAll with a self-filter finds only true nesting.
+			const hasNestedTables = Array.from(node.querySelectorAll('table')).some((t: any) => t !== node);
 			const directCells = Array.from(node.querySelectorAll('td, th')).filter(
 				(el: any) => isDirectTableChild(el, node)
 			);
@@ -145,8 +148,12 @@ export function createMarkdownContent(content: string, url: string) {
 					&& new Set(cellCounts).size === 1
 					&& cellCounts[0] <= 1;
 
-				if (isSingleColumn) {
-					// Layout table — extract content, don't convert to markdown table
+				// Layout tables are used for positioning, not data: a single column, or
+				// any table whose cells embed nested tables (real data tables don't). In
+				// both cases flatten the cells' content — each nested data table is then
+				// rendered as its own markdown table — instead of emitting a broken,
+				// pipe-escaped row (#300). Multi-column layout cells read left-to-right.
+				if (isSingleColumn || hasNestedTables) {
 					return '\n\n' + turndownService.turndown(
 						directCells.map((cell: any) => serializeHTML(cell)).join('')
 					) + '\n\n';
