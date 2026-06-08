@@ -990,6 +990,7 @@ export const FOOTNOTE_INLINE_REFERENCES = [
 	'sup[data-fn] > a[href^="#"]', // WordPress block editor footnotes
 	'sup[id^="ftnt_ref"] a[href^="#ftnt"]', // Google Docs/Sites
 	'span.easy-footnote > a[href^="#easy-footnote-bottom-"]', // Easy Footnotes WP plugin
+	'a.footnote[href^="#"]', // GNU Texinfo / makeinfo inline markers
 	'a[data-type="noteref"]', // O'Reilly / HTMLBook
 ].join(',');
 
@@ -1014,6 +1015,7 @@ export const FOOTNOTE_LIST_SELECTORS = [
 	'div.footnote-definition', // pulldown-cmark / mdBook / zola (unwrapped)
 	'ol.wp-block-footnotes', // WordPress block editor footnotes
 	'ol.easy-footnotes-wrapper', // Easy Footnotes WP plugin
+	'div.footnotes-segment', // GNU Texinfo / makeinfo
 	'#footnotes' // standardizeFootnotes output container
 ].join(',');
 

@@ -269,6 +269,30 @@ class FootnoteHandler {
 				return;
 			}
 
+			// GNU Texinfo / makeinfo: <div class="footnotes-segment"> with a heading per
+			// footnote — <h5 class="footnote-body-heading"><a id="FOOTn" href="#DOCFn">(n)</a></h5>
+			// followed by the body <p>. Inline markers (<a class="footnote" id="DOCFn"
+			// href="#FOOTn">) reference the heading anchor id, so register under that id.
+			if (list.matches('div.footnotes-segment')) {
+				const headings = list.querySelectorAll('h5.footnote-body-heading');
+				headings.forEach((heading: any) => {
+					const id = (heading.querySelector('a[id]')?.id || '').toLowerCase();
+					if (!id) return;
+					const contentDiv = element.ownerDocument.createElement('div');
+					let sibling = heading.nextElementSibling;
+					while (sibling && !(sibling.tagName.toLowerCase() === 'h5'
+						&& sibling.classList?.contains('footnote-body-heading'))) {
+						if (sibling.textContent?.trim() || sibling.querySelector?.('img, br')) {
+							contentDiv.appendChild(sibling.cloneNode(true));
+						}
+						sibling = sibling.nextElementSibling;
+					}
+					this.addFootnote(state, id, contentDiv);
+				});
+				this.pendingRemovals.push(list);
+				return;
+			}
+
 			// Substack has individual footnote divs with no parent
 			if (list.matches('div.footnote[data-component-name="FootnoteToDOM"]')) {
 				const anchor = list.querySelector('a.footnote-number');
