@@ -107,6 +107,7 @@ npx defuddle parse https://example.com/article --user-agent "Mozilla/5.0 (Macint
 | `--markdown` | `-m` | Convert content to markdown format |
 | `--md` | | Alias for `--markdown` |
 | `--json` | `-j` | Output as JSON with metadata and content |
+| `--frontmatter` | `-f` | Prepend YAML frontmatter (title, author, source, etc.) to the output |
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
 | `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |

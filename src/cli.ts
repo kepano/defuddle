@@ -6,6 +6,7 @@ import { writeFile, readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { parseLinkedomHTML } from './utils/linkedom-compat';
 import { countWords } from './utils';
+import { buildFrontmatter } from './frontmatter';
 import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
 
 export interface ParseOptions {
@@ -17,6 +18,7 @@ export interface ParseOptions {
 	property?: string;
 	lang?: string;
 	userAgent?: string;
+	frontmatter?: boolean;
 }
 
 interface ParseResult {
@@ -145,7 +147,7 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 			...(result.variables ? { variables: result.variables } : {}),
 		}, null, 2);
 	} else {
-		output = result.content;
+		output = options.frontmatter ? buildFrontmatter(result, url) + result.content : result.content;
 	}
 
 	return { output };
@@ -167,6 +169,7 @@ export function createProgram(): Command {
 		.option('-m, --markdown', 'Convert content to markdown format')
 		.option('--md', 'Alias for --markdown')
 		.option('-j, --json', 'Output as JSON with metadata and content')
+		.option('-f, --frontmatter', 'Prepend YAML frontmatter (title, author, source, etc.) to the output')
 		.option('-p, --property <name>', 'Extract a specific property (e.g., title, description, domain)')
 		.option('--debug', 'Enable debug mode')
 		.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
