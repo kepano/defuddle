@@ -889,7 +889,6 @@ export const PARTIAL_SELECTORS = [
 	'storysmall',
 	'storypublishdate', // Medium
 	'subject-label',
-	'subhead',
 	'submenu',
 //	'subscribe',
 	'-subscribe-',
