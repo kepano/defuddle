@@ -1,6 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { parseHTML } from '../utils/dom';
+import { getLargestWidthSrcsetUrl } from '../utils/srcset';
 
 const INJECTED_ATTR = 'data-defuddle-substack-post';
 
@@ -189,21 +190,7 @@ export class SubstackExtractor extends BaseExtractor {
 	private getLargestSrc(img: Element): string {
 		const srcset = img.getAttribute('srcset') || '';
 		if (srcset) {
-			const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?)w/g;
-			let bestUrl = '';
-			let bestWidth = 0;
-			let match;
-			let lastIndex = 0;
-			while ((match = entryPattern.exec(srcset)) !== null) {
-				let url = match[1].trim();
-				if (lastIndex > 0) url = url.replace(/^,\s*/, '');
-				lastIndex = entryPattern.lastIndex;
-				const width = parseFloat(match[2]);
-				if (url && width > bestWidth) {
-					bestWidth = width;
-					bestUrl = url;
-				}
-			}
+			const bestUrl = getLargestWidthSrcsetUrl(srcset);
 			if (bestUrl) return bestUrl.replace(/,w_\d+/g, '').replace(/,c_\w+/g, '');
 		}
 		return img.getAttribute('src') || '';

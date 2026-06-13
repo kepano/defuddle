@@ -4,6 +4,7 @@
 
 import { isElement, isTextNode } from '../utils';
 import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { getFirstSrcsetUrl, parseSrcset } from '../utils/srcset';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
@@ -11,9 +12,7 @@ const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
 const srcsetPattern = /\.(jpg|jpeg|png|webp)\s+\d/;
 const srcPattern = /^\s*\S+\.(jpg|jpeg|png|webp)\S*\s*$/;
 const imageUrlPattern = /\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i;
-const widthPattern = /\s(\d+)w/;
 const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
-const urlPattern = /^([^\s]+)/;
 const absoluteUrlPattern = /^https?:\/\//;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -903,41 +902,10 @@ function processSourceElement(element: Element, doc: Document): Element {
  * Extract the first URL from a srcset attribute.
  * Handles URLs that contain commas (e.g., Substack CDN URLs like
  * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
- * by parsing width/density descriptors and only splitting candidate separators.
+ * by parsing based on width/density descriptors rather than splitting on commas.
  */
 function extractFirstUrlFromSrcset(srcset: string): string | null {
-	if (!srcset || !srcset.trim()) return null;
-
-	const trimmed = srcset.trim();
-	const descriptorPattern = /\s+\d+(?:\.\d+)?[wx](?=\s*(?:,|$))/g;
-	const candidateSeparatorPattern = /(?:,\s*(?=(?:https?:)?\/\/|\/(?!\/)|\.{1,2}\/)|,\s+(?=[^,\s]+\.(?:jpg|jpeg|png|webp|gif|avif|svg)(?:[?#\s,]|$)))/i;
-	const extractUrl = (candidate: string): string | null => {
-		const normalized = candidate.replace(/^,\s*/, '').trim();
-		if (!normalized) return null;
-
-		// Split only on commas that look like candidate separators. Some CDN URLs
-		// contain commas in the URL itself, e.g. "/image/fetch/...,w_424,...".
-		for (const part of normalized.split(candidateSeparatorPattern)) {
-			const urlMatch = part.trim().match(urlPattern);
-			if (urlMatch && urlMatch[1] && !isSvgDataUrl(urlMatch[1])) {
-				return urlMatch[1];
-			}
-		}
-
-		return null;
-	};
-
-	let match;
-	let start = 0;
-
-	while ((match = descriptorPattern.exec(trimmed)) !== null) {
-		const url = extractUrl(trimmed.slice(start, match.index));
-		start = descriptorPattern.lastIndex;
-		if (url) return url;
-	}
-
-	// Fallback: handle srcset values with no descriptors.
-	return extractUrl(trimmed.slice(start));
+	return getFirstSrcsetUrl(srcset, { skipSvgDataUrls: true });
 }
 
 /**
@@ -972,11 +940,10 @@ function selectBestSource(sources: NodeListOf<Element>): Element | null {
 		if (!srcset) continue;
 		
 		// Extract width and DPR from srcset
-		const widthMatch = srcset.match(widthPattern);
+		const width = parseSrcset(srcset).reduce((max, candidate) => Math.max(max, candidate.width || 0), 0);
 		const dprMatch = srcset.match(dprPattern);
 		
-		if (widthMatch && widthMatch[1]) {
-			const width = parseInt(widthMatch[1], 10);
+		if (width > 0) {
 			const dpr = dprMatch ? parseFloat(dprMatch[1]) : 1;
 			
 			// Calculate effective resolution (width * DPR)
