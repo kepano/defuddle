@@ -903,46 +903,41 @@ function processSourceElement(element: Element, doc: Document): Element {
  * Extract the first URL from a srcset attribute.
  * Handles URLs that contain commas (e.g., Substack CDN URLs like
  * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
- * by parsing based on width/density descriptors rather than splitting on commas.
+ * by parsing width/density descriptors and only splitting candidate separators.
  */
 function extractFirstUrlFromSrcset(srcset: string): string | null {
 	if (!srcset || !srcset.trim()) return null;
 
 	const trimmed = srcset.trim();
+	const descriptorPattern = /\s+\d+(?:\.\d+)?[wx](?=\s*(?:,|$))/g;
+	const candidateSeparatorPattern = /(?:,\s*(?=(?:https?:)?\/\/|\/(?!\/)|\.{1,2}\/)|,\s+(?=[^,\s]+\.(?:jpg|jpeg|png|webp|gif|avif|svg)(?:[?#\s,]|$)))/i;
+	const extractUrl = (candidate: string): string | null => {
+		const normalized = candidate.replace(/^,\s*/, '').trim();
+		if (!normalized) return null;
 
-	// Match srcset entries by finding URL + descriptor pairs.
-	// Each entry ends with a width descriptor (e.g., "424w") or density descriptor (e.g., "2x").
-	// The URL is everything before the whitespace that precedes the descriptor.
-	// This handles URLs containing commas (which would break a simple comma-split).
-	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
-	let match;
-	let lastIndex = 0;
-
-	while ((match = entryPattern.exec(trimmed)) !== null) {
-		// Extract URL from this entry, trimming any leading comma+whitespace from previous entry
-		let url = match[1].trim();
-		if (lastIndex > 0) {
-			// Remove leading comma separator from previous entry
-			url = url.replace(/^,\s*/, '');
+		// Split only on commas that look like candidate separators. Some CDN URLs
+		// contain commas in the URL itself, e.g. "/image/fetch/...,w_424,...".
+		for (const part of normalized.split(candidateSeparatorPattern)) {
+			const urlMatch = part.trim().match(urlPattern);
+			if (urlMatch && urlMatch[1] && !isSvgDataUrl(urlMatch[1])) {
+				return urlMatch[1];
+			}
 		}
 
-		lastIndex = entryPattern.lastIndex;
+		return null;
+	};
 
-		if (!url) continue;
+	let match;
+	let start = 0;
 
-		// Skip SVG data URLs
-		if (isSvgDataUrl(url)) continue;
-
-		return url;
+	while ((match = descriptorPattern.exec(trimmed)) !== null) {
+		const url = extractUrl(trimmed.slice(start, match.index));
+		start = descriptorPattern.lastIndex;
+		if (url) return url;
 	}
 
-	// Fallback: try extracting URL before first whitespace (for srcset with single entry and no descriptor)
-	const urlMatch = trimmed.match(urlPattern);
-	if (urlMatch && urlMatch[1] && !isSvgDataUrl(urlMatch[1])) {
-		return urlMatch[1];
-	}
-
-	return null;
+	// Fallback: handle srcset values with no descriptors.
+	return extractUrl(trimmed.slice(start));
 }
 
 /**

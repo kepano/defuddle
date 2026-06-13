@@ -18,6 +18,22 @@
 			<figcaption>Hero image with React SSR attributes. Photo credit.</figcaption>
 		</figure>
 
+		<figure>
+			<picture>
+				<source type="image/webp" srcset="https://img.zeit.de/zeit-magazin/2026/26/test-image/square__360x360__mobile, https://img.zeit.de/zeit-magazin/2026/26/test-image/square__360x360__mobile__scale_2 2x">
+				<img src="https://www.example.com/images/fallback.jpg" alt="Image whose first srcset candidate has no descriptor.">
+			</picture>
+			<figcaption>Image whose first srcset candidate has no descriptor.</figcaption>
+		</figure>
+
+		<figure>
+			<picture>
+				<source type="image/webp" srcset="https://substackcdn.com/image/fetch/$s_!test!,w_424,c_limit,f_webp/https%3A%2F%2Fexample.com%2Fphoto.webp 424w, https://substackcdn.com/image/fetch/$s_!test!,w_848,c_limit,f_webp/https%3A%2F%2Fexample.com%2Fphoto.webp 848w">
+				<img src="https://www.example.com/images/fallback.jpg" alt="Image with CDN commas in srcset URL.">
+			</picture>
+			<figcaption>Image with CDN commas in srcset URL.</figcaption>
+		</figure>
+
 		<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
 		<p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident.</p>
 	</article>
