@@ -562,21 +562,36 @@ export class MetadataExtractor {
 		]);
 		if (result) return result;
 
-		// Look for date text near the article heading
+		// Look for date text near the article heading. Scan both directions:
+		// many layouts put the date in a byline below the <h1>, but others (e.g.
+		// openai.com) place it in a header block immediately above the title.
 		const h1 = doc.querySelector('h1');
 		if (h1) {
-			let sibling = h1.nextElementSibling;
-			for (let i = 0; i < 3 && sibling; i++) {
-				// Check individual children first — some DOMs (e.g. linkedom) omit whitespace
-				// between elements, which breaks word-boundary matching on combined text
-				for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
-					const parsed = this.parseDateText(child.textContent?.trim() || '');
-					if (parsed) return parsed;
+			const scan = (start: Element | null, step: (el: Element) => Element | null, childrenOnly: boolean): string => {
+				let sibling = start;
+				for (let i = 0; i < 3 && sibling; i++) {
+					// Check individual children first — some DOMs (e.g. linkedom) omit whitespace
+					// between elements, which breaks word-boundary matching on combined text
+					for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
+						const parsed = this.parseDateText(child.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
+					// Above the title, only trust dates in explicit <p>/<time> elements:
+					// header blocks there mix in breadcrumbs/categories whose loose text
+					// (e.g. "Blog | March 1, 2026") is navigation, not the article's date.
+					if (!childrenOnly) {
+						const parsed = this.parseDateText(sibling.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
+					sibling = step(sibling);
 				}
-				const parsed = this.parseDateText(sibling.textContent?.trim() || '');
-				if (parsed) return parsed;
-				sibling = sibling.nextElementSibling;
-			}
+				return '';
+			};
+			const found = this.firstValid([
+				() => scan(h1.nextElementSibling, el => el.nextElementSibling, false),
+				() => scan(h1.previousElementSibling, el => el.previousElementSibling, true),
+			]);
+			if (found) return found;
 		}
 
 		return '';
