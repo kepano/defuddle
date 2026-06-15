@@ -883,7 +883,17 @@ export function createMarkdownContent(content: string, url: string) {
 
 	function formatBlockLatex(value: string): string {
 		const latex = value.trim();
-		if (!latex || hasLatexEnvironment(latex)) return latex;
+		if (!latex) return latex;
+
+		// mathml-to-latex wraps an unfenced <mtable> in a bare matrix
+		// environment. In block math these are aligned equation systems rather
+		// than matrices, so realign at the & columns.
+		const bareMatrix = latex.match(/^\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}$/);
+		if (bareMatrix && !hasLatexEnvironment(bareMatrix[1])) {
+			return `\\begin{aligned}\n${bareMatrix[1].trim()}\n\\end{aligned}`;
+		}
+
+		if (hasLatexEnvironment(latex)) return latex;
 
 		if (latex.includes('\\\\') || latex.includes('&')) {
 			return `\\begin{aligned}\n${latex}\n\\end{aligned}`;
