@@ -96,7 +96,8 @@
 		"webpack-cli": "^5.1.4"
 	},
 	"overrides": {
-		"vite": "^7.3.2"
+		"vite": "^7.3.2",
+		"esbuild": "^0.28.1"
 	},
 	"files": [
 		"dist",
