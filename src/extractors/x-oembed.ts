@@ -129,6 +129,12 @@ export class XOembedExtractor extends BaseExtractor {
 		return /\/(status|article)\/\d+/.test(this.url);
 	}
 
+	prefersAsync(): boolean {
+		// Prefer async when not running in a browser window context.
+		const isBrowser = typeof window !== 'undefined' && this.document.defaultView == window;
+		return !isBrowser;
+	}
+
 	async extractAsync(): Promise<ExtractorResult> {
 		// Try FxTwitter first — it has full tweet text and media
 		const fxResult = await this.tryExtractFxTwitter();
