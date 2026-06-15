@@ -1,0 +1,92 @@
+<!-- {"url":"https://www.example.org/software/widget/manual/html_node/Introduction.html"} -->
+<!DOCTYPE html>
+<html>
+<!-- Created by GNU Texinfo 7.0.3, https://www.gnu.org/software/texinfo/ -->
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Introduction (Widget)</title>
+<meta name="description" content="Introduction (Widget)">
+<meta name="Generator" content="makeinfo">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="index.html" rel="start" title="Top">
+<link href="Terminology.html" rel="next" title="Terminology">
+</head>
+
+<body lang="en">
+<div class="chapter-level-extent" id="Introduction">
+<div class="nav-panel">
+<p>
+Next: <a href="Terminology.html" accesskey="n" rel="next">Terminology</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+<hr>
+<h2 class="chapter" id="Introduction-1">1 Introduction</h2>
+
+<p>Widget is a symlink farm manager which takes distinct sets of
+software and/or data located in separate directories on the
+filesystem, and makes them all appear to be installed in a single
+directory tree.
+</p>
+<p>Originally Widget was born to address the need to administer, upgrade,
+install, and remove files in independent software packages without
+confusing them with other files sharing the same file system space.
+For instance, many years ago it used to be common to compile programs
+from source and install them in
+<samp class="file">/usr/local</samp>.  When one does so, one winds up with the following
+files<a class="footnote" id="DOCF1" href="#FOOT1"><sup>1</sup></a> in
+<samp class="file">/usr/local/man/man1</samp>:
+</p>
+<div class="example">
+<pre class="example-preformatted">a2p.1
+ctags.1
+emacs.1
+etags.1
+h2ph.1
+perl.1
+s2p.1
+</pre></div>
+
+<p>Now suppose it&rsquo;s time to uninstall a package.  Which man pages
+get removed?  It should not be the administrator&rsquo;s responsibility
+to memorize the ownership of individual files by separate packages.
+</p>
+<p>The approach used by Widget is to install each package into its own
+tree, then use symbolic links to make it appear as though the files are
+installed in the common tree.  Administration can be performed in the
+package&rsquo;s private tree in isolation from clutter from other packages.
+Widget can then be used to update the symbolic links.
+</p>
+<p>However Widget is still used not only for software package management,
+but also for other purposes, such as facilitating a more controlled
+approach to management of configuration files in the user&rsquo;s home
+directory<a class="footnote" id="DOCF2" href="#FOOT2"><sup>2</sup></a>,
+especially when coupled with version control
+systems<a class="footnote" id="DOCF3" href="#FOOT3"><sup>3</sup></a>.
+</p>
+<p>Widget stores no extra state between runs, so there&rsquo;s no danger of
+mangling directories when file hierarchies don&rsquo;t match a database.
+Widget will never delete any files, directories, or links that appear in
+a Widget directory, so it&rsquo;s always possible to rebuild the target tree.
+</p>
+
+</div>
+<div class="footnotes-segment">
+<hr>
+<h4 class="footnotes-heading">Footnotes</h4>
+
+<h5 class="footnote-body-heading"><a id="FOOT1" href="#DOCF1">(1)</a></h5>
+<p>As of an ancient release. These are now old versions but the example still holds valid.</p>
+<h5 class="footnote-body-heading"><a id="FOOT2" href="#DOCF2">(2)</a></h5>
+<p><a class="uref" href="https://www.example.com/news/using-widget-to-manage-your-dotfiles.html">https://www.example.com/news/using-widget-to-manage-your-dotfiles.html</a></p>
+<h5 class="footnote-body-heading"><a id="FOOT3" href="#DOCF3">(3)</a></h5>
+<p><a class="uref" href="https://lists.example.com/archive/html/info-widget/msg00000.html">https://lists.example.com/archive/html/info-widget/msg00000.html</a></p>
+</div>
+<hr>
+<div class="nav-panel">
+<p>
+Next: <a href="Terminology.html">Terminology</a> &nbsp; [<a href="index.html#SEC_Contents" title="Table of contents" rel="contents">Contents</a>][<a href="Index.html" title="Index" rel="index">Index</a>]</p>
+</div>
+
+
+
+</body>
+</html>

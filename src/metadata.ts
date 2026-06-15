@@ -56,7 +56,7 @@ export class MetadataExtractor {
 			favicon: this.getFavicon(doc, url, metaTags),
 			image: this.getImage(doc, schemaOrgData, metaTags),
 			language: this.getLanguage(doc, schemaOrgData, metaTags),
-			published: this.getPublished(doc, schemaOrgData, metaTags),
+			published: this.getPublished(doc, schemaOrgData, metaTags, url),
 			author,
 			site,
 			schemaOrgData,
@@ -551,32 +551,47 @@ export class MetadataExtractor {
 		return '';
 	}
 
-	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getPublished(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[], url: string): string {
 		const result = this.firstValid([
 			() => this.getSchemaProperty(schemaOrgData, 'datePublished'),
 			() => this.getMetaContent(metaTags, "name", "publishDate"),
 			() => this.getMetaContent(metaTags, "property", "article:published_time"),
 			() => (doc.querySelector('abbr[itemprop="datePublished"]') as HTMLElement)?.title?.trim() || '',
-			() => this.getTimeElement(doc),
+			() => this.getTimeElement(doc, url),
 			() => this.getMetaContent(metaTags, "name", "sailthru.date"),
 		]);
 		if (result) return result;
 
-		// Look for date text near the article heading
+		// Look for date text near the article heading. Scan both directions:
+		// many layouts put the date in a byline below the <h1>, but others (e.g.
+		// openai.com) place it in a header block immediately above the title.
 		const h1 = doc.querySelector('h1');
 		if (h1) {
-			let sibling = h1.nextElementSibling;
-			for (let i = 0; i < 3 && sibling; i++) {
-				// Check individual children first — some DOMs (e.g. linkedom) omit whitespace
-				// between elements, which breaks word-boundary matching on combined text
-				for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
-					const parsed = this.parseDateText(child.textContent?.trim() || '');
-					if (parsed) return parsed;
+			const scan = (start: Element | null, step: (el: Element) => Element | null, childrenOnly: boolean): string => {
+				let sibling = start;
+				for (let i = 0; i < 3 && sibling; i++) {
+					// Check individual children first — some DOMs (e.g. linkedom) omit whitespace
+					// between elements, which breaks word-boundary matching on combined text
+					for (const child of Array.from(sibling.querySelectorAll('p, time'))) {
+						const parsed = this.parseDateText(child.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
+					// Above the title, only trust dates in explicit <p>/<time> elements:
+					// header blocks there mix in breadcrumbs/categories whose loose text
+					// (e.g. "Blog | March 1, 2026") is navigation, not the article's date.
+					if (!childrenOnly) {
+						const parsed = this.parseDateText(sibling.textContent?.trim() || '');
+						if (parsed) return parsed;
+					}
+					sibling = step(sibling);
 				}
-				const parsed = this.parseDateText(sibling.textContent?.trim() || '');
-				if (parsed) return parsed;
-				sibling = sibling.nextElementSibling;
-			}
+				return '';
+			};
+			const found = this.firstValid([
+				() => scan(h1.nextElementSibling, el => el.nextElementSibling, false),
+				() => scan(h1.previousElementSibling, el => el.previousElementSibling, true),
+			]);
+			if (found) return found;
 		}
 
 		return '';
@@ -593,11 +608,38 @@ export class MetadataExtractor {
 		}).map(tag => tag.content?.trim() ?? "");
 	}
 
-	private static getTimeElement(doc: Document): string {
-		const selector = `time`;
-		const element = Array.from(doc.querySelectorAll(selector))[0];
-		const content = element ? (element.getAttribute("datetime")?.trim() ?? element.textContent?.trim() ?? "") : "";
-		return content;
+	private static getTimeElement(doc: Document, url: string): string {
+		// Skip <time> elements that belong to a link pointing at a different page —
+		// related/suggested-post cards wrap their own date in an <a>, and that date is
+		// not the current article's (see #295, openai.com blog).
+		for (const element of Array.from(doc.querySelectorAll('time'))) {
+			if (this.isLinkedToOtherPage(element, url)) continue;
+			const content = element.getAttribute("datetime")?.trim() || element.textContent?.trim() || "";
+			if (content) return content;
+		}
+		return "";
+	}
+
+	// True when `el` sits inside an <a> linking to another page on the SAME site —
+	// i.e. a related/suggested-post card whose date is not the current article's
+	// (see #295, openai.com). Links to the same page (self/permalink, in-page anchor)
+	// and links to external sites (e.g. an article date that links to its social-media
+	// thread) are kept, since those still describe the current article.
+	private static isLinkedToOtherPage(el: Element, pageUrl: string): boolean {
+		if (!pageUrl) return false;
+		const anchor = el.closest('a[href]');
+		if (!anchor) return false;
+		const href = anchor.getAttribute('href')?.trim() || '';
+		if (!href || href.startsWith('#')) return false;
+		try {
+			const target = new URL(href, pageUrl);
+			const current = new URL(pageUrl);
+			if (target.origin !== current.origin) return false; // external link — keep
+			const norm = (p: string) => p.replace(/\/+$/, '');
+			return norm(target.pathname) !== norm(current.pathname);
+		} catch {
+			return false;
+		}
 	}
 
 	private static readonly MONTH_MAP: Record<string, string> = {

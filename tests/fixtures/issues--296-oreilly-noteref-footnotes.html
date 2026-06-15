@@ -1,0 +1,49 @@
+<!-- {"url":"https://www.example.com/library/view/sample-book/ch02.html"} -->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Sample Chapter</title>
+</head>
+<body data-type="book">
+<section data-type="chapter">
+	<h1>2. Sample Chapter</h1>
+
+	<p>This chapter demonstrates a few language constructs. Numeric conversions
+	from one representation to another are usually straightforward, although very
+	large values can occasionally lose precision when widened to another numeric
+	type.<sup><a data-type="noteref" href="ch02.html#fn1" id="fn1-marker">1</a></sup>
+	The compiler applies these conversions automatically where it is safe to do so.</p>
+
+	<p>Comparison operators normally return a boolean result, and it is uncommon to
+	define them otherwise.<sup><a data-type="noteref" href="ch02.html#fn2" id="fn2-marker">2</a></sup>
+	Most code relies on the default behavior without any customization at all.</p>
+
+	<p>The <code>ref</code> modifier is essential in implementing a swap method (in
+	<a data-type="xref" href="ch03.html#generics">"Generics"</a>, we show how to write
+	a swap method that works with any type):</p>
+	<pre data-type="programlisting">string x = "Penn";
+string y = "Teller";
+Swap (ref x, ref y);
+Console.WriteLine (x);   // Teller
+Console.WriteLine (y);   // Penn
+
+static void Swap (ref string a, ref string b)
+{
+  string temp = a;
+  a = b;
+  b = temp;
+}</pre>
+
+	<p>After the swap completes, the two variables have exchanged their contents,
+	which illustrates how arguments are passed by reference rather than by value in
+	this example. This paragraph exists so the chapter body has enough surrounding
+	prose for the content extractor to score it as the main content.</p>
+
+	<div data-type="footnotes">
+		<p data-type="footnote" id="fn1"><sup><a href="ch02.html#fn1-marker">1</a></sup> A minor caveat is that very large values lose some precision when converted to another numeric type.</p>
+		<p data-type="footnote" id="fn2"><sup><a href="ch02.html#fn2-marker">2</a></sup> An exception is when calling certain interop methods, discussed in a later chapter.</p>
+	</div>
+</section>
+</body>
+</html>

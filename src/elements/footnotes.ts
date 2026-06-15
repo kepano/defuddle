@@ -92,6 +92,9 @@ const INLINE_REF_EXTRACTORS: Array<{ selector: string; extract: (el: any) => str
 	{ selector: 'span.footnote-link', extract: (el) => el.getAttribute('data-footnote-id') || '' },
 	{ selector: 'a.citation', extract: (el) => el.textContent?.trim() || '' },
 	{ selector: 'a[id^="fnref"]', extract: (el) => el.id.replace('fnref', '').toLowerCase() },
+	// O'Reilly/HTMLBook: <a data-type="noteref" href="chNN.html#chMMfnK"> — the id is the
+	// href fragment, which may include a same-document filename prefix.
+	{ selector: 'a[data-type="noteref"]', extract: (el) => getHrefFragment(el) },
 ];
 
 class FootnoteHandler {
@@ -266,6 +269,30 @@ class FootnoteHandler {
 				return;
 			}
 
+			// GNU Texinfo / makeinfo: <div class="footnotes-segment"> with a heading per
+			// footnote — <h5 class="footnote-body-heading"><a id="FOOTn" href="#DOCFn">(n)</a></h5>
+			// followed by the body <p>. Inline markers (<a class="footnote" id="DOCFn"
+			// href="#FOOTn">) reference the heading anchor id, so register under that id.
+			if (list.matches('div.footnotes-segment')) {
+				const headings = list.querySelectorAll('h5.footnote-body-heading');
+				headings.forEach((heading: any) => {
+					const id = (heading.querySelector('a[id]')?.id || '').toLowerCase();
+					if (!id) return;
+					const contentDiv = element.ownerDocument.createElement('div');
+					let sibling = heading.nextElementSibling;
+					while (sibling && !(sibling.tagName.toLowerCase() === 'h5'
+						&& sibling.classList?.contains('footnote-body-heading'))) {
+						if (sibling.textContent?.trim() || sibling.querySelector?.('img, br')) {
+							contentDiv.appendChild(sibling.cloneNode(true));
+						}
+						sibling = sibling.nextElementSibling;
+					}
+					this.addFootnote(state, id, contentDiv);
+				});
+				this.pendingRemovals.push(list);
+				return;
+			}
+
 			// Substack has individual footnote divs with no parent
 			if (list.matches('div.footnote[data-component-name="FootnoteToDOM"]')) {
 				const anchor = list.querySelector('a.footnote-number');
@@ -284,6 +311,7 @@ class FootnoteHandler {
 		});
 
 		const fallbacks = [
+			this.tryDataTypeFootnotes,
 			this.tryGenericIdDetection,
 			this.tryWordExport,
 			this.tryGoogleDocs,
@@ -297,6 +325,30 @@ class FootnoteHandler {
 		}
 
 		return state.footnotes;
+	}
+
+	// O'Reilly / HTMLBook: footnote definitions are <p data-type="footnote" id="chNNfnK">,
+	// each opening with a <sup><a href="#…-marker">K</a></sup> backlink. The body text
+	// (including the inline <a data-type="noteref"> markers) is otherwise indistinguishable
+	// from definitions to tryGenericIdDetection, which would mis-collect surrounding
+	// paragraphs as footnote content (#296), so handle this explicit markup first.
+	private tryDataTypeFootnotes(element: any, state: CollectState): void {
+		const defs = element.querySelectorAll('p[data-type="footnote"][id]');
+		defs.forEach((def: any) => {
+			const id = (def.id || '').toLowerCase();
+			if (!id) return;
+			const contentDiv = element.ownerDocument.createElement('div');
+			const clone = def.cloneNode(true);
+			// Strip the leading backlink marker (<sup><a href="#…-marker">K</a></sup>).
+			const marker = clone.firstElementChild;
+			if (marker && marker.tagName.toLowerCase() === 'sup' && marker.querySelector('a[href*="#"]')) {
+				marker.remove();
+				this.trimLeadingWhitespace(clone);
+			}
+			contentDiv.appendChild(clone);
+			this.addFootnote(state, id, contentDiv);
+			this.pendingRemovals.push(def);
+		});
 	}
 
 	// Generic fallback: detect footnotes by numeric anchor text referencing an in-container id.
