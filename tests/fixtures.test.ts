@@ -96,7 +96,13 @@ describe('Fixtures Tests', () => {
     const urlName = basename(path, '.html').replace(/^[a-z]+--/, '');
     const url = frontmatter.url || `https://${urlName}`;
     const doc = parseDocument(html, url);
-    const response = await Defuddle(doc, url, { separateMarkdown: true });
+    // Keep fixtures hermetic: extractors for /status/<id> URLs (e.g. X) otherwise
+    // hit publish.twitter.com/api.fxtwitter.com over the live network, which is slow
+    // and nondeterministic — a placeholder id can collide with a real tweet (see #272,
+    // where 1234567890 resolved to a real account). Failing the fetch forces the
+    // deterministic DOM-extraction path the fixtures are written to exercise.
+    const offlineFetch = (() => Promise.reject(new Error('network disabled in fixture tests'))) as unknown as typeof fetch;
+    const response = await Defuddle(doc, url, { separateMarkdown: true, fetch: offlineFetch });
     const result = createComparableResult(response);
     const expected = loadExpectedResult(name);
     
