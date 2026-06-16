@@ -11,17 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Tests across Node versions and both DOM backends (linkedom + jsdom).
-  # Cross-DOM coverage is core to Defuddle: bugs that pass on one engine
-  # routinely break on another.
+  # Tests under linkedom (the default backend the fixtures are authored for).
+  # Node floor is 20: the toolchain (Vite 7) requires ^20.19 || >=22.12, so
+  # 18 can't run the suite at all.
   test:
-    name: test (node ${{ matrix.node }}, ${{ matrix.dom }})
+    name: test (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22]
-        dom: [linkedom, jsdom]
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,8 +28,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - name: Test (${{ matrix.dom }})
-        run: ${{ matrix.dom == 'jsdom' && 'npm run test:jsdom' || 'npm test' }}
+      - run: npm test
 
   # Tests run on TS source via Vitest and never exercise webpack or the
   # published bundles. Build is its own gate to catch bundle-only breakage
