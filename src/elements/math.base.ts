@@ -7,6 +7,164 @@ export interface MathData {
 	isBlock: boolean;
 }
 
+// --- MathJax CHTML (mjx-*) → MathML reconstruction -------------------------
+//
+// When MathJax v3 renders with the CHTML output and the page ships no
+// assistive MathML, the original `<math>` is gone from the live DOM and the
+// only math content left is the `mjx-*` render tree. That tree mirrors MathML
+// closely — token tags (`mjx-mi`, `mjx-mo`, …) and structural tags
+// (`mjx-mfrac`, `mjx-msub`, …) map back by stripping the `mjx-` prefix, glyphs
+// live in `mjx-c`, and the rest are layout wrappers. We rebuild a `<math>` so
+// the normal MathML→LaTeX path can take over.
+
+// Math glyphs use the Mathematical Alphanumeric Symbols block (𝑧, 𝜎, …); NFKC
+// folds them back to plain letters (z, σ). Invisible operators (function
+// application, invisible times/separator) carry no LaTeX and are dropped.
+const INVISIBLE_MATH_CHARS = /[⁡⁢⁣⁤]/g;
+const normalizeMathGlyphs = (s: string): string =>
+	s.normalize('NFKC').replace(INVISIBLE_MATH_CHARS, '');
+
+// Leaf token elements: their content is the (normalized) glyph text.
+const MJX_TOKEN_TAGS = new Set(['mi', 'mo', 'mn', 'mtext', 'ms', 'mspace', 'mglyph']);
+// Structural containers that map name-for-name and pass children through.
+const MJX_STRUCTURAL_TAGS = new Set([
+	'mrow', 'mstyle', 'mpadded', 'mphantom', 'menclose', 'merror',
+	'mtable', 'mtr', 'mtd', 'mlabeledtr'
+]);
+// Layout-only artifacts that carry no math meaning.
+const MJX_DROP_TAGS = new Set([
+	'mjx-nstrut', 'mjx-dstrut', 'mjx-strut', 'mjx-line', 'mjx-spacer',
+	'mjx-break', 'mjx-mark'
+]);
+
+const directChild = (node: Element, tag: string): Element | null => {
+	for (const child of Array.from(node.children)) {
+		if (child.tagName.toLowerCase() === tag) return child;
+	}
+	return null;
+};
+
+const flattenMjxChildren = (node: Element | null, doc: Document, skip?: Element | null): Node[] => {
+	if (!node) return [];
+	const out: Node[] = [];
+	for (const child of Array.from(node.children)) {
+		if (child === skip) continue;
+		out.push(...convertMjxNode(child, doc));
+	}
+	return out;
+};
+
+// Collapse a role's parts into a single MathML node (MathML scripts/fractions
+// expect exactly one node per slot); wrap multiples in an mrow.
+const wrapParts = (parts: Node[], doc: Document): Node => {
+	if (parts.length === 1) return parts[0];
+	const mrow = doc.createElement('mrow');
+	parts.forEach(p => mrow.appendChild(p));
+	return mrow;
+};
+
+const buildEl = (name: string, children: Node[], doc: Document): Element => {
+	const el = doc.createElement(name);
+	children.forEach(c => el.appendChild(c));
+	return el;
+};
+
+const convertMjxNode = (node: Element, doc: Document): Node[] => {
+	const tag = node.tagName.toLowerCase();
+
+	if (tag === 'mjx-c') {
+		const text = normalizeMathGlyphs(node.textContent || '');
+		return text ? [doc.createTextNode(text)] : [];
+	}
+	if (MJX_DROP_TAGS.has(tag)) return [];
+	if (!tag.startsWith('mjx-')) return [];
+
+	const name = tag.slice(4); // strip 'mjx-'
+
+	if (MJX_TOKEN_TAGS.has(name)) {
+		const text = normalizeMathGlyphs(node.textContent || '');
+		// Drop tokens left empty after stripping invisible operators.
+		if (!text && name !== 'mspace') return [];
+		const el = doc.createElement(name);
+		if (text) el.textContent = text;
+		return [el];
+	}
+
+	if (MJX_STRUCTURAL_TAGS.has(name)) {
+		return [buildEl(name, flattenMjxChildren(node, doc), doc)];
+	}
+
+	switch (name) {
+		case 'mfrac': {
+			const num = wrapParts(flattenMjxChildren(node.querySelector('mjx-num'), doc), doc);
+			const den = wrapParts(flattenMjxChildren(node.querySelector('mjx-den'), doc), doc);
+			return [buildEl('mfrac', [num, den], doc)];
+		}
+		case 'msqrt': {
+			// The radicand sits in mjx-box; mjx-surd holds the √ glyph (implicit in MathML).
+			const box = node.querySelector('mjx-box');
+			return [buildEl('msqrt', flattenMjxChildren(box || node, doc), doc)];
+		}
+		case 'msub':
+		case 'msup': {
+			const script = directChild(node, 'mjx-script');
+			const base = wrapParts(flattenMjxChildren(node, doc, script), doc);
+			const sup = wrapParts(flattenMjxChildren(script, doc), doc);
+			return [buildEl(name, [base, sup], doc)];
+		}
+		case 'msubsup': {
+			const script = directChild(node, 'mjx-script');
+			const base = wrapParts(flattenMjxChildren(node, doc, script), doc);
+			// CHTML stacks the script as [sup, sub] (top→bottom); MathML msubsup
+			// expects [base, sub, sup], so the script parts are reversed.
+			const parts = flattenMjxChildren(script, doc);
+			const sub = parts.length > 1 ? parts[parts.length - 1] : (parts[0] || doc.createElement('mrow'));
+			const sup = parts.length > 1 ? parts[0] : doc.createElement('mrow');
+			return [buildEl('msubsup', [base, sub, sup], doc)];
+		}
+		case 'munder':
+		case 'mover':
+		case 'munderover': {
+			// CHTML lays limits out as [over?, box[ munder[ base, under? ] ]];
+			// read the role wrappers directly and emit MathML order.
+			const base = wrapParts(flattenMjxChildren(node.querySelector('mjx-base'), doc), doc);
+			const under = node.querySelector('mjx-under');
+			const over = node.querySelector('mjx-over');
+			if (name === 'munder') return [buildEl('munder', [base, wrapParts(flattenMjxChildren(under, doc), doc)], doc)];
+			if (name === 'mover') return [buildEl('mover', [base, wrapParts(flattenMjxChildren(over, doc), doc)], doc)];
+			return [buildEl('munderover', [
+				base,
+				wrapParts(flattenMjxChildren(under, doc), doc),
+				wrapParts(flattenMjxChildren(over, doc), doc)
+			], doc)];
+		}
+		default:
+			// Layout wrapper (mjx-frac, mjx-num, mjx-box, mjx-script, …): transparent.
+			return flattenMjxChildren(node, doc);
+	}
+};
+
+/**
+ * Rebuild a `<math>` element from a MathJax CHTML `mjx-math` render tree.
+ * Returns null when there is nothing to recover (e.g. an unrendered
+ * `mjx-lazy` placeholder).
+ */
+export const reconstructMathMLFromMjx = (mjxMath: Element, doc: Document): MathData | null => {
+	const math = doc.createElement('math');
+	math.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+
+	for (const child of Array.from(mjxMath.children)) {
+		for (const n of convertMjxNode(child, doc)) math.appendChild(n);
+	}
+
+	if (math.childNodes.length === 0) return null;
+
+	const isBlock = mjxMath.getAttribute('display') === 'true';
+	if (isBlock) math.setAttribute('display', 'block');
+
+	return { mathml: math.outerHTML, latex: null, isBlock };
+};
+
 /**
  * Flatten a tagged single equation (`\tag{…}`) back into an inline expression.
  *
@@ -121,6 +279,16 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 			latex: null, // We'll get LaTeX separately for KaTeX
 			isBlock: false // We'll determine this from container
 		};
+	}
+
+	// 5. MathJax v3 CHTML render tree (no assistive MathML / annotation) —
+	// reconstruct MathML from the mjx-* tree. Unrendered mjx-lazy placeholders
+	// have no mjx-math and fall through to null (the formula is simply dropped).
+	const mjxMath = el.tagName.toLowerCase() === 'mjx-math' ? el : el.querySelector('mjx-math');
+	if (mjxMath) {
+		const doc = el.ownerDocument || document;
+		const reconstructed = reconstructMathMLFromMjx(mjxMath, doc);
+		if (reconstructed) return reconstructed;
 	}
 
 	return null;
