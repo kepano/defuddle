@@ -4,6 +4,7 @@ import {
 	HIDDEN_EXACT_SKIP_SELECTOR,
 	PARTIAL_SELECTORS,
 	PARTIAL_SELECTORS_REGEX,
+	PARTIAL_SELECTORS_ANCHORED_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
@@ -51,7 +52,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 	if (removePartial) {
 		// Pre-compile individual regexes for debug pattern identification only
 		const individualRegexes = debug
-			? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i') }))
+			? PARTIAL_SELECTORS.map(p => ({ pattern: p, regex: new RegExp(p, 'i'), anchored: new RegExp('^(?:' + p + ')$', 'i') }))
 			: null;
 
 		// Query both doc and mainContent because linkedom's document-level
@@ -87,7 +88,6 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			const attrs = (isHeading
 				? getClassName(el)
 				: getClassName(el) + ' ' +
-					(el.id || '') + ' ' +
 					(el.getAttribute('data-component') || '') + ' ' +
 					(el.getAttribute('data-test') || '') + ' ' +
 					(el.getAttribute('data-testid') || '') + ' ' +
@@ -96,15 +96,33 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 					(el.getAttribute('data-cy') || '')
 			).toLowerCase();
 
-			// Skip if no attributes to check
-			if (!attrs.trim()) {
+			// The id is matched separately. A delimited id (e.g. "feedback-form") is
+			// substring-matched like the other attributes, but a delimiter-less id is
+			// usually a content anchor concatenated from heading words (e.g.
+			// "theroleofthings", "loopsandfeedback") — substring matching would wrongly
+			// strip it (hitting 'hero'/'feedback'), so it must equal a selector token
+			// outright. Headings skip id entirely (they carry auto-generated slugs).
+			const id = isHeading ? '' : (el.id || '').toLowerCase();
+
+			// Skip if nothing to check
+			const hasAttrs = attrs.trim() !== '';
+			if (!hasAttrs && !id) {
 				return;
 			}
 
 			// Check for partial match using single regex test
-			if (PARTIAL_SELECTORS_REGEX.test(attrs)) {
+			const attrsMatch = hasAttrs && PARTIAL_SELECTORS_REGEX.test(attrs);
+			const idHasDelimiter = id ? /[\s_\-:.]/.test(id) : false;
+			const idMatch = id
+				? (idHasDelimiter ? PARTIAL_SELECTORS_REGEX.test(id) : PARTIAL_SELECTORS_ANCHORED_REGEX.test(id))
+				: false;
+			if (attrsMatch || idMatch) {
+				// Substring match when it came from attrs or a delimited id;
+				// otherwise the id matched a whole selector token (anchored).
+				const useSubstring = attrsMatch || idHasDelimiter;
+				const matchString = attrsMatch ? attrs : id;
 				const matchedPattern = individualRegexes
-					? individualRegexes.find(r => r.regex.test(attrs))?.pattern
+					? individualRegexes.find(r => (useSubstring ? r.regex : r.anchored).test(matchString))?.pattern
 					: undefined;
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 				partialSelectorCount++;
