@@ -58,13 +58,13 @@ export class ChatGPTExtractor extends ConversationExtractor {
 			// Remove specific elements from the message content
 			const tempDiv = this.document.createElement('div');
 			tempDiv.appendChild(parseHTML(this.document, messageContent));
-			tempDiv.querySelectorAll('h4.sr-only, h5.sr-only, h6.sr-only, span[data-state="closed"]').forEach(el => el.remove());
+			tempDiv.querySelectorAll('h4.sr-only, h5.sr-only, h6.sr-only').forEach(el => el.remove());
 			messageContent = serializeHTML(tempDiv);
 
 			// Process inline references using regex to find the containers
 			// Look for spans containing citation links (a[target=_blank][rel=noopener]), replacing entire structure
 			// Also capture optional preceding ZeroWidthSpace
-			const citationPattern = /(&ZeroWidthSpace;)?(<span[^>]*?>\s*<a(?=[^>]*?href="([^"]+)")(?=[^>]*?target="_blank")(?=[^>]*?rel="noopener")[^>]*?>[\s\S]*?<\/a>\s*<\/span>)/gi;
+			const citationPattern = /(&ZeroWidthSpace;)?(<span[^>]*?>\s*(?:<span[^>]*?>\s*)*<a(?=[^>]*?href="([^"]+)")(?=[^>]*?target="_blank")(?=[^>]*?rel="noopener")[^>]*?>[\s\S]*?<\/a>\s*(?:<\/span>\s*)+)/gi;
 
 			messageContent = messageContent.replace(citationPattern, (match, zws, spanStructure, url) => {
 				// url is captured group 3
@@ -113,6 +113,11 @@ export class ChatGPTExtractor extends ConversationExtractor {
 				// Return just the footnote reference, replacing the ZWS (if captured) and the entire span structure
 				return `<sup id="fnref:${footnoteNumber}"><a href="#fn:${footnoteNumber}">${footnoteNumber}</a></sup>`;
 			});
+
+			const cleanupDiv = this.document.createElement('div');
+			cleanupDiv.appendChild(parseHTML(this.document, messageContent));
+			cleanupDiv.querySelectorAll('span[data-state="closed"]').forEach(el => el.remove());
+			messageContent = serializeHTML(cleanupDiv);
 
 			// Clean up any stray empty paragraph tags
 			messageContent = messageContent
