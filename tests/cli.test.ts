@@ -69,6 +69,33 @@ describe('CLI parseSource', () => {
 		);
 	});
 
+	test('prepends YAML frontmatter when --frontmatter is set', async () => {
+		const body = await getExpectedContent(fixtureHtml);
+
+		const result = await parseSource(undefined, { frontmatter: true }, createMockStdin(fixtureHtml));
+
+		expect(result.output.startsWith('---\n')).toBe(true);
+		expect(result.output).toContain('title: "Article with Appendix"');
+		// frontmatter block closes with --- followed by a blank line, then the body
+		expect(result.output).toContain('---\n\n' + body);
+		// stdin input has no URL, so no source: line is emitted
+		expect(result.output).not.toContain('source:');
+	});
+
+	test('omits frontmatter by default', async () => {
+		const result = await parseSource(undefined, {}, createMockStdin(fixtureHtml));
+		expect(result.output.startsWith('---')).toBe(false);
+	});
+
+	test('registers the --frontmatter flag with a -f alias', () => {
+		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
+		const option = parseCommand?.options.find((o) => o.long === '--frontmatter');
+
+		expect(option).toBeDefined();
+		expect(option?.short).toBe('-f');
+		expect(option?.attributeName()).toBe('frontmatter');
+	});
+
 	test('registers the --user-agent flag with a -u alias', () => {
 		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
 		const option = parseCommand?.options.find((o) => o.long === '--user-agent');
