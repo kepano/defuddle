@@ -958,6 +958,14 @@ export const PARTIAL_SELECTORS = [
 // Pre-compiled combined regex for PARTIAL_SELECTORS — avoids rebuilding on every parse
 export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), 'i');
 
+// Anchored variant: the whole string must equal a selector token. Used only for
+// delimiter-less ids, which are usually content anchors a publishing system
+// concatenated from heading words (e.g. id "TheRoleOfThings" -> "theroleofthings").
+// Substring matching those wrongly strips real sections — "theroleofthings"
+// contains "herol" (matches 'hero[_\\-a-z]') and "loopsandfeedback" contains
+// 'feedback'. Delimited ids keep substring matching.
+export const PARTIAL_SELECTORS_ANCHORED_REGEX = new RegExp('^(?:' + PARTIAL_SELECTORS.join('|') + ')$', 'i');
+
 // Attribute selector for elements we test partial matches against
 export const TEST_ATTRIBUTES_SELECTOR = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');
 
