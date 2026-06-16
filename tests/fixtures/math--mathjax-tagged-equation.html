@@ -1,0 +1,22 @@
+<html lang="en"><head>
+   <meta charset="utf-8">
+   <title>Tagged Equation Test</title>
+   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<main>
+<h1>Tagged Equation Test</h1>
+
+<p>A tagged single equation produced by <code>\tag{}</code> is wrapped by
+MathJax in an <code>mtable</code> with a single <code>mlabeledtr</code>. It
+should stay on one horizontal line, not collapse into a vertical stack.</p>
+
+<mjx-container class="MathJax" jax="CHTML" display="true"><mjx-math display="true" class="MJX-TEX"></mjx-math><mjx-assistive-mml unselectable="on" display="block"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mtable displaystyle="true"><mlabeledtr><mtd><mtext>(</mtext><mrow data-mjx-texclass="ORD"><mo>⋆</mo></mrow><mtext>)</mtext></mtd><mtd><mi>a</mi><mo>=</mo><mi>b</mi><mo>+</mo><mi>c</mi></mtd></mlabeledtr></mtable></math></mjx-assistive-mml></mjx-container>
+
+<p>A genuine multi-row aligned system uses several <code>mtr</code> rows and
+must be preserved as an aligned environment.</p>
+
+<mjx-container class="MathJax" jax="CHTML" display="true"><mjx-math display="true" class="MJX-TEX"></mjx-math><mjx-assistive-mml unselectable="on" display="block"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mtable columnalign="right center left"><mtr><mtd><mi>x</mi></mtd><mtd><mo>=</mo></mtd><mtd><mi>y</mi></mtd></mtr><mtr><mtd><mi>u</mi></mtd><mtd><mo>=</mo></mtd><mtd><mi>v</mi></mtd></mtr></mtable></math></mjx-assistive-mml></mjx-container>
+
+</main>
+</body></html>

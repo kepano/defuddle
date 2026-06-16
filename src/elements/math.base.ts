@@ -7,12 +7,71 @@ export interface MathData {
 	isBlock: boolean;
 }
 
+/**
+ * Flatten a tagged single equation (`\tag{…}`) back into an inline expression.
+ *
+ * MathJax renders `equation \tag{x}` as an `<mtable>` whose only row is an
+ * `<mlabeledtr>`: the first `<mtd>` holds the `(x)` label, the rest holds the
+ * equation. MathML Core dropped `mlabeledtr`, so native MathML renderers (e.g.
+ * Obsidian's reader) can't lay the table out and collapse the whole equation
+ * into a vertical stack. It also breaks the MathML→LaTeX conversion, which
+ * emits a bogus `\begin{matrix}` wrapping the label and the equation together.
+ *
+ * Unwrap the table into the equation content with the label appended on the
+ * right, so it renders horizontally everywhere. Multi-row tables (genuine
+ * aligned systems) are left untouched.
+ */
+const flattenTaggedEquationTables = (mathEl: Element): void => {
+	const doc = mathEl.ownerDocument;
+	if (!doc) return;
+
+	const tables = Array.from(mathEl.querySelectorAll('mtable'));
+	for (const table of tables) {
+		const rows = Array.from(table.children).filter(child => {
+			const name = child.tagName.toLowerCase();
+			return name === 'mtr' || name === 'mlabeledtr';
+		});
+		if (rows.length !== 1) continue;
+
+		const row = rows[0];
+		if (row.tagName.toLowerCase() !== 'mlabeledtr') continue;
+
+		const cells = Array.from(row.children).filter(child => child.tagName.toLowerCase() === 'mtd');
+		if (cells.length < 2) continue;
+
+		// In an mlabeledtr the first cell is the equation number/label; the
+		// remaining cells are the equation itself.
+		const [labelCell, ...contentCells] = cells;
+		const replacement = doc.createElement('mrow');
+
+		for (const cell of contentCells) {
+			while (cell.firstChild) replacement.appendChild(cell.firstChild);
+		}
+
+		if (labelCell.childNodes.length > 0) {
+			const spacer = doc.createElement('mspace');
+			spacer.setAttribute('width', '2em');
+			replacement.appendChild(spacer);
+			while (labelCell.firstChild) replacement.appendChild(labelCell.firstChild);
+		}
+
+		table.replaceWith(replacement);
+	}
+};
+
+/** Clone a math element, flatten tagged-equation tables, and serialize it. */
+const serializeNormalizedMathML = (mathEl: Element): string => {
+	const clone = mathEl.cloneNode(true) as Element;
+	flattenTaggedEquationTables(clone);
+	return clone.outerHTML;
+};
+
 export const getMathMLFromElement = (el: Element): MathData | null => {
 	// 1. Direct MathML content
 	if (el.tagName.toLowerCase() === 'math') {
 		const isBlock = el.getAttribute('display') === 'block';
 		return {
-			mathml: el.outerHTML,
+			mathml: serializeNormalizedMathML(el),
 			latex: el.getAttribute('alttext') || null,
 			isBlock
 		};
@@ -27,7 +86,7 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		if (mathElement) {
 			const isBlock = mathElement.getAttribute('display') === 'block';
 			return {
-				mathml: mathElement.outerHTML,
+				mathml: serializeNormalizedMathML(mathElement),
 				latex: mathElement.getAttribute('alttext') || null,
 				isBlock
 			};
@@ -36,18 +95,18 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 
 	// 3. MathJax assistive MathML
 	const assistiveMmlContainer = el.querySelector('.MJX_Assistive_MathML, mjx-assistive-mml');
-	
+
 	if (assistiveMmlContainer) {
 		const mathElement = assistiveMmlContainer.querySelector('math');
-		
+
 		if (mathElement) {
 			// Check both the math element and container for display mode
 			const mathDisplayAttr = mathElement.getAttribute('display');
-			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');		 
+			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');
 			const isBlock = mathDisplayAttr === 'block' || containerDisplayAttr === 'block';
-			
+
 			return {
-				mathml: mathElement.outerHTML,
+				mathml: serializeNormalizedMathML(mathElement),
 				latex: mathElement.getAttribute('alttext') || null,
 				isBlock
 			};
@@ -58,7 +117,7 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 	const katexMathml = el.querySelector('.katex-mathml math');
 	if (katexMathml) {
 		return {
-			mathml: katexMathml.outerHTML,
+			mathml: serializeNormalizedMathML(katexMathml),
 			latex: null, // We'll get LaTeX separately for KaTeX
 			isBlock: false // We'll determine this from container
 		};
