@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. rapid PR pushes).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Tests across Node versions and both DOM backends (linkedom + jsdom).
+  # Cross-DOM coverage is core to Defuddle: bugs that pass on one engine
+  # routinely break on another.
+  test:
+    name: test (node ${{ matrix.node }}, ${{ matrix.dom }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+        dom: [linkedom, jsdom]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Test (${{ matrix.dom }})
+        run: ${{ matrix.dom == 'jsdom' && 'npm run test:jsdom' || 'npm test' }}
+
+  # Tests run on TS source via Vitest and never exercise webpack or the
+  # published bundles. Build is its own gate to catch bundle-only breakage
+  # (e.g. the export:'default' / static-property UMD pitfall).
+  build:
+    name: build + bundle size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Bundle size budget
+        run: npm run size
+
+  # Enforces the security rule from CLAUDE.md: no direct innerHTML/outerHTML
+  # assignment outside src/utils/dom.ts.
+  lint:
+    name: security lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:innerhtml
