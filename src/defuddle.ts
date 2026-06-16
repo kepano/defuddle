@@ -34,7 +34,9 @@ const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
 
 
 export class Defuddle {
-	private readonly doc: Document;
+	// Reassigned briefly during the schema.org fallback so re-extraction runs
+	// against a sanitized clone instead of the caller's live document.
+	private doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
 	private _schemaOrgData: any = undefined;
@@ -151,29 +153,37 @@ export class Defuddle {
 			}
 		}
 
-		// Strip dangerous elements from this.doc before any fallback paths
-		// that read from it. This must happen after parseInternal, which needs
-		// script tags for schema.org extraction, site-specific extractors, and math.
-		this._stripUnsafeElements();
-
 		// If schema.org has text content that is significantly longer than what we
 		// extracted, the scorer likely picked the wrong element from a feed page.
 		// Use a 1.5x threshold to avoid triggering when the difference is small
 		// (e.g. just related-content link text removed).
 		const schemaText = this._getSchemaText(result.schemaOrgData);
 		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
-			const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
-			if (bestMatch) {
-				// Re-run the full pipeline with the schema-identified element as the
-				// content root so it benefits from the same cleanup as normal extraction.
-				const selector = this.getElementSelector(bestMatch);
-				this._log('Schema.org suggests a better content element, retrying with selector:', selector);
-				const schemaRetry = this.parseInternal({ contentSelector: selector });
-				result = schemaRetry;
-			} else {
-				this._log('Using schema.org text as content (DOM element not found)');
-				result.content = schemaText;
-				result.wordCount = this.countHtmlWords(schemaText);
+			// Re-extract from a sanitized clone so dangerous elements and URI
+			// attributes (e.g. data:text/html in an img src) in the matched
+			// element are stripped, without mutating the caller's live document.
+			// Mobile styles / small images were cached during the first parse, so
+			// the clone (which has no window) doesn't need to be re-measured.
+			const liveDoc = this.doc;
+			const safeDoc = liveDoc.cloneNode(true) as Document;
+			this._stripUnsafeElements(safeDoc.body);
+			this.doc = safeDoc;
+			try {
+				const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
+				if (bestMatch) {
+					// Re-run the full pipeline with the schema-identified element as the
+					// content root so it benefits from the same cleanup as normal extraction.
+					const selector = this.getElementSelector(bestMatch);
+					this._log('Schema.org suggests a better content element, retrying with selector:', selector);
+					const schemaRetry = this.parseInternal({ contentSelector: selector });
+					result = schemaRetry;
+				} else {
+					this._log('Using schema.org text as content (DOM element not found)');
+					result.content = schemaText;
+					result.wordCount = this.countHtmlWords(schemaText);
+				}
+			} finally {
+				this.doc = liveDoc;
 			}
 		}
 
@@ -210,12 +220,24 @@ export class Defuddle {
 	}
 
 	/**
-	 * Remove dangerous elements and attributes from this.doc.
-	 * Called after parseInternal so that extractors and schema extraction
-	 * can still read script tags they depend on.
+	 * Serialize the body for the fallback/error paths, where extraction found
+	 * no content and we return the whole body. Sanitizes a CLONE so the
+	 * caller's live document is never mutated — stripping elements from the
+	 * live page (e.g. its <style> blocks) would destroy its layout. The normal
+	 * extraction pipeline already removes script/style/etc. via EXACT_SELECTORS,
+	 * so only these raw-body paths need to sanitize here.
 	 */
-	private _stripUnsafeElements(): void {
-		const body = this.doc.body;
+	private _serializeFallbackBody(): string {
+		if (!this.doc.body) return '';
+		const safeBody = this.doc.body.cloneNode(true) as HTMLElement;
+		this._stripUnsafeElements(safeBody);
+		return this.resolveContentUrls(serializeHTML(safeBody));
+	}
+
+	/**
+	 * Remove dangerous elements and attributes from the given body element.
+	 */
+	private _stripUnsafeElements(body: HTMLElement | null): void {
 		if (!body) return;
 
 		// Remove dangerous elements. Iframes are kept — same-origin policy
@@ -890,7 +912,7 @@ export class Defuddle {
 			});
 
 			if (!mainContent) {
-				const fallbackContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
+				const fallbackContent = this._serializeFallbackBody();
 				const endTime = Date.now();
 				return {
 					content: fallbackContent,
@@ -1030,7 +1052,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this.doc.body ? this.resolveContentUrls(serializeHTML(this.doc.body)) : '';
+			const errorContent = this._serializeFallbackBody();
 			const endTime = Date.now();
 			return {
 				content: errorContent,
