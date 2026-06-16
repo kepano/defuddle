@@ -78,7 +78,7 @@
 	"optionalDependencies": {
 		"linkedom": "^0.18.12",
 		"mathml-to-latex": "^1.8.0",
-		"temml": "^0.13.1",
+		"temml": "^0.13.3",
 		"turndown": "^7.2.0"
 	},
 	"devDependencies": {
