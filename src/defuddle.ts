@@ -20,6 +20,7 @@ import { removeByContentPattern, removeEyebrowLabel } from './removals/content-p
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { formatSrcset, getLargestWidthSrcsetUrl, parseSrcset } from './utils/srcset';
 
 interface StyleChange {
 	selector: string;
@@ -632,31 +633,7 @@ export class Defuddle {
 	 */
 	private _getLargestImageSrc(img: Element): string {
 		const srcset = img.getAttribute('srcset') || '';
-		if (!srcset) return img.getAttribute('src') || '';
-
-		// Parse srcset entries: each ends with a width descriptor (e.g. "424w")
-		// URLs may contain commas (e.g. Substack CDN), so split on width descriptors
-		const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?)w/g;
-		let bestUrl = '';
-		let bestWidth = 0;
-		let match;
-		let lastIndex = 0;
-
-		while ((match = entryPattern.exec(srcset)) !== null) {
-			let url = match[1].trim();
-			if (lastIndex > 0) {
-				url = url.replace(/^,\s*/, '');
-			}
-			lastIndex = entryPattern.lastIndex;
-
-			const width = parseFloat(match[2]);
-			if (url && width > bestWidth) {
-				bestWidth = width;
-				bestUrl = url;
-			}
-		}
-
-		let url = bestUrl || img.getAttribute('src') || '';
+		let url = (srcset && getLargestWidthSrcsetUrl(srcset)) || img.getAttribute('src') || '';
 
 		// Strip CDN width/crop constraints to get the full resolution image
 		// (e.g. Cloudinary-style params: ,w_852,c_limit → removed)
@@ -1413,32 +1390,9 @@ export class Defuddle {
 		element.querySelectorAll('[srcset]').forEach(el => {
 			const srcset = el.getAttribute('srcset');
 			if (srcset) {
-				// Parse srcset using width/density descriptors as delimiters,
-				// not commas — URLs may contain commas (e.g. CDN transform params)
-				const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
-				const entries: string[] = [];
-				let match;
-				let lastIdx = 0;
-
-				while ((match = entryPattern.exec(srcset)) !== null) {
-					let url = match[1].trim();
-					if (lastIdx > 0) {
-						url = url.replace(/^,\s*/, '');
-					}
-					lastIdx = entryPattern.lastIndex;
-					entries.push(`${resolve(url)} ${match[2]}`);
-				}
-
-				if (entries.length > 0) {
-					el.setAttribute('srcset', entries.join(', '));
-				} else {
-					// Fallback: simple comma split for srcsets without descriptors
-					const resolved = srcset.split(',').map(entry => {
-						const parts = entry.trim().split(/\s+/);
-						if (parts[0]) parts[0] = resolve(parts[0]);
-						return parts.join(' ');
-					}).join(', ');
-					el.setAttribute('srcset', resolved);
+				const candidates = parseSrcset(srcset);
+				if (candidates.length > 0) {
+					el.setAttribute('srcset', formatSrcset(candidates, resolve));
 				}
 			}
 		});

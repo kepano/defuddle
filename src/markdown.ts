@@ -1,6 +1,7 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
 import { parseHTML, serializeHTML, isDirectTableChild } from './utils/dom';
+import { getFirstSrcsetUrl, getLargestWidthSrcsetUrl } from './utils/srcset';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -40,10 +41,6 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
-
-const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
-const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
-
 // MathML element names, used to detect whether a <math> has real MathML to fall
 // back on (vs. only a rendered-text annotation). Hoisted so the sets aren't
 // rebuilt on every math element during conversion.
@@ -75,35 +72,13 @@ function formatMarkdownLinkTitle(title: string | null): string {
 function getBestImageSrc(node: GenericElement): string {
 	const srcset = node.getAttribute('srcset');
 	if (srcset) {
-		let bestUrl = '';
-		let bestWidth = 0;
-		// Tokenize by whitespace instead of splitting on commas, because CDN
-		// image URLs (e.g. Substack) can contain commas in the URL path
-		// (e.g. `w_424,c_limit,f_webp`). We scan tokens and treat any token
-		// matching `Nw` as a width descriptor; the preceding tokens form the URL.
-		const tokens = srcset.trim().split(/\s+/);
-		let urlParts: string[] = [];
-		for (const token of tokens) {
-			const widthMatch = token.match(WIDTH_DESCRIPTOR_RE);
-			if (widthMatch) {
-				const width = parseInt(widthMatch[1], 10);
-				if (urlParts.length > 0 && width > bestWidth) {
-					const url = urlParts.join(' ').replace(/^,\s*/, '');
-					if (url) {
-						bestWidth = width;
-						bestUrl = url;
-					}
-				}
-				urlParts = [];
-			} else if (DENSITY_DESCRIPTOR_RE.test(token)) {
-				// Density descriptor (e.g. 2x) — skip, not used for selection
-				urlParts = [];
-			} else {
-				urlParts.push(token);
-			}
-		}
+		const bestUrl = getLargestWidthSrcsetUrl(srcset);
 		if (bestUrl) return bestUrl;
+
+		const firstUrl = getFirstSrcsetUrl(srcset);
+		if (firstUrl) return firstUrl;
 	}
+
 	return node.getAttribute('src') || '';
 }
 
