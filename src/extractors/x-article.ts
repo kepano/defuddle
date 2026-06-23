@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { serializeHTML } from '../utils/dom';
+import { serializeHTML, escapeHtml } from '../utils/dom';
 
 const SELECTORS = {
 	ARTICLE_READ_VIEW: '[data-testid="twitterArticleReadView"]',
@@ -111,7 +111,7 @@ export class XArticleExtractor extends BaseExtractor {
 
 		const alt = headerPhoto.getAttribute('alt')?.replace(/\s+/g, ' ').trim() || 'Image';
 
-		return `<img src="${this.upgradeImageSrc(src)}" alt="${alt}">`;
+		return `<img src="${escapeHtml(this.upgradeImageSrc(src))}" alt="${escapeHtml(alt)}">`;
 	}
 
 	private cleanContent(container: HTMLElement): void {
