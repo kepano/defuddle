@@ -366,7 +366,7 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private formatDescription(description: string): string {
-		return `<p>${description.replace(/\n/g, '<br>')}</p>`;
+		return `<p>${escapeHtml(description).replace(/\n/g, '<br>')}</p>`;
 	}
 
 	private getVideoData(): any {
