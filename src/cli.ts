@@ -28,14 +28,31 @@ function collectExtractor(value: string, previous: string[]): string[] {
 	return previous.concat([value]);
 }
 
+// Production CJS builds: `await import(s)` is lowered by tsc (module=CommonJS)
+// to a `require(s)` equivalent that cannot resolve file:// URLs or .mjs files.
+// Hide the dynamic import inside a Function() so tsc doesn't see it, and the
+// expression is parsed at runtime by Node, which honours native ESM dynamic
+// import.
+//
+// Vitest (test runs): the source TS goes through esbuild, which preserves
+// `import()`. But the Function()-eval shortcut runs outside vitest's module
+// graph and trips its "A dynamic import callback was not specified" check.
+// Detect that environment and use the in-source `import()` form so vitest
+// can hook it normally.
+const __INSIDE_VITEST__ = (globalThis as Record<string, unknown>).__vitest_worker__ !== undefined;
+const dynamicImport: (specifier: string) => Promise<{ default?: unknown; [k: string]: unknown }> =
+	__INSIDE_VITEST__
+		? ((specifier: string) => import(specifier)) as never
+		: (new Function('specifier', 'return import(specifier)') as never);
+
 async function loadExtractor(extractorPath: string): Promise<void> {
 	const absPath = resolve(process.cwd(), extractorPath);
-	const mod = await import(pathToFileURL(absPath).href);
-	const mapping = mod.default ?? mod;
+	const mod = await dynamicImport(pathToFileURL(absPath).href);
+	const mapping = (mod.default ?? mod) as { patterns?: unknown; extractor?: unknown };
 	if (!mapping || !Array.isArray(mapping.patterns) || typeof mapping.extractor !== 'function') {
 		throw new Error(`--extractor ${extractorPath}: module must default-export { patterns: (string | RegExp)[], extractor: class }`);
 	}
-	ExtractorRegistry.register(mapping);
+	ExtractorRegistry.register(mapping as { patterns: (string | RegExp)[]; extractor: new (...args: unknown[]) => unknown } as never);
 }
 
 interface ParseResult {
