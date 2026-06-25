@@ -295,6 +295,20 @@ npm install
 npm run build
 ```
 
+### Local testing
+
+Smoke-test the CLI against a real URL (requires `npm run build` first):
+
+```bash
+npm run start:dev https://en.wikipedia.org/wiki/2026_Venezuela_earthquakes -m -f
+```
+
+Or with any URL:
+
+```bash
+npm run start:dev <url> [-m] [-f]
+```
+
 ## Third-party services
 
 When using `parseAsync()`, if no content can be extracted from the local HTML, Defuddle may fetch content from third-party APIs as a fallback. This only happens when the page HTML contains no usable content (e.g. client-side rendered SPAs). You can disable this by setting `useAsync: false` in options.

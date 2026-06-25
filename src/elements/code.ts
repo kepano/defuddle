@@ -1,4 +1,5 @@
 import { isTextNode, isElement, countWords } from '../utils';
+import { guessCodeLanguage } from './detect-code-lang';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
@@ -9,10 +10,12 @@ const HIGHLIGHTER_PATTERNS = [
 	/^syntax-(\w+)$/,            // syntax-javascript
 	/^code-snippet__(\w+)$/,     // code-snippet__javascript
 	/^highlight-(\w+)$/,         // highlight-javascript
+	/^highlight-source-(\w+)$/,  // highlight-source-javascript (GitHub)
+	/^highlight-text-(\w+)$/,    // highlight-text-md (GitHub markdown)
 	/^(\w+)-snippet$/,           // javascript-snippet
 
 	// fallback
-	/(?:^|\s)(?:language|lang|brush|syntax)-(\w+)(?:\s|$)/i
+	/(?:^|\s)(?:language|lang|brush|syntax|source)-(\w+)(?:\s|$)/i
 ];
 
 // Languages to detect in code blocks
@@ -460,6 +463,29 @@ export const codeBlockRules = [
 					.replace(/\n{3,}/g, '\n\n')     // Normalize multiple newlines
 					.replace(/^\n+/, '')            // Remove extra newlines at start
 					.replace(/\n+$/, '');           // Remove extra newlines at end
+			}
+
+			// Fallback: guess language from code content when no HTML hint exists
+			if (!language) {
+				language = guessCodeLanguage(codeContent) || '';
+			}
+
+			// Normalize language aliases to canonical names
+			if (language) {
+				const aliasMap: Record<string, string> = {
+					md: 'markdown',
+					shell: 'bash',
+					sh: 'bash',
+					js: 'javascript',
+					ts: 'typescript',
+					py: 'python',
+					rb: 'ruby',
+					hs: 'haskell',
+					rs: 'rust',
+					cs: 'csharp',
+					yml: 'yaml',
+				};
+				language = aliasMap[language] || language;
 			}
 
 			// Remove code block header/toolbar siblings (e.g. filename labels, copy buttons)
