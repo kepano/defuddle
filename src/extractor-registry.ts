@@ -27,9 +27,9 @@ import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
 import { MastodonExtractor } from './extractors/mastodon';
 
-type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
+export type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
-interface ExtractorMapping {
+export interface ExtractorMapping {
 	patterns: (string | RegExp)[];
 	extractor: ExtractorConstructor;
 }
