@@ -1,0 +1,345 @@
+# Checkpoints for git-workflow skill
+# Focuses on git repository hygiene and workflow best practices
+
+version: 1
+skill_id: git-workflow
+
+mechanical:
+  # === GITIGNORE ===
+  - id: GW-01
+    type: file_exists
+    target: .gitignore
+    severity: error
+    desc: ".gitignore must exist to prevent committing unwanted files"
+
+  - id: GW-02
+    type: contains
+    target: .gitignore
+    pattern: ".env"
+    severity: warning
+    desc: ".gitignore should exclude .env files"
+
+  - id: GW-03
+    type: contains
+    target: .gitignore
+    pattern: "vendor"
+    severity: warning
+    desc: ".gitignore should exclude vendor directory"
+
+  - id: GW-04
+    type: contains
+    target: .gitignore
+    pattern: "node_modules"
+    severity: info
+    desc: ".gitignore should exclude node_modules if using npm"
+
+  # === PR TEMPLATE ===
+  - id: GW-05
+    type: file_exists
+    target: "{.github/PULL_REQUEST_TEMPLATE.md,.github/pull_request_template.md}"
+    severity: warning
+    desc: "PR template should exist for consistent pull requests"
+
+  # === CODEOWNERS ===
+  # GitHub looks for CODEOWNERS in this order: .github/CODEOWNERS, root,
+  # docs/CODEOWNERS. Either of the first two satisfies the requirement;
+  # `.github/CODEOWNERS` is the Netresearch standard. The previous GW-07
+  # ("root CODEOWNERS as fallback") was redundant info noise — collapsed
+  # into GW-06's brace-target.
+  - id: GW-06
+    type: file_exists
+    target: "{.github/CODEOWNERS,CODEOWNERS,docs/CODEOWNERS}"
+    severity: warning
+    desc: >-
+      CODEOWNERS should exist for automatic review assignments.
+      Netresearch standard: .github/CODEOWNERS (GitHub's primary lookup
+      location). Root and docs/ are fallbacks per GitHub docs.
+
+  # === BRANCH PROTECTION INDICATORS ===
+  - id: GW-08
+    type: gh_api
+    endpoint: repos/{owner}/{repo}/branches/main/protection
+    json_path: ".required_status_checks"
+    severity: warning
+    desc: "Main branch should have status check protection enabled"
+
+  - id: GW-09
+    type: gh_api
+    endpoint: repos/{owner}/{repo}/branches/main/protection
+    json_path: ".required_pull_request_reviews"
+    severity: warning
+    desc: "Main branch should require PR reviews before merging"
+
+  - id: GW-10
+    type: gh_api
+    endpoint: repos/{owner}/{repo}/branches/main/protection
+    json_path: ".enforce_admins.enabled"
+    severity: info
+    desc: >-
+      Branch protection may apply to admins too. Org default at Netresearch
+      leaves this off so admins keep bypass for emergency response; tighten
+      to true only if your policy requires admin enforcement.
+
+  # === SIGNED COMMITS REQUIREMENT ===
+  - id: GW-11
+    type: gh_api
+    endpoint: repos/{owner}/{repo}/branches/main/protection
+    json_path: ".required_signatures.enabled"
+    severity: info
+    desc: "Main branch should require signed commits"
+
+  # === EDITORCONFIG ===
+  - id: GW-12
+    type: file_exists
+    target: .editorconfig
+    severity: info
+    desc: ".editorconfig should exist for consistent formatting across editors"
+
+  # === CONTRIBUTING GUIDE ===
+  - id: GW-13
+    type: file_exists
+    target: CONTRIBUTING.md
+    severity: info
+    desc: "CONTRIBUTING.md should exist with workflow guidelines"
+
+  # === GIT HOOKS ===
+  # Accept all common git-hook framework locations including the Netresearch
+  # standard `Build/captainhook.json` (configured via composer.json
+  # extra.captainhook.config — the official captainhook/hook-installer
+  # plugin pattern). Same brace target as TT-71 in typo3-testing-skill.
+  - id: GW-14
+    type: file_exists
+    target: "{Build/captainhook.json,captainhook.json,.captainhook/captainhook.json,lefthook.yml,.lefthook.yml,.husky,.pre-commit-config.yaml}"
+    severity: warning
+    desc: >-
+      A git hook framework config should exist. Netresearch standard for
+      TYPO3 extensions: Build/captainhook.json (declared in composer.json
+      extra.captainhook.config). Also accepts root captainhook.json,
+      lefthook, husky, pre-commit.
+
+  - id: GW-14a
+    type: contains
+    target: composer.json
+    pattern: "captainhook/hook-installer"
+    severity: info
+    desc: >-
+      If captainhook/hook-installer is in composer.json, document the
+      git-worktree workaround (composer install --no-plugins) in README —
+      see references/git-hooks-setup.md 'CaptainHook + git worktrees'
+
+  # === UNRELEASED COMMITS ===
+  - id: GW-15
+    type: command
+    pattern: 'tag=$(git describe --tags --abbrev=0 2>/dev/null); [ -z "$tag" ] || test "$(git rev-list ${tag}..HEAD --count)" -le 20'
+    severity: warning
+    desc: "Main branch should not accumulate >20 unreleased commits since last tag"
+
+  # === INTERMEDIATE PLANNING ARTIFACTS ===
+  - id: GW-16
+    type: command
+    pattern: 'test -z "$(git ls-files -- docs/superpowers/ claudedocs/ docs/working/ 2>/dev/null)"'
+    severity: warning
+    desc: >-
+      Intermediate planning artifacts (superpowers specs/plans, claudedocs,
+      working notes) should not be tracked on the base branch — convert durable
+      decisions to an ADR and remove the raw files. See
+      references/spec-cleanup.md and spec-cleanup-guard.sh.
+
+llm_reviews:
+  # === CONVENTIONAL COMMITS ===
+  - id: GW-20
+    domain: git-workflow
+    prompt: |
+      Analyze the recent commit history (last 20 commits) for conventional commit format usage.
+
+      Conventional commits follow the pattern: <type>(<scope>): <description>
+      Types include: feat, fix, docs, style, refactor, perf, test, chore, ci, build
+
+      Check:
+      1. What percentage of commits follow conventional commit format?
+      2. Are commit messages descriptive (not just "fix", "update", etc.)?
+      3. Are there any empty or single-word commit messages?
+
+      Use `git log --oneline -20` to analyze.
+
+      Report:
+      - Pass if >80% follow conventional format
+      - Warn if 50-80% follow format
+      - Fail if <50% follow format
+    severity: warning
+    desc: "Recent commits should follow conventional commit format"
+
+  - id: GW-21
+    domain: git-workflow
+    prompt: |
+      Check if the repository has signed commits.
+
+      Use `git log --show-signature -5` to check recent commits for GPG/SSH signatures.
+
+      Report:
+      - How many of the last 5 commits are signed?
+      - Are all commits from the same author signed?
+      - Pass if all commits are signed, warn if some, fail if none
+    severity: info
+    desc: "Commits should be GPG/SSH signed for authenticity"
+
+  - id: GW-22
+    domain: git-workflow
+    prompt: |
+      Analyze commit message quality in the last 10 commits.
+
+      Good commit messages:
+      - Start with a verb in imperative mood (Add, Fix, Update, etc.)
+      - Are 50-72 characters for the subject line
+      - Explain "why" not just "what"
+      - Reference issues when applicable (Fixes #123, Closes #456)
+
+      Use `git log --format="%s" -10` to get subject lines.
+
+      Report on overall quality and specific improvements needed.
+    severity: info
+    desc: "Commit messages should be clear and follow best practices"
+
+  - id: GW-23
+    domain: git-workflow
+    prompt: |
+      Review the CODEOWNERS file if it exists.
+
+      Check:
+      1. Does it cover critical paths (src/, .github/, etc.)?
+      2. Are the owners valid GitHub usernames or teams?
+      3. Is the syntax correct (path followed by @owner)?
+      4. Are there any overly broad patterns like "* @owner"?
+
+      Report issues or confirm proper setup.
+    severity: warning
+    desc: "CODEOWNERS should properly cover critical code paths"
+
+  - id: GW-24
+    domain: git-workflow
+    prompt: |
+      Review the PR template (.github/PULL_REQUEST_TEMPLATE.md) if it exists.
+
+      A good PR template should include:
+      - Description/Summary section
+      - Type of change (feature, fix, breaking, etc.)
+      - Testing checklist
+      - Related issues/tickets
+      - Review guidelines or checklist
+
+      Report on completeness and suggest improvements.
+    severity: info
+    desc: "PR template should guide contributors effectively"
+
+  - id: GW-25
+    domain: git-workflow
+    prompt: |
+      Check if the repository has git hooks configured with a hook framework
+      (lefthook, captainhook, husky, or pre-commit).
+
+      Look for config files: lefthook.yml, .lefthook.yml, captainhook.json,
+      .husky/ directory, .pre-commit-config.yaml.
+
+      If hooks are configured, verify they cover at minimum:
+      1. pre-commit stage (formatting, linting, or validation)
+      2. commit-msg stage (message format validation)
+
+      Report:
+      - Pass if both pre-commit and commit-msg hooks are configured
+      - Warn if only one stage is covered
+      - Fail if no hook framework is found
+    severity: warning
+    desc: "Git hooks should cover pre-commit and commit-msg stages at minimum"
+
+  # === RELEASE HYGIENE ===
+  - id: GW-26
+    domain: release
+    severity: warning
+    desc: "Feature and fix commits on main should be released promptly"
+    prompt: |
+      Audit unreleased commits on main:
+      1. Run `git describe --tags --abbrev=0 2>/dev/null` to find latest tag.
+         If git describe fails (no tags), the check passes — skip remaining steps.
+      2. Run `git log <tag>..HEAD --oneline` to see unreleased commits
+      3. How many days since the last tag? (use `git log -1 --format=%ci <tag>`)
+      4. Do unreleased commits contain feat: or fix: types?
+      5. Flag as warning if feat/fix unreleased >7 days, error if >30 days
+
+  - id: GW-27
+    domain: release
+    severity: warning
+    desc: "GitHub releases should have non-duplicated content and meaningful descriptions"
+    prompt: |
+      Audit the 3 most recent GitHub releases:
+      1. Run `gh release list --limit 3 --json body` to fetch release bodies in one call
+      2. Check for DUPLICATE CONTENT (body repeated twice - common with generate_release_notes + body)
+      3. Check QUALITY: narrative summary vs just auto-generated lists
+      4. Flag duplicate content as error, missing narrative as info
+
+  - id: GW-28
+    domain: release
+    severity: warning
+    desc: "Release workflows should include workflow_dispatch for manual re-triggering"
+    prompt: |
+      Scan all workflow files in .github/workflows/.
+      Identify release workflows by filename (release, publish) or content (gh release create, semantic-release).
+      For each, check for workflow_dispatch trigger.
+      Flag missing workflow_dispatch as warning.
+
+  # === BARE-WORKTREE LAYOUT ===
+  - id: GW-29
+    domain: git-workflow
+    severity: warning
+    desc: "Bare-worktree layout: never switch branches in an existing worktree — use `git worktree add`"
+    prompt: |
+      Detect bare-worktree layout: a `.bare/` directory at the repo root
+      AND at least one sibling worktree directory (e.g. `main/`, `feat-*/`).
+      Standard discovery: `ls -d .bare/ 2>/dev/null && git -C .bare worktree list`.
+
+      If the layout is in use, verify the working pattern:
+      1. Recent reflog of any worktree should NOT show in-place branch switch
+         events such as `checkout: moving from <a> to <b>` or
+         `switch: moving from <a> to <b>` (these are recorded by `git checkout`
+         and `git switch`, including the `-b`/`-c` create-and-switch variants).
+      2. New branches should appear as new worktree directories, registered via
+         `git worktree add <path> -b <branch>`.
+
+      Use `git reflog show HEAD -n 50` inside each worktree to inspect entries.
+      Note: the reflog records the resulting move, not the CLI flags — so
+      `checkout -b feat/x` and `switch feat/x` both surface as
+      `checkout:`/`switch: moving from … to …` lines.
+
+      Pass when no in-place branch switching is found in the last ~50 reflog
+      entries across worktrees. Warn when in-place switch events exist —
+      they violate the convention and produce branches that are confusing to
+      reason about (working tree vs branch tip diverge for the original
+      worktree's intended branch).
+
+      Skip cleanly (pass) when the repo is a regular clone (`.git/` is a
+      directory, no `.bare/` sibling) — the convention does not apply.
+
+  # === STAGING BRANCH COMPOSER.LOCK MERGE STRATEGY ===
+  - id: GW-30
+    domain: git-workflow
+    severity: warning
+    desc: >-
+      When merging into a staging branch that pins dev-branch Composer packages,
+      take --ours on composer.lock then re-run `composer update <packages>` to
+      apply only the intended upgrades. Taking --theirs overwrites staging's
+      dev-* pins and may deploy wrong package versions.
+    prompt: |
+      Check if the repository has a `staging` branch and a `composer.lock`
+      containing `dev-` versioned packages (e.g. `dev-staging`, `dev-main`).
+
+      Run:
+        git fetch origin staging:refs/remotes/origin/staging --depth=1 2>/dev/null || true
+        (git show origin/staging:composer.lock || git show staging:composer.lock) 2>/dev/null | grep '"version": "dev-' | head -5
+
+      If dev-versioned packages exist, verify that the project's contributing
+      guide or AGENTS.md documents the staging merge strategy:
+      - On merge conflict in composer.lock: take `--ours` (staging base) first
+      - Then run `composer update <targeted-packages>` to apply only the
+        intended version changes
+      - Do NOT take `--theirs` — it overwrites all dev-* pins
+
+      Report as warning if dev-* packages exist but the strategy is not documented.
