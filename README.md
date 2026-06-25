@@ -292,21 +292,22 @@ To build the package, you'll need Node.js and npm installed. Then run:
 npm install
 
 # Clean and build
-npm run build
+bun run build
 ```
 
 ### Local testing
 
-Smoke-test the CLI against a real URL (requires `npm run build` first):
+Smoke-test the CLI against a real URL (requires `bun run build` first):
 
 ```bash
-npm run start:dev https://en.wikipedia.org/wiki/2026_Venezuela_earthquakes -m -f
+# Use `--` to let your script receive the flags
+bun run start:dev -- https://en.wikipedia.org/wiki/2026_Venezuela_earthquakes -m -f
 ```
 
 Or with any URL:
 
 ```bash
-npm run start:dev <url> [-m] [-f]
+bun run start:dev <url> [-m] [-f]
 ```
 
 ## Third-party services

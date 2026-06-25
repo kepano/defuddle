@@ -12,6 +12,7 @@ const HIGHLIGHTER_PATTERNS = [
 	/^highlight-(\w+)$/,         // highlight-javascript
 	/^highlight-source-(\w+)$/,  // highlight-source-javascript (GitHub)
 	/^highlight-text-(\w+)$/,    // highlight-text-md (GitHub markdown)
+	/^highlight-text-(\w+)/,     // highlight-text-html-basic -> html (compound names)
 	/^(\w+)-snippet$/,           // javascript-snippet
 
 	// fallback
@@ -136,6 +137,7 @@ export const codeBlockRules = [
 			'.syntaxhighlighter',
 			'.highlight',
 			'.highlight-source',
+			'[class*="highlight-text-"]',
 			'.wp-block-syntaxhighlighter-code',
 			'.wp-block-code',
 			'div[class*="language-"]',
