@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, escapeHtml } from '../utils/dom';
 
 const INJECTED_ATTR = 'data-defuddle-substack-post';
 
@@ -178,12 +178,12 @@ export class SubstackExtractor extends BaseExtractor {
 		if (!this.noteImage) return '';
 
 		const ogImage = this.document.querySelector('meta[property="og:image"]')?.getAttribute('content');
-		if (ogImage) return `<img src="${ogImage}" alt="" />`;
+		if (ogImage) return `<img src="${escapeHtml(ogImage)}" alt="" />`;
 
 		const img = this.noteImage.querySelector('img');
 		if (!img) return '';
 		const src = this.getLargestSrc(img);
-		return src ? `<img src="${src}" alt="" />` : '';
+		return src ? `<img src="${escapeHtml(src)}" alt="" />` : '';
 	}
 
 	private getLargestSrc(img: Element): string {
