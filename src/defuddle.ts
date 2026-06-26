@@ -1678,7 +1678,7 @@ export class Defuddle {
 		extractor: BaseExtractor,
 		pageMetaTags: MetaTagItem[]
 	): DefuddleResponse {
-		const contentHtml = this.resolveContentUrls(extracted.contentHtml);
+		const contentHtml = this._sanitizeExtractorHtml(extracted.contentHtml);
 		const variables = this.getExtractorVariables(extracted.variables);
 		return {
 			content: contentHtml,
@@ -1692,12 +1692,35 @@ export class Defuddle {
 			author: extracted.variables?.author || metadata.author,
 			site: extracted.variables?.site || metadata.site,
 			schemaOrgData: metadata.schemaOrgData,
-			wordCount: this.countHtmlWords(extracted.contentHtml),
+			wordCount: this.countHtmlWords(contentHtml),
 			parseTime: Math.round(Date.now() - startTime),
 			extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
 			metaTags: pageMetaTags,
 			...(variables ? { variables } : {}),
 		};
+	}
+
+	/**
+	 * Sanitize and finalize HTML produced by site extractors.
+	 *
+	 * Extractors build their output from template-literal strings, so unlike the
+	 * main pipeline their output never passes through the DOM-based attribute
+	 * sanitizer. Attacker-controlled attribute values (e.g. an image `alt` or
+	 * `src` read straight off the page) could otherwise close an attribute and
+	 * inject an event handler or a `javascript:` URL. Parsing the output into a
+	 * DOM and running the same `_stripUnsafeElements` pass used elsewhere
+	 * neutralizes any such injection regardless of which extractor produced it.
+	 *
+	 * Relative-URL resolution runs on the same parsed DOM so extractor output is
+	 * parsed and serialized only once (resolveRelativeUrls no-ops without a URL).
+	 */
+	private _sanitizeExtractorHtml(html: string): string {
+		if (!html) return html;
+		const container = this.doc.createElement('div');
+		container.appendChild(parseHTML(this.doc, html));
+		this._stripUnsafeElements(container);
+		this.resolveRelativeUrls(container);
+		return serializeHTML(container);
 	}
 
 	/**
