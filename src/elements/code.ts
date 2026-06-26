@@ -5,6 +5,7 @@ import { guessCodeLanguage } from './detect-code-lang';
 const HIGHLIGHTER_PATTERNS = [
 	/^language-(\w+)$/,          // language-javascript
 	/^lang-(\w+)$/,              // lang-javascript
+	/^(?:[\w-]+-)?lang-(\w+)$/,  // mw-highlight-lang-javascript (Wikipedia)
 	/^(\w+)-code$/,              // javascript-code
 	/^code-(\w+)$/,              // code-javascript
 	/^syntax-(\w+)$/,            // syntax-javascript
