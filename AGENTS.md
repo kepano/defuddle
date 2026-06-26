@@ -11,6 +11,15 @@ This repo is a fork of [kepano/defuddle](https://github.com/kepano/defuddle). Th
 - Existing tests must keep passing without modification.
 - This file (`AGENTS.md`), the `.agents/` directory, and any dot-directories are local — never commit changes that reorganize or refactor the original source layout.
 
+## Reference workspace — `npx-crawly-template`
+
+A sibling workspace at `../npx-crawly-template/` serves as **read-only reference** for
+extraction patterns, CLI design, and some usefull tools i would like to have that i did implement in the other project. **Never edit or modify the
+reference workspace.** When asked to implement a feature that exists there, read its
+relevant files for inspiration, then port the approach to this project's conventions.
+Do not rewrite or copypaste large blocks — adapt the ideas to defuddle's architecture.
+Always write in English. The goal is to make a PR upstream.
+
 ## Commands
 
 - Build: `bun run build` (clean → tsc declarations → tsc node → webpack)
