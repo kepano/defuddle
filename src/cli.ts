@@ -19,6 +19,7 @@ export interface ParseOptions {
 	lang?: string;
 	userAgent?: string;
 	frontmatter?: boolean;
+	sourceUrl?: string;
 }
 
 interface ParseResult {
@@ -61,7 +62,7 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 	};
 
 	let html: string;
-	let url: string | undefined;
+	let url: string | undefined = options.sourceUrl;
 
 	const usesStdin = !source || source === '-';
 	const isUrl = !usesStdin && (source.startsWith('http://') || source.startsWith('https://'));
@@ -72,6 +73,9 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 		}
 		html = await readStdin(input);
 	} else if (isUrl) {
+		// Positional URL is also the content URL; --source-url, if any, has been
+		// pre-seeded into `url` above and is overwritten here intentionally so the
+		// fetched URL is authoritative for a live fetch.
 		url = source;
 		const initialUA = options.userAgent || getInitialUA(source);
 		html = await fetchPage(source, initialUA, options.lang);
@@ -174,6 +178,7 @@ export function createProgram(): Command {
 		.option('--debug', 'Enable debug mode')
 		.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
 		.option('-u, --user-agent <string>', 'Custom User-Agent header for HTTP requests (helps with 403/FORBIDDEN responses)')
+		.option('--source-url <url>', 'URL the input HTML originated from (enables site-specific extractors when source is stdin or a local file)')
 		.action(async (source: string | undefined, options: ParseOptions) => {
 			try {
 				const { output } = await parseSource(source, options);
