@@ -93,3 +93,5 @@ The `../npx-crawly-template` directory is included in this VS Code workspace for
 - **Elements inside `<pre>`/`<code>`** are protected from selector removal
 - **linkedom quirks**: linkedom lacks `styleSheets` and `getComputedStyle` — `parseLinkedomHTML()` polyfills these (used by CLI and Worker)
 - **Node floor is 20**: Vite 7 requires ^20.19 or >=22.12
+
+@CLAUDE.md

@@ -143,6 +143,7 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 			site: result.site,
 			schemaOrgData: result.schemaOrgData,
 			wordCount: result.wordCount,
+			tags: result.tags,
 			...(result.contentMarkdown ? { contentMarkdown: result.contentMarkdown } : {}),
 			...(result.variables ? { variables: result.variables } : {}),
 		}, null, 2);

@@ -60,6 +60,12 @@ export function buildFrontmatter(result: DefuddleResponse, sourceUrl?: string): 
 			: result.description;
 		lines.push(`description: "${esc(desc)}"`);
 	}
+	if (result.tags && result.tags.length > 0) {
+		lines.push('tags:');
+		for (const tag of result.tags) {
+			lines.push(`  - "${esc(tag)}"`);
+		}
+	}
 	if (result.wordCount) lines.push(`word_count: ${result.wordCount}`);
 
 	lines.push('---');

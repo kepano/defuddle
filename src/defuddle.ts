@@ -20,6 +20,7 @@ import { removeByContentPattern, removeEyebrowLabel } from './removals/content-p
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { generateKeywordTags } from './keyword-tags';
 
 interface StyleChange {
 	selector: string;
@@ -187,7 +188,7 @@ export class Defuddle {
 			}
 		}
 
-		return result;
+		return this.withKeywordTags(result);
 	}
 
 	/**
@@ -675,18 +676,20 @@ export class Defuddle {
 			const asyncResult = await this.tryAsyncExtractor(
 				ExtractorRegistry.findPreferredAsyncExtractor.bind(ExtractorRegistry)
 			);
-			if (asyncResult) return asyncResult;
+			if (asyncResult) return this.withKeywordTags(asyncResult);
 		}
 
 		const result = this.parse();
 
 		if (result.wordCount > 0 || this.options.useAsync === false) {
-			return result;
+			return this.withKeywordTags(result);
 		}
 
-		return (await this.tryAsyncExtractor(
+		const asyncFallback = await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
-		)) ?? result;
+		);
+
+		return this.withKeywordTags(asyncFallback ?? result);
 	}
 
 	/**
@@ -1738,6 +1741,12 @@ export class Defuddle {
 			}
 		}
 		return hasCustom ? custom : undefined;
+	}
+
+	private withKeywordTags(result: DefuddleResponse): DefuddleResponse {
+		const tags = generateKeywordTags(result);
+		if (tags.length === 0) return result;
+		return { ...result, tags };
 	}
 
 }

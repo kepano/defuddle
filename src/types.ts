@@ -36,6 +36,7 @@ export interface DefuddleResponse extends DefuddleMetadata {
 	contentMarkdown?: string;
 	extractorType?: string;
 	metaTags?: MetaTagItem[];
+	tags?: string[];
 	debug?: DebugInfo;
 	profile?: Record<string, number>;
 	variables?: { [key: string]: string };
