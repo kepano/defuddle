@@ -87,6 +87,36 @@ describe('CLI parseSource', () => {
 		expect(result.output.startsWith('---')).toBe(false);
 	});
 
+	test('omits tags from frontmatter by default', async () => {
+		const result = await parseSource(undefined, { frontmatter: true }, createMockStdin(fixtureHtml));
+		expect(result.output).not.toContain('\ntags:\n');
+	});
+
+	test('includes tags when --tags is set without count (defaults to 10)', async () => {
+		const result = await parseSource(undefined, { frontmatter: true, tags: true }, createMockStdin(fixtureHtml));
+		expect(result.output).toContain('\ntags:\n');
+
+		const tagLines = result.output
+			.split('\n')
+			.filter((line) => line.startsWith('  - "'));
+		expect(tagLines.length).toBeLessThanOrEqual(10);
+	});
+
+	test('limits tag count when --tags <count> is provided', async () => {
+		const result = await parseSource(undefined, { frontmatter: true, tags: '3' }, createMockStdin(fixtureHtml));
+
+		const tagLines = result.output
+			.split('\n')
+			.filter((line) => line.startsWith('  - "'));
+		expect(tagLines.length).toBe(3);
+	});
+
+	test('throws when --tags count is invalid', async () => {
+		await expect(parseSource(undefined, { tags: 'abc' }, createMockStdin(fixtureHtml))).rejects.toThrow(
+			'Invalid tag count "abc". Use a positive integer.'
+		);
+	});
+
 	test('registers the --frontmatter flag with a -f alias', () => {
 		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
 		const option = parseCommand?.options.find((o) => o.long === '--frontmatter');
@@ -104,5 +134,14 @@ describe('CLI parseSource', () => {
 		expect(option?.short).toBe('-u');
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
+	});
+
+	test('registers the --tags flag with a -t alias', () => {
+		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
+		const option = parseCommand?.options.find((o) => o.long === '--tags');
+
+		expect(option).toBeDefined();
+		expect(option?.short).toBe('-t');
+		expect(option?.attributeName()).toBe('tags');
 	});
 });

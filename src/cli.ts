@@ -19,10 +19,27 @@ export interface ParseOptions {
 	lang?: string;
 	userAgent?: string;
 	frontmatter?: boolean;
+	tags?: string | boolean;
 }
 
 interface ParseResult {
 	output: string;
+}
+
+function resolveTagLimit(value: ParseOptions['tags']): number | undefined {
+	if (value === undefined || value === false) return undefined;
+	if (value === true) return 10;
+
+	const parsed = Number.parseInt(value, 10);
+	if (!Number.isFinite(parsed) || Number.isNaN(parsed)) {
+		throw new Error(`Invalid tag count "${value}". Use a positive integer.`);
+	}
+
+	if (parsed <= 0) {
+		throw new Error('Tag count must be greater than 0.');
+	}
+
+	return parsed;
 }
 
 // ANSI color helpers (avoids chalk dependency which is ESM-only)
@@ -82,6 +99,13 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 
 	const doc = parseLinkedomHTML(html);
 	let result = await Defuddle(doc, url, defuddleOpts);
+	const tagLimit = resolveTagLimit(options.tags);
+
+	if (tagLimit === undefined) {
+		result = { ...result, tags: undefined };
+	} else {
+		result = { ...result, tags: (result.tags || []).slice(0, tagLimit) };
+	}
 
 	// If no content was extracted from a URL, retry with bot UA.
 	// Some sites (e.g. Obsidian Publish) serve pre-rendered content to bots.
@@ -143,7 +167,7 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 			site: result.site,
 			schemaOrgData: result.schemaOrgData,
 			wordCount: result.wordCount,
-			tags: result.tags,
+			...(result.tags ? { tags: result.tags } : {}),
 			...(result.contentMarkdown ? { contentMarkdown: result.contentMarkdown } : {}),
 			...(result.variables ? { variables: result.variables } : {}),
 		}, null, 2);
@@ -172,6 +196,7 @@ export function createProgram(): Command {
 		.option('-j, --json', 'Output as JSON with metadata and content')
 		.option('-f, --frontmatter', 'Prepend YAML frontmatter (title, author, source, etc.) to the output')
 		.option('-p, --property <name>', 'Extract a specific property (e.g., title, description, domain)')
+		.option('-t, --tags [count]', 'Include generated tags in output (default: 10 when no count is provided)')
 		.option('--debug', 'Enable debug mode')
 		.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
 		.option('-u, --user-agent <string>', 'Custom User-Agent header for HTTP requests (helps with 403/FORBIDDEN responses)')

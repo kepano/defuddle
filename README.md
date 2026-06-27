@@ -86,6 +86,12 @@ npx defuddle parse page.html --markdown
 # Output as JSON with metadata
 npx defuddle parse page.html --json
 
+# Include generated tags (default 10)
+npx defuddle parse page.html --frontmatter --tags
+
+# Include generated tags with a custom count
+npx defuddle parse page.html --frontmatter --tags 5
+
 # Extract a specific property
 npx defuddle parse page.html --property title
 
@@ -108,6 +114,7 @@ npx defuddle parse https://example.com/article --user-agent "Mozilla/5.0 (Macint
 | `--md` | | Alias for `--markdown` |
 | `--json` | `-j` | Output as JSON with metadata and content |
 | `--frontmatter` | `-f` | Prepend YAML frontmatter (title, author, source, etc.) to the output |
+| `--tags [count]` | `-t` | Include generated tags in output. Default is 10 tags when no count is provided |
 | `--property <name>` | `-p` | Extract a specific property (e.g., title, description, domain) |
 | `--debug` | | Enable debug mode |
 | `--lang <code>` | `-l` | Preferred language (BCP 47, e.g. `en`, `fr`, `ja`) |
