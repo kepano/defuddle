@@ -3,18 +3,18 @@ import { guessCodeLanguage } from './detect-code-lang';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
-	/^language-(\w+)$/,          // language-javascript
-	/^lang-(\w+)$/,              // lang-javascript
-	/^(?:[\w-]+-)?lang-(\w+)$/,  // mw-highlight-lang-javascript (Wikipedia)
-	/^(\w+)-code$/,              // javascript-code
-	/^code-(\w+)$/,              // code-javascript
-	/^syntax-(\w+)$/,            // syntax-javascript
-	/^code-snippet__(\w+)$/,     // code-snippet__javascript
-	/^highlight-(\w+)$/,         // highlight-javascript
-	/^highlight-source-(\w+)$/,  // highlight-source-javascript (GitHub)
-	/^highlight-text-(\w+)$/,    // highlight-text-md (GitHub markdown)
-	/^highlight-text-(\w+)/,     // highlight-text-html-basic -> html (compound names)
-	/^(\w+)-snippet$/,           // javascript-snippet
+	/^language-([a-z0-9_+-]+)$/i,          // language-javascript
+	/^lang-([a-z0-9_+-]+)$/i,              // lang-javascript
+	/^(?:[\w-]+-)?lang-([a-z0-9_+-]+)$/i,  // mw-highlight-lang-javascript (Wikipedia)
+	/^([a-z0-9_+-]+)-code$/i,              // javascript-code
+	/^code-([a-z0-9_+-]+)$/i,              // code-javascript
+	/^syntax-([a-z0-9_+-]+)$/i,            // syntax-javascript
+	/^code-snippet__([a-z0-9_+-]+)$/i,     // code-snippet__javascript
+	/^highlight-([a-z0-9_+-]+)$/i,         // highlight-javascript
+	/^highlight-source-([a-z0-9_+-]+)$/i,  // highlight-source-javascript (GitHub)
+	/^highlight-text-([a-z0-9_+-]+)$/i,    // highlight-text-md (GitHub markdown)
+	/^highlight-text-([a-z0-9_+-]+)/i,     // highlight-text-html-basic -> html (compound names)
+	/^([a-z0-9_+-]+)-snippet$/i,           // javascript-snippet
 
 	// fallback
 	/(?:^|\s)(?:language|lang|brush|syntax|source)-(\w+)(?:\s|$)/i
@@ -186,18 +186,24 @@ export const codeBlockRules = [
 				}
 
 				// Check class names for patterns and supported languages
-				const classNames = Array.from(element.classList || []);
+				const classNames = new Set<string>();
+				const classAttr = element.getAttribute('class') || '';
+				classAttr.split(/\s+/).filter(Boolean).forEach(name => classNames.add(name));
+				for (const name of Array.from(element.classList || [])) {
+					if (name) classNames.add(name);
+				}
+				const classList = Array.from(classNames);
 				
 				// Check for syntax highlighter specific format
 				if (element.classList?.contains('syntaxhighlighter')) {
-					const langClass = classNames.find(c => !['syntaxhighlighter', 'nogutter'].includes(c));
+					const langClass = classList.find(c => !['syntaxhighlighter', 'nogutter'].includes(c));
 					if (langClass && CODE_LANGUAGES.has(langClass.toLowerCase())) {
 						return langClass.toLowerCase();
 					}
 				}
 
 				// Check patterns
-				for (const className of classNames) {
+				for (const className of classList) {
 					for (const pattern of HIGHLIGHTER_PATTERNS) {
 						const match = className.toLowerCase().match(pattern);
 						if (match && match[1] && CODE_LANGUAGES.has(match[1].toLowerCase())) {
@@ -207,7 +213,7 @@ export const codeBlockRules = [
 				}
 
 				// If all else fails, check for bare language names
-				for (const className of classNames) {
+				for (const className of classList) {
 					if (CODE_LANGUAGES.has(className.toLowerCase())) {
 						return className.toLowerCase();
 					}

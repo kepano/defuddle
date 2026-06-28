@@ -629,7 +629,7 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			const language = codeElement.getAttribute('data-lang')
 				|| codeElement.getAttribute('data-language')
-				|| codeElement.getAttribute('class')?.match(/language-(\w+)/)?.[1]
+				|| codeElement.getAttribute('class')?.match(/language-([a-z0-9_+-]+)/i)?.[1]
 				|| node.getAttribute('data-language')
 				|| '';
 			const code = codeElement.textContent || '';
