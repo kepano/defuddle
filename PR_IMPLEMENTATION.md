@@ -111,6 +111,10 @@ Covered by tests in:
 
 Build and CLI tests pass after integration.
 
+Manual validation pages used:
+- https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin
+- https://github.com/nousresearch/hermes-agent
+
 ### Notes / Tradeoffs
 - This is intentionally lightweight (fast, deterministic, no external dependency).
 - Score constants are easy to tune in one place.

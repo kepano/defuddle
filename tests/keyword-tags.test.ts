@@ -44,4 +44,20 @@ describe('keyword tags', () => {
 		expect(yaml).toContain('tags:');
 		expect(yaml).toContain('  - "ai-agents"');
 	});
+
+	test('filters contraction noise tags like youll', () => {
+		const result = makeResult({
+			title: "You'll build better plugins",
+			description: "We've tested parser flow",
+			metaTags: [
+				{ name: 'keywords', property: null, content: "you'll, we'll, plugin architecture" },
+			],
+		});
+
+		const tags = generateKeywordTags(result);
+
+		expect(tags).not.toContain('youll');
+		expect(tags).not.toContain('well');
+		expect(tags).toContain('plugin-architecture');
+	});
 });

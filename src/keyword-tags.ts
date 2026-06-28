@@ -25,6 +25,41 @@ const STOPWORDS = new Set([
 	'tout', 'tous', 'toute', 'toutes', 'être', 'avoir', 'fait', 'faire', 'est', 'sont', 'été',
 ]);
 
+const CONTRACTION_SUFFIXES = new Set(['ll', 're', 've', 'd', 'm', 's', 't']);
+
+function normalizeApostropheToken(token: string): string {
+	const clean = token.replace(/[’]/g, "'");
+	if (!clean.includes("'")) return clean;
+
+	const parts = clean.split("'").filter(Boolean);
+	if (parts.length !== 2) return parts.join('');
+
+	const [left, right] = parts;
+
+	// English contractions: keep base word only (you'll -> you)
+	if (CONTRACTION_SUFFIXES.has(right)) return left;
+
+	// French elision and short prefixes: keep semantic part (l'homme -> homme)
+	if (left.length <= 2) return right;
+
+	// Possessive/genitive-like forms: keep base word (developer's -> developer)
+	if (right.length <= 2) return left;
+
+	return left;
+}
+
+function isContractionNoise(tag: string): boolean {
+	return /^(?:i|you|we|they|he|she|it)(?:ll|re|ve|d|m|s|t)$/u.test(tag);
+}
+
+function isValidTag(tag: string): boolean {
+	if (!tag || tag.length < 3) return false;
+	if (STOPWORDS.has(tag)) return false;
+	if (/^\d+$/u.test(tag)) return false;
+	if (isContractionNoise(tag)) return false;
+	return true;
+}
+
 function stripHtml(html: string): string {
 	return html
 		.replace(/<[^>]*>/g, ' ')
@@ -42,17 +77,18 @@ function tokenize(text: string): string[] {
 	const tokens = text.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}'’_-]{1,40}/gu) || [];
 	return tokens
 		.map(token => token.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
-		.filter(token => token.length >= 3)
-		.filter(token => !/^\d+$/.test(token))
-		.filter(token => !STOPWORDS.has(token));
+		.map(normalizeApostropheToken)
+		.filter(isValidTag);
 }
 
 function slugifyTag(input: string): string {
-	return input
+	const normalized = normalizeApostropheToken(input.toLowerCase())
 		.toLowerCase()
 		.replace(/['’]/g, '')
 		.replace(/[^\p{L}\p{N}]+/gu, '-')
 		.replace(/^-+|-+$/g, '');
+
+	return isValidTag(normalized) ? normalized : '';
 }
 
 function addWeightedTokens(scores: Map<string, number>, text: string, weight: number, cap?: number): void {
@@ -119,7 +155,7 @@ export function generateKeywordTags(result: DefuddleResponse): string[] {
 	scoreMetaTags(scores, result.metaTags);
 
 	return Array.from(scores.entries())
-		.filter(([tag, score]) => tag.length >= 3 && score > 0)
+		.filter(([tag, score]) => isValidTag(tag) && score > 0)
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, MAX_TAGS)
 		.map(([tag]) => tag);
