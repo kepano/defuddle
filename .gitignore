@@ -1,7 +1,7 @@
 .DS_Store
 .cursorrules
 .context
-.*/
+/.*
 
 node_modules/
 
