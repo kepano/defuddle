@@ -14,6 +14,24 @@ import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 const MAJORITY_CONTENT_MIN_TEXT_LENGTH = 200;
 const MAJORITY_CONTENT_RATIO = 0.8;
+const ALWAYS_REMOVABLE_EXACT_TAGS = new Set([
+	'SCRIPT',
+	'STYLE',
+	'NOSCRIPT',
+	'IFRAME',
+	'FRAME',
+	'FRAMESET',
+	'OBJECT',
+	'EMBED',
+	'APPLET',
+	'BASE',
+	'META',
+	'LINK'
+]);
+
+function isAlwaysRemovableExactElement(el: Element): boolean {
+	return ALWAYS_REMOVABLE_EXACT_TAGS.has(el.tagName.toUpperCase());
+}
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -147,6 +165,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			shouldGuardMajorityContent &&
 			type === 'exact' &&
 			!el.matches(HIDDEN_EXACT_SELECTOR) &&
+			!isAlwaysRemovableExactElement(el) &&
 			normalizeText(el.textContent || '').length >= mainContentTextLength * MAJORITY_CONTENT_RATIO
 		) {
 			return;
