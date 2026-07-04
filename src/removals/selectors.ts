@@ -9,13 +9,18 @@ import {
 	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
-import { textPreview, logDebug } from '../utils';
+import { textPreview, logDebug, normalizeText } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+
+const MAJORITY_CONTENT_MIN_TEXT_LENGTH = 200;
+const MAJORITY_CONTENT_RATIO = 0.8;
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
 	let partialSelectorCount = 0;
+	const mainContentTextLength = mainContent ? normalizeText(mainContent.textContent || '').length : 0;
+	const shouldGuardMajorityContent = mainContentTextLength >= MAJORITY_CONTENT_MIN_TEXT_LENGTH;
 
 	// Track all elements to be removed, with their match type
 	const elementsToRemove = new Map<Element, { type: 'exact' | 'partial'; selector?: string }>();
@@ -136,6 +141,14 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 	// Skip anchor links inside headings - the heading transform handles these
 	elementsToRemove.forEach(({ type, selector }, el) => {
 		if (mainContent && el.contains(mainContent)) {
+			return;
+		}
+		if (
+			shouldGuardMajorityContent &&
+			type === 'exact' &&
+			!el.matches(HIDDEN_EXACT_SELECTOR) &&
+			normalizeText(el.textContent || '').length >= mainContentTextLength * MAJORITY_CONTENT_RATIO
+		) {
 			return;
 		}
 		if (el.tagName === 'A' && el.closest('h1, h2, h3, h4, h5, h6')) {
