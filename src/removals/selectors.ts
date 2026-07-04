@@ -14,6 +14,12 @@ import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 const MAJORITY_CONTENT_MIN_TEXT_LENGTH = 200;
 const MAJORITY_CONTENT_RATIO = 0.8;
+const AMBIGUOUS_MAJORITY_EXACT_SELECTOR = [
+	'[class^="ad-" i]',
+	'[class$="-ad" i]',
+	'[id^="ad-" i]',
+	'[id$="-ad" i]'
+].join(',');
 const ALWAYS_REMOVABLE_EXACT_TAGS = new Set([
 	'SCRIPT',
 	'STYLE',
@@ -31,6 +37,13 @@ const ALWAYS_REMOVABLE_EXACT_TAGS = new Set([
 
 function isAlwaysRemovableExactElement(el: Element): boolean {
 	return ALWAYS_REMOVABLE_EXACT_TAGS.has(el.tagName.toUpperCase());
+}
+
+function isAmbiguousMajorityExactElement(el: Element): boolean {
+	return (
+		(el.tagName.includes('-') && el.matches('.ad:not([class*="gradient"])')) ||
+		el.matches(AMBIGUOUS_MAJORITY_EXACT_SELECTOR)
+	);
 }
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
@@ -166,6 +179,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			type === 'exact' &&
 			!el.matches(HIDDEN_EXACT_SELECTOR) &&
 			!isAlwaysRemovableExactElement(el) &&
+			isAmbiguousMajorityExactElement(el) &&
 			normalizeText(el.textContent || '').length >= mainContentTextLength * MAJORITY_CONTENT_RATIO
 		) {
 			return;
