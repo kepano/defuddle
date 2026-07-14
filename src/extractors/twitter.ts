@@ -9,8 +9,8 @@ export class TwitterExtractor extends BaseExtractor {
 	private replyTweets: Element[] = [];
 	private replyDepths: number[] = [];
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 
 		// Get all tweets from the timeline
 		const timeline = Array.from(document.querySelectorAll('[aria-label]'))

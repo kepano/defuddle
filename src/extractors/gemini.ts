@@ -7,8 +7,8 @@ export class GeminiExtractor extends ConversationExtractor {
 	private footnotes: Footnote[];
 	private messageCount: number | null = null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 		this.conversationContainers = document.querySelectorAll('div.conversation-container');
 		this.footnotes = [];
 	}
