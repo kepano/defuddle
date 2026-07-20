@@ -61,12 +61,22 @@ export function hasResponsiveShowClass(className: string): boolean {
 }
 
 /**
- * Check if a URL uses a dangerous protocol (javascript:, data:text/html).
+ * Check if a URL uses a dangerous protocol (javascript:, blob:, non-image data:).
  * Strips whitespace and control characters before checking.
+ *
+ * data: and blob: smuggle a whole document into an attribute, bypassing the
+ * script and event-handler stripping done elsewhere. Inline images are the one
+ * benign use of data:, so those are allowed and every other media type is
+ * rejected. Relative URLs (no scheme) are always allowed — the bbcode and
+ * comment builders pass them.
  */
-export function isDangerousUrl(url: string): boolean {
+export function isDangerousUrl(url: string, allowInlineImage: boolean = true): boolean {
 	const normalized = url.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
-	return normalized.startsWith('javascript:') || normalized.startsWith('data:text/html');
+	if (normalized.startsWith('javascript:') || normalized.startsWith('blob:')) return true;
+	if (normalized.startsWith('data:')) {
+		return !(allowInlineImage && normalized.startsWith('data:image/'));
+	}
+	return false;
 }
 
 /**
