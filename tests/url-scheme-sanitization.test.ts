@@ -112,6 +112,13 @@ describe('generic extraction path sanitization', () => {
 		});
 	}
 
+	test('preserves an iframe sandbox attribute set by the page', async () => {
+		// sandbox only ever restricts a frame, so keeping it cannot make an embed
+		// more permissive than the source page intended.
+		const content = await parse('<iframe src="https://example.com/embed" sandbox="allow-scripts"></iframe>');
+		expect(content).toContain('sandbox="allow-scripts"');
+	});
+
 	test('strips event handlers on the content root element itself', async () => {
 		// The root is serialized via outerHTML, so querySelectorAll('*') alone
 		// would miss its attributes. standardize:false because the attribute

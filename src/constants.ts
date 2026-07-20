@@ -1095,6 +1095,7 @@ export const ALLOWED_ATTRIBUTES = new Set([
 	'lang',
 	'role',
 	'rowspan',
+	'sandbox',
 	'src',
 	'srclang',
 	'srcset',
