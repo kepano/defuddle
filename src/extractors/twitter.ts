@@ -12,78 +12,90 @@ export class TwitterExtractor extends BaseExtractor {
 	constructor(document: Document, url: string) {
 		super(document, url);
 
-		// Get all tweets from the timeline
-		const timeline = Array.from(document.querySelectorAll('[aria-label]'))
-			.find(el => el.querySelector('[data-testid="cellInnerDiv"]') !== null) ?? null;
-		if (!timeline) {
-			// Try to find a single tweet if not in timeline view
-			const singleTweet = document.querySelector('article[data-testid="tweet"]');
-			if (singleTweet) {
-				this.mainTweet = singleTweet;
+		this.classifyCells(this.conversationCells());
+
+		// A markup change must never yield nothing: a bare post beats falling
+		// through to the generic extractor, which produces unusable output.
+		if (!this.mainTweet) {
+			this.mainTweet = document.querySelector('article[data-testid="tweet"]');
+		}
+	}
+
+	/**
+	 * Conversation cells, in document order, stopping at X's "Discover more" and
+	 * similar trailing sections.
+	 *
+	 * Cells and boundary candidates are collected in one combined-selector query
+	 * so that document order comes from the query itself. Comparing positions
+	 * any other way would mean `compareDocumentPosition`, which cannot be used
+	 * here: the `Node` global is absent under linkedom, and linkedom inverts the
+	 * result for nodes at different depths.
+	 *
+	 * Anything before the first cell is a header, not a boundary — X renders a
+	 * "Post" heading above the timeline and wraps the conversation in a
+	 * `<section>`, and treating either as the boundary drops every tweet.
+	 */
+	private conversationCells(): Element[] {
+		const cells: Element[] = [];
+
+		for (const el of Array.from(this.document.querySelectorAll('[data-testid="cellInnerDiv"], section, h2'))) {
+			if (el.getAttribute('data-testid') === 'cellInnerDiv') {
+				cells.push(el);
+			} else if (cells.length && !el.closest('article[data-testid="tweet"]')) {
+				// A heading inside a tweet belongs to that tweet, not to a boundary.
+				break;
 			}
-			return;
 		}
 
-		// Walk cellInnerDiv elements to classify tweets:
-		// 1. Main tweet (first article)
-		// 2. Thread tweets: consecutive self-replies by the main author at the
-		//    top of the timeline, before any reply by a different person
-		// 3. Reply tweets: everything after the thread ends
-		const cells = Array.from(timeline.querySelectorAll('[data-testid="cellInnerDiv"]'));
+		return cells;
+	}
 
-		// Get all tweets before any section with "Discover more" or similar headings
-		const firstSection = timeline.querySelector('section, h2')?.parentElement;
-
+	/**
+	 * Walk cells to classify tweets:
+	 * 1. Main tweet (first article)
+	 * 2. Thread tweets: consecutive self-replies by the main author at the top of
+	 *    the timeline, before any reply by a different person
+	 * 3. Reply tweets: everything after the thread ends
+	 */
+	private classifyCells(cells: Element[]): void {
 		let mainHandle = '';
-		let isFirstTweet = true;
 		let threadEnded = false;
 		let lastWasTweet = false;
 		let currentDepth = 0;
 
 		for (const cell of cells) {
-			// Stop if we've passed a section boundary
-			if (firstSection && (firstSection.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING)) {
-				break;
-			}
-
 			const article = cell.querySelector('article[data-testid="tweet"]');
-			if (article) {
-				if (isFirstTweet) {
-					this.mainTweet = article;
-					mainHandle = this.getHandle(article);
-					isFirstTweet = false;
-					lastWasTweet = true;
-					continue;
-				}
-
-				const handle = this.getHandle(article);
-
-				// Before the thread has ended, self-replies by the main author
-				// are part of the thread (post content)
-				if (!threadEnded && handle === mainHandle) {
-					this.threadTweets.push(article);
-					lastWasTweet = true;
-					continue;
-				}
-
-				// First tweet by a different person ends the thread
-				if (!threadEnded) {
-					threadEnded = true;
-				}
-
-				// Determine reply depth
-				if (lastWasTweet) {
-					currentDepth++;
-				} else {
-					currentDepth = 0;
-				}
-
-				this.replyTweets.push(article);
-				this.replyDepths.push(currentDepth);
-				lastWasTweet = true;
-			} else {
+			if (!article) {
 				lastWasTweet = false;
+				continue;
 			}
+
+			if (!this.mainTweet) {
+				this.mainTweet = article;
+				mainHandle = this.getHandle(article);
+				lastWasTweet = true;
+				continue;
+			}
+
+			const handle = this.getHandle(article);
+
+			// Before the thread has ended, self-replies by the main author are
+			// part of the thread (post content)
+			if (!threadEnded && handle && handle === mainHandle) {
+				this.threadTweets.push(article);
+				lastWasTweet = true;
+				continue;
+			}
+
+			// First tweet by a different person ends the thread
+			threadEnded = true;
+
+			// Determine reply depth
+			currentDepth = lastWasTweet ? currentDepth + 1 : 0;
+
+			this.replyTweets.push(article);
+			this.replyDepths.push(currentDepth);
+			lastWasTweet = true;
 		}
 	}
 
@@ -145,10 +157,41 @@ export class TwitterExtractor extends BaseExtractor {
 		return buildCommentTree(commentData);
 	}
 
+	// X routes that are not profiles, so /<name> in these cases is not a handle.
+	private static readonly RESERVED_PATHS = new Set([
+		'i', 'home', 'explore', 'search', 'notifications', 'messages',
+		'settings', 'compose', 'hashtag', 'intent',
+	]);
+
+	/**
+	 * The @handle for a tweet.
+	 *
+	 * Tried in order: link text starting with "@", the profile path in a link
+	 * href, then any "@name" in the name block's text (quoted tweets render the
+	 * handle as plain text rather than a link). Positional lookups like
+	 * `links[1]` break whenever X reorders the name block.
+	 */
 	private getHandle(tweet: Element): string {
 		const nameElement = tweet.querySelector('[data-testid="User-Name"]');
-		const links = nameElement?.querySelectorAll('a');
-		return links?.[1]?.textContent?.trim() || '';
+		if (!nameElement) return '';
+
+		const links = Array.from(nameElement.querySelectorAll('a'));
+
+		for (const link of links) {
+			const text = link.textContent?.trim() || '';
+			if (/^@\w{1,15}$/.test(text)) return text;
+		}
+
+		for (const link of links) {
+			const href = link.getAttribute('href') || '';
+			const match = href.match(/^(?:https?:\/\/[^/]+)?\/(\w{1,15})(?:\/|$)/);
+			if (match && !TwitterExtractor.RESERVED_PATHS.has(match[1].toLowerCase())) {
+				return `@${match[1]}`;
+			}
+		}
+
+		const match = (nameElement.textContent || '').match(/@(\w{1,15})/);
+		return match ? `@${match[1]}` : '';
 	}
 
 	private formatTweetText(text: string): string {
@@ -247,21 +290,18 @@ export class TwitterExtractor extends BaseExtractor {
 		const nameElement = tweet.querySelector('[data-testid="User-Name"]');
 		if (!nameElement) return { fullName: '', handle: '', date: '', permalink: '' };
 
-		// Try to get name and handle from links first (main tweet structure)
-		const links = nameElement.querySelectorAll('a');
-		let fullName = links?.[0]?.textContent?.trim() || '';
-		let handle = links?.[1]?.textContent?.trim() || '';
+		const handle = this.getHandle(tweet);
 
-		// If links don't have the info, try direct children (quoted tweet structure).
-		// Quoted tweets have two child divs: [0] = display name, [1] = "@handle·date"
-		if (!fullName || !handle) {
-			const children = Array.from(nameElement.children);
-			if (children.length >= 2) {
-				fullName = children[0]?.textContent?.trim() || '';
-				const secondText = children[1]?.textContent?.trim() || '';
-				const handleMatch = secondText.match(/(@\w+)/);
-				handle = handleMatch ? handleMatch[1] : '';
-			}
+		// Display name: the first link that is neither the handle nor the
+		// timestamp. Quoted tweets render no links, so fall back to the first
+		// child ([0] = display name, [1] = "@handle·date").
+		let fullName = Array.from(nameElement.querySelectorAll('a'))
+			.map(link => (link.querySelector('time') ? '' : link.textContent?.trim() || ''))
+			.find(text => text && text !== handle && !text.startsWith('@')) || '';
+
+		if (!fullName) {
+			const first = nameElement.children[0]?.textContent?.trim() || '';
+			if (first && !first.startsWith('@')) fullName = first;
 		}
 
 		const timestamp = tweet.querySelector('time');
