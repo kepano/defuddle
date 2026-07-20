@@ -94,7 +94,7 @@ Debug mode preserves class/id/data-* attributes and skips div flattening. Use `c
 ### Rules
 
 - **Never use `innerHTML` directly.** Always use `parseHTML()` from `src/utils/dom.ts` which parses via `<template>` elements (no script execution, no resource loading).
-- **Sanitize URLs** — `javascript:` and `data:text/html` must be stripped from `href`/`src` attributes. `srcdoc` must be stripped from iframes. `on*` event handler attributes must be removed. See `sanitizeContent()` in `src/defuddle.ts`.
+- **Sanitize URLs** — `javascript:`, `blob:`, and non-image `data:` URLs must be stripped from `href`/`src` attributes; `data:image/*` is allowed except as an iframe `src`. `srcdoc` must be stripped from iframes. `on*` event handler attributes must be removed. See `isDangerousUrl()` in `src/utils/dom.ts` and `_stripUnsafeElements()` in `src/defuddle.ts`, which runs on the main extraction output regardless of which pipeline steps are enabled.
 - **Never interpolate page-derived values into HTML strings unescaped.** Extractors that build HTML from template literals (e.g. `` `<img src="${src}" alt="${alt}">` ``) must wrap every interpolated value in `escapeHtml()` from `src/utils/dom.ts`, or build the node via `createElement`/`setAttribute` + `serializeHTML()`. An unescaped `"` lets attacker-controlled values (image `alt`/`src`, `og:image`, descriptions) inject new attributes (XSS, e.g. GHSA-jg4p-g6xj-4qmf). Downstream sanitization is a backstop, not a substitute — escape at the point of interpolation. Cover new extractors with a poisoned-attribute case in `tests/extractor-xss.test.ts`.
 
 ### Common pitfalls

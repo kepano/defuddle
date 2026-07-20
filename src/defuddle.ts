@@ -255,8 +255,11 @@ export class Defuddle {
 			el.remove();
 		}
 
-		// Remove event handler attributes, dangerous URIs, and srcdoc
-		const allElements = body.querySelectorAll('*');
+		// Remove event handler attributes, dangerous URIs, and srcdoc.
+		// Includes the root itself: on the main content path `body` is the
+		// content element and is serialized via outerHTML, so its own
+		// attributes end up in the output.
+		const allElements = [body, ...Array.from(body.querySelectorAll('*'))];
 		for (const el of allElements) {
 			for (const attr of Array.from(el.attributes)) {
 				const name = attr.name.toLowerCase();
@@ -265,7 +268,11 @@ export class Defuddle {
 				} else if (name === 'srcdoc') {
 					el.removeAttribute(attr.name);
 				} else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
-					if (isDangerousUrl(attr.value)) {
+					// data:image/* is allowed for inline images, but an SVG document
+					// in an iframe can run script — so no data: URI is allowed as an
+					// iframe src.
+					const allowInlineImage = !(name === 'src' && el.tagName === 'IFRAME');
+					if (isDangerousUrl(attr.value, allowInlineImage)) {
 						el.removeAttribute(attr.name);
 					}
 				}
@@ -1026,6 +1033,12 @@ export class Defuddle {
 			if (bestCoverUrl) {
 				metadata.image = bestCoverUrl;
 			}
+
+			// Strip dangerous elements and URI attributes from the final output.
+			// Runs unconditionally — the pipeline steps above are all optional, so
+			// this is the only guaranteed sanitization boundary on this path.
+			// Safe to mutate: mainContent belongs to the clone, not the live document.
+			this._stripUnsafeElements(mainContent as HTMLElement);
 
 			const content = mainContent.outerHTML;
 			const endTime = Date.now();
