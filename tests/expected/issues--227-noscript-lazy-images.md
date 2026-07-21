@@ -11,12 +11,6 @@
 
 Hero image caption. Photo Credit / Agency
 
-## Test article with multiple lazy-loaded images
-
-![Hero image caption.](https://www.example.com/images/hero.webp)
-
-Hero image caption. Photo Credit / Agency
-
 ### Section one
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
