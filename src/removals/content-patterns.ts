@@ -75,6 +75,20 @@ const BYLINE_STRIP_PATTERNS = [
 	/[/|·•—–\-,]+/g,
 ];
 
+// True when a following sibling of `el` contains a paragraph of article prose,
+// meaning `el` is embedded mid-article rather than trailing it.
+function hasFollowingProse(el: Element, minWords = 25): boolean {
+	let sibling = el.nextElementSibling;
+	while (sibling) {
+		if (sibling.tagName === 'P' && countWords(sibling.textContent || '') >= minWords) return true;
+		for (const p of sibling.querySelectorAll('p')) {
+			if (countWords(p.textContent || '') >= minWords) return true;
+		}
+		sibling = sibling.nextElementSibling;
+	}
+	return false;
+}
+
 function walkUpToWrapper(el: Element, text: string, mainContent: Element): Element {
 	let target = el;
 	while (target.parentElement && target.parentElement !== mainContent) {
@@ -1069,6 +1083,18 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const target = walkUpIsolated(el, mainContent);
 		if (target === el) continue;
+
+		// The removal target must be essentially the grid itself (plus a heading).
+		// If it wraps substantial prose, the grid is an illustrative image row inside
+		// a real article section (e.g. Wikipedia multi-image thumbnails), not a
+		// related-posts block — removing it would take the section and everything after.
+		const targetWords = countWords(target.textContent || '');
+		if (targetWords > gridWords * 2 + 15) continue;
+
+		// Related cards trail the article. If prose follows the grid, it is an
+		// illustrative image row mid-article and removing its trailing siblings
+		// would drop real content.
+		if (hasFollowingProse(target)) continue;
 
 		removeThinPrecedingSection(target, debug, debugRemovals);
 
