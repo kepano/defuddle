@@ -9,8 +9,8 @@ export class GrokExtractor extends ConversationExtractor {
 	private footnotes: Footnote[];
 	private footnoteCounter: number;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 		this.messageBubbles = document.querySelectorAll(this.messageContainerSelector);
 		this.footnotes = [];
 		this.footnoteCounter = 0;

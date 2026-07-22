@@ -7,8 +7,8 @@ export class GitHubExtractor extends BaseExtractor {
 	private isIssue: boolean;
 	private isPR: boolean;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 		this.isIssue = /\/issues\/\d+/.test(url);
 		this.isPR = /\/pull\/\d+/.test(url);
 	}

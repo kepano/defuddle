@@ -23,8 +23,8 @@ const SELECTORS = {
 export class XArticleExtractor extends BaseExtractor {
 	private articleContainer: Element | null;
 
-	constructor(document: Document, url: string, schemaOrgData?: any) {
-		super(document, url, schemaOrgData);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 		this.articleContainer = document.querySelector(SELECTORS.ARTICLE_CONTAINER);
 	}
 

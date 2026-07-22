@@ -21,8 +21,8 @@ export class HackerNewsExtractor extends BaseExtractor {
 	private isListingPage: boolean;
 	private mainComment: Element | null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
+		super(document, url, schemaOrgData, options);
 		this.mainPost = document.querySelector('.fatitem');
 		this.isListingPage = this.detectListingPage();
 		this.isCommentPage = this.detectCommentPage();
