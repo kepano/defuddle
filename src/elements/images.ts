@@ -17,6 +17,7 @@ const urlPattern = /^([^\s]+)/;
 const absoluteUrlPattern = /^https?:\/\//;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const lazyImageSourceAttributes = ['data-src', 'data-original', 'data-lazy-src', 'data-actualsrc', 'data-backup'];
 
 export const imageRules = [
 	// Handle picture elements first to ensure we get the highest resolution
@@ -142,7 +143,7 @@ export const imageRules = [
 	
 	// Handle lazy-loaded images
 	{
-		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload, img[src^="data:image/svg+xml"]',
+		selector: 'img[data-src], img[data-original], img[data-lazy-src], img[data-actualsrc], img[data-backup], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload, img[src^="data:image/"]',
 		element: 'img',
 		transform: (el: Element, doc: Document): Element => {
 			// Check for base64 placeholder images
@@ -154,10 +155,13 @@ export const imageRules = [
 				el.removeAttribute('src');
 			}
 
-			// Handle data-src
-			const dataSrc = el.getAttribute('data-src');
-			if (dataSrc && !el.getAttribute('src')) {
-				el.setAttribute('src', dataSrc);
+			// Handle common lazy image source attributes
+			for (const attrName of lazyImageSourceAttributes) {
+				const lazySrc = el.getAttribute(attrName);
+				if (lazySrc && !el.getAttribute('src')) {
+					el.setAttribute('src', lazySrc);
+					break;
+				}
 			}
 
 			// Handle data-srcset
@@ -197,7 +201,7 @@ export const imageRules = [
 			// Remove lazy loading related classes and attributes
 			el.classList.remove('lazy', 'lazyload');
 			el.removeAttribute('data-ll-status');
-			el.removeAttribute('data-src');
+			lazyImageSourceAttributes.forEach(attr => el.removeAttribute(attr));
 			el.removeAttribute('data-srcset');
 			el.removeAttribute('loading');
 			
@@ -408,8 +412,8 @@ function isValidImageUrl(src: string): boolean {
  * Check if an element has better image sources than the current src
  */
 function hasBetterImageSource(element: Element): boolean {
-	// Check for data-src or data-srcset
-	if (element.hasAttribute('data-src') || element.hasAttribute('data-srcset')) {
+	// Check for common lazy image source attributes
+	if (element.hasAttribute('data-srcset') || lazyImageSourceAttributes.some(attr => element.hasAttribute(attr))) {
 		return true;
 	}
 	
