@@ -63,6 +63,13 @@ interface FxTwitterResponse {
 	};
 }
 
+type FxTwitterTweet = FxTwitterResponse['tweet'];
+
+interface FxTwitterThreadResponse {
+	code: number;
+	thread: FxTwitterTweet[];
+}
+
 interface FxTwitterArticleMediaEntity {
 	media_id: string;
 	media_info: {
@@ -193,24 +200,44 @@ export class XOembedExtractor extends BaseExtractor {
 		const match = this.url.match(/\/([a-zA-Z0-9_][a-zA-Z0-9_]{0,14})\/(status|article)\/(\d+)/);
 		if (!match) return null;
 
+		// Try Thread (v2) first
+		try {
+			const data = await this.fetchFxTwitter(null, match[3]);
+			if ('thread' in data) {
+				// If it's an article, use the rich article renderer
+				if (data.thread[0]?.article) {
+					return this.buildArticleResult(data);
+				}
+				// Otherwise use the full tweet text from FxTwitter
+				if (data.thread[0]?.text) {
+					return this.buildThreadResult(data);
+				}
+			}
+		} catch { /* fall through */ }
+
+		// Fallback to v1
 		try {
 			const data = await this.fetchFxTwitter(match[1], match[3]);
-			// If it's an article, use the rich article renderer
-			if (data.tweet?.article) {
-				return this.buildArticleResult(data);
-			}
-			// Otherwise use the full tweet text from FxTwitter
-			if (data.tweet?.text) {
-				return this.buildTweetResult(data);
+			if ('tweet' in data) {
+				// If it's an article, use the rich article renderer
+				if (data.tweet?.article) {
+					return this.buildArticleResult(data);
+				}
+				// Otherwise use the full tweet text from FxTwitter
+				if (data.tweet?.text) {
+					return this.buildTweetResult(data);
+				}
 			}
 			return null;
-		} catch {
-			return null;
-		}
+		} catch { /* fall through */ }
+
+		return null;
 	}
 
-	private async fetchFxTwitter(username: string, id: string): Promise<FxTwitterResponse> {
-		const apiUrl = `https://api.fxtwitter.com/${username}/status/${id}`;
+	private async fetchFxTwitter(username: string | null, id: string): Promise<FxTwitterResponse | FxTwitterThreadResponse> {
+		const apiUrl = username
+			? `https://api.fxtwitter.com/${username}/status/${id}`
+			: `https://api.fxtwitter.com/2/thread/${id}`;
 		const response = await this.fetch(apiUrl, {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
@@ -233,13 +260,13 @@ export class XOembedExtractor extends BaseExtractor {
 		}
 	}
 
-	private buildArticleResult(data: FxTwitterResponse): ExtractorResult {
-		const article = data.tweet.article!;
+	private buildArticleResult(data: FxTwitterResponse | FxTwitterThreadResponse): ExtractorResult {
+		const article = 'thread' in data ? data.thread[0]?.article! : data.tweet.article!;
 		const { blocks, entityMap } = article.content;
 		const mediaEntities = article.media_entities || [];
 		const contentHtml = this.renderArticle(blocks, entityMap, article.cover_media, mediaEntities);
-		const handle = `@${data.tweet.author.screen_name}`;
-		const published = this.toDateString(article.created_at) ?? this.toDateString(data.tweet.created_at);
+		const handle = `@${'thread' in data ? data.thread[0]?.author.screen_name : data.tweet.author.screen_name}`;
+		const published = this.toDateString(article.created_at) ?? this.toDateString('thread' in data ? data.thread[0]?.created_at : data.tweet.created_at);
 
 		return {
 			content: contentHtml,
@@ -261,6 +288,34 @@ export class XOembedExtractor extends BaseExtractor {
 		const contentHtml = buildContentHtml('twitter', postContent, '');
 		const published = this.toDateString(tweet.created_at);
 		const description = (tweet.text || '').trim().slice(0, 140).replace(/\s+/g, ' ');
+
+		return {
+			content: contentHtml,
+			contentHtml,
+			variables: {
+				title: this.postTitle(handle, 'X'),
+				author: handle,
+				site: 'X (Twitter)',
+				description,
+				...(published && { published }),
+			}
+		};
+	}
+
+	private buildThreadResult(data: FxTwitterThreadResponse): ExtractorResult | null {
+		const thread = data.thread;
+		if (!thread || thread.length === 0) return null;
+
+		const [original, ...threadTweets] = thread;
+		const originalTweet = this.renderTweet(original);
+		const threadContent = threadTweets
+			.map(tweet => this.renderTweet(tweet))
+			.filter(Boolean);
+		const postContent = [originalTweet, ...threadContent].join('\n<hr>\n');
+		const handle = `@${original.author.screen_name}`;
+		const contentHtml = buildContentHtml('twitter', postContent, '');
+		const published = this.toDateString(original.created_at);
+		const description = (original.text || '').trim().slice(0, 140).replace(/\s+/g, ' ');
 
 		return {
 			content: contentHtml,
