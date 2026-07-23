@@ -8,6 +8,7 @@ import { parseLinkedomHTML } from './utils/linkedom-compat';
 import { countWords } from './utils';
 import { buildFrontmatter } from './frontmatter';
 import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
+import type { DebugInfo, DebugRemoval } from './types';
 
 export interface ParseOptions {
 	output?: string;
@@ -23,6 +24,8 @@ export interface ParseOptions {
 
 interface ParseResult {
 	output: string;
+	/** Human-readable debug log, present only when --debug and not --json. */
+	debugLog?: string;
 }
 
 // ANSI color helpers (avoids chalk dependency which is ESM-only)
@@ -145,12 +148,43 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 			wordCount: result.wordCount,
 			...(result.contentMarkdown ? { contentMarkdown: result.contentMarkdown } : {}),
 			...(result.variables ? { variables: result.variables } : {}),
+			...(result.debug ? { debug: result.debug } : {}),
 		}, null, 2);
 	} else {
 		output = options.frontmatter ? buildFrontmatter(result, url) + result.content : result.content;
 	}
 
-	return { output };
+	// Surface debug info when --debug was set without --json. The content
+	// goes to stdout (unchanged); the debug log goes to stderr so it does
+	// not corrupt the primary output stream. We format it here so callers
+	// (tests, action wrapper) can route it wherever they want.
+	const debugLog = options.debug && !options.json && result.debug
+		? formatDebugLog(result.debug)
+		: undefined;
+
+	return { output, debugLog };
+}
+
+function formatDebugLog(debug: DebugInfo): string {
+	const lines: string[] = [];
+	lines.push(`# defuddle --debug`);
+	lines.push(`contentSelector: ${debug.contentSelector || '(none)'}`);
+	lines.push(`removals: ${debug.removals.length}`);
+	for (const r of debug.removals) {
+		lines.push(formatRemoval(r));
+	}
+	return lines.join('\n') + '\n';
+}
+
+function formatRemoval(r: DebugRemoval): string {
+	const parts: string[] = [];
+	parts.push(`[${r.step}]`);
+	if (r.reason) parts.push(r.reason);
+	if (r.selector) parts.push(`(${r.selector})`);
+	// `text` is a short preview from the source; keep it on one line.
+	const preview = r.text.replace(/\s+/g, ' ').trim();
+	parts.push(`— ${preview}`);
+	return parts.join(' ');
 }
 
 export function createProgram(): Command {
@@ -176,7 +210,7 @@ export function createProgram(): Command {
 		.option('-u, --user-agent <string>', 'Custom User-Agent header for HTTP requests (helps with 403/FORBIDDEN responses)')
 		.action(async (source: string | undefined, options: ParseOptions) => {
 			try {
-				const { output } = await parseSource(source, options);
+				const { output, debugLog } = await parseSource(source, options);
 
 				// Handle output
 				if (options.output) {
@@ -185,6 +219,12 @@ export function createProgram(): Command {
 					console.log(ansi.green(`Output written to ${options.output}`));
 				} else {
 					console.log(output);
+				}
+
+				// In --debug mode without --json, surface the removal log on
+				// stderr so it does not interleave with the primary output.
+				if (debugLog) {
+					process.stderr.write(debugLog);
 				}
 			} catch (error) {
 				console.error(ansi.red('Error:'), error instanceof Error ? error.message : 'Unknown error occurred');
