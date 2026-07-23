@@ -11,6 +11,7 @@ import { ChatGPTExtractor } from './extractors/chatgpt';
 import { ClaudeExtractor } from './extractors/claude';
 import { GrokExtractor } from './extractors/grok';
 import { GeminiExtractor } from './extractors/gemini';
+import { PerplexityExtractor } from './extractors/perplexity';
 import { GitHubExtractor } from './extractors/github';
 import { XOembedExtractor } from './extractors/x-oembed';
 import { BbcodeDataExtractor } from './extractors/bbcode-data';
@@ -127,6 +128,13 @@ export class ExtractorRegistry {
 				/^https?:\/\/gemini\.google\.com\/app\/.*/
 			],
 			extractor: GeminiExtractor
+		});
+
+		this.register({
+			patterns: [
+				/^https?:\/\/(?:www\.)?perplexity\.ai\/search\/.*/
+			],
+			extractor: PerplexityExtractor
 		});
 
 		this.register({

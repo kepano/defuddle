@@ -9,6 +9,7 @@ import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
 // close the attribute and inject an event handler or a javascript: URL.
 
 const X_URL = 'https://x.com/testuser/article/123456789';
+const PERPLEXITY_URL = 'https://www.perplexity.ai/search/xss-test';
 
 // Header image lives in the read view but OUTSIDE the article container, so
 // extractHeaderImage() emits it via a template string.
@@ -57,6 +58,33 @@ describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
 		const html = makeXArticleHTML('src="javascript:alert(1)" alt="ok"');
 		const doc = parseLinkedomHTML(html, X_URL);
 		const response = await Defuddle(doc, X_URL);
+
+		assertNoExecutableAttributes(response.content);
+	});
+
+	test('does not emit executable attributes from Perplexity answer content or citations', async () => {
+		const html = `
+			<html><head><title>Perplexity XSS test</title></head>
+			<body>
+				<section>
+					<span class="select-text">Summarize the source</span>
+					<div id="markdown-content-0">
+						<div data-renderer="lm">
+							<p>
+								Answer
+								<span
+									data-pplx-citation-url='https://example.com/%22%20onclick=%22alert(1)'
+								>Source " onclick="alert(1)</span>
+							</p>
+							<img src="javascript:alert(1)" onerror="alert(1)" alt="unsafe">
+							<a href="javascript:alert(1)" onclick="alert(1)">Unsafe link</a>
+						</div>
+					</div>
+				</section>
+			</body></html>
+		`;
+		const doc = parseLinkedomHTML(html, PERPLEXITY_URL);
+		const response = await Defuddle(doc, PERPLEXITY_URL);
 
 		assertNoExecutableAttributes(response.content);
 	});
