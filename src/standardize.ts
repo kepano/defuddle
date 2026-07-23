@@ -1521,18 +1521,15 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 	let processedCount = 0;
 	const startTime = Date.now();
 
-	// Process in batches to maintain performance
-	let keepProcessing = true;
+	const SEMANTIC_CONTENT_RE = /(?:article|main|content|footnote|reference|bibliography)/;
+	const WRAPPER_CLASS_RE = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i;
+	const SEMANTIC_ROLES = new Set(['article', 'main', 'navigation', 'banner', 'contentinfo']);
 
-	// Helper function to check if an element directly contains inline content
-	// This helps prevent unwrapping divs that visually act as paragraphs.
 	function hasDirectInlineContent(el: Element): boolean {
 		for (const child of el.childNodes) {
-			// Check for non-empty text nodes
 			if (isTextNode(child) && child.textContent?.trim()) {
 				return true;
 			}
-			// Check for element nodes that are considered inline
 			if (isElement(child) && INLINE_ELEMENTS.has(child.nodeName.toLowerCase())) {
 				return true;
 			}
@@ -1540,255 +1537,190 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return false;
 	}
 
+	function hasOnlyBlockChildren(el: Element): boolean {
+		const children = el.children;
+		if (children.length === 0) return false;
+		for (let i = 0; i < children.length; i++) {
+			if (!BLOCK_LEVEL_ELEMENTS.has(children[i].tagName.toLowerCase())) return false;
+		}
+		return true;
+	}
+
+	function hasNoInlineChildren(el: Element): boolean {
+		const children = el.children;
+		if (children.length === 0) return false;
+		for (let i = 0; i < children.length; i++) {
+			if (INLINE_ELEMENTS.has(children[i].tagName.toLowerCase())) return false;
+		}
+		return true;
+	}
+
+	// Build a set of callout-related elements once so we avoid repeated el.closest()
+	const calloutContainers = new Set<Element>();
+	for (const root of element.querySelectorAll('[data-callout]')) {
+		calloutContainers.add(root);
+		for (const desc of root.querySelectorAll('*')) {
+			calloutContainers.add(desc);
+		}
+	}
+
 	const shouldPreserveElement = (el: Element): boolean => {
 		const tagName = el.tagName.toLowerCase();
 
-		// Preserve SVG elements and all their children
 		if (isSVGElement(el)) return true;
-
-		// Check if element should be preserved
 		if (PRESERVE_ELEMENTS.has(tagName)) return true;
+		if (calloutContainers.has(el)) return true;
 
-		// Preserve callout structure (div.callout[data-callout] and children)
-		if (el.getAttribute('data-callout') || el.closest?.('[data-callout]')) return true;
-
-		// Check for semantic roles
 		const role = el.getAttribute('role');
-		if (role && ['article', 'main', 'navigation', 'banner', 'contentinfo'].includes(role)) {
-			return true;
-		}
-		
-		// Check for semantic classes
+		if (role && SEMANTIC_ROLES.has(role)) return true;
+
 		const className = getClassName(el);
-		if (className && className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)) {
-			return true;
+		if (className && SEMANTIC_CONTENT_RE.test(className.toLowerCase())) return true;
+
+		for (let i = 0; i < el.children.length; i++) {
+			const child = el.children[i];
+			if (PRESERVE_ELEMENTS.has(child.tagName.toLowerCase())) return true;
+			if (child.getAttribute('role') === 'article') return true;
+			const childClass = getClassName(child);
+			if (childClass && SEMANTIC_CONTENT_RE.test(childClass.toLowerCase())) return true;
 		}
 
-		// Check if element contains mixed content types that should be preserved
-		const children = Array.from(el.children);
-		const hasPreservedElements = children.some(child => 
-			PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
-			child.getAttribute('role') === 'article' ||
-			!!getClassName(child) && getClassName(child).toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)
-		);
-		if (hasPreservedElements) return true;
-		
 		return false;
 	};
 
 	const isWrapperElement = (el: Element): boolean => {
-		// If it directly contains inline content, it's NOT a wrapper
-		if (hasDirectInlineContent(el)) {
-			return false;
-		}
-
-		// Check if it's just empty space
+		if (hasDirectInlineContent(el)) return false;
 		if (!el.textContent?.trim()) return true;
+		if (el.children.length === 0) return true;
+		if (hasOnlyBlockChildren(el)) return true;
 
-		// Check if it only contains other block elements
-		const children = Array.from(el.children);
-		if (children.length === 0) return true;
-		
-		// Check if all children are block elements
-		const allBlockElements = children.every(child => {
-			return BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase());
-		});
-		if (allBlockElements) return true;
+		const className = getClassName(el);
+		if (className && WRAPPER_CLASS_RE.test(className)) return true;
 
-		// Check for common wrapper patterns
-		const className = getClassName(el).toLowerCase();
-		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
-		if (isWrapper) return true;
+		// No non-empty text nodes → wrapper
+		let hasTextContent = false;
+		for (const child of el.childNodes) {
+			if (isTextNode(child) && child.textContent?.trim()) {
+				hasTextContent = true;
+				break;
+			}
+		}
+		if (!hasTextContent) return true;
 
-		// Check if it has excessive whitespace or empty text nodes
-		const textNodes = Array.from(el.childNodes).filter(node => 
-			isTextNode(node) && node.textContent?.trim()
-		);
-		if (textNodes.length === 0) return true;
-
-		// Check if it only contains block elements
-		const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
-			const tag = child.tagName.toLowerCase();
-			return INLINE_ELEMENTS.has(tag);
-		});
-		if (hasOnlyBlockElements) return true;
+		if (hasNoInlineChildren(el)) return true;
 
 		return false;
 	};
 
-	// Function to process a single element
-	const processElement = (el: Element): boolean => {
-		// Skip processing if element has been removed or should be preserved
+	const unwrap = (el: Element): void => {
+		const fragment = doc.createDocumentFragment();
+		while (el.firstChild) {
+			fragment.appendChild(el.firstChild);
+		}
+		el.replaceWith(fragment);
+		processedCount++;
+	};
+
+	const processElement = (el: Element, isTopLevel: boolean): boolean => {
 		if (!el.parentNode || shouldPreserveElement(el)) return false;
 		const tagName = el.tagName.toLowerCase();
 
-		// Case 1: Element is truly empty (no text content, no child elements) and not self-closing
+		// Empty element
 		if (!ALLOWED_EMPTY_ELEMENTS.has(tagName) && !el.children.length && !el.textContent?.trim()) {
 			el.remove();
 			processedCount++;
 			return true;
 		}
 
-		// Case 2: Top-level element - be more aggressive
-		if (el.parentElement === element) {
-			const children = Array.from(el.children);
-			const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
-				const tag = child.tagName.toLowerCase();
-				return INLINE_ELEMENTS.has(tag);
-			});
+		// Top-level: aggressive unwrap if only block children
+		if (isTopLevel && hasNoInlineChildren(el) && el.children.length > 0) {
+			unwrap(el);
+			return true;
+		}
 
-			if (hasOnlyBlockElements) {
-				const fragment = doc.createDocumentFragment();
+		// Wrapper element
+		if (isWrapperElement(el)) {
+			unwrap(el);
+			return true;
+		}
+
+		// Only inline/text content → convert to <p>
+		if (el.textContent?.trim()) {
+			let allInline = el.childNodes.length > 0;
+			for (const child of el.childNodes) {
+				if (isTextNode(child)) continue;
+				if (isElement(child) && INLINE_ELEMENTS.has(child.nodeName.toLowerCase())) continue;
+				allInline = false;
+				break;
+			}
+			if (allInline) {
+				const p = doc.createElement('p');
 				while (el.firstChild) {
-					fragment.appendChild(el.firstChild);
+					p.appendChild(el.firstChild);
 				}
-				el.replaceWith(fragment);
+				el.replaceWith(p);
 				processedCount++;
 				return true;
 			}
 		}
 
-		// Case 3: Wrapper element - merge up aggressively
-		if (isWrapperElement(el)) {
-			const fragment = doc.createDocumentFragment();
-			while (el.firstChild) {
-				fragment.appendChild(el.firstChild);
-			}
-			el.replaceWith(fragment);
-			processedCount++;
-			return true;
-		}
-
-		// Case 4: Element only contains text and/or inline elements - convert to paragraph
-		const childNodes = Array.from(el.childNodes);
-		const hasOnlyInlineOrText = childNodes.length > 0 && childNodes.every(child =>
-			(isTextNode(child)) ||
-			(isElement(child) && INLINE_ELEMENTS.has(child.nodeName.toLowerCase()))
-		);
-
-		if (hasOnlyInlineOrText && el.textContent?.trim()) { // Ensure there's actual content
-			const p = doc.createElement('p');
-			// Move all children (including inline tags like <font>) to the new <p>
-			while (el.firstChild) {
-				p.appendChild(el.firstChild);
-			}
-			el.replaceWith(p);
-			processedCount++;
-			return true;
-		}
-
-		// Case 5: Element has single child - unwrap only if child is block-level
+		// Single block child → unwrap
 		if (el.children.length === 1) {
 			const child = el.firstElementChild!;
-			const childTag = child.tagName.toLowerCase();
-			
-			// Only unwrap if the single child is a block element and not preserved
-			if (BLOCK_ELEMENTS_SET.has(childTag) && !shouldPreserveElement(child)) {
+			if (BLOCK_ELEMENTS_SET.has(child.tagName.toLowerCase()) && !shouldPreserveElement(child)) {
 				el.replaceWith(child);
 				processedCount++;
 				return true;
 			}
 		}
 
-		// Case 6: Deeply nested element - merge up
-		let nestingDepth = 0;
-		let parent = el.parentElement;
-		while (parent) {
-			const parentTag = parent.tagName.toLowerCase();
-			if (BLOCK_ELEMENTS_SET.has(parentTag)) {
-				nestingDepth++;
-			}
-			parent = parent.parentElement;
-		}
-
-		// Only unwrap if nested AND does not contain direct inline content
-		if (nestingDepth > 0 && !hasDirectInlineContent(el)) {
-			const fragment = doc.createDocumentFragment();
-			while (el.firstChild) {
-				fragment.appendChild(el.firstChild);
-			}
-			el.replaceWith(fragment);
-			processedCount++;
+		// Nested non-inline → unwrap
+		if (!hasDirectInlineContent(el) && el.parentElement !== element) {
+			unwrap(el);
 			return true;
 		}
 
 		return false;
 	};
 
-	// First pass: Process top-level wrapper elements
-	const processTopLevelElements = () => {
-		const topElements = Array.from(element.children).filter(
-			el => BLOCK_ELEMENTS_SET.has(el.tagName.toLowerCase())
-		);
-		
-		let modified = false;
-		topElements.forEach(el => {
-			if (processElement(el)) {
-				modified = true;
-			}
-		});
-		return modified;
-	};
+	// Collect all block elements once and compute depths in a single pass
+	const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
+	const depths = new Map<Element, number>();
+	for (const el of allElements) {
+		let depth = 0;
+		let parent = el.parentElement;
+		while (parent && parent !== element) {
+			if (BLOCK_ELEMENTS_SET.has(parent.tagName.toLowerCase())) depth++;
+			parent = parent.parentElement;
+		}
+		depths.set(el, depth);
+	}
 
-	// Second pass: Process remaining wrapper elements from deepest to shallowest
-	const processRemainingElements = () => {
-		// Get all wrapper elements
-		const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR))
-			.sort((a, b) => {
-				// Count nesting depth
-				const getDepth = (el: Element): number => {
-					let depth = 0;
-					let parent = el.parentElement;
-					while (parent) {
-						const parentTag = parent.tagName.toLowerCase();
-						if (BLOCK_ELEMENTS_SET.has(parentTag)) depth++;
-						parent = parent.parentElement;
-					}
-					return depth;
-				};
-				return getDepth(b) - getDepth(a); // Process deepest first
-			});
+	// Sort deepest-first using cached depths
+	allElements.sort((a, b) => (depths.get(b) || 0) - (depths.get(a) || 0));
 
-		let modified = false;
-		allElements.forEach(el => {
-			if (processElement(el)) {
-				modified = true;
-			}
-		});
-		return modified;
-	};
+	// Single bottom-up pass: process deepest elements first.
+	// When a deep wrapper is unwrapped, its parent (processed later) sees
+	// the promoted children — no need to re-query or loop.
+	for (const el of allElements) {
+		if (!el.parentNode) continue;
+		const isTopLevel = el.parentElement === element;
+		processElement(el, isTopLevel);
+	}
 
-	// Final cleanup pass - aggressively flatten remaining wrapper elements
-	const finalCleanup = () => {
-		const remainingElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
-		let modified = false;
-		
-		remainingElements.forEach(el => {
-			// Check if element only contains paragraphs
-			const children = Array.from(el.children);
-			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
-			
-			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper element
-			if (onlyParagraphs || (!shouldPreserveElement(el) && isWrapperElement(el))) {
-				const fragment = doc.createDocumentFragment();
-				while (el.firstChild) {
-					fragment.appendChild(el.firstChild);
-				}
-				el.replaceWith(fragment);
-				processedCount++;
-				modified = true;
-			}
-		});
-		return modified;
-	};
-
-	// Execute all passes until no more changes
-	do {
-		keepProcessing = false;
-		if (processTopLevelElements()) keepProcessing = true;
-		if (processRemainingElements()) keepProcessing = true;
-		if (finalCleanup()) keepProcessing = true;
-	} while (keepProcessing);
+	// Final cleanup: catch elements that became only-paragraph wrappers
+	// after the main pass promoted their children to <p> tags.
+	for (const el of element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR)) {
+		if (!el.parentNode || shouldPreserveElement(el)) continue;
+		const children = el.children;
+		let allP = children.length > 0;
+		for (let i = 0; i < children.length; i++) {
+			if (children[i].tagName.toLowerCase() !== 'p') { allP = false; break; }
+		}
+		if (allP || isWrapperElement(el)) {
+			unwrap(el);
+		}
+	}
 
 	const endTime = Date.now();
 	logDebug(_debug, 'Flattened wrapper elements:', {
