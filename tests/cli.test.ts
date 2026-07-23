@@ -105,4 +105,37 @@ describe('CLI parseSource', () => {
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
 	});
+
+	test('registers the --extractor flag as a repeatable string array', () => {
+		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
+		const option = parseCommand?.options.find((o) => o.long === '--extractor');
+
+		expect(option).toBeDefined();
+		expect(option?.attributeName()).toBe('extractor');
+		// commander invokes the collector with the default starting empty array
+		expect(option?.defaultValue).toEqual([]);
+	});
+
+	test('--extractor loads the supplied module and registers it with ExtractorRegistry', async () => {
+		const { ExtractorRegistry } = await import('../src/extractor-registry');
+		const fixturePath = join(__dirname, 'fixtures', 'cli-extractor-custom.mjs');
+
+		const before = (ExtractorRegistry as unknown as { mappings: unknown[] }).mappings.length;
+
+		// parseSource runs loadExtractor early. The fixture's patterns don't match
+		// the stdin (no URL) so the registered extractor isn't used for parsing —
+		// we only assert registration happened.
+		await parseSource(undefined, { extractor: [fixturePath] }, createMockStdin(fixtureHtml));
+
+		const after = (ExtractorRegistry as unknown as { mappings: unknown[] }).mappings.length;
+		expect(after).toBe(before + 1);
+	});
+
+	test('--extractor rejects modules that do not default-export the expected shape', async () => {
+		const fixturePath = join(__dirname, 'fixtures', 'cli-extractor-malformed.mjs');
+
+		await expect(
+			parseSource(undefined, { extractor: [fixturePath] }, createMockStdin(fixtureHtml))
+		).rejects.toThrow(/must default-export/);
+	});
 });
