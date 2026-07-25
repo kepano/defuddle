@@ -26,6 +26,7 @@ import { MediumExtractor } from './extractors/medium';
 import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
 import { MastodonExtractor } from './extractors/mastodon';
+import { GmailExtractor } from './extractors/gmail';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -63,6 +64,13 @@ export class ExtractorRegistry {
 				'twitter.com',
 			],
 			extractor: XOembedExtractor
+		});
+
+		this.register({
+			patterns: [
+				'mail.google.com',
+			],
+			extractor: GmailExtractor
 		});
 
 		this.register({
