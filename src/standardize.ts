@@ -1191,6 +1191,8 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					// 1. Next content starts with punctuation or closing parenthesis
 					// 2. Current content ends with punctuation or opening parenthesis
 					// 3. There's already a space
+					// 4. Current is a <strong> tag and BOTH sides are word characters
+					//    This avoids inserting spaces inside words split across inline tags for styling
 					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
 					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
 					
@@ -1199,10 +1201,20 @@ function removeEmptyLines(element: Element, doc: Document): void {
 									(isTextNode(next) && 
 									(next.textContent || '').startsWith(' '));
 					
+					// Check word-character boundaries at strong element boundaries
+					// Avoids inserting spaces inside words split across styling tags
+					const currentLastIsAlnum = currentContent.match(/[\p{L}\p{N}]$/u);
+					const nextFirstIsAlnum = nextContent.match(/^[\p{L}\p{N}]/u);
+					const skipForStrongBoundary = (currentLastIsAlnum && nextFirstIsAlnum) && (
+						(isElement(current) && current.tagName.toLowerCase() === 'strong') ||
+						(isElement(next) && next.tagName.toLowerCase() === 'strong')
+					);
+					
 					// Only add space if none of the above conditions are true
 					if (!nextStartsWithPunctuation && 
 						!currentEndsWithPunctuation && 
-						!hasSpace) {
+						!hasSpace &&
+						!skipForStrongBoundary) {
 						const space = doc.createTextNode(' ');
 						node.insertBefore(space, next);
 					}
