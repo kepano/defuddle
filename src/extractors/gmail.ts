@@ -97,14 +97,22 @@ export class GmailExtractor extends BaseExtractor {
 			|| '';
 	}
 
-	// Best-effort ISO date for the `published` variable. The .g3 title is locale
+	// Best-effort YYYY-MM-DD for the `published` variable. The .g3 title is locale
 	// formatted, so parsing can fail in non-English UIs — return '' rather than
 	// an invalid date in that case.
+	//
+	// Formatted from the local calendar parts, not via toISOString(): the title
+	// carries no timezone, so it parses as local time, and converting to UTC would
+	// roll an evening timestamp into the next day for anyone west of Greenwich
+	// ("May 13, 2026, 11:02 PM" in New York became 2026-05-14). The date Gmail
+	// rendered is the date the reader saw, so the local one is the right answer.
 	private toIsoDate(date?: string): string {
 		if (!date) return '';
 		const parsed = new Date(date);
 		if (isNaN(parsed.getTime())) return '';
-		return parsed.toISOString().split('T')[0];
+		const month = String(parsed.getMonth() + 1).padStart(2, '0');
+		const day = String(parsed.getDate()).padStart(2, '0');
+		return `${parsed.getFullYear()}-${month}-${day}`;
 	}
 
 	// Everything that is not message text. Removed in a single pass: querySelectorAll
