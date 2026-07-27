@@ -318,6 +318,7 @@ class FootnoteHandler {
 			this.tryLabeledSection,
 			this.tryLooseFootnotes,
 			this.tryClassFootnote,
+			this.tryBrSeparatedFootnotes,
 		];
 		for (const fallback of fallbacks) {
 			if (state.count > 1) break;
@@ -583,6 +584,83 @@ class FootnoteHandler {
 			this.pendingRemovals.push(container);
 			break;
 		}
+	}
+
+	// Several definitions packed into one block and separated by <br>, each segment
+	// opening with a named anchor:
+	//   <p><a name="one"><sup>1</sup></a> text… ↩<br><br><a name="two">…</p>
+	// Anchor names must be targeted by inline numeric links, so ordinary <br>-separated
+	// prose is not mistaken for footnotes.
+	private tryBrSeparatedFootnotes(element: any, state: CollectState): void {
+		const linkedFragments = new Set<string>();
+		element.querySelectorAll('a[href^="#"]').forEach((a: any) => {
+			if (FOOTNOTE_MARKER_RE.test(a.textContent?.trim() || '')) {
+				const fragment = getHrefFragment(a);
+				if (fragment) linkedFragments.add(fragment);
+			}
+		});
+		if (linkedFragments.size < 2) return;
+
+		for (const block of Array.from(element.querySelectorAll('p, div')) as any[]) {
+			if (!block.querySelector('br')) continue;
+
+			const defs: Array<{ id: string; nodes: any[] }> = [];
+			for (const nodes of this.splitOnBreaks(block)) {
+				const anchor = this.leadingAnchor(nodes);
+				if (!anchor) continue;
+				const id = (anchor.getAttribute('name') || anchor.id || '').toLowerCase();
+				if (!id || !linkedFragments.has(id)) continue;
+				defs.push({ id, nodes: nodes.filter((n: any) => n !== anchor) });
+			}
+
+			if (defs.length < 2) continue;
+
+			defs.forEach(({ id, nodes }) => {
+				const contentDiv = element.ownerDocument.createElement('div');
+				nodes.forEach((node: any) => contentDiv.appendChild(node.cloneNode(true)));
+				this.removeBackrefs(contentDiv);
+				this.trimLeadingWhitespace(contentDiv);
+				this.addFootnote(state, id, contentDiv);
+			});
+
+			this.pendingRemovals.push(block);
+			// Drop the divider that set the block off from the article body
+			const prev = block.previousElementSibling;
+			if (prev?.tagName.toLowerCase() === 'hr') this.pendingRemovals.push(prev);
+			return;
+		}
+	}
+
+	// Child nodes grouped into runs delimited by <br>. Consecutive breaks yield no
+	// empty runs, so <br><br> reads as a single separator.
+	private splitOnBreaks(block: any): any[][] {
+		const segments: any[][] = [];
+		let current: any[] = [];
+		for (const node of Array.from(block.childNodes) as any[]) {
+			if (isElement(node) && node.tagName.toLowerCase() === 'br') {
+				if (current.length) segments.push(current);
+				current = [];
+			} else {
+				current.push(node);
+			}
+		}
+		if (current.length) segments.push(current);
+		return segments;
+	}
+
+	// The anchor a segment opens with, ignoring leading whitespace. Returns null if
+	// the segment starts with text or any other element.
+	private leadingAnchor(nodes: any[]): any {
+		for (const node of nodes) {
+			if (isTextNode(node)) {
+				if (node.textContent?.trim()) return null;
+				continue;
+			}
+			if (!isElement(node)) continue;
+			if (node.tagName.toLowerCase() !== 'a') return null;
+			return node.hasAttribute('name') || node.id ? node : null;
+		}
+		return null;
 	}
 
 	// Section definitions as numbered paragraphs: <p><sup>N</sup> content…</p>,
