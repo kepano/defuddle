@@ -11,9 +11,9 @@
 
 I have heard that on one occasion the Blessed One was staying near Sāvatthī in the Eastern Monastery, the palace of Migāra’s mother.
 
-Then Sakka the deva-king went to the Blessed One and, on arrival, having bowed down to him, stood to one side. As he was standing there, he said to the Blessed One, “Briefly, lord, in what respect is a monk released through the ending of craving, utterly complete, utterly free from bonds, a follower of the utterly holy life, utterly consummate: foremost among devas & human beings?” [^1]
+Then Sakka the deva-king went to the Blessed One and, on arrival, having bowed down to him, stood to one side. As he was standing there, he said to the Blessed One, “Briefly, lord, in what respect is a monk released through the ending of craving, utterly complete, utterly free from bonds, a follower of the utterly holy life, utterly consummate: foremost among devas & human beings?”[^1]
 
-“There is the case, deva-king, where a monk has heard, ‘All dhammas are unworthy of adherence.’ [^2] Having heard that all dhammas are unworthy of adherence, he directly knows every dhamma. Directly knowing every dhamma, he comprehends every dhamma. Comprehending every dhamma, then whatever feeling he experiences—pleasure, pain, neither pleasure nor pain—he remains focused on inconstancy, focused on dispassion, focused on cessation, focused on relinquishing with regard to that feeling.[^3] As he remains focused on inconstancy, focused on dispassion, focused on cessation, focused on relinquishing with regard to that feeling, he is unsustained by \[doesn’t cling to\] anything in the world. Unsustained, he isn’t agitated. Unagitated, he totally unbinds right within. He discerns: ‘Birth is ended, the holy life fulfilled, the task done. There is nothing further for this world.’
+“There is the case, deva-king, where a monk has heard, ‘All dhammas are unworthy of adherence.’[^2] Having heard that all dhammas are unworthy of adherence, he directly knows every dhamma. Directly knowing every dhamma, he comprehends every dhamma. Comprehending every dhamma, then whatever feeling he experiences—pleasure, pain, neither pleasure nor pain—he remains focused on inconstancy, focused on dispassion, focused on cessation, focused on relinquishing with regard to that feeling.[^3] As he remains focused on inconstancy, focused on dispassion, focused on cessation, focused on relinquishing with regard to that feeling, he is unsustained by \[doesn’t cling to\] anything in the world. Unsustained, he isn’t agitated. Unagitated, he totally unbinds right within. He discerns: ‘Birth is ended, the holy life fulfilled, the task done. There is nothing further for this world.’
 
 “It’s in this respect, deva-king, that a monk, in brief, is released through the ending of craving, utterly complete, utterly free from bonds, a follower of the utterly holy life, utterly consummate: foremost among devas & human beings.”
 
@@ -59,7 +59,7 @@ Then Ven. Mahā Moggallāna, delighting in & approving of Sakka the deva-king’
 
 Then not long after Ven. Mahā Moggallāna had left, the handmaids of Sakka the deva-king said to him, “Dear sir, is that Blessed One your teacher?”
 
-“No, that Blessed One isn’t my teacher. That is Ven. Mahā Moggallāna, my fellow in the holy life.” [^7]
+“No, that Blessed One isn’t my teacher. That is Ven. Mahā Moggallāna, my fellow in the holy life.”[^7]
 
 “It’s a gain for you, dear sir, a great gain for you, dear sir, in that you have a fellow in the holy life of such great power, such great might! How much more so will the Blessed One, your teacher be!”
 

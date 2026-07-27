@@ -9,7 +9,7 @@
 
 ## Example post with a footnote
 
-Example bit-shift analysis: a common simplification is to replace `x & ~0` with `x` [^1]. Other paragraph content follows that explains the broader idea in more detail.
+Example bit-shift analysis: a common simplification is to replace `x & ~0` with `x`[^1]. Other paragraph content follows that explains the broader idea in more detail.
 
 This is an additional paragraph with more prose to give the post enough weight for the content detection scoring. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
 

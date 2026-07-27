@@ -1136,6 +1136,14 @@ function moveWhitespaceOutside(node: Element, doc: Document, direction: 'leading
 	return 1;
 }
 
+// Standardized footnote reference (<sup id="fnref:N">) produced by standardizeFootnotes,
+// which runs earlier in the pipeline. These markers attach to the preceding word.
+function isFootnoteRef(node: Node): boolean {
+	return isElement(node) &&
+		(node as Element).tagName.toLowerCase() === 'sup' &&
+		((node as Element).getAttribute('id') || '').startsWith('fnref:');
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
@@ -1241,20 +1249,23 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					const currentContent = current.textContent || '';
 					
 					// Don't add space if:
-					// 1. Next content starts with punctuation or closing parenthesis
-					// 2. Current content ends with punctuation or opening parenthesis
-					// 3. There's already a space
+					// 1. Next is a footnote reference — markers hug the preceding word
+					// 2. Next content starts with punctuation or closing parenthesis
+					// 3. Current content ends with punctuation or opening parenthesis
+					// 4. There's already a space
+					const nextIsFootnoteRef = isFootnoteRef(next);
 					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
 					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
-					
-					const hasSpace = (isTextNode(current) && 
+
+					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
-									(isTextNode(next) && 
+									(isTextNode(next) &&
 									(next.textContent || '').startsWith(' '));
-					
+
 					// Only add space if none of the above conditions are true
-					if (!nextStartsWithPunctuation && 
-						!currentEndsWithPunctuation && 
+					if (!nextIsFootnoteRef &&
+						!nextStartsWithPunctuation &&
+						!currentEndsWithPunctuation &&
 						!hasSpace) {
 						const space = doc.createTextNode(' ');
 						node.insertBefore(space, next);
