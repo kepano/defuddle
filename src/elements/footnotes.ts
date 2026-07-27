@@ -801,9 +801,11 @@ class FootnoteHandler {
 				break;
 			}
 		}
+		// Trim whitespace left where the backref was. Punctuation is kept — a lone "."
+		// before the backref ends the footnote's last sentence, it isn't residue.
 		while (el.lastChild && el.lastChild.nodeType === 3) {
 			const text = el.lastChild.textContent;
-			if (/^[\s,.;]*$/.test(text)) {
+			if (/^\s*$/.test(text)) {
 				el.lastChild.remove();
 			} else {
 				break;

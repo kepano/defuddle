@@ -15,4 +15,4 @@ This is an additional paragraph with more prose to give the post enough weight f
 
 Thanks to everyone for reading. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
 
-[^1]: Possibly with masking of the top bit if our IR semantics have defined wrapping/truncation behavior: `x & 0x7fff..ffff`
+[^1]: Possibly with masking of the top bit if our IR semantics have defined wrapping/truncation behavior: `x & 0x7fff..ffff`.
