@@ -576,36 +576,62 @@ class FootnoteHandler {
 			const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
 			if (!heading || !FOOTNOTE_SECTION_RE.test(heading.textContent?.trim() || '')) continue;
 
-			const paragraphs: Array<{num: number; el: any}> = [];
-			container.querySelectorAll('p').forEach((p: any) => {
-				const num = this.parseFootnoteNum(p);
-				if (num !== null) paragraphs.push({ num, el: p });
-			});
-
-			if (paragraphs.length === 0) continue;
-
-			const numberedSet = new Set(paragraphs.map(p => p.el));
-			for (let i = 0; i < paragraphs.length; i++) {
-				const { num, el: defPara } = paragraphs[i];
-				const contentDiv = this.stripMarkerAndWrap(defPara);
-
-				// Collect subsequent siblings until the next numbered paragraph
-				let sibling = defPara.nextElementSibling;
-				while (sibling && !numberedSet.has(sibling)) {
-					if (sibling.textContent?.trim()) {
-						contentDiv.appendChild(sibling.cloneNode(true));
-					}
-					this.pendingRemovals.push(sibling);
-					sibling = sibling.nextElementSibling;
-				}
-
-				this.addFootnote(state, String(num), contentDiv);
-				this.pendingRemovals.push(defPara);
-			}
+			// Definitions are either numbered paragraphs or an ordered list.
+			if (!this.collectSectionParagraphs(container, state)
+				&& !this.collectSectionList(container, state)) continue;
 
 			this.pendingRemovals.push(container);
 			break;
 		}
+	}
+
+	// Section definitions as numbered paragraphs: <p><sup>N</sup> content…</p>,
+	// with any following unnumbered siblings folded into the same footnote.
+	private collectSectionParagraphs(container: any, state: CollectState): boolean {
+		const paragraphs: Array<{num: number; el: any}> = [];
+		container.querySelectorAll('p').forEach((p: any) => {
+			const num = this.parseFootnoteNum(p);
+			if (num !== null) paragraphs.push({ num, el: p });
+		});
+
+		if (paragraphs.length === 0) return false;
+
+		const numberedSet = new Set(paragraphs.map(p => p.el));
+		for (const { num, el: defPara } of paragraphs) {
+			const contentDiv = this.stripMarkerAndWrap(defPara);
+
+			// Collect subsequent siblings until the next numbered paragraph
+			let sibling = defPara.nextElementSibling;
+			while (sibling && !numberedSet.has(sibling)) {
+				if (sibling.textContent?.trim()) {
+					contentDiv.appendChild(sibling.cloneNode(true));
+				}
+				this.pendingRemovals.push(sibling);
+				sibling = sibling.nextElementSibling;
+			}
+
+			this.addFootnote(state, String(num), contentDiv);
+			this.pendingRemovals.push(defPara);
+		}
+
+		return true;
+	}
+
+	// Section definitions as an ordered list, e.g. <h4>Footnotes</h4><ol><li id="footnote-1">…</li></ol>.
+	// Items are numbered by position; the item id is kept so href-based inline refs still match.
+	private collectSectionList(container: any, state: CollectState): boolean {
+		const list = container.querySelector('ol');
+		if (!list) return false;
+
+		const items = (Array.from(list.children) as any[])
+			.filter((el: any) => el.tagName?.toLowerCase() === 'li');
+		if (items.length === 0) return false;
+
+		items.forEach((li: any, index: number) => {
+			this.addFootnote(state, li.id?.toLowerCase() || String(index + 1), li.cloneNode(true));
+		});
+
+		return true;
 	}
 
 	private trimLeadingWhitespace(parent: any): void {
