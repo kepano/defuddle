@@ -29,10 +29,7 @@ Welcome to my blog. I write about economics, politics, and whatever else catches
 >   
 > And so the lesson ends. Next week, perhaps, some reflections on why it is that people do not support certain ambitious reform projects. Mind how you go.  
 >   
-> 
 > ---
 > 
->   
->   
 > <sup>1</sup> We also learned that the distinction between making a single false claim and creating a false impression without correcting it is not one you should rely upon to keep you out of trouble.  
 > [18 comments](https://www.example.com/comments/post/12345) this item posted by the management [5/27/2004 11:57:00 PM](http://blog.example.com/2004/05/one-minute-guide.html)
