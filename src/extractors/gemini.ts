@@ -1,6 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 
 export class GeminiExtractor extends ConversationExtractor {
 	private conversationContainers: NodeListOf<Element> | null;
@@ -84,7 +84,7 @@ export class GeminiExtractor extends ConversationExtractor {
 					if (url && (domain || title)) {
 						this.footnotes.push({
 							url,
-							text: title ? `${domain}: ${title}` : domain
+							text: escapeHtml(title ? `${domain}: ${title}` : domain)
 						});
 					}
 				}

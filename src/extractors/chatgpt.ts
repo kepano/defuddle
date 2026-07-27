@@ -1,6 +1,6 @@
 import { ConversationExtractor } from './_conversation';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
 	private turns: NodeListOf<Element> | null;
@@ -104,7 +104,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					footnoteNumber = this.footnoteCounter;
 					this.footnotes.push({
 						url,
-						text: `<a href="${url}">${domain}</a>${fragmentText}`
+						text: `<a href="${escapeHtml(url)}">${escapeHtml(domain)}</a>${escapeHtml(fragmentText)}`
 					});
 				} else {
 					footnoteNumber = footnoteIndex + 1;
