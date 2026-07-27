@@ -70,10 +70,10 @@ describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
 // data-* attributes, and footnote URLs. Per CLAUDE.md every one of those must
 // be escaped at the point of interpolation.
 //
-// End-to-end this is currently masked: extract() re-parses the result through a
+// End-to-end this is currently masked. extract() re-parses the result through a
 // nested Defuddle pass whose attribute strip removes anything injected. That
-// backstop is not the guarantee — it can be reordered or bypassed by a future
-// caller — so the property is asserted here, on the markup the method emits.
+// backstop is not the guarantee (it can be reordered or bypassed by a future
+// caller), so the property is asserted here, on the markup the method emits.
 describe('ConversationExtractor markup escaping', () => {
 	// Minimal concrete subclass: createContentHtml is protected and takes its
 	// inputs directly, so no DOM is needed to exercise it.

@@ -503,13 +503,13 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 					attrValue === 'footnote-backref' ||
 					/^callout(?:-|$)/.test(attrValue)
 				)) ||
-				// Marks the extractor output wrapper; emitted by buildContentHtml.
+				// Marks the extractor output wrapper (emitted by buildContentHtml).
 				(extractorOutput && attrName === 'data-defuddle')
 			) {
 				return;
 			}
 
-			// Extractor markup classes survive; the page-authored classes sitting
+			// Extractor markup classes survive. The page-authored classes sitting
 			// next to them in the same attribute do not. Skipped in debug mode,
 			// which keeps every class so the structure stays inspectable.
 			if (extractorOutput && !debug && attrName === 'class') {

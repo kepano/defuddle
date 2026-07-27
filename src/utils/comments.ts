@@ -42,7 +42,7 @@ export interface QuotedPostData {
  *
  * Typed as a union rather than `string` so that adding an extractor is a compile
  * error until the token is listed here. That matters because isExtractorClass()
- * below is what keeps these classes alive through the attribute strip — a site
+ * below is what keeps these classes alive through the attribute strip. A site
  * that could pass any string would silently lose its wrapper class instead.
  */
 export const SITE_TOKENS = [
@@ -74,7 +74,7 @@ const EXTRACTOR_CLASS_TOKEN = /^(?:comments?|posts?|quoted-post|x-article)(?:-[\
 
 /**
  * Is this class token extractor-authored markup rather than something copied off
- * the page? Used by the attribute strip to decide what survives — obsidian-clipper's
+ * the page? Used by the attribute strip to decide what survives. obsidian-clipper's
  * reader keys its per-author colors, collapse buttons, and thread tracing off
  * .comments / .comment / .comment-author / .comment-metadata.
  *

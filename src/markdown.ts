@@ -107,12 +107,12 @@ function getBestImageSrc(node: GenericElement): string {
 	return node.getAttribute('src') || '';
 }
 
-// A run of blockquote lines carrying nothing but their `>` markers and whitespace —
+// A run of blockquote lines carrying nothing but their `>` markers and whitespace,
 // including the trailing-space hard break Turndown emits for a paragraph whose only
-// content is a <br>. Rendered, these are indistinguishable from empty lines. The
-// blockquote counterpart to collapsing three-or-more newlines: keep the first line of
-// each run and drop the rest, leaving the survivor byte-for-byte as it was so quote
-// depth is never rewritten.
+// content is a <br>. Rendered, these are indistinguishable from empty lines. This is
+// the blockquote counterpart to collapsing three-or-more newlines. It keeps the first
+// line of each run and drops the rest, leaving the survivor byte-for-byte as it was so
+// quote depth is never rewritten.
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
 export function createMarkdownContent(content: string, url: string) {
@@ -970,9 +970,9 @@ export function createMarkdownContent(content: string, url: string) {
 		// Remove any consecutive newlines more than two
 		markdown = markdown.replace(/\n{3,}/g, '\n\n');
 
-		// Collapse runs of blank blockquote lines. The rule above cannot see these —
-		// the lines carry `>` markers, so they are not empty — but they render as the
-		// same stack of blank lines. Quoted email threads hit this hard: every
+		// Collapse runs of blank blockquote lines. The rule above cannot see these,
+		// because the lines carry `>` markers and so are not empty, but they render
+		// as the same stack of blank lines. Quoted email threads hit this hard. Every
 		// paragraph break arrives as its own <div><br></div>, which becomes a `>` line
 		// holding a lone hard break between two `>` lines holding nothing.
 		markdown = markdown.replace(BLANK_QUOTE_LINE_RUN, '$1');

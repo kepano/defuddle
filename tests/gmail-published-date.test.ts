@@ -12,7 +12,7 @@ import { parseDocument } from './helpers';
 
 const GMAIL_URL = 'https://mail.google.com/mail/u/0/#inbox/thread-f:1';
 
-// 11:02 PM — late enough that a UTC conversion lands on the next day for any
+// 11:02 PM is late enough that a UTC conversion lands on the next day for any
 // negative offset, and early enough that it stays put for positive ones.
 const SENT_AT = 'May 13, 2026, 11:02 PM';
 
@@ -58,7 +58,7 @@ describe('Gmail published date', () => {
 	});
 
 	test('is empty when the locale-formatted title cannot be parsed', () => {
-		// Non-English Gmail UIs render titles this parser cannot read; an empty
+		// Non-English Gmail UIs render titles this parser cannot read. An empty
 		// value is better than a wrong one.
 		expect(publishedIn('UTC', '2026年5月13日 23:02')).toBe('');
 	});

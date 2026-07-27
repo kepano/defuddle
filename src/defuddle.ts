@@ -1729,7 +1729,7 @@ export class Defuddle {
 	 *
 	 * Extractors lift message and comment bodies straight out of the page, so the
 	 * result also needs the cleanup the main pipeline gets from standardizeContent
-	 * — attribute stripping and empty-spacer removal. standardizeExtractorOutput
+	 * (attribute stripping and empty-spacer removal). standardizeExtractorOutput
 	 * applies the subset of those steps that fits already-built markup.
 	 *
 	 * It runs after the passes above so they still see `href`/`src`/`srcdoc` intact,

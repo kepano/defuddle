@@ -56,7 +56,7 @@ describe('extractor output attributes', () => {
 		for (const cls of ['comment', 'comment-metadata', 'comment-author', 'comment-content']) {
 			expect(content).toContain(`class="${cls}"`);
 		}
-		// The site identifier travels with the marker; both survive.
+		// The site identifier travels with the marker, and both survive.
 		expect(content).toContain('class="gmail comments"');
 		expect(content).toContain('data-defuddle');
 	});
@@ -128,7 +128,7 @@ describe('site wrapper classes', () => {
 	});
 
 	// `post` and `comments` are ordinary CMS class names, and extractor bodies are
-	// lifted verbatim from the page — so matching on the marker word alone would let
+	// lifted verbatim from the page, so matching on the marker word alone would let
 	// a page div keep all of its classes. Only the enumerated site tokens qualify.
 	test('does not let page markup borrow the wrapper markers', () => {
 		expect(content).toContain('Page markup using the marker word.');
@@ -139,7 +139,7 @@ describe('site wrapper classes', () => {
 
 // Guards the tokens no fixture happens to exercise. These are emitted by
 // hackernews.ts (post-text), buildQuotedPost (quoted-post), and x-article.ts /
-// x-oembed.ts (x-article) — if the allowlist stops matching them, the classes
+// x-oembed.ts (x-article). If the allowlist stops matching them, the classes
 // vanish silently and no other test notices.
 describe('isExtractorClass', () => {
 	test('accepts every class the extractors emit', () => {

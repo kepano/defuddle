@@ -67,8 +67,8 @@ export abstract class ConversationExtractor extends BaseExtractor {
 			const contentHtml = hasParagraphs ? message.content : `<p>${message.content}</p>`;
 
 			// Add metadata to data attributes. The key becomes part of an attribute
-			// name, where escaping does not apply — a key with a space or a quote
-			// would start a new attribute — so restrict it to the characters a name
+			// name, where escaping does not apply. A key holding a space or a quote
+			// would start a new attribute, so restrict it to the characters a name
 			// can hold and drop anything else.
 			const dataAttributes = message.metadata ?
 				Object.entries(message.metadata)
@@ -89,7 +89,7 @@ export abstract class ConversationExtractor extends BaseExtractor {
 		}).join('\n').trim();
 
 		// Add footnotes section if we have any. `footnote.text` is raw HTML by
-		// contract — subclasses build a full <a> into it — so it is escaped at each
+		// contract (subclasses build a full <a> into it), so it is escaped at each
 		// construction site instead of here.
 		const footnotesHtml = footnotes.length > 0 ? `
 			<div id="footnotes">
