@@ -6,6 +6,7 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export const DEFAULT_UA = 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)';
 export const BOT_UA = DEFAULT_UA + ' bot';
+export const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
 // Domains that serve better content to bot user agents (e.g. SSR vs client-rendered)
 export const BOT_UA_DOMAINS = ['github.com'];
@@ -57,6 +58,12 @@ function validateAndDecode(contentType: string, contentLength: string | null | u
 		throw new Error(`Page too large (${Math.round(buffer.byteLength / 1024 / 1024)}MB, max 5MB)`);
 	}
 	return decodeHtml(buffer, contentType);
+}
+
+class HttpError extends Error {
+	constructor(readonly status: number, message: string) {
+		super(message);
+	}
 }
 
 // Raw HTTP(S) GET through a proxy, returning status + headers + body buffer.
@@ -180,7 +187,7 @@ async function fetchPageViaProxy(
 	}
 
 	if (status < 200 || status >= 300) {
-		throw new Error(`Failed to fetch: ${status}`);
+		throw new HttpError(status, `Failed to fetch: ${status}`);
 	}
 	const contentType = (resHeaders['content-type'] as string) || '';
 	const contentLength = resHeaders['content-length'] as string | undefined;
@@ -213,7 +220,7 @@ export async function fetchPage(targetUrl: string, userAgent: string, language?:
 		});
 
 		if (!response.ok) {
-			throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+			throw new HttpError(response.status, `Failed to fetch: ${response.status} ${response.statusText}`);
 		}
 
 		const contentType = response.headers.get('content-type') || '';
@@ -237,6 +244,17 @@ export async function fetchPage(targetUrl: string, userAgent: string, language?:
 		throw err;
 	} finally {
 		clearTimeout(timer);
+	}
+}
+
+export async function fetchPageWithRetry(targetUrl: string, userAgent: string, language?: string): Promise<string> {
+	try {
+		return await fetchPage(targetUrl, userAgent, language);
+	} catch (error) {
+		if (!(error instanceof HttpError) || error.status !== 403 || userAgent === BROWSER_UA) {
+			throw error;
+		}
+		return fetchPage(targetUrl, BROWSER_UA, language);
 	}
 }
 
