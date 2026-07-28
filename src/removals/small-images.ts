@@ -139,7 +139,9 @@ export function removeSmallImages(doc: Document, smallImages: Set<string>, debug
 					element.getAttribute('data-src') ||
 					element.getAttribute('data-srcset') ||
 					element.getAttribute('data-lazy-src') ||
-					element.getAttribute('data-original');
+					element.getAttribute('data-original') ||
+					element.getAttribute('data-actualsrc') ||
+					element.getAttribute('data-backup');
 				if (!src && !hasAltSrc) {
 					element.remove();
 					removedCount++;

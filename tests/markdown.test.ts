@@ -92,6 +92,22 @@ describe('Markdown conversion', () => {
 		});
 	});
 
+	describe('lazy-loaded images', () => {
+		test.each([
+			'data-original',
+			'data-lazy-src',
+			'data-actualsrc',
+			'data-backup',
+		])('should promote %s when src is a placeholder', async (attribute) => {
+			const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${placeholder}" ${attribute}="/images/a.jpg" alt="A"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com/articles/post'), 'https://example.com/articles/post', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain('![A](https://example.com/images/a.jpg)');
+			expect(result.contentMarkdown).not.toContain('data:image');
+		});
+	});
+
 	describe('wbr tag handling', () => {
 		test('should remove wbr tags without adding spaces', async () => {
 			const html = `<html><head><title>Test</title></head><body><article><p>Super<wbr>cali<wbr>fragilistic</p></article></body></html>`;
