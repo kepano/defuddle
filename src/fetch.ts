@@ -184,7 +184,7 @@ async function fetchPageViaProxy(
 	}
 	const contentType = (resHeaders['content-type'] as string) || '';
 	const contentLength = resHeaders['content-length'] as string | undefined;
-	const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+	const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
 	return validateAndDecode(contentType, contentLength, ab);
 }
 
