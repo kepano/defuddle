@@ -108,6 +108,23 @@ describe('Markdown conversion', () => {
 		});
 	});
 
+	describe('github code language detection', () => {
+		test('should detect shell language from highlight-source-shell wrapper on non-GitHub pages', async () => {
+			const html = `<html><head><title>Test</title></head><body><article>
+				<div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto"><pre>git clone https://github.com/laiso/site2pdf.git
+cd site2pdf
+npm install
+npm run build
+npm link</pre></div>
+			</article></body></html>`;
+
+			const result = await Defuddle(parseDocument(html, 'https://example.com/docs/code'), 'https://example.com/docs/code', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain('```bash');
+			expect(result.contentMarkdown).toContain('npm link');
+		});
+	});
+
 	describe('ragged table columns', () => {
 		test('should preserve trailing columns when body rows are wider than header', async () => {
 			const html = `<html><head><title>Test</title></head><body><article>
