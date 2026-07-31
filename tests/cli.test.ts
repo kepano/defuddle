@@ -105,4 +105,38 @@ describe('CLI parseSource', () => {
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
 	});
+
+	test('--debug --json embeds the debug payload alongside other fields', async () => {
+		const result = await parseSource('-', { json: true, debug: true }, createMockStdin(fixtureHtml));
+		const parsed = JSON.parse(result.output);
+
+		// Existing fields stay; new `debug` field is now present.
+		expect(parsed.title).toBeDefined();
+		expect(parsed.debug).toBeDefined();
+		expect(typeof parsed.debug.contentSelector).toBe('string');
+		expect(Array.isArray(parsed.debug.removals)).toBe(true);
+		// debugLog is reserved for the non-JSON path; --json should not emit it.
+		expect(result.debugLog).toBeUndefined();
+	});
+
+	test('--debug without --json returns a human-readable debugLog for stderr', async () => {
+		const result = await parseSource('-', { debug: true }, createMockStdin(fixtureHtml));
+
+		expect(typeof result.debugLog).toBe('string');
+		expect(result.debugLog).toContain('# defuddle --debug');
+		expect(result.debugLog).toContain('contentSelector:');
+		expect(result.debugLog).toContain('removals:');
+		// Primary output remains the content body (stdout-safe — the debug
+		// log goes via the returned `debugLog` to be written to stderr).
+		expect(result.output).not.toContain('# defuddle --debug');
+	});
+
+	test('omits debug payload entirely when --debug is not set', async () => {
+		const jsonResult = await parseSource('-', { json: true }, createMockStdin(fixtureHtml));
+		const parsed = JSON.parse(jsonResult.output);
+		expect(parsed.debug).toBeUndefined();
+
+		const plain = await parseSource('-', {}, createMockStdin(fixtureHtml));
+		expect(plain.debugLog).toBeUndefined();
+	});
 });
