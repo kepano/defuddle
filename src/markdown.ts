@@ -260,11 +260,19 @@ export function createMarkdownContent(content: string, url: string) {
 		replacement: function (content: string, node: Node) {
 			// Remove trailing newlines/spaces from content
 			content = content.trim();
-			
-			// Add a newline before the list if it's a top-level list
+
 			const element = node as unknown as GenericElement;
-			const isTopLevel = !(element.parentNode && (element.parentNode.nodeName === 'UL' || element.parentNode.nodeName === 'OL'));
-			return (isTopLevel ? '\n' : '') + content + '\n';
+			const parent = element.parentNode;
+			// A ul/ol directly inside another ul/ol(not in <li>)
+			const isMalformedNestedInList = !!parent && (parent.nodeName === 'UL' || parent.nodeName === 'OL');
+
+			if (isMalformedNestedInList) {
+				// Tab indentation for malformed markup
+				return content.split('\n').map(line => line && '\t' + line).join('\n') + '\n';
+			}
+
+			// Add a newline before the list if it's a top-level list
+			return '\n' + content + '\n';
 		}
 	});
 

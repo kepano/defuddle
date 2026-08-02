@@ -350,5 +350,15 @@ describe('Markdown conversion', () => {
 
 			expect(markdown).toContain('- para one\n\tpara two\n- next');
 		});
+
+		// Malformed but common markup
+		test('should indent a list that is a direct child of another list', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>A1</li><ul><li>B1</li><li>B2</li></ul><li>A2</li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- A1\n\t- B1\n\t- B2\n- A2');
+		});
 	});
 });
