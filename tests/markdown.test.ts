@@ -294,4 +294,61 @@ describe('Markdown conversion', () => {
 			expect(markdown).not.toContain('\\begin{aligned}');
 		});
 	});
+
+	describe('nested lists', () => {
+		test('should give sibling items at the same depth the same indentation', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>A<ul><li>B1</li><li>B2</li><li>B3</li></ul></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- A\n\t- B1\n\t- B2\n\t- B3');
+		});
+
+		test('should indent by exactly one tab per level of nesting', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul>' +
+					'<li>A1</li>' +
+					'<li>A2<ul>' +
+						'<li>B1</li>' +
+						'<li>B2<ul><li>C1</li><li>C2</li></ul></li>' +
+						'<li>B3</li>' +
+					'</ul></li>' +
+					'<li>A3</li>' +
+				'</ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain(
+				'- A1\n- A2\n\t- B1\n\t- B2\n\t\t- C1\n\t\t- C2\n\t- B3\n- A3'
+			);
+		});
+
+		test('should indent nested ordered lists without breaking numbering', () => {
+			const markdown = createMarkdownContent(
+				'<article><ol start="3"><li>one<ol><li>a</li><li>b</li></ol></li><li>two</li></ol></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('3. one\n\t1. a\n\t2. b\n4. two');
+		});
+
+		test('should indent an ordered list nested inside an unordered list', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>bullet<ol><li>first</li><li>second</li></ol></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- bullet\n\t1. first\n\t2. second');
+		});
+
+		test('should keep indenting continuation lines inside a list item', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li><p>para one</p><p>para two</p></li><li>next</li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- para one\n\tpara two\n- next');
+		});
+	});
 });

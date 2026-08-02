@@ -298,22 +298,6 @@ export function createMarkdownContent(content: string, url: string) {
 			let prefix = options.bulletListMarker + ' ';
 			let parent = node.parentNode;
 
-			// Calculate the nesting level
-			let level = 0;
-			let currentParent = node.parentNode;
-			while (currentParent && isGenericElement(currentParent)) {
-				if (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL') {
-					level++;
-				} else if (currentParent.nodeName !== 'LI') {
-					break;
-				}
-				currentParent = currentParent.parentNode;
-			}
-
-			// Add tab indentation based on nesting level, ensuring it's never negative
-			const indentLevel = Math.max(0, level - 1);
-			prefix = '\t'.repeat(indentLevel) + prefix;
-
 			if (parent && isGenericElement(parent) && parent.nodeName === 'OL') {
 				let start = parent.getAttribute('start');
 				let index = 1;
@@ -324,7 +308,7 @@ export function createMarkdownContent(content: string, url: string) {
 						break;
 					}
 				}
-				prefix = '\t'.repeat(level - 1) + (start ? Number(start) + index - 1 : index) + '. ';
+				prefix = (start ? Number(start) + index - 1 : index) + '. ';
 			}
 
 			return prefix + taskListMarker + content.trim() + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
