@@ -260,11 +260,19 @@ export function createMarkdownContent(content: string, url: string) {
 		replacement: function (content: string, node: Node) {
 			// Remove trailing newlines/spaces from content
 			content = content.trim();
-			
-			// Add a newline before the list if it's a top-level list
+
 			const element = node as unknown as GenericElement;
-			const isTopLevel = !(element.parentNode && (element.parentNode.nodeName === 'UL' || element.parentNode.nodeName === 'OL'));
-			return (isTopLevel ? '\n' : '') + content + '\n';
+			const parent = element.parentNode;
+			// A ul/ol directly inside another ul/ol(not in <li>)
+			const isMalformedNestedInList = !!parent && (parent.nodeName === 'UL' || parent.nodeName === 'OL');
+
+			if (isMalformedNestedInList) {
+				// Tab indentation for malformed markup
+				return content.split('\n').map(line => line && '\t' + line).join('\n') + '\n';
+			}
+
+			// Add a newline before the list if it's a top-level list
+			return '\n' + content + '\n';
 		}
 	});
 
@@ -298,22 +306,6 @@ export function createMarkdownContent(content: string, url: string) {
 			let prefix = options.bulletListMarker + ' ';
 			let parent = node.parentNode;
 
-			// Calculate the nesting level
-			let level = 0;
-			let currentParent = node.parentNode;
-			while (currentParent && isGenericElement(currentParent)) {
-				if (currentParent.nodeName === 'UL' || currentParent.nodeName === 'OL') {
-					level++;
-				} else if (currentParent.nodeName !== 'LI') {
-					break;
-				}
-				currentParent = currentParent.parentNode;
-			}
-
-			// Add tab indentation based on nesting level, ensuring it's never negative
-			const indentLevel = Math.max(0, level - 1);
-			prefix = '\t'.repeat(indentLevel) + prefix;
-
 			if (parent && isGenericElement(parent) && parent.nodeName === 'OL') {
 				let start = parent.getAttribute('start');
 				let index = 1;
@@ -324,7 +316,7 @@ export function createMarkdownContent(content: string, url: string) {
 						break;
 					}
 				}
-				prefix = '\t'.repeat(level - 1) + (start ? Number(start) + index - 1 : index) + '. ';
+				prefix = (start ? Number(start) + index - 1 : index) + '. ';
 			}
 
 			return prefix + taskListMarker + content.trim() + (node.nextSibling && !/\n$/.test(content) ? '\n' : '');
