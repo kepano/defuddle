@@ -19,7 +19,7 @@ import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, escapeCssIdent } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -29,9 +29,10 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
-// CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
+// Classes carrying CSS syntax (Tailwind utilities like sm:pt-[131px]) are dropped
+// from generated selectors rather than escaped. Unlike ids, this is a deliberate
+// trade: escaping them would change which elements long-standing selectors match.
 const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
-
 
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
@@ -887,7 +888,13 @@ export class Defuddle {
 			const mainContent = profileStep('findMainContent', (): Element | null => {
 				let found: Element | null = null;
 				if (options.contentSelector) {
-					found = clone.querySelector(options.contentSelector);
+					// contentSelector is public API input and may be unparseable.
+					// Degrade to auto-detection rather than failing the whole parse.
+					try {
+						found = clone.querySelector(options.contentSelector);
+					} catch (e) {
+						this._log('Invalid contentSelector, falling back to auto-detection:', options.contentSelector, e);
+					}
 					this._log('Using contentSelector:', options.contentSelector, found ? 'found' : 'not found');
 				}
 				if (!found) {
@@ -1338,8 +1345,12 @@ export class Defuddle {
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
 			if (current.id) {
-				selector += '#' + current.id;
+				// Escaping an id is lossless — it still matches the same one element.
+				selector += '#' + escapeCssIdent(current.id);
 			} else if (getClassName(current)) {
+				// Dropping a class is lossy by comparison: the selector widens, and if
+				// every class is unsafe this degrades to a bare tag name. See the note
+				// on UNSAFE_CSS_CLASS_RE for why that trade is kept.
 				const safe = getClassName(current).trim().split(/\s+/)
 					.filter(cls => !UNSAFE_CSS_CLASS_RE.test(cls));
 				if (safe.length) {
