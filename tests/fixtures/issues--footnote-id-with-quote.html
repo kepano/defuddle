@@ -1,0 +1,31 @@
+<!-- {"url":"https://example.com/counting-methods"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Counting Methods - Example Journal</title>
+</head>
+<body>
+	<article>
+		<h1>Counting Methods</h1>
+
+		<p>Counting anything at scale sounds like it should be a simple matter of consulting one authoritative list, but the number you arrive at depends almost entirely on what you decide counts in the first place.</p>
+
+		<p>The strictest definitions include only certified entries that meet every published criterion.<sup><a href='#fn"1' id="ref1">1</a></sup> By that measure the total is comparatively small, because most records in any given registry never meet the full bar.</p>
+
+		<p>A broader count adds provisional entries, which are recorded but not yet certified.<sup><a href="#fn2" id="ref2">2</a></sup> These vastly outnumber the certified ones, and many consist of little more than a name and a date.</p>
+
+		<p>This is why two sources can both be correct while disagreeing wildly. One may be reporting certified entries while the other reports every record, and neither is wrong so much as answering a different question than the reader assumed.</p>
+
+		<!--
+			The definition ids carry a double quote. Interpolating one into an
+			attribute selector produces `a[id="fn"1"]`, which does not parse — the
+			ids must be compared in JS instead.
+		-->
+		<ol>
+			<li id='fn"1'><a id='fn"1'></a>First cited source, Example Press, 2026. <a href="#ref1">&#8617;</a></li>
+			<li id="fn2"><a id="fn2"></a>Second cited source, Example Press, 2026. <a href="#ref2">&#8617;</a></li>
+		</ol>
+	</article>
+</body>
+</html>
