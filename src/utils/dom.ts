@@ -43,6 +43,40 @@ export function escapeHtml(text: string): string {
 		.replace(/"/g, '&quot;');
 }
 
+// Characters valid in a CSS identifier as-is: letters, digits, `_`, `-`, non-ASCII
+const CSS_IDENT_SAFE_RE = /[\w\u0080-\uffff-]/;
+
+/**
+ * Escape a string for use as a CSS identifier, so values taken from a page
+ * can't turn a generated selector into invalid CSS. React streaming SSR is the
+ * common trigger: it emits ids like `S:a` and `B:0`, and an unescaped `#S:a`
+ * parses as a pseudo-class.
+ *
+ * Deliberately not delegating to `CSS.escape` where it exists: linkedom has no
+ * `CSS` global, so the Node/CLI/Worker environments need this anyway, and
+ * always using it keeps selectors identical across every environment.
+ * NUL is the one case this drops versus `CSS.escape` — the HTML tokenizer
+ * replaces it with U+FFFD before it can reach an attribute value.
+ */
+export function escapeCssIdent(value: string): string {
+	let result = '';
+	for (let i = 0; i < value.length; i++) {
+		const ch = value[i];
+		// Control characters, and a digit leading the identifier (or following a
+		// leading hyphen), have no inline `\x` form and need the hex escape.
+		const leadingDigit = ch >= '0' && ch <= '9'
+			&& (i === 0 || (i === 1 && value[0] === '-'));
+		if (leadingDigit || ch <= '\x1f' || ch === '\x7f') {
+			result += '\\' + ch.charCodeAt(0).toString(16) + ' ';
+		} else if (ch === '-' && value.length === 1) {
+			result += '\\-';
+		} else {
+			result += CSS_IDENT_SAFE_RE.test(ch) ? ch : '\\' + ch;
+		}
+	}
+	return result;
+}
+
 /**
  * Safely get an element's class name as a string.
  * Handles SVG elements where className is an SVGAnimatedString.
