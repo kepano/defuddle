@@ -22,6 +22,7 @@ import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './eleme
 import { imageRules } from './elements/images';
 import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
+import { isExtractorClass } from './utils/comments';
 
 // Module-level debug flag, set by standardizeContent for child functions
 let _debug = false;
@@ -174,6 +175,30 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 		}
 	}
 ];
+
+/**
+ * Cleanup pass for HTML built by a site extractor.
+ *
+ * Extractor output skips standardizeContent entirely (see _sanitizeExtractorHtml),
+ * so without this it keeps everything the site put there: every `style`, `class`,
+ * and `id` lifted along with the message body, plus the `<div><br></div>` spacers
+ * rich-text composers emit for a paragraph break. A Gmail thread arrives as a stack
+ * of divs each repeating the sender's font stack, every other one holding nothing
+ * but a line break.
+ *
+ * This is the subset of standardizeContent's steps that applies to already-built
+ * markup, in the same relative order. It lives here rather than at the call site so
+ * that "which steps, and in what order" stays with the module that owns them.
+ */
+export function standardizeExtractorOutput(element: Element, debug: boolean = false): void {
+	_debug = debug;
+
+	stripUnwantedAttributes(element, debug, true);
+	// standardizeContent likewise skips this in debug mode, to keep the structure
+	// inspectable.
+	if (!debug) removeEmptyElements(element);
+	stripExtraBrElements(element);
+}
 
 export function standardizeContent(element: Element, metadata: DefuddleMetadata, doc: Document, debug: boolean = false, subProfile?: Record<string, number>): void {
 	_debug = debug;
@@ -454,7 +479,19 @@ function removeHtmlComments(element: Element): void {
 	logDebug(_debug, 'Removed HTML comments:', removedCount);
 }
 
-function stripUnwantedAttributes(element: Element, debug: boolean): void {
+// Keep the extractor's own class tokens and drop the page's. Returns the new
+// attribute value, or '' when nothing survives.
+function filterExtractorClasses(value: string): string {
+	return value.split(/\s+/).filter(isExtractorClass).join(' ');
+}
+
+/**
+ * Strip attributes that carry no meaning once the page's CSS is gone.
+ *
+ * @param extractorOutput - Set for HTML built by a site extractor, which keeps
+ * only the classes the extractor itself emits (see isExtractorClass).
+ */
+function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutput: boolean = false): void {
 	let attributeCount = 0;
 
 	const processElement = (el: Element) => {
@@ -488,9 +525,25 @@ function stripUnwantedAttributes(element: Element, debug: boolean): void {
 					(tag === 'code' && attrValue.startsWith('language-')) ||
 					attrValue === 'footnote-backref' ||
 					/^callout(?:-|$)/.test(attrValue)
-				))
+				)) ||
+				// Marks the extractor output wrapper (emitted by buildContentHtml).
+				(extractorOutput && attrName === 'data-defuddle')
 			) {
 				return;
+			}
+
+			// Extractor markup classes survive. The page-authored classes sitting
+			// next to them in the same attribute do not. Skipped in debug mode,
+			// which keeps every class so the structure stays inspectable.
+			if (extractorOutput && !debug && attrName === 'class') {
+				const kept = filterExtractorClasses(attrValue);
+				if (kept) {
+					if (kept !== attrValue) {
+						el.setAttribute('class', kept);
+						attributeCount++;
+					}
+					return;
+				}
 			}
 
 			// In debug mode, allow debug attributes and data- attributes
@@ -1106,6 +1159,14 @@ function moveWhitespaceOutside(node: Element, doc: Document, direction: 'leading
 	return 1;
 }
 
+// Standardized footnote reference (<sup id="fnref:N">) produced by standardizeFootnotes,
+// which runs earlier in the pipeline. These markers attach to the preceding word.
+function isFootnoteRef(node: Node): boolean {
+	return isElement(node) &&
+		(node as Element).tagName.toLowerCase() === 'sup' &&
+		((node as Element).getAttribute('id') || '').startsWith('fnref:');
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
@@ -1211,20 +1272,23 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					const currentContent = current.textContent || '';
 					
 					// Don't add space if:
-					// 1. Next content starts with punctuation or closing parenthesis
-					// 2. Current content ends with punctuation or opening parenthesis
-					// 3. There's already a space
+					// 1. Next is a footnote reference — markers hug the preceding word
+					// 2. Next content starts with punctuation or closing parenthesis
+					// 3. Current content ends with punctuation or opening parenthesis
+					// 4. There's already a space
+					const nextIsFootnoteRef = isFootnoteRef(next);
 					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
 					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
-					
-					const hasSpace = (isTextNode(current) && 
+
+					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
-									(isTextNode(next) && 
+									(isTextNode(next) &&
 									(next.textContent || '').startsWith(' '));
-					
+
 					// Only add space if none of the above conditions are true
-					if (!nextStartsWithPunctuation && 
-						!currentEndsWithPunctuation && 
+					if (!nextIsFootnoteRef &&
+						!nextStartsWithPunctuation &&
+						!currentEndsWithPunctuation &&
 						!hasSpace) {
 						const space = doc.createTextNode(' ');
 						node.insertBefore(space, next);

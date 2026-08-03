@@ -318,6 +318,7 @@ class FootnoteHandler {
 			this.tryLabeledSection,
 			this.tryLooseFootnotes,
 			this.tryClassFootnote,
+			this.tryBrSeparatedFootnotes,
 		];
 		for (const fallback of fallbacks) {
 			if (state.count > 1) break;
@@ -576,36 +577,139 @@ class FootnoteHandler {
 			const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
 			if (!heading || !FOOTNOTE_SECTION_RE.test(heading.textContent?.trim() || '')) continue;
 
-			const paragraphs: Array<{num: number; el: any}> = [];
-			container.querySelectorAll('p').forEach((p: any) => {
-				const num = this.parseFootnoteNum(p);
-				if (num !== null) paragraphs.push({ num, el: p });
-			});
-
-			if (paragraphs.length === 0) continue;
-
-			const numberedSet = new Set(paragraphs.map(p => p.el));
-			for (let i = 0; i < paragraphs.length; i++) {
-				const { num, el: defPara } = paragraphs[i];
-				const contentDiv = this.stripMarkerAndWrap(defPara);
-
-				// Collect subsequent siblings until the next numbered paragraph
-				let sibling = defPara.nextElementSibling;
-				while (sibling && !numberedSet.has(sibling)) {
-					if (sibling.textContent?.trim()) {
-						contentDiv.appendChild(sibling.cloneNode(true));
-					}
-					this.pendingRemovals.push(sibling);
-					sibling = sibling.nextElementSibling;
-				}
-
-				this.addFootnote(state, String(num), contentDiv);
-				this.pendingRemovals.push(defPara);
-			}
+			// Definitions are either numbered paragraphs or an ordered list.
+			if (!this.collectSectionParagraphs(container, state)
+				&& !this.collectSectionList(container, state)) continue;
 
 			this.pendingRemovals.push(container);
 			break;
 		}
+	}
+
+	// Several definitions packed into one block and separated by <br>, each segment
+	// opening with a named anchor:
+	//   <p><a name="one"><sup>1</sup></a> text… ↩<br><br><a name="two">…</p>
+	// Anchor names must be targeted by inline numeric links, so ordinary <br>-separated
+	// prose is not mistaken for footnotes.
+	private tryBrSeparatedFootnotes(element: any, state: CollectState): void {
+		const linkedFragments = new Set<string>();
+		element.querySelectorAll('a[href^="#"]').forEach((a: any) => {
+			if (FOOTNOTE_MARKER_RE.test(a.textContent?.trim() || '')) {
+				const fragment = getHrefFragment(a);
+				if (fragment) linkedFragments.add(fragment);
+			}
+		});
+		if (linkedFragments.size < 2) return;
+
+		for (const block of Array.from(element.querySelectorAll('p, div')) as any[]) {
+			if (!block.querySelector('br')) continue;
+
+			const defs: Array<{ id: string; nodes: any[] }> = [];
+			for (const nodes of this.splitOnBreaks(block)) {
+				const anchor = this.leadingAnchor(nodes);
+				if (!anchor) continue;
+				const id = (anchor.getAttribute('name') || anchor.id || '').toLowerCase();
+				if (!id || !linkedFragments.has(id)) continue;
+				defs.push({ id, nodes: nodes.filter((n: any) => n !== anchor) });
+			}
+
+			if (defs.length < 2) continue;
+
+			defs.forEach(({ id, nodes }) => {
+				const contentDiv = element.ownerDocument.createElement('div');
+				nodes.forEach((node: any) => contentDiv.appendChild(node.cloneNode(true)));
+				this.removeBackrefs(contentDiv);
+				this.trimLeadingWhitespace(contentDiv);
+				this.addFootnote(state, id, contentDiv);
+			});
+
+			this.pendingRemovals.push(block);
+			// Drop the divider that set the block off from the article body
+			const prev = block.previousElementSibling;
+			if (prev?.tagName.toLowerCase() === 'hr') this.pendingRemovals.push(prev);
+			return;
+		}
+	}
+
+	// Child nodes grouped into runs delimited by <br>. Consecutive breaks yield no
+	// empty runs, so <br><br> reads as a single separator.
+	private splitOnBreaks(block: any): any[][] {
+		const segments: any[][] = [];
+		let current: any[] = [];
+		for (const node of Array.from(block.childNodes) as any[]) {
+			if (isElement(node) && node.tagName.toLowerCase() === 'br') {
+				if (current.length) segments.push(current);
+				current = [];
+			} else {
+				current.push(node);
+			}
+		}
+		if (current.length) segments.push(current);
+		return segments;
+	}
+
+	// The anchor a segment opens with, ignoring leading whitespace. Returns null if
+	// the segment starts with text or any other element.
+	private leadingAnchor(nodes: any[]): any {
+		for (const node of nodes) {
+			if (isTextNode(node)) {
+				if (node.textContent?.trim()) return null;
+				continue;
+			}
+			if (!isElement(node)) continue;
+			if (node.tagName.toLowerCase() !== 'a') return null;
+			return node.hasAttribute('name') || node.id ? node : null;
+		}
+		return null;
+	}
+
+	// Section definitions as numbered paragraphs: <p><sup>N</sup> content…</p>,
+	// with any following unnumbered siblings folded into the same footnote.
+	private collectSectionParagraphs(container: any, state: CollectState): boolean {
+		const paragraphs: Array<{num: number; el: any}> = [];
+		container.querySelectorAll('p').forEach((p: any) => {
+			const num = this.parseFootnoteNum(p);
+			if (num !== null) paragraphs.push({ num, el: p });
+		});
+
+		if (paragraphs.length === 0) return false;
+
+		const numberedSet = new Set(paragraphs.map(p => p.el));
+		for (const { num, el: defPara } of paragraphs) {
+			const contentDiv = this.stripMarkerAndWrap(defPara);
+
+			// Collect subsequent siblings until the next numbered paragraph
+			let sibling = defPara.nextElementSibling;
+			while (sibling && !numberedSet.has(sibling)) {
+				if (sibling.textContent?.trim()) {
+					contentDiv.appendChild(sibling.cloneNode(true));
+				}
+				this.pendingRemovals.push(sibling);
+				sibling = sibling.nextElementSibling;
+			}
+
+			this.addFootnote(state, String(num), contentDiv);
+			this.pendingRemovals.push(defPara);
+		}
+
+		return true;
+	}
+
+	// Section definitions as an ordered list, e.g. <h4>Footnotes</h4><ol><li id="footnote-1">…</li></ol>.
+	// Items are numbered by position; the item id is kept so href-based inline refs still match.
+	private collectSectionList(container: any, state: CollectState): boolean {
+		const list = container.querySelector('ol');
+		if (!list) return false;
+
+		const items = (Array.from(list.children) as any[])
+			.filter((el: any) => el.tagName?.toLowerCase() === 'li');
+		if (items.length === 0) return false;
+
+		items.forEach((li: any, index: number) => {
+			this.addFootnote(state, li.id?.toLowerCase() || String(index + 1), li.cloneNode(true));
+		});
+
+		return true;
 	}
 
 	private trimLeadingWhitespace(parent: any): void {
@@ -775,9 +879,11 @@ class FootnoteHandler {
 				break;
 			}
 		}
+		// Trim whitespace left where the backref was. Punctuation is kept — a lone "."
+		// before the backref ends the footnote's last sentence, it isn't residue.
 		while (el.lastChild && el.lastChild.nodeType === 3) {
 			const text = el.lastChild.textContent;
-			if (/^[\s,.;]*$/.test(text)) {
+			if (/^\s*$/.test(text)) {
 				el.lastChild.remove();
 			} else {
 				break;

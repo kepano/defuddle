@@ -17,9 +17,9 @@ Bruce Park, Indianapolis, 1889.
 
 **Special Containment Procedures:** Foundation containment of SCP-9935 has, since initial containment in 1920, required a large-scale misinformation campaign targeting available public records regarding SCP-9935, its participants, and Bruce Park. The game is ongoing, and is being played currently.
 
-**Description:** SCP-9935 is an anomalous baseball game between the Indianapolis Hoosiers and the Washington Nationals [^1] that began on October 5th, 1889 and is still ongoing. Neither team has scored a run since the original game became tied in the 35th inning. Both teams folded before the start of the next season [^2].
+**Description:** SCP-9935 is an anomalous baseball game between the Indianapolis Hoosiers and the Washington Nationals[^1] that began on October 5th, 1889 and is still ongoing. Neither team has scored a run since the original game became tied in the 35th inning. Both teams folded before the start of the next season[^2].
 
-Jack Glasscock [^3], the Hoosiers shortstop and team captain, provided the following account of the early innings.
+Jack Glasscock[^3], the Hoosiers shortstop and team captain, provided the following account of the early innings.
 
 > *"Me and John went out to speak with Bill about stoppin' things, for we were all bone-tired, but he just shook his head and said the game had to be played out, no matter the hour."*
 

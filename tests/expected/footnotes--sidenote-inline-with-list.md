@@ -9,9 +9,9 @@
 
 ## Sample post title
 
-This is the first paragraph with a note about roundness [^1] and some more text about design trends.
+This is the first paragraph with a note about roundness[^1] and some more text about design trends.
 
-This paragraph has another note about influence [^2] on the broader industry.
+This paragraph has another note about influence[^2] on the broader industry.
 
 [^1]: One of the ugliest roundness examples is the YouTube UI
 

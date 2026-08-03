@@ -15,7 +15,7 @@ If not, let me explain why it matters.
 
 ## What is property-based testing?
 
-The main [^2] benefits are:
+The main[^2] benefits are:
 
 - High-quality generators for building test inputs.
 - Automatic shrinking to minimal failing examples.[^3]

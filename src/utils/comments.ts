@@ -38,12 +38,59 @@ export interface QuotedPostData {
 }
 
 /**
+ * Site identifiers used as the wrapper class alongside `post` / `comments`.
+ *
+ * Typed as a union rather than `string` so that adding an extractor is a compile
+ * error until the token is listed here. That matters because isExtractorClass()
+ * below is what keeps these classes alive through the attribute strip. A site
+ * that could pass any string would silently lose its wrapper class instead.
+ */
+export const SITE_TOKENS = [
+	'bluesky',
+	'discourse',
+	'github',
+	'gmail',
+	'hackernews',
+	'linkedin',
+	'lwn',
+	'mastodon',
+	'reddit',
+	'threads',
+	'twitter',
+] as const;
+
+export type SiteToken = typeof SITE_TOKENS[number];
+
+const SITE_TOKEN_SET: Set<string> = new Set(SITE_TOKENS);
+
+// The rest of the class vocabulary the extractors emit: the comment tree above,
+// the post wrappers in buildContentHtml, plus `post-text` (hackernews.ts),
+// `quoted-post` (buildQuotedPost) and `x-article` (x-article.ts, x-oembed.ts).
+//
+// Conversation extractors' `message-*` classes are deliberately absent: those run
+// their own nested Defuddle pass (see _conversation.ts), so the main pipeline has
+// already stripped them before any of this applies.
+const EXTRACTOR_CLASS_TOKEN = /^(?:comments?|posts?|quoted-post|x-article)(?:-[\w-]+)?$/;
+
+/**
+ * Is this class token extractor-authored markup rather than something copied off
+ * the page? Used by the attribute strip to decide what survives. obsidian-clipper's
+ * reader keys its per-author colors, collapse buttons, and thread tracing off
+ * .comments / .comment / .comment-author / .comment-metadata.
+ *
+ * Lives here, next to the code that emits these classes, so the two cannot drift.
+ */
+export function isExtractorClass(token: string): boolean {
+	return SITE_TOKEN_SET.has(token) || EXTRACTOR_CLASS_TOKEN.test(token);
+}
+
+/**
  * Build the full content HTML for a post with optional comments section.
  * @param site - Site identifier for wrapper class (e.g. "reddit", "hackernews", "github")
  * @param postContent - The main post body HTML
  * @param comments - Pre-built comments HTML string (from buildCommentTree)
  */
-export function buildContentHtml(site: string, postContent: string, comments: string): string {
+export function buildContentHtml(site: SiteToken, postContent: string, comments: string): string {
 	return `
 		<article data-defuddle>
 			<div class="${site} post">

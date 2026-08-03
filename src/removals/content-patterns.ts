@@ -89,6 +89,26 @@ function hasFollowingProse(el: Element, minWords = 25): boolean {
 	return false;
 }
 
+// Words of article prose appearing before `el` in document order. Used when an
+// element has no text of its own to locate within the content string.
+function precedingProseWords(el: Element, mainContent: Element): number {
+	let words = 0;
+	let node: Element | null = el;
+	while (node && node !== mainContent) {
+		let sibling = node.previousElementSibling;
+		while (sibling) {
+			if (sibling.tagName === 'P') {
+				words += countWords(sibling.textContent || '');
+			} else {
+				for (const p of sibling.querySelectorAll('p')) words += countWords(p.textContent || '');
+			}
+			sibling = sibling.previousElementSibling;
+		}
+		node = node.parentElement;
+	}
+	return words;
+}
+
 function walkUpToWrapper(el: Element, text: string, mainContent: Element): Element {
 	let target = el;
 	while (target.parentElement && target.parentElement !== mainContent) {
@@ -1026,6 +1046,20 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const target = walkUpIsolated(heading, mainContent);
 
+		// Mid-article injection (e.g. a "Related Stories" card block dropped
+		// between paragraphs). Remove just that block — truncating from here
+		// would discard the rest of the article. The headingless card-grid rule
+		// below reads the same signal but declines to remove anything, because a
+		// matched heading is far stronger evidence of clutter than structure alone.
+		if (hasFollowingProse(target)) {
+			if (target === heading) continue;
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'inline related content section', text: textPreview(target) });
+			}
+			target.remove();
+			continue;
+		}
+
 		if (target === heading) {
 			// Heading is a direct child — only remove CTA headings (never real content)
 			if (!isCta) continue;
@@ -1061,9 +1095,12 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// (e.g. the heading was removed by removeLowScoring before this step runs).
 	// Matches a container whose children are predominantly image-bearing cards (img + heading).
 	const contentWordCount = countWords(contentText);
-	for (const el of mainContent.querySelectorAll('div')) {
+	for (const el of mainContent.querySelectorAll('div, ul, ol')) {
 		if (!el.parentNode) continue;
 		if (el.children.length < 2) continue;
+		// Two cards need two images, so one subtree scan rejects nav and footer
+		// lists before paying for the per-child scans below.
+		if (el.querySelectorAll('img, picture').length < 2) continue;
 		const children = Array.from(el.children);
 
 		// Each qualifying card must contain an image and either a heading or a link
@@ -1073,9 +1110,15 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		).length;
 		if (cardCount < 2 || cardCount < children.length * 0.7) continue;
 
-		// Must appear after substantial content (not a top-of-page listing)
+		// Must appear after substantial content (not a top-of-page listing).
+		// Cards whose titles were stripped by earlier steps have no text to locate,
+		// so those fall back to document order, and must every one link elsewhere —
+		// which separates related-post grids from caption-less article galleries.
 		const firstText = children[0].textContent?.trim().substring(0, 30) || '';
-		if (firstText.length < 5 || contentText.indexOf(firstText) < 500) continue;
+		const followsContent = firstText.length >= 5
+			? contentText.indexOf(firstText) >= 500
+			: children.every(c => c.querySelector('a[href]')) && precedingProseWords(el, mainContent) >= 100;
+		if (!followsContent) continue;
 
 		// Skip grids whose text is a large share of total content (e.g. numbered takeaways).
 		const gridWords = countWords(el.textContent || '');

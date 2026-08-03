@@ -1,4 +1,4 @@
-import { BaseExtractor } from './_base';
+import { BaseExtractor, ExtractorOptions } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { serializeHTML, escapeHtml } from '../utils/dom';
 import { buildComment, buildCommentTree, buildContentHtml, CommentData } from '../utils/comments';
@@ -21,8 +21,8 @@ export class HackerNewsExtractor extends BaseExtractor {
 	private isListingPage: boolean;
 	private mainComment: Element | null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.mainPost = document.querySelector('.fatitem');
 		this.isListingPage = this.detectListingPage();
 		this.isCommentPage = this.detectCommentPage();

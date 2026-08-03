@@ -1,4 +1,4 @@
-import { BaseExtractor } from './_base';
+import { BaseExtractor, ExtractorOptions } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 import { buildCommentTree, buildContentHtml, buildQuotedPost, type CommentData } from '../utils/comments';
@@ -9,8 +9,8 @@ export class TwitterExtractor extends BaseExtractor {
 	private replyTweets: Element[] = [];
 	private replyDepths: number[] = [];
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 
 		this.classifyCells(this.conversationCells());
 

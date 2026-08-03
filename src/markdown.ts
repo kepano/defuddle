@@ -107,6 +107,12 @@ function getBestImageSrc(node: GenericElement): string {
 	return node.getAttribute('src') || '';
 }
 
+// A run of blockquote lines carrying nothing but `>` markers and whitespace,
+// including the trailing-space hard break Turndown emits for a paragraph whose only
+// content is a <br>. Keeps the first line of each run and drops the rest, leaving
+// the survivor byte-for-byte so the quote depth is not rewritten.
+const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
+
 export function createMarkdownContent(content: string, url: string) {
 	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
@@ -961,6 +967,9 @@ export function createMarkdownContent(content: string, url: string) {
 
 		// Remove any consecutive newlines more than two
 		markdown = markdown.replace(/\n{3,}/g, '\n\n');
+
+		// Collapse runs of empty blank blockquote lines that start with a >
+		markdown = markdown.replace(BLANK_QUOTE_LINE_RUN, '$1');
 
 		// Append footnotes at the end of the document
 		if (Object.keys(footnotes).length > 0) {

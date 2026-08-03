@@ -78,10 +78,12 @@ async function fetchRedditContent(targetUrl: string, language?: string): Promise
 		}
 	}
 
-	const oldUrl = new URL(resolvedUrl);
-	oldUrl.hostname = 'old.reddit.com';
-	const html = await fetchPage(oldUrl.toString(), DEFAULT_UA, language);
-	return defuddleHtmlAsync(html, resolvedUrl, language);
+	// RedditExtractor owns source selection — it tries old.reddit.com and falls
+	// back to the Atom feed. Fetching the page here as well would spend a second
+	// request on the same URL against a host that throttles hard, and hand the
+	// extractor a login page to read metadata from.
+	const minimalHtml = '<!DOCTYPE html><html><head><title>Reddit</title></head><body></body></html>';
+	return defuddleHtmlAsync(minimalHtml, resolvedUrl, language);
 }
 
 /**
