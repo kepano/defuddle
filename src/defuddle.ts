@@ -48,6 +48,10 @@ export class Defuddle {
 	private _smallImages: Set<string> | undefined;
 	private _inExtractorPipelineRun = false;
 
+	// Results produced by the whole-<body> fallback rather than by real extraction.
+	// Tracked out-of-band so the marker never reaches callers via DefuddleResponse.
+	private _degradedResults = new WeakSet<DefuddleResponse>();
+
 	/**
 	 * Create a new Defuddle instance
 	 * @param doc - The document to parse
@@ -86,7 +90,7 @@ export class Defuddle {
 		let result = this.parseInternal();
 
 		// If result has very little content, try again without clutter removal
-		if (result.wordCount < 200) {
+		if (this._effectiveWordCount(result) < 200) {
 			this._log('Initial parse returned very little content, trying again');
 			const retryResult = this.parseInternal({
 				removePartialSelectors: false
@@ -96,7 +100,7 @@ export class Defuddle {
 			// A small increase likely means partial selectors correctly removed
 			// clutter (author blocks, related articles, etc.) from a short article.
 			// A large increase (2x+) suggests partial selectors were too aggressive.
-			if (retryResult.wordCount > result.wordCount * 2) {
+			if (this._preferCandidate(result, retryResult, () => retryResult.wordCount > result.wordCount * 2)) {
 				this._log('Retry produced more content');
 				result = retryResult;
 			}
@@ -105,12 +109,12 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// or a page that reveals content at runtime from a hidden wrapper.
 		// Retry once with hidden-element removal disabled.
-		if (result.wordCount < 50) {
+		if (this._effectiveWordCount(result) < 50) {
 			this._log('Still very little content, retrying without hidden-element removal');
 			const hiddenRetry = this.parseInternal({
 				removeHiddenElements: false
 			});
-			if (hiddenRetry.wordCount > result.wordCount * 2) {
+			if (this._preferCandidate(result, hiddenRetry, () => hiddenRetry.wordCount > result.wordCount * 2)) {
 				this._log('Hidden-element retry produced more content');
 				result = hiddenRetry;
 			}
@@ -125,13 +129,13 @@ export class Defuddle {
 					removePartialSelectors: false,
 					contentSelector: hiddenSelector
 				});
-				if (
+				if (this._preferCandidate(result, hiddenSelectorRetry, () =>
 					hiddenSelectorRetry.wordCount > result.wordCount ||
 					(
 						hiddenSelectorRetry.wordCount > Math.max(20, result.wordCount * 0.7) &&
 						hiddenSelectorRetry.content.length < result.content.length
 					)
-				) {
+				)) {
 					this._log('Hidden-selector retry produced better focused content');
 					result = hiddenSelectorRetry;
 				}
@@ -141,14 +145,14 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// where card elements were scored as non-content or removed by partial
 		// selectors (e.g. "post-preview"). Retry with both disabled.
-		if (result.wordCount < 50) {
+		if (this._effectiveWordCount(result) < 50) {
 			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
 			const indexRetry = this.parseInternal({
 				removeLowScoring: false,
 				removePartialSelectors: false,
 				removeContentPatterns: false
 			});
-			if (indexRetry.wordCount > result.wordCount) {
+			if (this._preferCandidate(result, indexRetry, () => indexRetry.wordCount > result.wordCount)) {
 				this._log('Index page retry produced more content');
 				result = indexRetry;
 			}
@@ -159,7 +163,7 @@ export class Defuddle {
 		// Use a 1.5x threshold to avoid triggering when the difference is small
 		// (e.g. just related-content link text removed).
 		const schemaText = this._getSchemaText(result.schemaOrgData);
-		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
+		if (schemaText && this.countHtmlWords(schemaText) > this._effectiveWordCount(result) * 1.5) {
 			// Re-extract from a sanitized clone so dangerous elements and URI
 			// attributes (e.g. data:text/html in an img src) in the matched
 			// element are stripped, without mutating the caller's live document.
@@ -177,11 +181,18 @@ export class Defuddle {
 					const selector = this.getElementSelector(bestMatch);
 					this._log('Schema.org suggests a better content element, retrying with selector:', selector);
 					const schemaRetry = this.parseInternal({ contentSelector: selector });
-					result = schemaRetry;
+					// Trusted over the current result — schema.org named this element as
+					// the article body — but a degraded retry is still a whole-page dump
+					// and must not replace a real extraction.
+					if (this._preferCandidate(result, schemaRetry, () => true)) {
+						result = schemaRetry;
+					}
 				} else {
 					this._log('Using schema.org text as content (DOM element not found)');
 					result.content = schemaText;
 					result.wordCount = this.countHtmlWords(schemaText);
+					// No longer a whole-<body> dump: content now comes from schema.org.
+					this._degradedResults.delete(result);
 				}
 			} finally {
 				this.doc = liveDoc;
@@ -228,6 +239,53 @@ export class Defuddle {
 	 * extraction pipeline already removes script/style/etc. via EXACT_SELECTORS,
 	 * so only these raw-body paths need to sanitize here.
 	 */
+	/**
+	 * Build the response for a path that failed to extract anything and is falling
+	 * back to the whole <body>. Marked degraded: its word count reflects the entire
+	 * page (nav, footer, sidebars) and would otherwise beat every real extraction
+	 * in parse()'s retry comparisons, and suppress the gates that trigger them.
+	 */
+	private _degradedResponse(startTime: number): DefuddleResponse {
+		const content = this._serializeFallbackBody();
+		const response: DefuddleResponse = {
+			content,
+			...this._metadata,
+			wordCount: this.countHtmlWords(content),
+			parseTime: Math.round(Date.now() - startTime),
+			metaTags: this._metaTags
+		};
+		this._degradedResults.add(response);
+		return response;
+	}
+
+	/** True if the result came from the whole-<body> fallback, not real extraction. */
+	private _isDegraded(result: DefuddleResponse): boolean {
+		return this._degradedResults.has(result);
+	}
+
+	/**
+	 * Word count for retry-gating purposes. A degraded result counts as zero so its
+	 * inflated whole-page count can't suppress the retries that would find content.
+	 */
+	private _effectiveWordCount(result: DefuddleResponse): number {
+		return this._isDegraded(result) ? 0 : result.wordCount;
+	}
+
+	/**
+	 * Whether a retry candidate should replace the current result. Degraded results
+	 * never win; any real extraction beats a degraded current. Otherwise defer to
+	 * the caller's predicate, which differs per retry.
+	 */
+	private _preferCandidate(
+		current: DefuddleResponse,
+		candidate: DefuddleResponse,
+		isBetter: () => boolean
+	): boolean {
+		if (this._isDegraded(candidate)) return false;
+		if (this._isDegraded(current)) return true;
+		return isBetter();
+	}
+
 	private _serializeFallbackBody(): string {
 		if (!this.doc.body) return '';
 		const safeBody = this.doc.body.cloneNode(true) as HTMLElement;
@@ -833,7 +891,7 @@ export class Defuddle {
 								removeHiddenElements: false,
 							});
 							const variables = this.getExtractorVariables(extracted.variables);
-							return {
+							const merged: DefuddleResponse = {
 								...pipelineResult,
 								title: extracted.variables?.title || pipelineResult.title,
 								description: extracted.variables?.description || pipelineResult.description,
@@ -844,6 +902,11 @@ export class Defuddle {
 								extractorType: extractor.constructor.name.replace('Extractor', '').toLowerCase(),
 								...(variables ? { variables } : {}),
 							};
+							// Spreading creates a new identity, so carry the marker across.
+							if (this._isDegraded(pipelineResult)) {
+								this._degradedResults.add(merged);
+							}
+							return merged;
 						} finally {
 							this._inExtractorPipelineRun = false;
 						}
@@ -926,15 +989,7 @@ export class Defuddle {
 			});
 
 			if (!mainContent) {
-				const fallbackContent = this._serializeFallbackBody();
-				const endTime = Date.now();
-				return {
-					content: fallbackContent,
-					...metadata,
-					wordCount: this.countHtmlWords(fallbackContent),
-					parseTime: Math.round(endTime - startTime),
-					metaTags: pageMetaTags
-				};
+				return this._degradedResponse(startTime);
 			}
 
 			// Remove h1-adjacent date/author metadata blocks from the content.
@@ -1072,15 +1127,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this._serializeFallbackBody();
-			const endTime = Date.now();
-			return {
-				content: errorContent,
-				...metadata,
-				wordCount: this.countHtmlWords(errorContent),
-				parseTime: Math.round(endTime - startTime),
-				metaTags: pageMetaTags
-			};
+			return this._degradedResponse(startTime);
 		}
 	}
 
