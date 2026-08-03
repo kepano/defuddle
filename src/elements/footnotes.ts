@@ -402,8 +402,10 @@ class FootnoteHandler {
 			const contentDiv = element.ownerDocument.createElement('div');
 			const clone = el.cloneNode(true);
 
-			// Remove empty/numeric ID anchors (e.g. <a id="r1"></a> or <a id="r1">1.</a>)
-			const idAnchor = clone.querySelector(`a[id="${id}"]`);
+			// Remove empty/numeric ID anchors (e.g. <a id="r1"></a> or <a id="r1">1.</a>).
+			// Compare in JS: a quote or backslash in a page-derived id breaks a selector.
+			const idAnchor = Array.from(clone.querySelectorAll('a[id]'))
+				.find((a: any) => a.getAttribute('id') === id) as any;
 			if (idAnchor && (!idAnchor.textContent?.trim() || /^\d+[.)]*\s*$/.test(idAnchor.textContent.trim()))) {
 				idAnchor.remove();
 			}
