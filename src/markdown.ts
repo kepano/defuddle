@@ -640,12 +640,15 @@ export function createMarkdownContent(content: string, url: string) {
 				|| '';
 			const code = codeElement.textContent || '';
 			
-			// Clean up the content and escape backticks
-			const cleanCode = code
-				.trim()
-				.replace(/`/g, '\\`');
-			
-			return `\n\`\`\`${language}\n${cleanCode}\n\`\`\`\n`;
+			// Backslash escapes are literal inside a fence, so escaping backticks here would
+			// corrupt the code. Only a line-leading run of three or more backticks can close
+			// the block, so grow the fence past the longest such run instead.
+			const cleanCode = code.trim();
+			const fenceSize = (cleanCode.match(/^`{3,}/gm) || [])
+				.reduce((size, run) => Math.max(size, run.length + 1), 3);
+			const fence = '`'.repeat(fenceSize);
+
+			return `\n${fence}${language}\n${cleanCode}\n${fence}\n`;
 		}
 	});
 
