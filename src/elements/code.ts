@@ -217,6 +217,48 @@ export const codeBlockRules = [
 			// removal because elements inside <pre>/<code> are protected.
 			el.querySelectorAll('button, [class*="codeblock-button"]').forEach(btn => btn.remove());
 
+			// Language labels and toolbars placed beside <code> inside the <pre>.
+			// Utility-first CSS names classes after appearance, not role, so a
+			// Tailwind label reads class="float-end absolute top-0" and matches
+			// none of the name-based patterns below. Structure is the reliable
+			// signal instead: once a <pre> contains a <code>, the code lives in
+			// that <code> and short element siblings of it are chrome.
+			const pre = el.tagName === 'PRE' ? el : el.querySelector('pre');
+			const siblingCodeEl = pre?.querySelector('code');
+			if (pre && siblingCodeEl) {
+				const candidates = Array.from(pre.children).filter(child =>
+					child !== siblingCodeEl
+					&& !child.contains(siblingCodeEl)
+					&& (child.tagName === 'DIV' || child.tagName === 'SPAN')
+				);
+
+				// Siblings repeated with the same tag and class are a rendering
+				// pattern — one element per line — rather than chrome, which
+				// appears once. Class names alone do not reveal this: Chroma
+				// marks its line spans "cl", with no "line" anywhere in the name.
+				const occurrences = new Map<string, number>();
+				const keyOf = (child: Element) => `${child.tagName}.${child.getAttribute('class') || ''}`;
+				candidates.forEach(child => {
+					const key = keyOf(child);
+					occurrences.set(key, (occurrences.get(key) || 0) + 1);
+				});
+
+				candidates.forEach(child => {
+					if ((occurrences.get(keyOf(child)) || 0) > 1) return;
+					// Never touch anything holding real content.
+					if (child.querySelector('code, pre, table, img, svg')) return;
+					// Per-line rendering (Shiki, rehype-pretty-code, Expressive
+					// Code), whether the element is a line itself or wraps them.
+					if (child.matches('[data-line], [data-line-number], .line, [class*="line"], .ec-line')) return;
+					if (child.querySelector('[data-line], [data-line-number], .line, .ec-line')) return;
+					// Shell prompt markers ("$", ">", "❯") are punctuation set
+					// beside the command rather than a label over the block.
+					const text = (child.textContent || '').trim();
+					if (!/[a-z0-9]/i.test(text)) return;
+					if (countWords(text) <= 5) child.remove();
+				});
+			}
+
 			// Runs after button removal so header text is just labels, not "bash Copy".
 			el.querySelectorAll(
 				'[class*="header"], [class*="toolbar"], [class*="titlebar"], [class*="title-bar"]'
