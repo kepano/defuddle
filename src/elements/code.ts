@@ -1,19 +1,57 @@
 import { isTextNode, isElement, countWords } from '../utils';
 
-// Language patterns
-const HIGHLIGHTER_PATTERNS = [
-	/^language-(\w+)$/,          // language-javascript
-	/^lang-(\w+)$/,              // lang-javascript
+// Class patterns where the prefix states "what follows is the language".
+// CommonMark, Prism and highlight.js all use these, so the page is declaring
+// the language rather than hinting at it: the captured value is validated by
+// shape (LANG_TOKEN_RE) instead of membership in CODE_LANGUAGES, which would
+// silently drop any language the list happens not to mention.
+const EXPLICIT_LANGUAGE_PATTERNS = [
+	/^language-([\w.+#-]+)$/,    // language-shellsession
+	/^lang-([\w.+#-]+)$/,        // lang-hcl
+	/^syntax-([\w.+#-]+)$/,      // syntax-jsonc
+
+	// fallback, also covers SyntaxHighlighter's brush- prefix
+	/(?:^|\s)(?:language|lang|brush|syntax)-([\w.+#-]+)(?:\s|$)/i
+];
+
+// Class patterns where the captured value is a guess. These also match layout
+// classes — "code-container", "highlight-line", "line-code" — so the value is
+// only used when it is a language we already know about.
+const AMBIGUOUS_LANGUAGE_PATTERNS = [
 	/^(\w+)-code$/,              // javascript-code
 	/^code-(\w+)$/,              // code-javascript
-	/^syntax-(\w+)$/,            // syntax-javascript
 	/^code-snippet__(\w+)$/,     // code-snippet__javascript
 	/^highlight-(\w+)$/,         // highlight-javascript
-	/^(\w+)-snippet$/,           // javascript-snippet
-
-	// fallback
-	/(?:^|\s)(?:language|lang|brush|syntax)-(\w+)(?:\s|$)/i
+	/^(\w+)-snippet$/            // javascript-snippet
 ];
+
+// Shape of a language name: one word, optionally joined to a second by a
+// single hyphen or underscore ("objective-c", "shell-session"), allowing the
+// punctuation real names contain ("c++", "f#", "asp.net"). The single-separator
+// limit is what keeps multi-word layout classes out: "language-in-header-enabled"
+// and "syntax-highlighter-line-number" both appear in the wild and would
+// otherwise be read as languages.
+const LANG_TOKEN_RE = /^[a-z][a-z0-9.+#]{0,19}(?:[-_][a-z0-9.+#]{1,19})?$/;
+
+// Tokens carried by the explicit patterns that do not name a programming
+// language. Emitting them would tag a fence with something no highlighter
+// understands.
+const NON_LANGUAGE_TOKENS = new Set([
+	// Explicit "no highlighting" markers.
+	'none', 'plain', 'plaintext', 'text', 'txt', 'undefined', 'null', 'auto',
+	// Structural words that appear as `lang-code`, `syntax-example`, etc.
+	'code', 'snippet', 'example', 'output', 'unknown', 'default',
+	// BCP 47 primary subtags: `lang-en`, `language-pt-br` mark natural
+	// language, not source code. Subtags that are also language aliases are
+	// left out so they keep resolving: 'cs', 'sh', 'ts', 'md' and 'rb' are
+	// matched by CODE_LANGUAGES first, while 'go' and 'pl' are absent from
+	// both sets and pass on shape — a `language-` class naming those far
+	// more often means Go or Perl than Czech or Polish.
+	'ar', 'bg', 'bn', 'ca', 'da', 'de', 'el', 'en', 'es', 'et', 'eu', 'fa',
+	'fi', 'fr', 'he', 'hi', 'hr', 'hu', 'id', 'it', 'ja', 'ko', 'lt', 'lv',
+	'ms', 'nb', 'nl', 'nn', 'no', 'pt', 'ro', 'ru', 'sk', 'sl', 'sr', 'sv',
+	'th', 'tr', 'uk', 'ur', 'vi', 'zh'
+]);
 
 // Languages to detect in code blocks
 const CODE_LANGUAGES = new Set([
@@ -120,6 +158,28 @@ const CODE_LANGUAGES = new Set([
 	'zig'
 ]);
 
+// Resolve the value captured by an EXPLICIT_LANGUAGE_PATTERN. Known aliases
+// are taken as-is so nothing that worked before changes; anything else is
+// accepted on shape alone, which is the point — the page said it was a
+// language, and a fixed list cannot keep up with every highlighter.
+const resolveDeclaredLanguage = (token: string): string => {
+	const value = token.toLowerCase();
+	if (CODE_LANGUAGES.has(value)) return value;
+	if (NON_LANGUAGE_TOKENS.has(value)) return '';
+
+	// Prism's diff-highlight plugin declares `language-diff-<lang>`. The block
+	// is a diff, and no renderer resolves the combined token.
+	if (value.startsWith('diff-')) return 'diff';
+
+	// Locale forms with a region or script subtag: `pt-br`, `zh-hans`,
+	// `sr-latn`. Checked on the primary subtag, and only for a two-letter
+	// primary, so hyphenated language names like `objective-c` are unaffected.
+	const regional = value.match(/^([a-z]{2})-[a-z]{2,8}$/);
+	if (regional && NON_LANGUAGE_TOKENS.has(regional[1])) return '';
+
+	return LANG_TOKEN_RE.test(value) ? value : '';
+};
+
 // Convert code blocks with different syntax highlighters and line numbers
 // to a standard <pre> and <code> element with a language attribute
 export const codeBlockRules = [
@@ -157,6 +217,48 @@ export const codeBlockRules = [
 			// removal because elements inside <pre>/<code> are protected.
 			el.querySelectorAll('button, [class*="codeblock-button"]').forEach(btn => btn.remove());
 
+			// Language labels and toolbars placed beside <code> inside the <pre>.
+			// Utility-first CSS names classes after appearance, not role, so a
+			// Tailwind label reads class="float-end absolute top-0" and matches
+			// none of the name-based patterns below. Structure is the reliable
+			// signal instead: once a <pre> contains a <code>, the code lives in
+			// that <code> and short element siblings of it are chrome.
+			const pre = el.tagName === 'PRE' ? el : el.querySelector('pre');
+			const siblingCodeEl = pre?.querySelector('code');
+			if (pre && siblingCodeEl) {
+				const candidates = Array.from(pre.children).filter(child =>
+					child !== siblingCodeEl
+					&& !child.contains(siblingCodeEl)
+					&& (child.tagName === 'DIV' || child.tagName === 'SPAN')
+				);
+
+				// Siblings repeated with the same tag and class are a rendering
+				// pattern — one element per line — rather than chrome, which
+				// appears once. Class names alone do not reveal this: Chroma
+				// marks its line spans "cl", with no "line" anywhere in the name.
+				const occurrences = new Map<string, number>();
+				const keyOf = (child: Element) => `${child.tagName}.${child.getAttribute('class') || ''}`;
+				candidates.forEach(child => {
+					const key = keyOf(child);
+					occurrences.set(key, (occurrences.get(key) || 0) + 1);
+				});
+
+				candidates.forEach(child => {
+					if ((occurrences.get(keyOf(child)) || 0) > 1) return;
+					// Never touch anything holding real content.
+					if (child.querySelector('code, pre, table, img, svg')) return;
+					// Per-line rendering (Shiki, rehype-pretty-code, Expressive
+					// Code), whether the element is a line itself or wraps them.
+					if (child.matches('[data-line], [data-line-number], .line, [class*="line"], .ec-line')) return;
+					if (child.querySelector('[data-line], [data-line-number], .line, .ec-line')) return;
+					// Shell prompt markers ("$", ">", "❯") are punctuation set
+					// beside the command rather than a label over the block.
+					const text = (child.textContent || '').trim();
+					if (!/[a-z0-9]/i.test(text)) return;
+					if (countWords(text) <= 5) child.remove();
+				});
+			}
+
 			// Runs after button removal so header text is just labels, not "bash Copy".
 			el.querySelectorAll(
 				'[class*="header"], [class*="toolbar"], [class*="titlebar"], [class*="title-bar"]'
@@ -172,7 +274,13 @@ export const codeBlockRules = [
 				}
 			});
 
-			const getCodeLanguage = (element: Element): string => {
+			// `trustDeclarations` is only set for the block itself and for
+			// pre/code elements. A `language-` class there names the code; the
+			// same class on an arbitrary wrapper up the tree usually does not
+			// — "language-switcher", "syntax-highlighter" and "lang-english"
+			// are all ordinary markup — so those keep going through the
+			// whitelist, which is what made them harmless before.
+			const getCodeLanguage = (element: Element, trustDeclarations: boolean): string => {
 				// Check data-lang attribute first
 				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language') || element.getAttribute('language');
 				if (dataLang) {
@@ -192,10 +300,21 @@ export const codeBlockRules = [
 
 				// Check patterns
 				for (const className of classNames) {
-					for (const pattern of HIGHLIGHTER_PATTERNS) {
-						const match = className.toLowerCase().match(pattern);
-						if (match && match[1] && CODE_LANGUAGES.has(match[1].toLowerCase())) {
-							return match[1].toLowerCase();
+					const lowerClassName = className.toLowerCase();
+
+					for (const pattern of EXPLICIT_LANGUAGE_PATTERNS) {
+						const match = lowerClassName.match(pattern);
+						if (!match || !match[1]) continue;
+						const declared = trustDeclarations
+							? resolveDeclaredLanguage(match[1])
+							: (CODE_LANGUAGES.has(match[1]) ? match[1] : '');
+						if (declared) return declared;
+					}
+
+					for (const pattern of AMBIGUOUS_LANGUAGE_PATTERNS) {
+						const match = lowerClassName.match(pattern);
+						if (match && match[1] && CODE_LANGUAGES.has(match[1])) {
+							return match[1];
 						}
 					}
 				}
@@ -217,7 +336,12 @@ export const codeBlockRules = [
 			let currentElement: Element | null = el;
 
 			while (currentElement && !language) {
-				language = getCodeLanguage(currentElement);
+				language = getCodeLanguage(
+					currentElement,
+					currentElement === el
+						|| currentElement.tagName === 'PRE'
+						|| currentElement.tagName === 'CODE'
+				);
 
 				if (!language && currentElement === el) {
 					// Prefer a code element that already has language attributes;
@@ -227,7 +351,7 @@ export const codeBlockRules = [
 					const codeEl = currentElement.querySelector('code[data-lang], code[class*="language-"]')
 						|| currentElement.querySelector('code');
 					if (codeEl) {
-						language = getCodeLanguage(codeEl);
+						language = getCodeLanguage(codeEl, true);
 					}
 				}
 

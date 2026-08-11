@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- {"url":"https://example.com/guide"} -->
+<html>
+<head>
+	<title>Reading the resolver output</title>
+</head>
+<body>
+	<main>
+		<h1>Reading the resolver output</h1>
+		<p>The transcript below shows a full session against the resolver, from the
+		   first query through to the summary line it prints on exit.</p>
+
+		<!-- language-shellsession is a standard Prism/highlight.js declaration, but
+		     the token is not one of the names Defuddle knows about. The fence must
+		     still carry it. No UI chrome here — this isolates language resolution. -->
+		<pre class="language-shellsession"><code>user@host:~$ resolve --zone example.com
+blog.example.com has address 10.10.10.1
+www.example.com has address 10.10.10.2
+2 records resolved</code></pre>
+
+		<p>Every line that reports an address can be fed straight into the next stage
+		   of the pipeline without any further parsing.</p>
+	</main>
+</body>
+</html>
