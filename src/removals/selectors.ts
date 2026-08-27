@@ -12,6 +12,70 @@ import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
+const HERO_PARTIAL_SELECTOR = 'hero[_\\-a-z]';
+const HERO_PARTIAL_SELECTOR_REGEX = new RegExp(HERO_PARTIAL_SELECTOR, 'i');
+const NON_HERO_PARTIAL_SELECTOR_REGEXES = PARTIAL_SELECTORS
+	.filter(pattern => pattern !== HERO_PARTIAL_SELECTOR)
+	.map(pattern => new RegExp(pattern, 'i'));
+const CAPTION_CLASS_REGEX = /caption|credit/i;
+
+function getSelectorAttrs(el: Element, includeId: boolean = true): string {
+	const tag = el.tagName;
+	const isHeading = /^H[1-6]$/.test(tag);
+	return (isHeading
+		? getClassName(el)
+		: getClassName(el) + ' ' +
+			(includeId ? el.id || '' : '') + ' ' +
+			(el.getAttribute('data-component') || '') + ' ' +
+			(el.getAttribute('data-test') || '') + ' ' +
+			(el.getAttribute('data-testid') || '') + ' ' +
+			(el.getAttribute('data-test-id') || '') + ' ' +
+			(el.getAttribute('data-qa') || '') + ' ' +
+			(el.getAttribute('data-cy') || '')
+	).toLowerCase();
+}
+
+function hasCaptionClass(el: Element): boolean {
+	return CAPTION_CLASS_REGEX.test(getClassName(el));
+}
+
+function hasImageWithCaptionClass(el: Element): boolean {
+	if (!el.querySelector('img')) {
+		return false;
+	}
+	return Array.from(el.querySelectorAll('[class]')).some(hasCaptionClass);
+}
+
+function hasCaptionedFigure(el: Element): boolean {
+	const figure = el.tagName === 'FIGURE' ? el : el.closest('figure');
+	if (figure?.querySelector('figcaption')) {
+		return true;
+	}
+	return Array.from(el.querySelectorAll('figure')).some(figureEl => !!figureEl.querySelector('figcaption'));
+}
+
+function hasHeroMediaWithCaption(el: Element): boolean {
+	if (hasCaptionedFigure(el) || hasImageWithCaptionClass(el)) {
+		return true;
+	}
+
+	let ancestor = el.parentElement;
+	while (ancestor) {
+		if (
+			HERO_PARTIAL_SELECTOR_REGEX.test(getSelectorAttrs(ancestor)) &&
+			(hasCaptionedFigure(ancestor) || hasImageWithCaptionClass(ancestor))
+		) {
+			return true;
+		}
+		ancestor = ancestor.parentElement;
+	}
+	return false;
+}
+
+function hasNonHeroPartialSelector(attrs: string): boolean {
+	return NON_HERO_PARTIAL_SELECTOR_REGEXES.some(regex => regex.test(attrs));
+}
+
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
@@ -85,16 +149,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// For headings, only check class — IDs are auto-slugs and data-testid
 			// values (e.g. "article-header") cause false positives.
 			const isHeading = /^H[1-6]$/.test(tag);
-			const attrs = (isHeading
-				? getClassName(el)
-				: getClassName(el) + ' ' +
-					(el.getAttribute('data-component') || '') + ' ' +
-					(el.getAttribute('data-test') || '') + ' ' +
-					(el.getAttribute('data-testid') || '') + ' ' +
-					(el.getAttribute('data-test-id') || '') + ' ' +
-					(el.getAttribute('data-qa') || '') + ' ' +
-					(el.getAttribute('data-cy') || '')
-			).toLowerCase();
+			const attrs = getSelectorAttrs(el, false);
 
 			// The id is matched separately. A delimited id (e.g. "feedback-form") is
 			// substring-matched like the other attributes, but a delimiter-less id is
@@ -124,6 +179,14 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				const matchedPattern = individualRegexes
 					? individualRegexes.find(r => (useSubstring ? r.regex : r.anchored).test(matchString))?.pattern
 					: undefined;
+				const heroAttrs = getSelectorAttrs(el);
+				if (
+					HERO_PARTIAL_SELECTOR_REGEX.test(heroAttrs) &&
+					hasHeroMediaWithCaption(el) &&
+					!hasNonHeroPartialSelector(heroAttrs)
+				) {
+					return;
+				}
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 				partialSelectorCount++;
 			}
