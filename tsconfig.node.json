@@ -13,6 +13,6 @@
 		"lib": ["ES2020", "DOM", "DOM.Iterable"],
 		"types": ["node"]
 	},
-	"include": ["src/node.ts", "src/cli.ts"],
+	"include": ["src/node.ts", "src/cli.ts", "src/extractor.ts"],
 	"exclude": ["node_modules", "dist"]
 }
