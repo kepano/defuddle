@@ -618,7 +618,7 @@ export const PARTIAL_SELECTORS = [
 	'jswarning',
 	'js-warning',
 	'jumplink',
-	'jumpto',
+	'(?<![a-z0-9])jumpto(?![a-z0-9])', // avoid APA PsycNet's ftJumpToAnchor article sections
 	'jump-to-',
 	'js-skip-to-content',
 
