@@ -233,8 +233,8 @@ export class GitHubExtractor extends BaseExtractor {
 			const wrapper = pre.parentElement;
 			if (!wrapper) return;
 
-			// Extract language from wrapper class (e.g. "highlight-source-ts")
-			const langMatch = wrapper.className.match(/highlight-source-(\w+)/);
+			// Extract language from wrapper class (e.g. "highlight-source-ts", "highlight-text-html-basic")
+			const langMatch = wrapper.className.match(/highlight-(?:source|text)-(\w+)/);
 			const lang = langMatch?.[1] || '';
 
 			// Use data-snippet-clipboard-copy-content if available (clean text),

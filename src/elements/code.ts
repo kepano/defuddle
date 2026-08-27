@@ -1,18 +1,23 @@
 import { isTextNode, isElement, countWords } from '../utils';
+import { guessCodeLanguage } from './detect-code-lang';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
-	/^language-(\w+)$/,          // language-javascript
-	/^lang-(\w+)$/,              // lang-javascript
-	/^(\w+)-code$/,              // javascript-code
-	/^code-(\w+)$/,              // code-javascript
-	/^syntax-(\w+)$/,            // syntax-javascript
-	/^code-snippet__(\w+)$/,     // code-snippet__javascript
-	/^highlight-(\w+)$/,         // highlight-javascript
-	/^(\w+)-snippet$/,           // javascript-snippet
+	/^language-([a-z0-9_+-]+)$/i,          // language-javascript
+	/^lang-([a-z0-9_+-]+)$/i,              // lang-javascript
+	/^(?:[\w-]+-)?lang-([a-z0-9_+-]+)$/i,  // mw-highlight-lang-javascript (Wikipedia)
+	/^([a-z0-9_+-]+)-code$/i,              // javascript-code
+	/^code-([a-z0-9_+-]+)$/i,              // code-javascript
+	/^syntax-([a-z0-9_+-]+)$/i,            // syntax-javascript
+	/^code-snippet__([a-z0-9_+-]+)$/i,     // code-snippet__javascript
+	/^highlight-([a-z0-9_+-]+)$/i,         // highlight-javascript
+	/^highlight-source-([a-z0-9_+-]+)$/i,  // highlight-source-javascript (GitHub)
+	/^highlight-text-([a-z0-9_+-]+)$/i,    // highlight-text-md (GitHub markdown)
+	/^highlight-text-([a-z0-9_+-]+)/i,     // highlight-text-html-basic -> html (compound names)
+	/^([a-z0-9_+-]+)-snippet$/i,           // javascript-snippet
 
 	// fallback
-	/(?:^|\s)(?:language|lang|brush|syntax)-(\w+)(?:\s|$)/i
+	/(?:^|\s)(?:language|lang|brush|syntax|source)-(\w+)(?:\s|$)/i
 ];
 
 // Languages to detect in code blocks
@@ -133,6 +138,7 @@ export const codeBlockRules = [
 			'.syntaxhighlighter',
 			'.highlight',
 			'.highlight-source',
+			'[class*="highlight-text-"]',
 			'.wp-block-syntaxhighlighter-code',
 			'.wp-block-code',
 			'div[class*="language-"]',
@@ -180,18 +186,24 @@ export const codeBlockRules = [
 				}
 
 				// Check class names for patterns and supported languages
-				const classNames = Array.from(element.classList || []);
+				const classNames = new Set<string>();
+				const classAttr = element.getAttribute('class') || '';
+				classAttr.split(/\s+/).filter(Boolean).forEach(name => classNames.add(name));
+				for (const name of Array.from(element.classList || [])) {
+					if (name) classNames.add(name);
+				}
+				const classList = Array.from(classNames);
 				
 				// Check for syntax highlighter specific format
 				if (element.classList?.contains('syntaxhighlighter')) {
-					const langClass = classNames.find(c => !['syntaxhighlighter', 'nogutter'].includes(c));
+					const langClass = classList.find(c => !['syntaxhighlighter', 'nogutter'].includes(c));
 					if (langClass && CODE_LANGUAGES.has(langClass.toLowerCase())) {
 						return langClass.toLowerCase();
 					}
 				}
 
 				// Check patterns
-				for (const className of classNames) {
+				for (const className of classList) {
 					for (const pattern of HIGHLIGHTER_PATTERNS) {
 						const match = className.toLowerCase().match(pattern);
 						if (match && match[1] && CODE_LANGUAGES.has(match[1].toLowerCase())) {
@@ -201,7 +213,7 @@ export const codeBlockRules = [
 				}
 
 				// If all else fails, check for bare language names
-				for (const className of classNames) {
+				for (const className of classList) {
 					if (CODE_LANGUAGES.has(className.toLowerCase())) {
 						return className.toLowerCase();
 					}
@@ -460,6 +472,29 @@ export const codeBlockRules = [
 					.replace(/\n{3,}/g, '\n\n')     // Normalize multiple newlines
 					.replace(/^\n+/, '')            // Remove extra newlines at start
 					.replace(/\n+$/, '');           // Remove extra newlines at end
+			}
+
+			// Fallback: guess language from code content when no HTML hint exists
+			if (!language) {
+				language = guessCodeLanguage(codeContent) || '';
+			}
+
+			// Normalize language aliases to canonical names
+			if (language) {
+				const aliasMap: Record<string, string> = {
+					md: 'markdown',
+					shell: 'bash',
+					sh: 'bash',
+					js: 'javascript',
+					ts: 'typescript',
+					py: 'python',
+					rb: 'ruby',
+					hs: 'haskell',
+					rs: 'rust',
+					cs: 'csharp',
+					yml: 'yaml',
+				};
+				language = aliasMap[language] || language;
 			}
 
 			// Remove code block header/toolbar siblings (e.g. filename labels, copy buttons)

@@ -38,6 +38,7 @@
 		}
 	},
 	"scripts": {
+		"start:dev": "node dist/cli.js parse",
 		"clean": "rm -rf dist",
 		"build:types": "tsc --project tsconfig.declarations.json",
 		"build:js": "webpack",
