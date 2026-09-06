@@ -1385,11 +1385,10 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 				table.classList.contains('ltx_equation') ||
 				table.classList.contains('ltx_equationgroup');
 
-			const cleanMath = doc.createElement('math');
+			const cleanMath = mathEl.cloneNode(true) as Element;
 			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
 			cleanMath.setAttribute('data-latex', latex);
-			cleanMath.textContent = latex;
 			fragment.appendChild(cleanMath);
 		});
 
