@@ -763,8 +763,9 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove section breadcrumbs and back-navigation links.
 	// Matches short elements (div, span, p) containing a link to a parent path,
 	// and bare <a> elements used as standalone back links (e.g. "← back", "↑ index").
+	// The link must be on the same host — breadcrumbs never point off-site.
 	// Two parent-link patterns are recognized:
-	//   1. Direct prefix: linkPath is a path prefix of the current URL
+	//   1. Direct prefix: linkPath is a whole-segment path prefix of the current URL
 	//      e.g. current=/blog/2024/post, link=/blog/ or /blog
 	//   2. Parent index file: link points to index.html/index.php in a parent directory
 	//      e.g. current=/articles/hensels, link=../index.html → /index.html
@@ -797,11 +798,16 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');
 			if (!link) continue;
 			try {
-				const linkPath = new URL(link.getAttribute('href') || '', url).pathname;
+				const linkUrl = new URL(link.getAttribute('href') || '', url);
+				// Breadcrumbs point within the same site — an off-site path prefix match is content
+				if (linkUrl.hostname.replace(/^www\./, '') !== pageHost) continue;
+				const linkPath = linkUrl.pathname;
 				// Also catch index.html links to a parent directory (e.g. ../index.html)
 				const linkDir = linkPath.replace(/\/[^/]*$/, '/');
 				const isParentIndex = /^index\.(html?|php)$/i.test(linkPath.split('/').pop() || '') && urlPath.startsWith(linkDir);
-				if (linkPath !== '/' && linkPath !== urlPath && (urlPath.startsWith(linkPath) || isParentIndex)) {
+				// Whole segments only — /blog is a parent of /blog/2024/post but not of /blogosphere/post
+				const parentPrefix = linkPath.endsWith('/') ? linkPath : `${linkPath}/`;
+				if (linkPath !== '/' && linkPath !== urlPath && (urlPath.startsWith(parentPrefix) || isParentIndex)) {
 					if (debug && debugRemovals) {
 						debugRemovals.push({
 							step: 'removeByContentPattern',
