@@ -54,8 +54,8 @@ export const headingRules = [
 				return el;
 			}
 
-			// Create new heading of same level
-			const newHeading = doc.createElement(el.tagName);
+			// DOM tagName is uppercase; linkedom preserves createElement's casing.
+			const newHeading = doc.createElement(el.tagName.toLowerCase());
 
 			// Copy allowed attributes from original heading
 			Array.from(el.attributes).forEach(attr => {
