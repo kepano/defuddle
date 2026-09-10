@@ -1146,11 +1146,12 @@ function isFootnoteRef(node: Node): boolean {
 
 // sub/sup/code sit tight against neighbours (H<sub>2</sub>O, 10<sup>n</sup>, inline code).
 // The space-insertion pass below recovers gaps lost when spans are stripped; these tags
-// never wanted that separator. Footnote <sup id="fnref:N"> is already skipped separately.
+// never wanted that separator. Footnote <sup id="fnref:N"> is not tight: those hug the
+// preceding word via isFootnoteRef, but following prose still needs a separator.
 const TIGHT_INLINE = new Set(['sub', 'sup', 'code']);
 
 function isTightInline(node: Node): boolean {
-	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase());
+	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
 }
 
 function removeEmptyLines(element: Element, doc: Document): void {

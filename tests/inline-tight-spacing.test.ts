@@ -39,4 +39,12 @@ describe('tight inline spacing (#367)', () => {
 		expect(result.content).toContain('foo<code>x</code>bar');
 		expect(result.content).not.toContain('foo <code>x</code> bar');
 	});
+
+	test('still separates a footnote marker from following prose', async () => {
+		const html = page('<p>A claim<sup id="fnref:1"><a href="#fn:1">1</a></sup>continues in the same sentence.</p>');
+		const result = await Defuddle(parseDocument(html, 'https://example.com/a'), 'https://example.com/a');
+
+		expect(result.content).toMatch(/<\/sup>\s+continues/);
+		expect(result.content).not.toContain('</sup>continues');
+	});
 });
