@@ -1144,6 +1144,15 @@ function isFootnoteRef(node: Node): boolean {
 		((node as Element).getAttribute('id') || '').startsWith('fnref:');
 }
 
+// sub/sup/code sit tight against neighbours (H<sub>2</sub>O, 10<sup>n</sup>, inline code).
+// The space-insertion pass below recovers gaps lost when spans are stripped; these tags
+// never wanted that separator. Footnote <sup id="fnref:N"> is already skipped separately.
+const TIGHT_INLINE = new Set(['sub', 'sup', 'code']);
+
+function isTightInline(node: Node): boolean {
+	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase());
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
@@ -1244,6 +1253,11 @@ function removeEmptyLines(element: Element, doc: Document): void {
 
 				// Only add space between elements or between element and text
 				if (isElement(current) || isElement(next)) {
+					// sub/sup/code never take an inserted separator
+					if (isTightInline(current) || isTightInline(next)) {
+						continue;
+					}
+
 					// Get the text content
 					const nextContent = next.textContent || '';
 					const currentContent = current.textContent || '';
