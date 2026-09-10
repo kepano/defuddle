@@ -3,6 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-12-30"
 compatibility_flags = ["nodejs_compat"]
 
+[assets]
+directory = "./public"
+
+[build]
+command = "npm run build"
+watch_dir = ["src", "scripts"]
+
 [dev]
 port = 8788
 

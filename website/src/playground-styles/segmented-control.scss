@@ -1,0 +1,84 @@
+.segmented-control {
+  --segment-count: 2;
+  --selected-index: 0;
+  --pill-scale: 1;
+  --pill-shift: 0%;
+
+  position: relative;
+  isolation: isolate;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  max-width: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  font-size: var(--font-size-small);
+
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset-block: 0;
+    left: 0;
+    width: calc(100% / var(--segment-count));
+    border-radius: var(--radius-pill);
+    background: var(--line);
+    pointer-events: none;
+    transform: translateX(calc(var(--selected-index) * 100% + var(--pill-shift))) scaleX(var(--pill-scale));
+    transform-origin: left center;
+    transition: transform 200ms ease;
+  }
+
+  @for $index from 1 through 4 {
+    &:has(> button:nth-of-type(#{$index}):is([aria-selected="true"], [aria-pressed="true"])) {
+      --selected-index: #{$index - 1};
+    }
+  }
+
+  // Anchor the opposite edge while stretching toward the pressed option.
+  &:has(> button:is([aria-selected="true"], [aria-pressed="true"]) ~ button:active) {
+    --pill-scale: 1.1;
+  }
+  &:has(> button:active ~ button:is([aria-selected="true"], [aria-pressed="true"])) {
+    --pill-scale: 1.1;
+    --pill-shift: -10%;
+  }
+
+  > button {
+    min-width: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    padding: 4px 10px;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+
+    @media (hover: hover) {
+      &:hover {
+        color: var(--paper);
+      }
+    }
+    &[aria-selected="true"], &[aria-pressed="true"] {
+      color: var(--paper);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      transition: none;
+      transform: translateX(calc(var(--selected-index) * 100%));
+    }
+  }
+}
+
+.code-tab-panels .doc-code {
+  min-width: 0;
+  margin: 0;
+}
