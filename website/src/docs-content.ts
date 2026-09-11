@@ -106,6 +106,15 @@ npx defuddle parse page.html --output result.html</code></pre>
 			</tbody>
 		</table>
 
+		<h3>Using templates</h3>
+
+		<p>Use <a href="https://knap.md/cli#from-defuddle">Knap</a> to format extracted content and metadata with a Markdown template. Pipe Defuddle's JSON output into Knap:</p>
+
+<pre><code class="language-bash">npx defuddle parse https://example.com/article --markdown --json \\
+  | npx knap render template.md --data - --output note.md</code></pre>
+
+		<p>Your <code>template.md</code> can reference Defuddle properties such as <code>{{ title }}</code> and <code>{{ content }}</code>. See the <a href="https://knap.md/cli#from-defuddle">Knap CLI docs</a> for a complete example.</p>
+
 		<h2 id="api">API use</h2>
 
 		<p>Use the hosted API to extract a web page without installing Defuddle. Append the page URL to <code>https://defuddle.md/</code>:</p>
@@ -221,11 +230,11 @@ npx defuddle parse page.html --output result.html</code></pre>
 		<p>Math elements, including MathJax and KaTeX, are converted to standard MathML with a <code>data-latex</code> attribute containing the original LaTeX source.</p>
 
 		<h3>Callouts</h3>
-		<p>Callout and alert elements from various sources are standardized to the <a href="https://help.obsidian.md/Editing+and+formatting/Callouts">Obsidian Publish callout format</a>. When converting to Markdown, these become Obsidian-style callouts.</p>
+		<p>Callout and alert elements from various sources are standardized to the <a href="https://help.obsidian.md/Editing+and+formatting/Callouts">Obsidian callout format</a>. When converting to Markdown, these become Obsidian-style callouts.</p>
 		<p>Supported sources:</p>
 		<ul>
 			<li>GitHub markdown alerts (<code>div.markdown-alert</code>)</li>
-			<li>Obsidian Publish callouts (<code>div.callout[data-callout]</code>)</li>
+			<li>Obsidian callouts (<code>div.callout[data-callout]</code>)</li>
 			<li>Callout asides (<code>aside.callout-*</code>)</li>
 			<li>Bootstrap alerts (<code>div.alert.alert-*</code>)</li>
 		</ul>
