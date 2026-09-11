@@ -7,7 +7,7 @@ export const docsContent = `
 
 		<pre><code class="language-bash">npm install defuddle linkedom</code></pre>
 
-		<p>Or use <a href="https://github.com/jsdom/jsdom">JSDOM</a>:</p>
+		<p>Or <a href="https://github.com/jsdom/jsdom">JSDOM</a>:</p>
 
 		<pre><code class="language-bash">npm install defuddle jsdom</code></pre>
 
@@ -46,7 +46,7 @@ const result = new Defuddle(doc).parse();</code></pre>
 
 		<h2 id="node">Node.js use</h2>
 
-		<p>The Node.js API accepts a DOM <code>Document</code> from any implementation (JSDOM, linkedom, happy-dom, etc.) and returns a promise.</p>
+		<p>The Node.js API accepts a DOM <code>Document</code> from any implementation (linkedom, JSDOM, happy-dom, etc.) and returns a promise.</p>
 
 <pre><code class="language-javascript">import { parseHTML } from 'linkedom';
 import { Defuddle } from 'defuddle/node';
@@ -64,9 +64,7 @@ import { Defuddle } from 'defuddle/node';
 const dom = new JSDOM(htmlString, { url: 'https://example.com/article' });
 const result = await Defuddle(dom.window.document, 'https://example.com/article');</code></pre>
 
-		<div class="note">
-			<strong>Note:</strong> For <code>defuddle/node</code> to import properly, your <code>package.json</code> must have <code>"type": "module"</code>.
-		</div>
+		<p><strong>Note:</strong> For <code>defuddle/node</code> to import properly, your <code>package.json</code> must have <code>"type": "module"</code>.</p>
 
 		<h2 id="cli">CLI use</h2>
 
