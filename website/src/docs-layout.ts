@@ -55,7 +55,7 @@ export function getDocsLayout(page: DocsPageOptions): string {
 		</nav>
 	</div>
 	<div class="mobile-docs-backdrop" data-docs-menu-backdrop hidden>
-		<section id="mobile-docs-panel" class="mobile-docs-panel" role="dialog" aria-modal="true" aria-label="Documentation menu">
+		<section id="mobile-docs-panel" class="mobile-docs-panel" tabindex="-1" role="dialog" aria-modal="true" aria-label="Documentation menu">
 			<div class="mobile-docs-content"><a class="mobile-docs-playground" href="/playground">Playground</a><nav class="docs-navigation mobile-docs-navigation" aria-label="Documentation">${navigation}</nav></div>
 		</section>
 	</div>

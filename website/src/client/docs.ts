@@ -8,6 +8,7 @@ setupCodeCopy();
 
 const trigger = document.querySelector<HTMLButtonElement>('[data-docs-menu-trigger]')!;
 const backdrop = document.querySelector<HTMLElement>('[data-docs-menu-backdrop]')!;
+const panel = document.getElementById('mobile-docs-panel')!;
 const header = trigger.closest<HTMLElement>('[data-scroll-header]')!;
 const mobile = window.matchMedia('(max-width: 760px)');
 const updateMenuTop = () => {
@@ -22,7 +23,7 @@ function closeMenu(restoreFocus = true) {
 	document.documentElement.classList.remove('docs-menu-open');
 	if (restoreFocus) trigger.focus({ preventScroll: true });
 }
-trigger.addEventListener('click', () => {
+trigger.addEventListener('click', event => {
 	if (!backdrop.hidden) { closeMenu(); return; }
 	document.dispatchEvent(new CustomEvent('defuddle:overlay-open', { detail: 'docs-menu' }));
 	backdrop.hidden = false;
@@ -30,7 +31,8 @@ trigger.addEventListener('click', () => {
 	trigger.setAttribute('aria-label', 'Close documentation menu');
 	document.documentElement.classList.add('docs-menu-open');
 	updateMenuTop();
-	backdrop.querySelector<HTMLAnchorElement>('a')!.focus();
+	const target = event.detail === 0 ? backdrop.querySelector<HTMLAnchorElement>('a')! : panel;
+	target.focus({ preventScroll: true });
 });
 backdrop.addEventListener('click', event => {
 	const link = (event.target as Element).closest<HTMLAnchorElement>('a');
@@ -47,7 +49,7 @@ document.addEventListener('keydown', event => {
 	if (event.key === 'Escape') { event.preventDefault(); closeMenu(); }
 	if (event.key === 'Tab') {
 		const links = [...backdrop.querySelectorAll<HTMLAnchorElement>('a')];
-		if (event.shiftKey && document.activeElement === links[0]) { event.preventDefault(); links.at(-1)!.focus(); }
+		if (event.shiftKey && (document.activeElement === links[0] || document.activeElement === panel)) { event.preventDefault(); links.at(-1)!.focus(); }
 		else if (!event.shiftKey && document.activeElement === links.at(-1)) { event.preventDefault(); links[0].focus(); }
 	}
 });

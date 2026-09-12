@@ -19,6 +19,7 @@
   letter-spacing: -0.03em;
 }
 .markdown-doc {
+  p, li { overflow-wrap: anywhere; }
   > h2 { line-height: 1.55; }
   > h3 { scroll-margin-top: 32px; }
   .note {
