@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { readFileSync, rmSync, writeFileSync, mkdtempSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -104,5 +104,25 @@ describe('CLI parseSource', () => {
 		expect(option?.short).toBe('-u');
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
+	});
+
+	test('reports parse failures without forcing the process to exit', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'defuddle-cli-error-'));
+		const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const previousExitCode = process.exitCode;
+		process.exitCode = undefined;
+
+		try {
+			await createProgram().parseAsync(['node', 'defuddle', 'parse', join(tempDir, 'missing.html')]);
+
+			expect(exit).not.toHaveBeenCalled();
+			expect(process.exitCode).toBe(1);
+			expect(error).toHaveBeenCalledWith('Error:', expect.stringContaining('ENOENT'));
+		} finally {
+			process.exitCode = previousExitCode;
+			vi.restoreAllMocks();
+			rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 });
