@@ -7,6 +7,19 @@ export interface MathData {
 	isBlock: boolean;
 }
 
+const DATA_FORMULA_BLOCK_TAGS = new Set([
+	'address', 'article', 'aside', 'blockquote', 'div', 'figure',
+	'footer', 'header', 'main', 'p', 'section'
+]);
+
+/**
+ * WeChat/mdnice renders the same formula in nested wrappers. Only the
+ * outermost data-formula element represents a formula in document flow;
+ * processing descendants as well would emit duplicate Markdown equations.
+ */
+export const isNestedDataFormula = (el: Element): boolean =>
+	el.hasAttribute('data-formula') && Boolean(el.parentElement?.closest('[data-formula]'));
+
 // --- MathJax CHTML (mjx-*) → MathML reconstruction -------------------------
 //
 // When MathJax v3 renders with the CHTML output and the page ships no
@@ -304,6 +317,10 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 	if (dataMath) {
 		return dataMath;                                                                                                                                             
 	}
+	const dataFormula = el.getAttribute('data-formula');
+	if (dataFormula) {
+		return dataFormula;
+	}
 	const parentDataEntry = el.parentElement?.classList.contains('hurmet-tex')
 		? el.parentElement.getAttribute('data-entry')
 		: null;
@@ -375,6 +392,22 @@ export const isBlockDisplay = (el: Element): boolean => {
 		return true;
 	}
 
+	// WeChat/mdnice uses semantic block wrappers (commonly section/div) for
+	// display equations and span wrappers for inline equations. Explicit
+	// display hints take precedence over the wrapper tag.
+	if (el.hasAttribute('data-formula')) {
+		const dataDisplayAttr = el.getAttribute('data-display');
+		if (displayAttr === 'inline' || displayAttr === 'false' || dataDisplayAttr === 'inline' || dataDisplayAttr === 'false') {
+			return false;
+		}
+		if (displayAttr === 'true' || dataDisplayAttr === 'block' || dataDisplayAttr === 'true') {
+			return true;
+		}
+		if (DATA_FORMULA_BLOCK_TAGS.has(el.tagName.toLowerCase())) {
+			return true;
+		}
+	}
+
 	// Check common class names
 	const classNames = getClassName(el).toLowerCase();
 	if (classNames.includes('display') || classNames.includes('block')) {
@@ -426,7 +459,7 @@ export const isBlockDisplay = (el: Element): boolean => {
 
 // Cheap presence check before running the full mathSelectors scan.
 // Must remain a subset of mathSelectors — every selector here should also appear there.
-export const mathFastCheck = 'math, mjx-container, .MathJax, .katex, img.latex, [data-math], [data-latex], script[type^="math/"]';
+export const mathFastCheck = 'math, mjx-container, .MathJax, .katex, img.latex, [data-math], [data-latex], [data-formula], script[type^="math/"]';
 
 // Shared selector for math elements
 export const mathSelectors = [
@@ -462,6 +495,7 @@ export const mathSelectors = [
 	'math',
 	'[data-math]',
 	'[data-latex]',
+	'[data-formula]',
 	'[data-tex]',
 	'script[type^="math/"]',
 	'annotation[encoding="application/x-tex"]'
