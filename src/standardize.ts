@@ -1250,12 +1250,12 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					
 					// Don't add space if:
 					// 1. Next is a footnote reference — markers hug the preceding word
-					// 2. Next content starts with punctuation or closing parenthesis
-					// 3. Current content ends with punctuation or opening parenthesis
+					// 2. Next content starts with punctuation, a closing quote or bracket, or a dash
+					// 3. Current content ends with punctuation, an opening quote or bracket, or a dash
 					// 4. There's already a space
 					const nextIsFootnoteRef = isFootnoteRef(next);
-					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
-					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
+					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’—–]/);
+					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘—–]\s*$/);
 
 					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
