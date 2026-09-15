@@ -162,17 +162,67 @@ export class YoutubeExtractor extends BaseExtractor {
 			?? findBest(({ code }) => code.split('-')[0] === base);
 	}
 
-	private pickCaptionTrack(captionTracks: any[]): any | undefined {
+	private languageBase(code?: string): string {
+		return this.normalizeLanguageCode(code).split('-')[0];
+	}
+
+	private isEnglishTrack(track: any): boolean {
+		return this.languageBase(track?.languageCode) === 'en';
+	}
+
+	// YouTube's default caption for the current audio track. Translation
+	// tracks are listed alphabetically (Afrikaans, Arabic, …), so index 0
+	// is usually a translation rather than the spoken language.
+	private getDefaultCaptionTrack(captionTracks: any[], playerData?: any): any | undefined {
+		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
+		if (!renderer || captionTracks.length === 0) return undefined;
+
+		const audioTracks = Array.isArray(renderer.audioTracks) ? renderer.audioTracks : [];
+		const defaultAudioIndex = typeof renderer.defaultAudioTrackIndex === 'number'
+			? renderer.defaultAudioTrackIndex
+			: 0;
+		const audioTrack = audioTracks[defaultAudioIndex] ?? audioTracks[0];
+		const index = audioTrack?.defaultCaptionTrackIndex ?? renderer.defaultCaptionTrackIndex;
+		if (typeof index !== 'number' || index < 0 || index >= captionTracks.length) {
+			return undefined;
+		}
+		return captionTracks[index];
+	}
+
+	// ASR language is the spoken language. Prefer a manual track in that
+	// family (en-US, en-GB) over the auto-generated track itself.
+	private getOriginalLanguageTrack(captionTracks: any[]): any | undefined {
+		const asrTrack = captionTracks.find((track: any) => track.kind === 'asr');
+		const base = this.languageBase(asrTrack?.languageCode);
+		if (!base) return undefined;
+
+		const manualOriginal = captionTracks.find((track: any) =>
+			track.kind !== 'asr' && this.languageBase(track.languageCode) === base
+		);
+		return manualOriginal ?? asrTrack;
+	}
+
+	private pickCaptionTrack(captionTracks: any[], playerData?: any): any | undefined {
+		if (!captionTracks.length) return undefined;
+
 		const preferredLang = this.options.language;
 		if (preferredLang) {
 			const match = this.findPreferredCaptionTrack(captionTracks, preferredLang);
 			if (match) return match;
 		}
 
-		// Prefer manually uploaded tracks over auto-generated (ASR) ones
+		const defaultTrack = this.getDefaultCaptionTrack(captionTracks, playerData);
+		if (defaultTrack) return defaultTrack;
+
+		const originalTrack = this.getOriginalLanguageTrack(captionTracks);
+		if (originalTrack) return originalTrack;
+
+		// Prefer English including regional variants (en-US, en-GB). The
+		// previous exact `languageCode === 'en'` check missed those and
+		// fell through to the first translation track.
 		const nonAsr = captionTracks.filter((track: any) => track.kind !== 'asr');
 		const pool = nonAsr.length > 0 ? nonAsr : captionTracks;
-		return pool.find((track: any) => track.languageCode === 'en') || pool[0];
+		return pool.find((track: any) => this.isEnglishTrack(track)) || pool[0];
 	}
 
 	private getTrackDisplayName(track: any): string {
@@ -545,7 +595,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			// API-based path: fetch player data for fresh caption tracks
 			const playerData = await this.fetchPlayerData(videoId);
 			const apiTrack = playerData
-				? this.pickCaptionTrack(this.getCaptionTracks(playerData))
+				? this.pickCaptionTrack(this.getCaptionTracks(playerData), playerData)
 				: undefined;
 
 			// If the API returned a different/better track, fetch its XML.
@@ -569,7 +619,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		const data = this.getValidatedPlayerResponse();
 		const tracks = this.getCaptionTracks(data);
 		if (tracks.length === 0) return undefined;
-		const track = this.pickCaptionTrack(tracks);
+		const track = this.pickCaptionTrack(tracks, data);
 		return track?.baseUrl ? track : undefined;
 	}
 
