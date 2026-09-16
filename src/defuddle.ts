@@ -1466,19 +1466,56 @@ export class Defuddle {
 		});
 	}
 
+	/** Hoist server-parsed declarative shadow roots into the light DOM. */
+	private flattenDeclarativeShadowRoots(clone: Document): void {
+		if (!clone.body) return;
+
+		// Hoisting can expose nested templates; bound the traversal depth.
+		for (let depth = 0; depth < 10; depth++) {
+			const templates = Array.from(
+				clone.body.querySelectorAll('template[shadowrootmode], template[shadowroot]')
+			).filter(template => {
+				// Prefer the standard attribute when both forms are present.
+				const mode = (
+					template.getAttribute('shadowrootmode')
+					?? template.getAttribute('shadowroot')
+					?? ''
+				).toLowerCase();
+				return mode === 'open' || mode === 'closed';
+			});
+			if (templates.length === 0) return;
+
+			for (const template of templates) {
+				const host = template.parentNode;
+				if (!host) continue;
+				// linkedom does not always expose .content; fall back to childNodes.
+				const content = (template as HTMLTemplateElement).content;
+				const source: Node = content && content.firstChild ? content : template;
+				while (source.firstChild) {
+					host.insertBefore(source.firstChild, template);
+				}
+				template.remove();
+			}
+		}
+	}
+
 	/**
 	 * Flatten shadow DOM content into a cloned document.
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
 		if (!original.body || !clone.body) return;
+
+		// Capture references before hoisting shifts positional indices.
 		const origElements = Array.from(original.body.querySelectorAll('*'));
+		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
+
+		// Server DOMs leave declarative roots as inert templates; browsers do not.
+		this.flattenDeclarativeShadowRoots(clone);
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
 		const firstShadow = origElements.find(el => el.shadowRoot);
 		if (!firstShadow) return;
-
-		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
 
 		// Check if we can directly read shadow DOM content (main world / Node.js).
 		// In content script isolated worlds, shadowRoot exists but content is empty.
