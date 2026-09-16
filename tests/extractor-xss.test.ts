@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
 import { ConversationExtractor } from '../src/extractors/_conversation';
+import { C2WikiExtractor } from '../src/extractors/c2-wiki';
 import type { ConversationMessage, ConversationMetadata, Footnote } from '../src/types/extractors';
 
 // Regression test for GHSA-jg4p-g6xj-4qmf: XSS via unescaped attribute
@@ -134,5 +135,49 @@ describe('ConversationExtractor markup escaping', () => {
 			metadata: { role: 'user' },
 		}]);
 		expect(html).toContain('<p>Real <strong>markup</strong> survives.</p>');
+	});
+});
+
+// C2 wiki source is public and must be escaped before it becomes HTML.
+describe('C2 wiki markup escaping', () => {
+	const render = (text: string): string =>
+		(new C2WikiExtractor({} as Document, 'https://wiki.c2.com/?TestPage') as any)
+			.renderPage({ text });
+
+	test('wiki source cannot inject an element with an event handler', () => {
+		const html = render('Some text <img src=x onerror=alert(1)> more text');
+		assertNoExecutableAttributes(html);
+		expect(html).not.toMatch(/<img\b/i);
+		expect(html).toContain('&lt;img');
+	});
+
+	test('wiki source cannot inject a script tag', () => {
+		const html = render('Intro <script>alert(1)</script> outro');
+		expect(html).not.toMatch(/<script\b/i);
+		expect(html).toContain('&lt;script&gt;');
+	});
+
+	test('wiki source cannot inject a template to smuggle a handler', () => {
+		const html = render('Intro <svg><template><img src=x onerror=alert(1)></template></svg> outro');
+		assertNoExecutableAttributes(html);
+		expect(html).not.toMatch(/<template\b/i);
+	});
+
+	test('wiki markup still renders', () => {
+		const html = render("This is '''bold''' and ''italic'' text");
+		expect(html).toContain('<strong>bold</strong>');
+		expect(html).toContain('<em>italic</em>');
+	});
+
+	test('a bare URL still becomes a link, with & rendered once', () => {
+		const html = render('See http://example.com/p?a=1&b=2 for details');
+		expect(html).toContain('<a href="http://example.com/p?a=1&amp;b=2" rel="nofollow" target="_blank">http://example.com/p?a=1&amp;b=2</a>');
+		expect(html).not.toContain('&amp;amp;');
+	});
+
+	test('an escaped delimiter after a URL is not swallowed into the href', () => {
+		const html = render('See http://example.com/p<b>x</b>');
+		expect(html).toContain('href="http://example.com/p"');
+		expect(html).not.toContain('&lt;b&gt;x&lt;/b&gt;"');
 	});
 });
