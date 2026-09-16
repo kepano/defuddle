@@ -75,11 +75,11 @@
 	},
 	"homepage": "https://github.com/kepano/defuddle",
 	"dependencies": {
-		"commander": "^12.1.0"
+		"commander": "^12.1.0",
+		"mathml-to-latex": "^1.8.0"
 	},
 	"optionalDependencies": {
 		"linkedom": "^0.18.12",
-		"mathml-to-latex": "^1.8.0",
 		"temml": "^0.13.3",
 		"turndown": "^7.2.0"
 	},
