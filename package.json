@@ -85,7 +85,7 @@
 	},
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",
-		"@types/node": "^20.19.0",
+		"@types/node": "^24.13.5",
 		"@types/turndown": "^5.0.5",
 		"concurrently": "^8.2.2",
 		"jsdom": "^24.0.0",
@@ -93,7 +93,7 @@
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
 		"undici-types": "^5.0.0",
-		"vitest": "^3.2.4",
+		"vitest": "^5.0.1",
 		"webpack": "^5.90.3",
 		"webpack-cli": "^5.1.4"
 	},
