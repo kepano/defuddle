@@ -71,7 +71,7 @@ URL hover previews showing in the left hand corner of page
 
 These can only tell you so much when modern URLs are often obscured by link shorteners and overstuffed with tracking queries. These solutions are only a band-aid on the underlying wound. They suggest where you’re headed, rather than showing you.
 
-Nelson’s answer to jump links are **visible links** – links that show you the full context of where you’re headed. These were an essential feature of Xanadu. In the original mockups for “ *Xanadocs* ” linked text would be connected to its source in a rather literal fashion: brightly coloured highlights running between documents.
+Nelson’s answer to jump links are **visible links** – links that show you the full context of where you’re headed. These were an essential feature of Xanadu. In the original mockups for “*Xanadocs*” linked text would be connected to its source in a rather literal fashion: brightly coloured highlights running between documents.
 
 ![One of the original UI mockups for a Xanadoc with visible links between text blocks](https://res.cloudinary.com/dxj9qr5gj/image/upload/c_scale,f_auto,q_auto:good,w_1200/v1623916915/maggieappleton.com/notes/xanadu/xanadu_au17yq_shrink_tqkdxs.png)
 
