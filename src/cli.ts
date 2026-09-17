@@ -188,7 +188,7 @@ export function createProgram(): Command {
 				}
 			} catch (error) {
 				console.error(ansi.red('Error:'), error instanceof Error ? error.message : 'Unknown error occurred');
-				process.exit(1);
+				process.exitCode = 1;
 			}
 		});
 

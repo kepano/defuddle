@@ -231,6 +231,9 @@ export async function fetchPage(targetUrl: string, userAgent: string, language?:
 		const buffer = await response.arrayBuffer();
 		return validateAndDecode(contentType, null, buffer);
 	} catch (err: any) {
+		// Rejected responses may still be streaming. Close them before returning
+		// the error so they cannot keep the CLI alive after its timeout is cleared.
+		controller.abort();
 		if (err.name === 'AbortError') {
 			throw new Error(`Timed out fetching page after ${FETCH_TIMEOUT / 1000}s`);
 		}
