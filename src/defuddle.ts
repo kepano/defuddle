@@ -32,6 +32,11 @@ const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 
 // CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
 const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
 
+// Mirrors the descendant removal list for unsafe-root checks.
+const UNSAFE_ELEMENT_TAGS = new Set([
+	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
+	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
+]);
 
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
@@ -179,8 +184,9 @@ export class Defuddle {
 					result = schemaRetry;
 				} else {
 					this._log('Using schema.org text as content (DOM element not found)');
-					result.content = schemaText;
-					result.wordCount = this.countHtmlWords(schemaText);
+					const safeSchemaHtml = this._sanitizeExtractorHtml(schemaText);
+					result.content = safeSchemaHtml;
+					result.wordCount = this.countHtmlWords(safeSchemaHtml);
 				}
 			} finally {
 				this.doc = liveDoc;
@@ -236,9 +242,17 @@ export class Defuddle {
 
 	/**
 	 * Remove dangerous elements and attributes from the given body element.
+	 * Returns true when the supplied root is itself unsafe and must not be
+	 * serialized by the caller.
 	 */
-	private _stripUnsafeElements(body: HTMLElement | null): void {
-		if (!body) return;
+	private _stripUnsafeElements(body: HTMLElement | null): boolean {
+		if (!body) return false;
+
+		// querySelectorAll omits the root; neutralize it and let the caller omit it.
+		const unsafeRoot = this._isUnsafeElement(body);
+		if (unsafeRoot) {
+			this._neutralizeUnsafeElement(body);
+		}
 
 		// Remove dangerous elements. Iframes are kept — same-origin policy
 		// isolates them, and they're widely used for legitimate media embeds.
@@ -248,8 +262,12 @@ export class Defuddle {
 		// removed too: CSS @import / url() inside it can fetch external
 		// resources from the reader's IP. applySvgFallbackStyles in
 		// standardize.ts reconstructs basic fill/stroke from class names.
+		// Remove SVG SMIL elements that can mutate sanitized URL attributes.
+		// Template fragments evade descendant traversal and can cause mutation XSS.
 		const dangerousElements = body.querySelectorAll(
-			'script:not([type^="math/"]), style, noscript, frame, frameset, object, embed, applet, base'
+			'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
+			'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
+			'animateMotion, animateTransform, animateColor'
 		);
 		for (const el of dangerousElements) {
 			el.remove();
@@ -277,6 +295,25 @@ export class Defuddle {
 					}
 				}
 			}
+		}
+
+		return unsafeRoot;
+	}
+
+	private _isUnsafeElement(el: Element): boolean {
+		const tag = el.tagName.toUpperCase();
+		// Math scripts are preserved for LaTeX content, matching the sweep.
+		if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
+		return UNSAFE_ELEMENT_TAGS.has(tag);
+	}
+
+	/** Remove attributes, children, and inert template content from an unsafe root. */
+	private _neutralizeUnsafeElement(el: Element): void {
+		for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+		while (el.firstChild) el.removeChild(el.firstChild);
+		const content = (el as HTMLTemplateElement).content;
+		if (content) {
+			while (content.firstChild) content.removeChild(content.firstChild);
 		}
 	}
 
@@ -1034,13 +1071,17 @@ export class Defuddle {
 				metadata.image = bestCoverUrl;
 			}
 
+			// Neutralizing an unsafe root strips the selector's id/class.
+			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
+
 			// Strip dangerous elements and URI attributes from the final output.
 			// Runs unconditionally — the pipeline steps above are all optional, so
 			// this is the only guaranteed sanitization boundary on this path.
 			// Safe to mutate: mainContent belongs to the clone, not the live document.
-			this._stripUnsafeElements(mainContent as HTMLElement);
+			const unsafeContentRoot = this._stripUnsafeElements(mainContent as HTMLElement);
 
-			const content = mainContent.outerHTML;
+			// Never serialize an unsafe root, even after neutralization.
+			const content = unsafeContentRoot ? '' : mainContent.outerHTML;
 			const endTime = Date.now();
 
 			const result: DefuddleResponse = {
@@ -1053,7 +1094,7 @@ export class Defuddle {
 
 			if (this.debug) {
 				result.debug = {
-					contentSelector: this.getElementSelector(mainContent),
+					contentSelector: debugSelector,
 					removals: debugRemovals
 				};
 			}
@@ -1462,19 +1503,56 @@ export class Defuddle {
 		});
 	}
 
+	/** Hoist server-parsed declarative shadow roots into the light DOM. */
+	private flattenDeclarativeShadowRoots(clone: Document): void {
+		if (!clone.body) return;
+
+		// Hoisting can expose nested templates; bound the traversal depth.
+		for (let depth = 0; depth < 10; depth++) {
+			const templates = Array.from(
+				clone.body.querySelectorAll('template[shadowrootmode], template[shadowroot]')
+			).filter(template => {
+				// Prefer the standard attribute when both forms are present.
+				const mode = (
+					template.getAttribute('shadowrootmode')
+					?? template.getAttribute('shadowroot')
+					?? ''
+				).toLowerCase();
+				return mode === 'open' || mode === 'closed';
+			});
+			if (templates.length === 0) return;
+
+			for (const template of templates) {
+				const host = template.parentNode;
+				if (!host) continue;
+				// linkedom does not always expose .content; fall back to childNodes.
+				const content = (template as HTMLTemplateElement).content;
+				const source: Node = content && content.firstChild ? content : template;
+				while (source.firstChild) {
+					host.insertBefore(source.firstChild, template);
+				}
+				template.remove();
+			}
+		}
+	}
+
 	/**
 	 * Flatten shadow DOM content into a cloned document.
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
 		if (!original.body || !clone.body) return;
+
+		// Capture references before hoisting shifts positional indices.
 		const origElements = Array.from(original.body.querySelectorAll('*'));
+		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
+
+		// Server DOMs leave declarative roots as inert templates; browsers do not.
+		this.flattenDeclarativeShadowRoots(clone);
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
 		const firstShadow = origElements.find(el => el.shadowRoot);
 		if (!firstShadow) return;
-
-		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
 
 		// Check if we can directly read shadow DOM content (main world / Node.js).
 		// In content script isolated worlds, shadowRoot exists but content is empty.

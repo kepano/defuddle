@@ -1,0 +1,60 @@
+name: Release Defuddle
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify tag matches package version
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          test "${GITHUB_REF_NAME#v}" = "$package_version"
+      # The CI workflow gates every push to main, but a tag can point at any
+      # commit — re-run the same checks so a release can never ship code that
+      # never passed them.
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Bundle size budget
+        run: npm run size
+      - name: Security lint
+        run: npm run lint:innerhtml
+      # Build already ran above, so pack with --ignore-scripts to guarantee the
+      # tarball contains exactly those artifacts and no lifecycle hook can
+      # rebuild or mutate dist/ between here and publish.
+      - name: Pack release
+        run: |
+          mkdir release
+          npm pack --ignore-scripts --pack-destination release
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: release/*.tgz
+      - name: Publish to npm
+        run: npm publish ./release/*.tgz --access public --provenance
+      - name: Create draft GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title="$GITHUB_REF_NAME" \
+            --draft \
+            release/*.tgz

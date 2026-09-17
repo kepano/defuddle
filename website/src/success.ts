@@ -1,3 +1,4 @@
+import { getSiteCSS } from './styles';
 import { getFooterCSS, getFooterHTML } from './footer';
 
 export function getSuccessPage(sessionId: string): string {
@@ -8,112 +9,84 @@ export function getSuccessPage(sessionId: string): string {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>API Key — Defuddle</title>
+	<title>API Key · Defuddle</title>
+	<link rel="preconnect" href="https://rsms.me/" crossorigin>
+	<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 	<style>
-		* {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-		}
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-			background: #100F0F;
-			color: #B7B5AC;
-		}
+		${getSiteCSS()}
 		.container {
-			max-width: 600px;
-			width: 100%;
+			width: min(var(--page-width), var(--reading));
 			margin: 0 auto;
-			padding: 6rem 2rem 3rem;
+			padding: 64px 0 72px;
 		}
 		h1 {
-			font-size: 2rem;
-			font-weight: 700;
 			margin-bottom: 1.5rem;
-			color: #F2F0E5;
 		}
 		label {
 			display: block;
-			font-size: 1.1rem;
-			color: #878580;
+			font-size: var(--font-size-body);
+			color: var(--muted);
 			margin-bottom: 0.5rem;
 		}
 		.key-row {
 			display: flex;
 			gap: 0.5rem;
-			align-items: stretch;
+			align-items: center;
 			margin-bottom: 0.75rem;
 		}
 		.key-row code {
 			display: block;
 			flex: 1;
 			padding: 1rem;
-			background: #1C1B1A;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			font-size: 1.1rem;
-			color: #F2F0E5;
+			background: var(--panel);
+			border: 0;
+			border-radius: var(--radius-panel);
+			font-size: var(--font-size-body);
+			color: var(--paper);
 			word-break: break-all;
 			user-select: all;
 			letter-spacing: 0.02em;
 		}
-		.copy-btn {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-			padding: 0 1rem;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			background: #1C1B1A;
-			color: #878580;
-			font-size: 0.85rem;
-			cursor: pointer;
-			white-space: nowrap;
-			transition: color 0.2s, border-color 0.2s;
-		}
-		.copy-btn:hover {
-			color: #F2F0E5;
-			border-color: #575653;
-		}
 		.success-msg {
-			font-size: 1.25rem;
-			color: #F2F0E5;
+			font-size: var(--font-size-heading);
+			color: var(--paper);
 			margin-bottom: 1.5rem;
 		}
 		.note {
-			font-size: 1rem;
-			color: #878580;
+			font-size: var(--font-size-body);
+			color: var(--muted);
 			margin-bottom: 2rem;
 		}
 		.usage-label {
-			font-size: 1.1rem;
-			color: #878580;
+			font-size: var(--font-size-body);
+			color: var(--muted);
 			margin-bottom: 0.5rem;
 		}
 		pre.usage {
-			background: #1C1B1A;
-			border: 1px solid #343331;
-			border-radius: 8px;
+			background: var(--panel);
+			border-radius: var(--radius-panel);
 			padding: 0.75rem 1rem;
 			overflow-x: auto;
-			font-size: 0.85rem;
-			line-height: 1.5;
+			font-size: var(--font-size-small);
+			line-height: var(--code-line-height);
 			margin-bottom: 1.5rem;
 		}
 		pre.usage code {
-			font-family: "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-			color: #F2F0E5;
+			font-family: var(--font-mono);
+			color: var(--paper);
 		}
 		.loading {
 			text-align: center;
 			padding: 3rem 0;
-			color: #878580;
+			color: var(--muted);
 		}
 		.error {
 			padding: 1.5rem;
-			background: #2a1a1a;
-			border: 1px solid #5c2a2a;
-			border-radius: 8px;
-			color: #e5a0a0;
-			font-size: 0.9rem;
+			background: var(--error-background);
+			border: 0;
+			border-radius: var(--radius-panel);
+			color: var(--syntax-red);
+			font-size: var(--font-size-small);
 		}
 		${getFooterCSS()}
 	</style>
@@ -129,7 +102,7 @@ export function getSuccessPage(sessionId: string): string {
 			<label>Your API key</label>
 			<div class="key-row">
 				<code id="apiKeyCode"></code>
-				<button class="copy-btn" onclick="copyKey()">Copy</button>
+				<button class="copy-btn button" onclick="copyKey()">Copy</button>
 			</div>
 			<p class="note">Save this key now. It won&rsquo;t be shown again.</p>
 			<p class="usage-label">Use it like this:</p>
@@ -138,7 +111,7 @@ export function getSuccessPage(sessionId: string): string {
 
 		<div id="error" class="error" style="display:none">
 			<span id="errorMsg"></span>
-			<a href="/pricing" style="color:#e5a0a0; margin-left: 0.25rem;">Return to pricing</a>
+			<a href="/pricing" style="color:var(--syntax-red); margin-left: 0.25rem;">Return to pricing</a>
 		</div>
 
 		${getFooterHTML()}

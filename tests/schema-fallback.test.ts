@@ -412,7 +412,40 @@ describe('Schema.org text fallback sanitization', () => {
 		const doc = parseDocument(html);
 		const result = new Defuddle(doc).parse();
 
-		// Raw schema text is used as content (plain text, not DOM HTML)
 		expect(result.content).toContain('Safe text');
+		expect(result.content).not.toMatch(/<script/i);
+	});
+
+	test('sanitizes markup in the raw schema text fallback', () => {
+		const articleBody =
+			'<img src=x onerror="alert(document.cookie)">' +
+			'<a href="javascript:alert(1)">click</a>' +
+			'<svg><animate onbegin="alert(1)" attributeName="x" dur="1s"></animate></svg>' +
+			'<p><strong>Real</strong> content follows with enough words to pad the count well past the threshold.</p>';
+
+		const html = `
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Innocent</title>
+			<script type="application/ld+json">${JSON.stringify({
+				'@context': 'https://schema.org',
+				'@type': 'Article',
+				headline: 'Innocent',
+				articleBody
+			})}</script>
+		</head>
+		<body>
+			<main><p>hi</p></main>
+		</body>
+		</html>`;
+
+		const doc = parseDocument(html);
+		const result = new Defuddle(doc).parse();
+
+		expect(result.content).not.toMatch(/onerror/i);
+		expect(result.content).not.toMatch(/onbegin/i);
+		expect(result.content).not.toMatch(/javascript:/i);
+		expect(result.content).toContain('<strong>Real</strong>');
 	});
 });

@@ -1,0 +1,103 @@
+@use '../docs-styles/code';
+
+.guide-heading, .used-by-heading, .home-section-heading {
+  h2 {
+    margin: 0;
+    font-size: var(--font-size-heading);
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: normal;
+  }
+  p { margin: 16px 0 0; }
+}
+
+.guide-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.guide-link-card, .used-by-card {
+  min-width: 0;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  padding: 18px;
+  color: var(--paper);
+  text-decoration: none;
+  transition: background 150ms ease;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: 1.5;
+    transition: color 150ms ease;
+  }
+  p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  @media (hover: hover) {
+    &:hover {
+      background: #222120;
+      h3 { color: #f2f0e5; }
+    }
+  }
+  &:focus-visible {
+    background: #222120;
+    h3 { color: #f2f0e5; }
+  }
+}
+
+.used-by, .home-section { margin-top: 56px; }
+.used-by-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.used-by-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 16px;
+
+  > span { color: var(--muted); }
+}
+.used-by-heading a, .home-section-copy a {
+  color: var(--paper);
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+
+  @media (hover: hover) {
+    &:hover { color: #f2f0e5; text-decoration-color: currentColor; }
+  }
+}
+.home-section { scroll-margin-top: 32px; }
+.home-section-copy { margin-top: 16px; }
+.home-section > .doc-code { margin: 24px 0 0; }
+.bookmarklet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+
+  .bookmarklet {
+    min-height: 0;
+    border: 0;
+    background: var(--panel);
+    padding: 4px 14px;
+
+    @media (hover: hover) {
+      &:hover { background: var(--line); }
+    }
+  }
+}
+
+@media (max-width: 760px) {
+  .guide-links { grid-template-columns: 1fr; }
+}

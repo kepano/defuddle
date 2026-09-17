@@ -1144,6 +1144,16 @@ function isFootnoteRef(node: Node): boolean {
 		((node as Element).getAttribute('id') || '').startsWith('fnref:');
 }
 
+// sub/sup/code sit tight against neighbours (H<sub>2</sub>O, 10<sup>n</sup>, inline code).
+// The space-insertion pass below recovers gaps lost when spans are stripped; these tags
+// never wanted that separator. Footnote <sup id="fnref:N"> is not tight: those hug the
+// preceding word via isFootnoteRef, but following prose still needs a separator.
+const TIGHT_INLINE = new Set(['sub', 'sup', 'code']);
+
+function isTightInline(node: Node): boolean {
+	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
@@ -1244,18 +1254,23 @@ function removeEmptyLines(element: Element, doc: Document): void {
 
 				// Only add space between elements or between element and text
 				if (isElement(current) || isElement(next)) {
+					// sub/sup/code never take an inserted separator
+					if (isTightInline(current) || isTightInline(next)) {
+						continue;
+					}
+
 					// Get the text content
 					const nextContent = next.textContent || '';
 					const currentContent = current.textContent || '';
 					
 					// Don't add space if:
 					// 1. Next is a footnote reference — markers hug the preceding word
-					// 2. Next content starts with punctuation or closing parenthesis
-					// 3. Current content ends with punctuation or opening parenthesis
+					// 2. Next content starts with punctuation, a closing quote or bracket, or a dash
+					// 3. Current content ends with punctuation, an opening quote or bracket, or a dash
 					// 4. There's already a space
 					const nextIsFootnoteRef = isFootnoteRef(next);
-					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
-					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
+					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’—–]/);
+					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘—–]\s*$/);
 
 					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
@@ -1368,6 +1383,22 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 
 	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
 	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
+	const hasPresentationalMathContent = (mathEl: Element): boolean => {
+		const isPresentationalNode = (node: Node): boolean => {
+			if (isTextNode(node)) return Boolean(node.textContent?.trim());
+			if (!isElement(node)) return false;
+
+			const tag = node.tagName.toLowerCase();
+			if (tag === 'annotation' || tag === 'annotation-xml') return false;
+			if (tag === 'semantics') {
+				return Array.from(node.childNodes).some(isPresentationalNode);
+			}
+
+			return true;
+		};
+
+		return Array.from(mathEl.childNodes).some(isPresentationalNode);
+	};
 	equationTables.forEach(table => {
 		const mathElements = table.querySelectorAll('math');
 		if (mathElements.length === 0) return;
@@ -1385,11 +1416,13 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 				table.classList.contains('ltx_equation') ||
 				table.classList.contains('ltx_equationgroup');
 
-			const cleanMath = doc.createElement('math');
+			const cleanMath = mathEl.cloneNode(true) as Element;
 			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
 			cleanMath.setAttribute('data-latex', latex);
-			cleanMath.textContent = latex;
+			if (!hasPresentationalMathContent(cleanMath)) {
+				cleanMath.textContent = latex;
+			}
 			fragment.appendChild(cleanMath);
 		});
 

@@ -1,0 +1,40 @@
+@use 'docs';
+@use 'actions';
+@use 'tables';
+@use 'code';
+@use 'links';
+@use 'header';
+@use 'mobile-docs-menu';
+@use 'command-palette';
+
+:where(a) { color: inherit; text-decoration: none; }
+.docs-navigation {
+  .docs-toc-outline .docs-toc-children { border-left: 0; }
+  .docs-toc-children a[data-depth="3"] { padding-left: 0; }
+}
+.wordmark {
+  font-size: var(--font-size-heading);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.markdown-doc {
+  p, li { overflow-wrap: anywhere; }
+  > h2 { line-height: 1.55; }
+  > h3 { scroll-margin-top: 32px; }
+  .note {
+    margin: 28px 0;
+    padding: 18px 20px;
+    border-radius: var(--radius-panel);
+    background: var(--panel);
+    color: var(--body);
+  }
+}
+.doc-code-copy { padding: 1px 6px; }
+.table-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+
+.docs-content > .docs-updated {
+  margin: 32px 0 0;
+  color: var(--muted);
+  font-size: var(--font-size-small);
+}

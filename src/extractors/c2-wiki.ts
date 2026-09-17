@@ -68,7 +68,8 @@ export class C2WikiExtractor extends BaseExtractor {
 		let openTags: string[] = [];
 
 		for (const line of lines) {
-			const { html, openTags: nextTags } = this.applyBullets(line, openTags);
+			// Escape source before generated wiki markup is added.
+			const { html, openTags: nextTags } = this.applyBullets(escapeHtml(line), openTags);
 			parts.push(this.applyInline(html));
 			openTags = nextTags;
 		}
@@ -147,13 +148,14 @@ export class C2WikiExtractor extends BaseExtractor {
 			.replace(/'''(.*?)'''/g, '<strong>$1</strong>')
 			.replace(/''(.*?)''/g, '<em>$1</em>')
 			.replace(
-				/\b(https?|ftp|mailto|file|telnet|news):[^\s<>[\]"'()]*[^\s<>[\]"'(),.?]/g,
+				/\b(https?|ftp|mailto|file|telnet|news):(?:(?!&(?:lt|gt|quot);)[^\s<>[\]"'()])*(?:(?!&(?:lt|gt|quot);)[^\s<>[\]"'(),.?])/g,
 				(url) => {
-					if (isDangerousUrl(url)) return escapeHtml(url);
+					// Already escaped before inline processing; avoid double-escaping &.
+					if (isDangerousUrl(url)) return url;
 					if (/\.(gif|jpg|jpeg|png)$/i.test(url)) {
 						return `<img src="${escapeAttr(url)}">`;
 					}
-					return `<a href="${escapeAttr(url)}" rel="nofollow" target="_blank">${escapeHtml(url)}</a>`;
+					return `<a href="${escapeAttr(url)}" rel="nofollow" target="_blank">${url}</a>`;
 				}
 			);
 	}

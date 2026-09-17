@@ -257,7 +257,7 @@ Callout and alert elements from various sources are standardized to blockquotes 
 
 Supported sources:
 - GitHub markdown alerts (`div.markdown-alert`)
-- Obsidian Publish callouts (`div.callout[data-callout]`)
+- Obsidian callouts (`div.callout[data-callout]`)
 - Callout asides (`aside.callout-*`)
 - Bootstrap alerts (`div.alert.alert-*`)
 

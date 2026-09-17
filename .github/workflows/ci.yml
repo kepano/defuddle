@@ -27,7 +27,14 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
       - run: npm ci
+      # The root vitest run has no `include`, so it also picks up website/tests
+      # and anything under website/src they import. website/ is a separate npm
+      # project, so its deps (@lezer/*, codemirror) need their own install.
+      - run: npm ci --prefix website
       - run: npm test
 
   # Tests run on TS source via Vitest and never exercise webpack or the

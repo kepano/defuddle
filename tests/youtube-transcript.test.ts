@@ -634,6 +634,76 @@ describe('YouTube transcript parsing', () => {
 		expect(track?.kind).toBe('asr');
 	});
 
+	test('pickCaptionTrack treats en-US and en-GB as English instead of taking the first translation', () => {
+		const extractor = createExtractor();
+		const arabicFirst = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'ar' },
+			{ languageCode: 'en', kind: 'asr' },
+			{ languageCode: 'en-GB' },
+		]);
+		expect(arabicFirst?.languageCode).toBe('en-GB');
+
+		const afrikaansFirst = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'af' },
+			{ languageCode: 'ar' },
+			{ languageCode: 'en', kind: 'asr' },
+			{ languageCode: 'en-US' },
+		]);
+		expect(afrikaansFirst?.languageCode).toBe('en-US');
+	});
+
+	test('pickCaptionTrack uses YouTube defaultCaptionTrackIndex over alphabetical translations', () => {
+		const extractor = createExtractor();
+		const captionTracks = [
+			{ languageCode: 'en' },
+			{ languageCode: 'ja' },
+		];
+		const playerData = {
+			captions: {
+				playerCaptionsTracklistRenderer: {
+					captionTracks,
+					defaultAudioTrackIndex: 0,
+					audioTracks: [
+						{ defaultCaptionTrackIndex: 1 },
+					],
+				},
+			},
+		};
+
+		const track = (extractor as any).pickCaptionTrack(captionTracks, playerData);
+		expect(track?.languageCode).toBe('ja');
+	});
+
+	test('pickCaptionTrack prefers the spoken ASR language over English translations', () => {
+		const extractor = createExtractor();
+		const track = (extractor as any).pickCaptionTrack([
+			{ languageCode: 'en' },
+			{ languageCode: 'ja', kind: 'asr' },
+		]);
+
+		expect(track?.languageCode).toBe('ja');
+	});
+
+	test('pickCaptionTrack still honors an explicit language over YouTube defaults', () => {
+		const extractor = createExtractor(undefined, undefined, { language: 'ar' });
+		const captionTracks = [
+			{ languageCode: 'ar' },
+			{ languageCode: 'en', kind: 'asr' },
+			{ languageCode: 'en-GB' },
+		];
+		const playerData = {
+			captions: {
+				playerCaptionsTracklistRenderer: {
+					captionTracks,
+					audioTracks: [{ defaultCaptionTrackIndex: 2 }],
+				},
+			},
+		};
+
+		const track = (extractor as any).pickCaptionTrack(captionTracks, playerData);
+		expect(track?.languageCode).toBe('ar');
+	});
+
 	test('collapses newlines within caption segments to spaces', () => {
 		const extractor = createExtractor();
 		const xml = `<?xml version="1.0" encoding="utf-8"?>
