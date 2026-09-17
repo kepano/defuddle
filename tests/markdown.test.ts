@@ -294,4 +294,63 @@ describe('Markdown conversion', () => {
 			expect(markdown).not.toContain('\\begin{aligned}');
 		});
 	});
+
+	describe('fenced code blocks', () => {
+		test('should not escape backticks inside a code block', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-javascript">res.write(`data: ${payload}`);</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('res.write(`data: ${payload}`);');
+			expect(markdown).not.toContain('\\`');
+		});
+
+		test('should lengthen the fence when the code contains a fence line', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-markdown">```js\nconst a = 1;\n```</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('````markdown\n```js\nconst a = 1;\n```\n````');
+		});
+
+		test('should size the fence past the longest fence line in the code', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code>a\n`````\nb</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('``````\na\n`````\nb\n``````');
+		});
+
+		test.each([1, 2, 3])('should lengthen the fence for a closing fence indented by %i spaces', (indent) => {
+			const code = 'before\n' + ' '.repeat(indent) + '```\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre><p>Following paragraph</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('````\n' + code + '\n````\n\nFollowing paragraph');
+		});
+
+		test('should size the fence past the longest indented backtick run', () => {
+			const code = 'before\n```\n  `````\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('``````\n' + code + '\n``````');
+		});
+
+		test('should keep the standard fence for code without backticks', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-python">print("hi")</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('```python\nprint("hi")\n```');
+		});
+	});
 });
