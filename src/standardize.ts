@@ -1368,6 +1368,22 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 
 	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
 	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
+	const hasPresentationalMathContent = (mathEl: Element): boolean => {
+		const isPresentationalNode = (node: Node): boolean => {
+			if (isTextNode(node)) return Boolean(node.textContent?.trim());
+			if (!isElement(node)) return false;
+
+			const tag = node.tagName.toLowerCase();
+			if (tag === 'annotation' || tag === 'annotation-xml') return false;
+			if (tag === 'semantics') {
+				return Array.from(node.childNodes).some(isPresentationalNode);
+			}
+
+			return true;
+		};
+
+		return Array.from(mathEl.childNodes).some(isPresentationalNode);
+	};
 	equationTables.forEach(table => {
 		const mathElements = table.querySelectorAll('math');
 		if (mathElements.length === 0) return;
@@ -1389,6 +1405,9 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
 			cleanMath.setAttribute('data-latex', latex);
+			if (!hasPresentationalMathContent(cleanMath)) {
+				cleanMath.textContent = latex;
+			}
 			fragment.appendChild(cleanMath);
 		});
 

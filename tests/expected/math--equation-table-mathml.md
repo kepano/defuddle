@@ -7,7 +7,7 @@
 }
 ```
 
-This article describes two mathematical expressions. Each equation includes its structured representation and its original source.
+This article describes three mathematical expressions. Each equation includes its structured representation or its original source.
 
 $$
 x
@@ -16,5 +16,9 @@ $$
 $$
 y
 $$
+ 
+$$
+z
+$$
 
-The expressions appear in order, with each equation occurring once. Their structured representation should remain available to readers.
+The expressions appear in order, with each equation occurring once. Structured MathML should remain available, while annotation-only equations retain a visible fallback.
