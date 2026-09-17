@@ -20,8 +20,13 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix website
       - name: Verify tag matches package version
         run: |
           package_version="$(node -p "require('./package.json').version")"
