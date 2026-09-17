@@ -7,6 +7,8 @@ import { getFixtures, parseDocument } from './helpers';
 describe('Performance', () => {
 	const fixtures = getFixtures();
 
+	// This benchmark parses every fixture in one test; JSDOM on CI needs more
+	// time than the default timeout intended for an individual test.
 	test('parse time per fixture (total including DOM parsing)', async () => {
 		const results: { name: string; parseTime: number; domTime: number; totalTime: number; size: number; profile: Record<string, number> }[] = [];
 		// Measure local parsing only, without live API requests from async extractors.
@@ -82,5 +84,5 @@ describe('Performance', () => {
 			console.log(`  ${ms.toString().padStart(4)}  ${pct.toString().padStart(3)}%  ${step}`);
 		}
 		console.log(`  ${profileTotal.toString().padStart(4)}       total`);
-	});
+	}, 120_000);
 });
