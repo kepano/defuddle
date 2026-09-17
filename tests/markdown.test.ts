@@ -324,6 +324,26 @@ describe('Markdown conversion', () => {
 			expect(markdown).toContain('``````\na\n`````\nb\n``````');
 		});
 
+		test.each([1, 2, 3])('should lengthen the fence for a closing fence indented by %i spaces', (indent) => {
+			const code = 'before\n' + ' '.repeat(indent) + '```\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre><p>Following paragraph</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('````\n' + code + '\n````\n\nFollowing paragraph');
+		});
+
+		test('should size the fence past the longest indented backtick run', () => {
+			const code = 'before\n```\n  `````\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('``````\n' + code + '\n``````');
+		});
+
 		test('should keep the standard fence for code without backticks', () => {
 			const markdown = createMarkdownContent(
 				'<article><pre><code class="language-python">print("hi")</code></pre></article>',

@@ -641,11 +641,11 @@ export function createMarkdownContent(content: string, url: string) {
 			const code = codeElement.textContent || '';
 			
 			// Backslash escapes are literal inside a fence, so escaping backticks here would
-			// corrupt the code. Only a line-leading run of three or more backticks can close
-			// the block, so grow the fence past the longest such run instead.
+			// corrupt the code. A run of three or more backticks, indented by up to three
+			// spaces, can close the block, so grow the fence past the longest such run.
 			const cleanCode = code.trim();
-			const fenceSize = (cleanCode.match(/^`{3,}/gm) || [])
-				.reduce((size, run) => Math.max(size, run.length + 1), 3);
+			const fenceSize = (cleanCode.match(/^ {0,3}`{3,}/gm) || [])
+				.reduce((size, run) => Math.max(size, run.trim().length + 1), 3);
 			const fence = '`'.repeat(fenceSize);
 
 			return `\n${fence}${language}\n${cleanCode}\n${fence}\n`;
