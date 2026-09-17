@@ -129,19 +129,26 @@ export function removeSmallImages(doc: Document, smallImages: Set<string>, debug
 	['img', 'svg'].forEach(tag => {
 		const elements = doc.getElementsByTagName(tag);
 		Array.from(elements).forEach(element => {
+			let hasResolvableLazySource = false;
 			// Remove images with no source information at all (broken/empty images)
 			// or unresolvable base64 placeholder images (e.g. lazy-loaded images
 			// where JS never ran to inject the real URL)
 			if (tag === 'img') {
 				const src = element.getAttribute('src') || '';
-				const hasAltSrc =
+				const hasAltSrc = Boolean(
 					element.getAttribute('srcset') ||
 					element.getAttribute('data-src') ||
 					element.getAttribute('data-srcset') ||
 					element.getAttribute('data-lazy-src') ||
 					element.getAttribute('data-original') ||
 					element.getAttribute('data-actualsrc') ||
-					element.getAttribute('data-backup');
+					element.getAttribute('data-backup')
+				);
+				hasResolvableLazySource = hasAltSrc && (
+					!src ||
+					isBase64Placeholder(src) ||
+					src.startsWith('data:image/svg+xml')
+				);
 				if (!src && !hasAltSrc) {
 					element.remove();
 					removedCount++;
@@ -157,7 +164,7 @@ export function removeSmallImages(doc: Document, smallImages: Set<string>, debug
 				}
 			}
 			const identifier = getElementIdentifier(element);
-			if (identifier && smallImages.has(identifier)) {
+			if (identifier && smallImages.has(identifier) && !hasResolvableLazySource) {
 				element.remove();
 				removedCount++;
 			}

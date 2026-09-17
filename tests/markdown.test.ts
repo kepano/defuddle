@@ -124,13 +124,14 @@ describe('Markdown conversion', () => {
 		});
 
 		test.each([
+			'data-src',
 			'data-original',
 			'data-lazy-src',
 			'data-actualsrc',
 			'data-backup',
-		])('should promote %s when src is a placeholder', async (attribute) => {
+		])('should promote %s when src is a small placeholder', async (attribute) => {
 			const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
-			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${placeholder}" ${attribute}="/images/a.jpg" alt="A"></article></body></html>`;
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${placeholder}" ${attribute}="/images/a.jpg" width="1" height="1" alt="A"></article></body></html>`;
 			const result = await Defuddle(parseDocument(html, 'https://example.com/articles/post'), 'https://example.com/articles/post', { separateMarkdown: true });
 
 			expect(result.contentMarkdown).toContain('![A](https://example.com/images/a.jpg)');
