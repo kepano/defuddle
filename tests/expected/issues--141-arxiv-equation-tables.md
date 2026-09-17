@@ -2,7 +2,7 @@
 {
   "title": "arXiv Equation Tables",
   "author": "",
-  "site": "",
+  "site": "141-arxiv-equation-tables",
   "published": ""
 }
 ```

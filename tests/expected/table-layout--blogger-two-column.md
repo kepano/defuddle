@@ -2,7 +2,7 @@
 {
   "title": "Example Blog -- Thoughts on various topics",
   "author": "",
-  "site": "",
+  "site": "blog.example.com",
   "published": "2004-05-27T00:00:00+00:00"
 }
 ```

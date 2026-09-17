@@ -2,7 +2,7 @@
 {
   "title": "Embedded videos test",
   "author": "",
-  "site": "",
+  "site": "embedded-videos",
   "published": ""
 }
 ```

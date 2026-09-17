@@ -2,7 +2,7 @@
 {
   "title": "Example Topic",
   "author": "",
-  "site": "",
+  "site": "encyclopedia.example.com",
   "published": ""
 }
 ```

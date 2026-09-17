@@ -2,7 +2,7 @@
 {
   "title": "Restaurant Menu Page",
   "author": "",
-  "site": "",
+  "site": "106-menu-id",
   "published": ""
 }
 ```

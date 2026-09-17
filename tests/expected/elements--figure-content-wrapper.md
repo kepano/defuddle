@@ -2,7 +2,7 @@
 {
   "title": "Figure Content Wrapper Test",
   "author": "",
-  "site": "",
+  "site": "figure-content-wrapper",
   "published": ""
 }
 ```

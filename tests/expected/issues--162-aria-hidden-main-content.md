@@ -2,7 +2,7 @@
 {
   "title": "Invitation",
   "author": "",
-  "site": "",
+  "site": "earendil.com",
   "published": ""
 }
 ```

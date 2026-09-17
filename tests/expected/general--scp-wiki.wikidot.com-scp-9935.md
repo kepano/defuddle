@@ -2,7 +2,7 @@
 {
   "title": "SCP-9935 - SCP Foundation",
   "author": "",
-  "site": "",
+  "site": "scp-wiki.wikidot.com-scp-9935",
   "published": ""
 }
 ```

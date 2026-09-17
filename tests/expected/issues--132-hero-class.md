@@ -2,7 +2,7 @@
 {
   "title": "Page with Hero Section",
   "author": "",
-  "site": "",
+  "site": "132-hero-class",
   "published": ""
 }
 ```

@@ -771,7 +771,7 @@ export class Defuddle {
 				const startTime = Date.now();
 				const extracted = await extractor.extractAsync();
 				const pageMetaTags = this._collectMetaTags();
-				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags, url);
 				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 		} catch (error) {
@@ -840,7 +840,7 @@ export class Defuddle {
 		const pageMetaTags = this._metaTags;
 
 		if (!this._metadata) {
-			this._metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+			this._metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags, options.url);
 		}
 		const metadata = this._metadata;
 

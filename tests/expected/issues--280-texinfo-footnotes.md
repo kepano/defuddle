@@ -2,7 +2,7 @@
 {
   "title": "Introduction (Widget)",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { Defuddle, DefuddleResponse } from '../src/node';
-import { getFixtures, parseDocument } from './helpers';
+import { getFixtures, parseDocument, normalizeHtmlAttributes, normalizeMarkdownHtml } from './helpers';
 
 /**
  * Fixtures-based testing for Defuddle extractors
@@ -117,12 +117,12 @@ describe('Fixtures Tests', () => {
     }
 
     if (expected) {
-      expect(result.trim()).toEqual(expected.trim());
+      expect(normalizeMarkdownHtml(result.trim())).toEqual(normalizeMarkdownHtml(expected.trim()));
     }
 
     const expectedHtml = loadExpectedHtml(name);
     if (expectedHtml) {
-      expect(response.content.trim()).toEqual(expectedHtml.trim());
+      expect(normalizeHtmlAttributes(response.content.trim())).toEqual(normalizeHtmlAttributes(expectedHtml.trim()));
     }
   });
 });

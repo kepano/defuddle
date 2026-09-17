@@ -2,6 +2,7 @@ import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords, normalizeText } from '../utils';
 import { findContentStart, isAboveContentStart } from '../content-boundary';
+import { isNodeBefore } from '../utils/dom';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago\b/i;
@@ -116,6 +117,17 @@ function walkUpToWrapper(el: Element, text: string, mainContent: Element): Eleme
 		target = target.parentElement;
 	}
 	return target;
+}
+
+// A date inside a labeled row belongs to that row, even when only the label's
+// sibling span contains the date. Do not strip individual values from it.
+function isLabeledMetadata(el: Element, mainContent: Element): boolean {
+	for (let current: Element | null = el; current && current !== mainContent; current = current.parentElement) {
+		const text = current.textContent?.trim() || '';
+		if (countWords(text) > 15) break;
+		if (METADATA_LABEL_PATTERN.test(text)) return true;
+	}
+	return false;
 }
 
 function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: boolean, debugRemovals?: DebugRemoval[]) {
@@ -368,7 +380,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	if (firstH1) {
 		for (const link of mainContent.querySelectorAll('a[href]')) {
 			if (!link.parentNode) continue;
-			if (!(link.compareDocumentPosition(firstH1) & 4)) continue;
+			if (!isNodeBefore(link, firstH1)) continue;
 			if (!link.querySelector('div')) continue;
 			if (link.querySelector('img, picture, video')) continue;
 			const text = link.textContent?.trim() || '';
@@ -509,6 +521,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const tag = el.tagName;
 		const hasDate = CONTENT_DATE_PATTERN.test(text);
+		if (hasDate && isLabeledMetadata(el, mainContent)) continue;
 		// Defer indexOf — only compute when a check needs it
 		let pos = -2; // sentinel: not yet computed
 		const getPos = () => { if (pos === -2) pos = contentText.indexOf(text); return pos; };
@@ -791,7 +804,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					// Skip links inside paragraphs — these are inline prose links, not breadcrumbs
 					if (el.closest('p')) continue;
 					if (!firstHeading) continue;
-					if (!(el.compareDocumentPosition(firstHeading) & 4)) continue;
+					if (!isNodeBefore(el, firstHeading)) continue;
 				}
 			}
 			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');

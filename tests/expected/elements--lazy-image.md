@@ -7,10 +7,6 @@
 }
 ```
 
-[![Vincent Vallet](https://miro.medium.com/fit/c/96/96/1*vFTVh_mYyf0p6m7f77A3vw.jpeg)](https://lazy-image/@vincentvallet?source=post_page-----d6e62af173e2----------------------)
-
-[Vincent Vallet](https://lazy-image/@vincentvallet?source=post_page-----d6e62af173e2----------------------)
-
 ## Why CPU monitoring is important?
 
 I work at [Voodoo](http://voodoo.io/), a French company that creates mobile video games. We have a lot of challenges with performance, availability, and scalability because of the insane amount of traffic our infrastructure supports (billions of events/requests per day). In this setting, every metric is important and gives us a lot of information about the state of our system.

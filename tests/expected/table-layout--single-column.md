@@ -2,7 +2,7 @@
 {
   "title": "My Homepage",
   "author": "",
-  "site": "",
+  "site": "table-layout--single-column",
   "published": ""
 }
 ```

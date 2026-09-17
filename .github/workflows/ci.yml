@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Tests under linkedom (the default backend the fixtures are authored for).
+  # Run the shared fixtures and regression tests under both DOM backends.
   # Node floor is 20: the toolchain (Vite 7) requires ^20.19 || >=22.12, so
   # 18 can't run the suite at all.
   test:
@@ -36,6 +36,7 @@ jobs:
       # project, so its deps (@lezer/*, codemirror) need their own install.
       - run: npm ci --prefix website
       - run: npm test
+      - run: npm run test:jsdom
 
   # Tests run on TS source via Vitest and never exercise webpack or the
   # published bundles. Build is its own gate to catch bundle-only breakage

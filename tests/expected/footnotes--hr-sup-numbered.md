@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: sup-numbered after hr",
   "author": "",
-  "site": "",
+  "site": "hr-sup-numbered",
   "published": ""
 }
 ```

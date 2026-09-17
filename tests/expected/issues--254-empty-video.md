@@ -2,7 +2,7 @@
 {
   "title": "Empty Video Placeholder",
   "author": "",
-  "site": "",
+  "site": "254-empty-video",
   "published": ""
 }
 ```

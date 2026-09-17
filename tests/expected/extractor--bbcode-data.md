@@ -2,7 +2,7 @@
 {
   "title": "Patch 1.2.3 is now LIVE!",
   "author": "Example Game",
-  "site": "",
+  "site": "store.example.com",
   "published": "2025-01-15T12:00:00.000Z"
 }
 ```

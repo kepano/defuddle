@@ -2,7 +2,7 @@
 {
   "title": "Testing Patterns",
   "author": "",
-  "site": "",
+  "site": "p-class-footnote",
   "published": ""
 }
 ```

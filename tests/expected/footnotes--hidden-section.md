@@ -2,7 +2,7 @@
 {
   "title": "Hidden Footnotes Section",
   "author": "",
-  "site": "",
+  "site": "hidden-section",
   "published": ""
 }
 ```

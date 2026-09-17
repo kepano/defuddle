@@ -92,6 +92,30 @@ export function isDirectTableChild(el: Node, ancestor: Node): boolean {
 	return parent === ancestor;
 }
 
+/** Document order without relying on linkedom's cross-parent compareDocumentPosition. */
+export function isNodeBefore(node: Node, other: Node): boolean {
+	if (node === other) return false;
+	const ancestors = (current: Node): Node[] => {
+		const path: Node[] = [];
+		for (let n: Node | null = current; n; n = n.parentNode) path.push(n);
+		return path;
+	};
+	const left = ancestors(node);
+	const right = ancestors(other);
+	// Detached subtrees have no shared document order.
+	if (left[left.length - 1] !== right[right.length - 1]) return false;
+	while (left.length && right.length && left[left.length - 1] === right[right.length - 1]) {
+		left.pop();
+		right.pop();
+	}
+	if (!left.length) return true; // node is an ancestor of other
+	if (!right.length) return false;
+	for (let sibling: Node | null = left[left.length - 1].nextSibling; sibling; sibling = sibling.nextSibling) {
+		if (sibling === right[right.length - 1]) return true;
+	}
+	return false;
+}
+
 /**
  * Parse an HTML string into a DocumentFragment.
  * Uses a <template> element when available (safer: no script execution,

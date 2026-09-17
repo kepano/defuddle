@@ -2,7 +2,7 @@
 {
   "title": "Equation representations",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

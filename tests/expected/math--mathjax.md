@@ -2,7 +2,7 @@
 {
   "title": "MathJax v3 with MathML input and HTML output",
   "author": "",
-  "site": "",
+  "site": "mathjax",
   "published": ""
 }
 ```

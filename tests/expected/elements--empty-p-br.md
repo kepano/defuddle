@@ -2,7 +2,7 @@
 {
   "title": "Empty paragraph br test",
   "author": "",
-  "site": "",
+  "site": "empty-p-br",
   "published": ""
 }
 ```

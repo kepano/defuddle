@@ -2,7 +2,7 @@
 {
   "title": "Article with Inline Footnotes",
   "author": "",
-  "site": "",
+  "site": "inline-footnote-span",
   "published": ""
 }
 ```

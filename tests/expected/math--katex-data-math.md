@@ -2,7 +2,7 @@
 {
   "title": "Gemini - Math response",
   "author": "",
-  "site": "",
+  "site": "gemini.google.com",
   "published": ""
 }
 ```

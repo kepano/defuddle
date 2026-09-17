@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: continuation paragraphs",
   "author": "",
-  "site": "",
+  "site": "hr-continuation",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "arXiv Footnote Marks",
   "author": "",
-  "site": "",
+  "site": "144-arxiv-footnote-marks",
   "published": ""
 }
 ```

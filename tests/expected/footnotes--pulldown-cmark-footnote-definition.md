@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "pulldown-cmark footnote-definition",
+  "title": "Example post with a footnote",
   "author": "",
-  "site": "",
+  "site": "pulldown-cmark-footnote-definition",
   "published": ""
 }
 ```
-
-## Example post with a footnote
 
 Example bit-shift analysis: a common simplification is to replace `x & ~0` with `x`[^1]. Other paragraph content follows that explains the broader idea in more detail.
 

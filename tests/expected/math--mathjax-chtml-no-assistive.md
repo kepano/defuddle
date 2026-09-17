@@ -2,7 +2,7 @@
 {
   "title": "MathJax CHTML without assistive MathML",
   "author": "",
-  "site": "",
+  "site": "mathjax-chtml-no-assistive",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Product Update",
   "author": "",
-  "site": "",
+  "site": "external-labeled-section",
   "published": ""
 }
 ```

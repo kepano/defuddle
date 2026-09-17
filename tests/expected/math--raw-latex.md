@@ -2,7 +2,7 @@
 {
   "title": "Raw LaTeX Math Delimiters",
   "author": "",
-  "site": "",
+  "site": "raw-latex",
   "published": ""
 }
 ```

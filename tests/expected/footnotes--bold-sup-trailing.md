@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: bold-wrapped sup with trailing content",
   "author": "",
-  "site": "",
+  "site": "bold-sup-trailing",
   "published": ""
 }
 ```

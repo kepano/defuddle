@@ -2,7 +2,7 @@
 {
   "title": "News Article Title",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

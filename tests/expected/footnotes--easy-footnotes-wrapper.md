@@ -2,7 +2,7 @@
 {
   "title": "The History of Ancient Logistics",
   "author": "",
-  "site": "",
+  "site": "easy-footnotes-wrapper",
   "published": ""
 }
 ```

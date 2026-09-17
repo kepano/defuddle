@@ -2,7 +2,7 @@
 {
   "title": "Research Paper with SVG",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

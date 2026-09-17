@@ -2,7 +2,7 @@
 {
   "title": "Type Theory Reference",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Thoughts on Open Models",
   "author": "",
-  "site": "",
+  "site": "br-separated-named-anchors",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: strong-numbered after hr",
   "author": "",
-  "site": "",
+  "site": "hr-strong-numbered",
   "published": ""
 }
 ```

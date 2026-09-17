@@ -2,7 +2,7 @@
 {
   "title": "Trailing subscribe section after footnotes",
   "author": "",
-  "site": "",
+  "site": "content-patterns--trailing-subscribe-after-footnotes",
   "published": ""
 }
 ```

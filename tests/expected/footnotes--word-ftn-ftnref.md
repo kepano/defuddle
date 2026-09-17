@@ -2,7 +2,7 @@
 {
   "title": "Word HTML footnotes: _ftn/_ftnref pattern",
   "author": "",
-  "site": "",
+  "site": "word-ftn-ftnref",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Article with WordPress Block Footnotes",
   "author": "",
-  "site": "",
+  "site": "wp-block-footnotes",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Empty table test",
   "author": "",
-  "site": "",
+  "site": "empty-table",
   "published": ""
 }
 ```
