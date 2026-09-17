@@ -94,6 +94,36 @@ describe('Markdown conversion', () => {
 
 	describe('lazy-loaded images', () => {
 		test.each([
+			['https://cdn.example.com/full.webp', 'https://cdn.example.com/full.webp'],
+			['/images/full.webp', 'https://example.com/images/full.webp'],
+		])('should preserve a loaded source %s when a backup exists', async (src, expectedSrc) => {
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${src}" data-backup="https://example.com/fallback.jpg" alt="A"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com/articles/post'), 'https://example.com/articles/post', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain(`![A](${expectedSrc})`);
+			expect(result.contentMarkdown).not.toContain('fallback.jpg');
+		});
+
+		test('should preserve an embedded image with a filename title', async () => {
+			// A 64x64 PNG, large enough to be treated as image content rather than a placeholder.
+			const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAAAAACPAi4CAAAAa0lEQVR4nO3MBxpCYAAG4N8mlKaSkVGUrITs+9/KPXq+9wAvIRTNsBwviNJKVtT1Rtvu9ofjST9fjKtp2c7N9fzg/gij5yt+J2mWF5/yW9XNr+36YZxmggABAgQIECBAgAABAgQIECD492ABqvb4ECImEKEAAAAASUVORK5CYII=';
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${src}" title="diagram.png" alt="A"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com/articles/post'), 'https://example.com/articles/post', { separateMarkdown: true });
+
+			expect(result.content).toContain(`src="${src}"`);
+			expect(result.content).not.toContain('https://example.com/articles/diagram.png');
+		});
+
+		test('should keep the primary lazy source instead of overwriting it with a backup', async () => {
+			const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+			const html = `<html><head><title>Test</title></head><body><article><p>Content</p><img src="${placeholder}" data-src="/images/full.webp" data-backup="https://example.com/fallback.jpg" alt="A"></article></body></html>`;
+			const result = await Defuddle(parseDocument(html, 'https://example.com/articles/post'), 'https://example.com/articles/post', { separateMarkdown: true });
+
+			expect(result.contentMarkdown).toContain('![A](https://example.com/images/full.webp)');
+			expect(result.contentMarkdown).not.toContain('fallback.jpg');
+		});
+
+		test.each([
 			'data-original',
 			'data-lazy-src',
 			'data-actualsrc',
