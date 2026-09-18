@@ -146,3 +146,128 @@ describe('XOembedExtractor — FxTwitter surrogate-pair index adjustment', () =>
 		);
 	});
 });
+
+describe('XOembedExtractor — FxTwitter thread support and fallback', () => {
+	const THREAD_API_RESPONSE = {
+		code: 200,
+		thread: [
+			{
+				url: 'https://x.com/testuser/status/123',
+				id: '123',
+				text: 'This is the first tweet of the thread.',
+				author: {
+					screen_name: 'testuser',
+					name: 'Test User',
+				},
+				created_at: '2026-01-01T00:00:00.000Z',
+			},
+			{
+				url: 'https://x.com/testuser/status/124',
+				id: '124',
+				text: 'This is the second tweet of the thread.',
+				author: {
+					screen_name: 'testuser',
+					name: 'Test User',
+				},
+				created_at: '2026-01-01T00:01:00.000Z',
+			},
+		],
+	};
+
+	const SINGLE_TWEET_API_RESPONSE = {
+		code: 200,
+		tweet: {
+			url: 'https://x.com/testuser/status/123',
+			id: '123',
+			text: 'This is the first tweet of the thread.',
+			author: {
+				screen_name: 'testuser',
+				name: 'Test User',
+			},
+			created_at: '2026-01-01T00:00:00.000Z',
+		},
+	};
+
+	function mockFetchForThreadFallback(threadData: any, tweetData: any, shouldThreadFail: boolean) {
+		return async (input: RequestInfo | URL, _init?: RequestInit) => {
+			const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+			if (url.includes('/2/thread/')) {
+				if (shouldThreadFail) {
+					return new Response('Rate Limited', { status: 429 });
+				}
+				return new Response(JSON.stringify(threadData), {
+					status: 200,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+			if (url.includes('/status/')) {
+				return new Response(JSON.stringify(tweetData), {
+					status: 200,
+					headers: { 'Content-Type': 'application/json' },
+				});
+			}
+			return new Response(JSON.stringify({ html: '<blockquote>oEmbed fallback</blockquote>', author_name: 'testuser', author_url: 'https://x.com/testuser' }), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		};
+	}
+
+	test('successfully fetches and renders full thread via v2 API', async () => {
+		const doc = parseLinkedomHTML(
+			'<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>',
+			'https://x.com/testuser/status/123',
+		);
+
+		const result = await Defuddle(doc, 'https://x.com/testuser/status/123', {
+			fetch: mockFetchForThreadFallback(THREAD_API_RESPONSE, SINGLE_TWEET_API_RESPONSE, false),
+		});
+
+		expect(result.content).toContain('This is the first tweet of the thread.');
+		expect(result.content).toContain('This is the second tweet of the thread.');
+		expect(result.content).toContain('<hr>');
+	});
+
+	test('cascades to v1 single tweet when v2 rate limited (429)', async () => {
+		const doc = parseLinkedomHTML(
+			'<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>',
+			'https://x.com/testuser/status/123',
+		);
+
+		const result = await Defuddle(doc, 'https://x.com/testuser/status/123', {
+			fetch: mockFetchForThreadFallback(THREAD_API_RESPONSE, SINGLE_TWEET_API_RESPONSE, true),
+		});
+
+		expect(result.content).toContain('This is the first tweet of the thread.');
+		expect(result.content).not.toContain('This is the second tweet of the thread.');
+	});
+
+	test('cascades to oEmbed when both v2 and v1 fail', async () => {
+		const doc = parseLinkedomHTML(
+			'<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>',
+			'https://x.com/testuser/status/123',
+		);
+
+		const failingFetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+			const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+			if (url.includes('api.fxtwitter.com')) {
+				return new Response('Fail', { status: 500 });
+			}
+			return new Response(JSON.stringify({
+				html: '<blockquote><p>oEmbed fallback text</p></blockquote>',
+				author_name: 'Test User',
+				author_url: 'https://twitter.com/testuser',
+				provider_name: 'Twitter'
+			}), {
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			});
+		};
+
+		const result = await Defuddle(doc, 'https://x.com/testuser/status/123', {
+			fetch: failingFetch,
+		});
+
+		expect(result.content).toContain('oEmbed fallback text');
+	});
+});
