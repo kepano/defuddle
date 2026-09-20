@@ -2,6 +2,7 @@
  * Standardization rules for handling images
  */
 
+import { isElement } from '../utils';
 import { transferContent } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
@@ -329,7 +330,7 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 function transferCaptionContent(source: Element, caption: Element, doc: Document): void {
 	transferContent(source, caption);
 	// A caption candidate may wrap the same media already added to the figure.
-	for (const media of Array.from(caption.querySelectorAll('img, picture, source, video, svg, figure'))) {
+	for (const media of Array.from(caption.querySelectorAll('img, picture, source, video, svg, figure, iframe, audio, object, embed'))) {
 		media.remove();
 	}
 
@@ -343,7 +344,7 @@ function transferCaptionContent(source: Element, caption: Element, doc: Document
 	// semantic inline elements (links, emphasis, sub/sup) and punctuation tight.
 	for (const span of Array.from(caption.querySelectorAll('span'))) {
 		const next = span.nextSibling;
-		if (next?.nodeType !== 1 || (next as Element).tagName.toLowerCase() !== 'span') continue;
+		if (!next || !isElement(next) || next.tagName.toLowerCase() !== 'span') continue;
 		const left = span.textContent || '';
 		const right = next.textContent || '';
 		if (left && right && !/[\s([{]$/.test(left) && !/^[\s.,!?:;)'’\]}]/.test(right)) {

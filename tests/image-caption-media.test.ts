@@ -18,4 +18,12 @@ describe('Media inside caption wrappers', () => {
 		expect(caption.querySelector('em')?.textContent).toBe('emphasis');
 		expect(caption.querySelector('a')?.getAttribute('href')).toBe('https://example.net/reference');
 	});
+
+	test.each(['iframe', 'audio', 'object', 'embed'])('excludes embedded %s from caption content', tag => {
+		const doc = parseDocument(`<html><body><figure><div class="caption-wrapper"><img src="https://example.com/photo.jpg"><${tag} src="https://example.com/media"></${tag}><span>A caption with an accompanying embedded player.</span></div></figure></body></html>`);
+		const rule = imageRules.find(rule => rule.selector === 'figure, p:has([class*="caption"])')!;
+		const result = rule.transform(doc.querySelector('figure')!, doc);
+		expect(result.querySelector('figcaption')?.querySelector(tag)).toBeNull();
+		expect(result.querySelector('figcaption')?.textContent).toContain('A caption with an accompanying embedded player.');
+	});
 });
