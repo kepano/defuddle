@@ -320,6 +320,11 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
 	transferContent(captionElement, figcaption);
+	// Caption-like wrappers can also contain the media cloned above.
+	// Retain their text and inline markup without duplicating that media.
+	for (const media of Array.from(figcaption.querySelectorAll('img, picture, source, video'))) {
+		media.remove();
+	}
 	figure.appendChild(figcaption);
 
 	return figure;
