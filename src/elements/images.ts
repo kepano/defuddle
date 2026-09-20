@@ -2,8 +2,7 @@
  * Standardization rules for handling images
  */
 
-import { isElement, isTextNode } from '../utils';
-import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
+import { transferContent, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
@@ -132,7 +131,7 @@ export const imageRules = [
 					if (richTextP) {
 						transferContent(richTextP, figcaption);
 					} else {
-						figcaption.textContent = captionText;
+						transferContent(figcaptionEl, figcaption);
 					}
 					figure.appendChild(figcaption);
 				}
@@ -282,8 +281,7 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
-	const uniqueCaptionContent = extractUniqueCaptionContent(captionElement);
-	figcaption.appendChild(parseHTML(doc, uniqueCaptionContent));
+	transferContent(captionElement, figcaption);
 	figure.appendChild(figcaption);
 
 	return figure;
@@ -593,48 +591,6 @@ function findCaption(element: Element): Element | null {
 	}
 	
 	return null;
-}
-
-/**
- * Extract unique caption content to avoid duplication
- */
-function extractUniqueCaptionContent(caption: Element): string {
-	// Get all text nodes and elements with text content
-	const textNodes: string[] = [];
-	const processedTexts = new Set<string>();
-	
-	// Helper function to process a node
-	const processNode = (node: Node) => {
-		if (isTextNode(node)) {
-			const text = node.textContent?.trim() || '';
-			if (text && !processedTexts.has(text)) {
-				textNodes.push(text);
-				processedTexts.add(text);
-			}
-		} else if (isElement(node)) {
-			// Process child nodes
-			const childNodes = node.childNodes;
-			for (let i = 0; i < childNodes.length; i++) {
-				processNode(childNodes[i]);
-			}
-		}
-	};
-	
-	// Process all child nodes
-	const childNodes = caption.childNodes;
-	for (let i = 0; i < childNodes.length; i++) {
-		processNode(childNodes[i]);
-	}
-	
-	// If we found unique text nodes, use them
-	if (textNodes.length > 0) {
-		return textNodes.join(' ');
-	}
-	
-	// Otherwise, just use the inner HTML but try to clean it up
-	const html = serializeHTML(caption);
-	
-	return html;
 }
 
 /**
