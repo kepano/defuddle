@@ -29,8 +29,9 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
-// CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
-const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
+// Only interpolate simple CSS identifiers. Other classes are omitted, with
+// sibling positions below preserving the identity of the selected element.
+const SAFE_CSS_CLASS_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
 
 // Mirrors the descendant removal list for unsafe-root checks.
 const UNSAFE_ELEMENT_TAGS = new Set([
@@ -1382,9 +1383,18 @@ export class Defuddle {
 				selector += '#' + current.id;
 			} else if (getClassName(current)) {
 				const safe = getClassName(current).trim().split(/\s+/)
-					.filter(cls => !UNSAFE_CSS_CLASS_RE.test(cls));
+					.filter(cls => SAFE_CSS_CLASS_RE.test(cls));
 				if (safe.length) {
 					selector += '.' + safe.join('.');
+				}
+			}
+			// Omitting CSS-special classes can leave siblings with the same selector.
+			// Use their tag position so a retry still selects the intended content.
+			if (!current.id && current.parentElement) {
+				const siblings = Array.from(current.parentElement.children)
+					.filter(sibling => sibling.tagName === current!.tagName);
+				if (siblings.length > 1) {
+					selector += `:nth-of-type(${siblings.indexOf(current) + 1})`;
 				}
 			}
 			parts.unshift(selector);
