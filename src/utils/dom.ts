@@ -139,3 +139,25 @@ export function parseHTML(doc: Document, html: string): DocumentFragment {
 	}
 	return fragment;
 }
+
+/** Escape a CSS identifier without depending on the browser-only CSS.escape API. */
+export function escapeCssIdent(value: string): string {
+	let escaped = '';
+	for (let i = 0; i < value.length; i++) {
+		const code = value.charCodeAt(i);
+		const char = value[i];
+		if (code === 0) {
+			escaped += '\uFFFD';
+		} else if (code <= 31 || code === 127 ||
+			(code >= 48 && code <= 57 && (i === 0 || (i === 1 && value[0] === '-')))) {
+			escaped += `\\${code.toString(16)} `;
+		} else if (value === '-') {
+			escaped += '\\-';
+		} else if (code >= 128 || /[a-zA-Z0-9_-]/.test(char)) {
+			escaped += char;
+		} else {
+			escaped += `\\${code.toString(16)} `;
+		}
+	}
+	return escaped;
+}

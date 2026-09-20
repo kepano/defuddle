@@ -19,7 +19,7 @@ import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, escapeCssIdent } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -28,10 +28,6 @@ interface StyleChange {
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
-
-// Only interpolate simple CSS identifiers. Other classes are omitted, with
-// sibling positions below preserving the identity of the selected element.
-const SAFE_CSS_CLASS_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
 
 // Mirrors the descendant removal list for unsafe-root checks.
 const UNSAFE_ELEMENT_TAGS = new Set([
@@ -1379,22 +1375,22 @@ export class Defuddle {
 
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
+			const classNames = getClassName(current).trim().split(/\s+/).filter(Boolean);
 			if (current.id) {
-				selector += '#' + current.id;
-			} else if (getClassName(current)) {
-				const safe = getClassName(current).trim().split(/\s+/)
-					.filter(cls => SAFE_CSS_CLASS_RE.test(cls));
-				if (safe.length) {
-					selector += '.' + safe.join('.');
-				}
+				selector += '#' + escapeCssIdent(current.id);
+			} else if (classNames.length) {
+				selector += '.' + classNames.map(escapeCssIdent).join('.');
 			}
-			// Omitting CSS-special classes can leave siblings with the same selector.
-			// Use their tag position so a retry still selects the intended content.
+			// Keep unique compounds independent of sibling positions: shadow-root
+			// hoisting can insert siblings between generation and query.
 			if (!current.id && current.parentElement) {
-				const siblings = Array.from(current.parentElement.children)
-					.filter(sibling => sibling.tagName === current!.tagName);
-				if (siblings.length > 1) {
-					selector += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+				const siblings = Array.from(current.parentElement.children);
+				const tagName = current.tagName;
+				const sameTag = siblings.filter(sibling => sibling.tagName === tagName);
+				// Compare tokens directly; some DOM engines disagree on escaped
+				// identifiers between matches() and querySelector().
+				if (sameTag.filter(sibling => classNames.every(name => sibling.classList.contains(name))).length > 1) {
+					selector += `:nth-of-type(${sameTag.indexOf(current) + 1})`;
 				}
 			}
 			parts.unshift(selector);
