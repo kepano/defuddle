@@ -13,4 +13,4 @@ An inline product 6×7 has the same requirement, even without any fraction-speci
 
 A link [to the guide](https://example.net/guide) provides further explanation of these calculations and the notation used throughout the article.
 
-A decorative marker and a hidden promotion 12 should still be removed.
+A decorative marker and a hidden promotion should still be removed.
