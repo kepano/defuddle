@@ -14,7 +14,6 @@ const imageUrlPattern = /\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i;
 const widthPattern = /\s(\d+)w/;
 const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
-const absoluteUrlPattern = /^https?:\/\//;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -183,14 +182,10 @@ export const imageRules = [
 				if (srcsetPattern.test(attr.value)) {
 					// This looks like a srcset value
 					el.setAttribute('srcset', attr.value);
-				} else if (srcPattern.test(attr.value)) {
-					const currentSrc = el.getAttribute('src') || '';
-					const hasAbsoluteSrc = absoluteUrlPattern.test(currentSrc);
-					const isAbsoluteNew = absoluteUrlPattern.test(attr.value);
-					// Prefer absolute URLs — don't replace one with a relative path
-					if (!hasAbsoluteSrc || isAbsoluteNew) {
-						el.setAttribute('src', attr.value);
-					}
+				} else if (srcPattern.test(attr.value) && !el.getAttribute('src')?.trim()) {
+					// Unknown attributes may hold page URLs (e.g. RDFa resource),
+					// so only use them when the image has no source of its own.
+					el.setAttribute('src', attr.value);
 				}
 			}
 
