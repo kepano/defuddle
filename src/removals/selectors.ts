@@ -6,7 +6,8 @@ import {
 	PARTIAL_SELECTORS_REGEX,
 	PARTIAL_SELECTORS_ANCHORED_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
-	FOOTNOTE_LIST_SELECTORS
+	FOOTNOTE_LIST_SELECTORS,
+	INLINE_ELEMENTS
 } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
@@ -173,6 +174,12 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
+		// Accessible operators may be the only textual representation of a
+		// separator drawn by CSS. Preserve the glyph, not its clutter attributes.
+		if (isInlineMathSeparator(el)) {
+			el.replaceWith(...Array.from(el.childNodes));
+			return;
+		}
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeBySelector',
@@ -191,4 +198,25 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		total: elementsToRemove.size,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
+}
+
+/** Recognize an inline operator between textual operands, regardless of CSS names. */
+function isInlineMathSeparator(el: Element): boolean {
+	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.children.length > 0 ||
+		!/^[/⁄∕·×÷−+±=\-]$/.test(el.textContent?.trim() || '')) return false;
+
+	const adjacentText = (direction: 'previousSibling' | 'nextSibling'): string => {
+		let node = el[direction];
+		while (node) {
+			if (node.nodeType === 1 && !INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return '';
+			if (node.nodeType === 1 || node.nodeType === 3) {
+				const text = node.textContent?.trim();
+				if (text) return text;
+			}
+			node = node[direction];
+		}
+		return '';
+	};
+	return /(?:^|\s)(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})$|[)\]}]$/u.test(adjacentText('previousSibling')) &&
+		/^(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})(?=$|[\s)\]}.!,;])|^[([{]/u.test(adjacentText('nextSibling'));
 }
