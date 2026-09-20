@@ -13,4 +13,6 @@ An inline product 6×7 has the same requirement, even without any fraction-speci
 
 A link [to the guide](https://example.net/guide) provides further explanation of these calculations and the notation used throughout the article.
 
+A meaningful separator 1/2 remains part of the number even when its wrapper also has a clutter class.
+
 A decorative marker and a hidden promotion should still be removed.

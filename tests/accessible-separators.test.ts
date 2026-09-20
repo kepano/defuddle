@@ -6,7 +6,7 @@ describe('Accessible separators', () => {
 	test.each([
 		'class="sr-only"', 'class="visually-hidden"', 'class="screen-reader-text"',
 		'class="sr-only-focusable"', 'class="SR-Only"', 'id="sr-only-separator"',
-		'class="sr-only" id="screen-reader-text"',
+		'class="sr-only" id="screen-reader-text"', 'class="sr-only advertisement"',
 	])('preserves operators despite %s', attributes => {
 		for (const [left, right] of [
 			['<span>4</span>', '<span>3</span>'], ['<sup>4</sup>', '<sub>3</sub>'],
