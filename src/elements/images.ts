@@ -17,6 +17,11 @@ const urlPattern = /^([^\s]+)/;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
+// These attributes explicitly identify the real source of a lazy-loaded image.
+const LAZY_IMAGE_SOURCE_ATTRIBUTES = [
+	'data-src', 'data-original', 'data-lazy-src', 'data-actualsrc', 'data-backup', 'data-original-src'
+];
+
 export const imageRules = [
 	// Handle picture elements first to ensure we get the highest resolution
 	{
@@ -141,7 +146,10 @@ export const imageRules = [
 	
 	// Handle lazy-loaded images
 	{
-		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload, img[src^="data:image/svg+xml"]',
+		selector: [
+			...LAZY_IMAGE_SOURCE_ATTRIBUTES.map(attr => `img[${attr}]`),
+			'img[data-srcset]', 'img[loading="lazy"]', 'img.lazy', 'img.lazyload', 'img[src^="data:image/svg+xml"]'
+		].join(', '),
 		element: 'img',
 		transform: (el: Element, doc: Document): Element => {
 			// Check for base64 placeholder images
@@ -153,11 +161,12 @@ export const imageRules = [
 				el.removeAttribute('src');
 			}
 
-			// Handle data-src
-			const dataSrc = el.getAttribute('data-src');
-			if (dataSrc && !el.getAttribute('src')) {
-				el.setAttribute('src', dataSrc);
-			}
+			// Named lazy sources take precedence even over nonempty src values:
+			// placeholders may be external files or large inline previews.
+			const lazySrc = LAZY_IMAGE_SOURCE_ATTRIBUTES
+				.map(attr => el.getAttribute(attr)?.trim())
+				.find(value => value);
+			if (lazySrc) el.setAttribute('src', lazySrc);
 
 			// Handle data-srcset
 			const dataSrcset = el.getAttribute('data-srcset');
@@ -192,7 +201,7 @@ export const imageRules = [
 			// Remove lazy loading related classes and attributes
 			el.classList.remove('lazy', 'lazyload');
 			el.removeAttribute('data-ll-status');
-			el.removeAttribute('data-src');
+			for (const attr of LAZY_IMAGE_SOURCE_ATTRIBUTES) el.removeAttribute(attr);
 			el.removeAttribute('data-srcset');
 			el.removeAttribute('loading');
 			
