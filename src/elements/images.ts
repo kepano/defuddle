@@ -19,7 +19,7 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 // These attributes explicitly identify the real source of a lazy-loaded image.
 const LAZY_IMAGE_SOURCE_ATTRIBUTES = [
-	'data-src', 'data-original', 'data-lazy-src', 'data-actualsrc', 'data-backup', 'data-original-src'
+	'data-src', 'data-original', 'data-lazy-src'
 ];
 
 export const imageRules = [
@@ -189,8 +189,8 @@ export const imageRules = [
 
 				// Check if attribute contains an image URL
 				if (srcsetPattern.test(attr.value)) {
-					// This looks like a srcset value
-					el.setAttribute('srcset', attr.value);
+					// Unknown metadata must not replace the image's own srcset.
+					if (!el.getAttribute('srcset')?.trim()) el.setAttribute('srcset', attr.value);
 				} else if (srcPattern.test(attr.value) && !el.getAttribute('src')?.trim()) {
 					// Unknown attributes may hold page URLs (e.g. RDFa resource),
 					// so only use them when the image has no source of its own.
