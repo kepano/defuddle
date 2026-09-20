@@ -19,11 +19,11 @@ Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu 
 
 ![First gallery image caption.](https://www.example.com/images/gallery-1.jpg)
 
-First gallery image caption. Source One
+First gallery image caption. [Source One](https://example.com/source1)
 
 ![Second gallery image caption.](https://www.example.com/images/gallery-2.jpg)
 
-Source Two
+[Source Two](https://example.com/source2)
 
 Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
 
