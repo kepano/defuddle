@@ -127,9 +127,9 @@ export const imageRules = [
 					// Try to get cleaner text from specific inner element if possible
 					const richTextP = figcaptionEl.querySelector('.rich-text p');
 					if (richTextP) {
-						transferContent(richTextP, figcaption);
+						transferCaptionContent(richTextP, figcaption, doc);
 					} else {
-						transferContent(figcaptionEl, figcaption);
+						transferCaptionContent(figcaptionEl, figcaption, doc);
 					}
 					figure.appendChild(figcaption);
 				}
@@ -319,15 +319,37 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
-	transferContent(captionElement, figcaption);
-	// Caption-like wrappers can also contain the media cloned above.
-	// Retain their text and inline markup without duplicating that media.
-	for (const media of Array.from(figcaption.querySelectorAll('img, picture, source, video'))) {
-		media.remove();
-	}
+	transferCaptionContent(captionElement, figcaption, doc);
 	figure.appendChild(figcaption);
 
 	return figure;
+}
+
+/** Preserve caption phrasing and inline markup, without media or document headings. */
+function transferCaptionContent(source: Element, caption: Element, doc: Document): void {
+	transferContent(source, caption);
+	// A caption candidate may wrap the same media already added to the figure.
+	for (const media of Array.from(caption.querySelectorAll('img, picture, source, video, svg, figure'))) {
+		media.remove();
+	}
+
+	// Block wrappers express phrase boundaries, not sections of the article.
+	for (const block of Array.from(caption.querySelectorAll('div, p, section, h1, h2, h3, h4, h5, h6')).reverse()) {
+		block.replaceWith(doc.createTextNode(' '), ...Array.from(block.childNodes), doc.createTextNode(' '));
+	}
+
+	// Distinct adjacent caption spans often represent a caption and a credit.
+	// Preserve their boundary before generic cleanup unwraps the spans. Leave
+	// semantic inline elements (links, emphasis, sub/sup) and punctuation tight.
+	for (const span of Array.from(caption.querySelectorAll('span'))) {
+		const next = span.nextSibling;
+		if (next?.nodeType !== 1 || (next as Element).tagName.toLowerCase() !== 'span') continue;
+		const left = span.textContent || '';
+		const right = next.textContent || '';
+		if (left && right && !/[\s([{]$/.test(left) && !/^[\s.,!?:;)'’\]}]/.test(right)) {
+			span.after(doc.createTextNode(' '));
+		}
+	}
 }
 
 /**
