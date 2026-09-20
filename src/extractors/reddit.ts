@@ -86,7 +86,9 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	canExtract(): boolean {
-		return !!this.shredditPost || this.isOldReddit;
+		// Listing pages can contain many posts. Let the generic pipeline
+		// extract the listing instead of silently returning only its first post.
+		return (this.isCommentsPage() || this.isSharePage()) && (!!this.shredditPost || this.isOldReddit);
 	}
 
 	canExtractAsync(): boolean {
@@ -103,7 +105,19 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	private isCommentsPage(): boolean {
-		return /\/r\/.+\/comments\//.test(this.url);
+		try {
+			return /^\/(?:(?:r|user|u)\/[^/]+\/)?comments\/[^/]+(?:\/|$)/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
+	}
+
+	private isSharePage(): boolean {
+		try {
+			return /^\/r\/[^/]+\/s\/[^/]+\/?$/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
