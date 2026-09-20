@@ -84,10 +84,22 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// (Hardcoded to match TEST_ATTRIBUTES in constants.ts — avoids array allocation per element)
 			// For headings, only check class — IDs are auto-slugs and data-testid
 			// values (e.g. "article-header") cause false positives.
+			let className = getClassName(el);
+			// A screen-reader-only operator between inline operands can be the
+			// sole textual separator (the visible version may be drawn by CSS).
+			// Ignore only sr-only here; other clutter classes still apply.
+			if (tag === 'SPAN' && el.children.length === 0 &&
+				/^[\/⁄·×÷−+±=]$/.test(el.textContent?.trim() || '') &&
+				el.previousElementSibling?.tagName === 'SPAN' &&
+				el.nextElementSibling?.tagName === 'SPAN' &&
+				el.previousElementSibling.textContent?.trim() &&
+				el.nextElementSibling.textContent?.trim()) {
+				className = className.split(/\s+/).filter(token => token !== 'sr-only').join(' ');
+			}
 			const isHeading = /^H[1-6]$/.test(tag);
 			const attrs = (isHeading
-				? getClassName(el)
-				: getClassName(el) + ' ' +
+				? className
+				: className + ' ' +
 					(el.getAttribute('data-component') || '') + ' ' +
 					(el.getAttribute('data-test') || '') + ' ' +
 					(el.getAttribute('data-testid') || '') + ' ' +
