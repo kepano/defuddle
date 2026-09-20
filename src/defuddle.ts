@@ -3,6 +3,7 @@ import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './
 import { ExtractorRegistry } from './extractor-registry';
 import type { ExtractorOptions } from './extractors/_base';
 import { BaseExtractor } from './extractors/_base';
+import type { ExtractorResult } from './types/extractors';
 import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS_SELECTOR,
@@ -871,8 +872,8 @@ export class Defuddle {
 							const variables = this.getExtractorVariables(extracted.variables);
 							return {
 								...pipelineResult,
-								title: extracted.variables?.title || pipelineResult.title,
-								description: extracted.variables?.description || pipelineResult.description,
+								title: extracted.variables?.title || (extracted.skipMetadataFallback?.includes('title') ? '' : pipelineResult.title),
+								description: extracted.variables?.description || (extracted.skipMetadataFallback?.includes('description') ? '' : pipelineResult.description),
 								author: extracted.variables?.author || pipelineResult.author,
 								published: extracted.variables?.published || pipelineResult.published,
 								site: extracted.variables?.site || pipelineResult.site,
@@ -1763,7 +1764,7 @@ export class Defuddle {
 	 * Build a DefuddleResponse from an extractor result with metadata
 	 */
 	private buildExtractorResponse(
-		extracted: { contentHtml: string; variables?: { [key: string]: string } },
+		extracted: Pick<ExtractorResult, 'contentHtml' | 'variables' | 'skipMetadataFallback'>,
 		metadata: ReturnType<typeof MetadataExtractor.extract>,
 		startTime: number,
 		extractor: BaseExtractor,
@@ -1773,8 +1774,8 @@ export class Defuddle {
 		const variables = this.getExtractorVariables(extracted.variables);
 		return {
 			content: contentHtml,
-			title: extracted.variables?.title || metadata.title,
-			description: extracted.variables?.description || metadata.description,
+			title: extracted.variables?.title || (extracted.skipMetadataFallback?.includes('title') ? '' : metadata.title),
+			description: extracted.variables?.description || (extracted.skipMetadataFallback?.includes('description') ? '' : metadata.description),
 			domain: metadata.domain,
 			favicon: metadata.favicon,
 			image: metadata.image,
