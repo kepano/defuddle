@@ -12,6 +12,26 @@ import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
+function hasSubstantiveTagsContent(el: Element): boolean {
+	if ((el.id || '').toLowerCase() !== 'tags') return false;
+	if (!el.querySelector('h1, h2, h3, h4, h5, h6')) return false;
+
+	const text = el.textContent?.trim() || '';
+	if (!text) return false;
+
+	const linkText = Array.from(el.querySelectorAll('a'))
+		.map(a => a.textContent || '')
+		.join(' ')
+		.trim();
+	if (linkText && linkText.length / text.length > 0.7) return false;
+
+	return Array.from(el.querySelectorAll('p')).some(p => {
+		const paragraph = p.textContent?.trim() || '';
+		const words = paragraph.split(/\s+/).filter(Boolean).length;
+		return words >= 2 && /[.!?。！？]/.test(paragraph);
+	});
+}
+
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
@@ -41,6 +61,9 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements with responsive show classes (e.g. "hidden sm:flex")
 				if (el.matches(HIDDEN_EXACT_SELECTOR) && hasResponsiveShowClass(getClassName(el))) {
+					return;
+				}
+				if (hasSubstantiveTagsContent(el)) {
 					return;
 				}
 				elementsToRemove.set(el, { type: 'exact' });
