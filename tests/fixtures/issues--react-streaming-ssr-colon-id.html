@@ -16,13 +16,7 @@
 		</nav>
 	</header>
 
-	<!--
-		React streaming SSR emits Suspense boundaries as templates plus a hidden
-		div holding the deferred content. The colon in the hidden div's id is what
-		matters: it is an ancestor of the content, so it reaches the generated
-		selector as `div#S:a`, which is invalid CSS. The templates are siblings and
-		are here only for realism.
-	-->
+	<!-- React SSR IDs contain colons that must be escaped in generated selectors. -->
 	<template id="B:0"></template>
 
 	<div hidden id="S:a">

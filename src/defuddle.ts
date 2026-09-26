@@ -81,10 +81,6 @@ export class Defuddle {
 		return this._withDebugErrors(this._parse() ?? this._fallbackResponse(startTime));
 	}
 
-	/**
-	 * Run the extraction and its retries. Returns null when no attempt found
-	 * content, so callers decide how to fall back.
-	 */
 	private _parse(): DefuddleResponse | null {
 		this._parseErrors.clear();
 		try {
@@ -258,7 +254,6 @@ export class Defuddle {
 		return '';
 	}
 
-	/** Page meta tags and metadata, computed once and cached across retries. */
 	private _ensureMetadata(): void {
 		if (!this._metaTags) {
 			this._metaTags = this._collectMetaTags();
@@ -290,7 +285,7 @@ export class Defuddle {
 	}
 
 	private _metadataResponse(content: string, startTime: number): DefuddleResponse {
-		// Preprocessing can fail before any attempt initialized metadata.
+		// Preprocessing may have failed before metadata was initialized.
 		try {
 			this._ensureMetadata();
 		} catch (error) {
@@ -310,7 +305,6 @@ export class Defuddle {
 		this._parseErrors.add(String(error));
 	}
 
-	/** In debug mode, report errors that parse attempts caught and recovered from. */
 	private _withDebugErrors(result: DefuddleResponse): DefuddleResponse {
 		if (this.debug && this._parseErrors.size > 0) {
 			result.debug = { contentSelector: '', removals: [], ...result.debug, errors: [...this._parseErrors] };
@@ -318,7 +312,7 @@ export class Defuddle {
 		return result;
 	}
 
-	/** The whole <body>, returned only after every extraction attempt failed. */
+	// Defer the body fallback so it cannot outscore extracted content.
 	private _fallbackResponse(startTime: number): DefuddleResponse {
 		return this._metadataResponse(this._serializeFallbackBody(), startTime);
 	}
@@ -837,7 +831,7 @@ export class Defuddle {
 		const asyncResult = await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
 		);
-		// Content is already sanitized; an image or embed can be valid with no words.
+		// Images and embeds can be valid content with no words.
 		if (asyncResult?.content.trim()) {
 			return this._withDebugErrors(asyncResult);
 		}
@@ -892,10 +886,7 @@ export class Defuddle {
 		return null;
 	}
 
-	/**
-	 * Internal parse method that does the actual work. Returns null when no
-	 * content element is found or extraction throws.
-	 */
+	/** Returns null when content selection or extraction fails. */
 	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse | null {
 		const startTime = Date.now();
 		const profile: Record<string, number> = {};
@@ -1020,7 +1011,6 @@ export class Defuddle {
 			const mainContent = profileStep('findMainContent', (): Element | null => {
 				let found: Element | null = null;
 				if (options.contentSelector) {
-					// contentSelector is public API input and may be unparseable.
 					try {
 						found = clone.querySelector(options.contentSelector);
 					} catch (e) {
