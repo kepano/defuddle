@@ -337,7 +337,6 @@ export class RedditExtractor extends BaseExtractor {
 			variables: {
 				title: meta.title,
 				author: meta.author,
-				// Profile posts and bare /comments/ links carry no subreddit in the URL.
 				site: meta.subreddit ? `r/${meta.subreddit}` : 'Reddit',
 				description,
 			}
@@ -462,4 +461,4 @@ export class RedditExtractor extends BaseExtractor {
 
 		return buildCommentTree(commentData);
 	}
-} 
+}

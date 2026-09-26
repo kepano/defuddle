@@ -27,7 +27,6 @@ describe('Reddit extractor applicability', () => {
 			const url = `https://${host}.reddit.com/r/example/s/abc123`;
 			const extractor = new RedditExtractor(parseDocument(html, url), url);
 			expect(extractor.canExtract()).toBe(true);
-			// Share tokens are not post IDs for the comments/feed API.
 			expect(extractor.canExtractAsync()).toBe(false);
 		}
 	});
