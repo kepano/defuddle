@@ -176,7 +176,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		}
 		// Screen-reader operators may be the only text of a separator drawn by
 		// CSS (e.g. MediaWiki fractions). Keep the glyph, drop the wrapper.
-		if (isScreenReaderOperator(el)) {
+		if (isScreenReaderOperator(el, elementsToRemove)) {
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
@@ -202,21 +202,31 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 
 const OPERATOR_GLYPH_REGEX = /^[/⁄∕·×÷−+±=-]$/;
 const SCREEN_READER_ONLY_REGEX = /sr-only|visually-hidden|screen-reader-text/;
+const LEFT_OPERAND_EDGE_REGEX = /[\p{L}\p{N})\]}]$/u;
+const RIGHT_OPERAND_EDGE_REGEX = /^[\p{L}\p{N}([{]/u;
 
-// An operator glyph hidden from sight but read aloud, touching text on both
-// sides: 4<span class="sr-only">/</span>3. A glyph spaced apart from its
-// neighbours is decorative and is still removed.
-function isScreenReaderOperator(el: Element): boolean {
+function isScreenReaderOperator(el: Element, elementsToRemove: ReadonlyMap<Element, unknown>): boolean {
 	if (el.children.length > 0 || !INLINE_ELEMENTS.has(el.tagName.toLowerCase()) ||
 		!OPERATOR_GLYPH_REGEX.test((el.textContent || '').trim()) ||
 		!SCREEN_READER_ONLY_REGEX.test(`${getClassName(el)} ${el.id}`.toLowerCase())) return false;
-	return touchesText(el.previousSibling, 'end') && touchesText(el.nextSibling, 'start');
+	return LEFT_OPERAND_EDGE_REGEX.test(survivingEdgeChar(el.previousSibling, 'end', elementsToRemove) || '') &&
+		RIGHT_OPERAND_EDGE_REGEX.test(survivingEdgeChar(el.nextSibling, 'start', elementsToRemove) || '');
 }
 
-function touchesText(node: Node | null, edge: 'start' | 'end'): boolean {
-	if (!node || (node.nodeType !== 1 && node.nodeType !== 3)) return false;
-	if (node.nodeType === 1 && !INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return false;
-	const text = node.textContent || '';
-	const char = edge === 'start' ? text.charAt(0) : text.charAt(text.length - 1);
-	return char !== '' && !/\s/.test(char);
+function survivingEdgeChar(node: Node | null, edge: 'start' | 'end', elementsToRemove: ReadonlyMap<Element, unknown>): string | null {
+	if (!node) return null;
+	if (node.nodeType === 3) {
+		const text = node.textContent || '';
+		return text ? (edge === 'start' ? text.charAt(0) : text.charAt(text.length - 1)) : null;
+	}
+	if (node.nodeType !== 1) return null;
+	const el = node as Element;
+	if (elementsToRemove.has(el)) return null;
+	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.tagName === 'BR') return '';
+	const children = el.childNodes;
+	for (let i = edge === 'start' ? 0 : children.length - 1; i >= 0 && i < children.length; i += edge === 'start' ? 1 : -1) {
+		const char = survivingEdgeChar(children[i], edge, elementsToRemove);
+		if (char !== null) return char;
+	}
+	return null;
 }
