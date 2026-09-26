@@ -206,7 +206,6 @@ const LEFT_OPERAND_REGEX = /(?:^|\s)(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})$|[)\]}]$/u;
 // A right operand may itself be an expression (e.g. the "1/2" of a mixed number).
 const RIGHT_OPERAND_REGEX = new RegExp(`^(?:\\p{N}+(?:[.,]\\p{N}+)?|\\p{L})(?=$|[\\s)\\]}.!,;${MATH_OPERATORS}])|^[([{]`, 'u');
 
-/** Recognize an inline operator between textual operands, regardless of CSS names. */
 function isInlineMathSeparator(el: Element, elementsToRemove: Map<Element, unknown>): boolean {
 	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.children.length > 0 ||
 		!MATH_OPERATOR_REGEX.test(el.textContent?.trim() || '')) return false;
