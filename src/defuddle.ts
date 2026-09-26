@@ -86,8 +86,17 @@ export class Defuddle {
 	 * content, so callers decide how to fall back.
 	 */
 	private _parse(): DefuddleResponse | null {
-		const startTime = Date.now();
 		this._parseErrors.clear();
+		try {
+			return this._parseWithRetries();
+		} catch (error) {
+			this._recordError(error);
+			return null;
+		}
+	}
+
+	private _parseWithRetries(): DefuddleResponse | null {
+		const startTime = Date.now();
 
 		// Normalize non-standard attribute casing (e.g. React SSR outputs
 		// "srcSet" instead of "srcset") before any image processing.
@@ -131,7 +140,12 @@ export class Defuddle {
 
 			// Try targeting the largest hidden subtree directly to avoid body-level
 			// leftovers (e.g. FPS counters) when hidden content is the real article.
-			const hiddenSelector = this.findLargestHiddenContentSelector();
+			let hiddenSelector: string | undefined;
+			try {
+				hiddenSelector = this.findLargestHiddenContentSelector();
+			} catch (error) {
+				this._recordError(error);
+			}
 			if (hiddenSelector) {
 				this._log('Retrying with hidden content selector:', hiddenSelector);
 				const hiddenSelectorRetry = this.parseInternal({
@@ -181,10 +195,10 @@ export class Defuddle {
 			// Mobile styles / small images were cached during the first parse, so
 			// the clone (which has no window) doesn't need to be re-measured.
 			const liveDoc = this.doc;
-			const safeDoc = liveDoc.cloneNode(true) as Document;
-			this._stripUnsafeElements(safeDoc.body);
-			this.doc = safeDoc;
 			try {
+				const safeDoc = liveDoc.cloneNode(true) as Document;
+				this._stripUnsafeElements(safeDoc.body);
+				this.doc = safeDoc;
 				const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
 				if (bestMatch) {
 					// Re-run the full pipeline with the schema-identified element as the
@@ -205,6 +219,8 @@ export class Defuddle {
 						result = this._metadataResponse(safeSchemaHtml, startTime);
 					}
 				}
+			} catch (error) {
+				this._recordError(error);
 			} finally {
 				this.doc = liveDoc;
 			}
@@ -250,6 +266,11 @@ export class Defuddle {
 			parseTime: Math.round(Date.now() - startTime),
 			metaTags: this._metaTags
 		};
+	}
+
+	private _recordError(error: unknown): void {
+		console.error('Defuddle', 'Error processing document:', error);
+		this._parseErrors.add(String(error));
 	}
 
 	/** In debug mode, report errors that parse attempts caught and recovered from. */
@@ -776,9 +797,13 @@ export class Defuddle {
 			return this._withDebugErrors(result ?? this._fallbackResponse(startTime));
 		}
 
-		return this._withDebugErrors((await this.tryAsyncExtractor(
+		const asyncResult = await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
-		)) ?? result ?? this._fallbackResponse(startTime));
+		);
+		if (asyncResult && asyncResult.wordCount > 0) {
+			return this._withDebugErrors(asyncResult);
+		}
+		return this._withDebugErrors(result ?? this._fallbackResponse(startTime));
 	}
 
 	/**
@@ -1154,8 +1179,7 @@ export class Defuddle {
 
 			return result;
 		} catch (error) {
-			console.error('Defuddle', 'Error processing document:', error);
-			this._parseErrors.add(String(error));
+			this._recordError(error);
 			return null;
 		}
 	}

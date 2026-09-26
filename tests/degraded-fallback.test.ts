@@ -120,4 +120,62 @@ describe('degraded whole-<body> fallback', () => {
 		expect(fallback.debug?.errors).toEqual(['Error: simulated pipeline failure']);
 		expect(fallback.debug?.contentSelector).toBe('');
 	});
+
+	test('parseAsync keeps the body fallback over an empty async result', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		const { ExtractorRegistry } = await import('../src/extractor-registry');
+		vi.spyOn(ExtractorRegistry, 'findAsyncExtractor').mockReturnValue({
+			extractAsync: async () => ({ content: '', contentHtml: '' })
+		} as any);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		throwAlways.value = true;
+
+		const res = await new Defuddle(parseDocument(HTML, 'https://example.com/'), { url: 'https://example.com/' }).parseAsync();
+
+		expect(res.content).toContain('substantial paragraph');
+	});
+
+	test('returns the body fallback when the hidden-content search throws', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		vi.spyOn(Defuddle.prototype as any, 'resolveStreamedContent').mockImplementation(() => {
+			throw new Error('simulated resolver failure');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const doc = parseDocument(HTML.replace('<div class="content-body">', '<div hidden class="content-body">'), 'https://example.com/');
+
+		const res = new Defuddle(doc, { url: 'https://example.com/', debug: true }).parse();
+
+		expect(res.content).toContain('Copyright 2026');
+		expect(res.debug?.errors).toEqual(['Error: simulated resolver failure']);
+	});
+
+	test('returns the body fallback when the schema.org search throws', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		vi.spyOn(Defuddle.prototype as any, '_findElementBySchemaText').mockImplementation(() => {
+			throw new Error('simulated schema failure');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		throwAlways.value = true;
+		const schema = `<script type="application/ld+json">${JSON.stringify({ '@type': 'Article', articleBody: 'Schema article body text. '.repeat(20) })}</script>`;
+		const doc = parseDocument(HTML.replace('</head>', `${schema}</head>`), 'https://example.com/');
+
+		const res = new Defuddle(doc, { url: 'https://example.com/', debug: true }).parse();
+
+		expect(res.content).toContain('Copyright 2026');
+		expect(res.debug?.errors).toContain('Error: simulated schema failure');
+	});
+
+	test('returns the body fallback when preprocessing throws', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		vi.spyOn(Defuddle.prototype as any, '_normalizeAttributes').mockImplementation(() => {
+			throw new Error('simulated preprocessing failure');
+		});
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const defuddle = () => new Defuddle(parseDocument(HTML, 'https://example.com/'), { url: 'https://example.com/', debug: true, useAsync: false });
+
+		const res = defuddle().parse();
+		expect(res.content).toContain('Copyright 2026');
+		expect(res.debug?.errors).toEqual(['Error: simulated preprocessing failure']);
+		expect((await defuddle().parseAsync()).content).toContain('Copyright 2026');
+	});
 });
