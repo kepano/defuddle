@@ -14,6 +14,7 @@ import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
 const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
 	.map(name => `a [class*="${name}"]`).join(', ');
+const LINK_ANNOTATION_REGEX = /^[\s,(–-]*(?:(?:link )?opens in (?:a )?new (?:window|tab)|new (?:window|tab)|external(?: link| site| website)?)[\s).]*$/i;
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -132,7 +133,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			}
 		});
 
-		// Screen-reader text is content, except link annotations such as
+		// Screen-reader text is content, except known link annotations such as
 		// "opens in a new window" on links that have visible text of their own.
 		const annotations = new Set<Element>([
 			...doc.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR),
@@ -141,6 +142,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		annotations.forEach(el => {
 			const link = el.closest('a');
 			if (!link || elementsToRemove.has(el) || el.closest('code, pre, [data-defuddle]') ||
+				!LINK_ANNOTATION_REGEX.test(el.textContent || '') ||
 				!hasVisibleText(link, annotations, elementsToRemove)) {
 				return;
 			}
