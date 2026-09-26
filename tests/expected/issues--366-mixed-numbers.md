@@ -11,7 +11,7 @@ This article describes how quantities and ratings are written in a typical recip
 
 A recipe calls for 4+1/2 cups of flour and 2+3⁄4 cups of milk, and dropping the operator between the whole number and the fraction would change the quantity entirely.
 
-The reviewer gave it a score of in the summary, and hidden duplicates of that score should not leave a stray separator behind.
+The reviewer gave it a score of 5 out of 10 in the summary, where the screen-reader text stands in for its visual duplicate.
 
 Mixing the dry ingredients first makes it easier to spread the leavening evenly through the flour. Add the butter in small pieces and work it in with your fingertips until the mixture resembles coarse crumbs with a few larger flakes remaining throughout the bowl.
 

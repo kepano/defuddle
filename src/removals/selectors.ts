@@ -6,12 +6,14 @@ import {
 	PARTIAL_SELECTORS_REGEX,
 	PARTIAL_SELECTORS_ANCHORED_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
-	FOOTNOTE_LIST_SELECTORS,
-	INLINE_ELEMENTS
+	FOOTNOTE_LIST_SELECTORS
 } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+
+const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
+	.map(name => `a [class*="${name}"]`).join(', ');
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -129,6 +131,22 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				partialSelectorCount++;
 			}
 		});
+
+		// Screen-reader text is content, except link annotations such as
+		// "opens in a new window" on links that have visible text of their own.
+		const annotations = new Set<Element>([
+			...doc.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR),
+			...(mainContent ? mainContent.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR) : [])
+		]);
+		annotations.forEach(el => {
+			const link = el.closest('a');
+			if (!link || elementsToRemove.has(el) || el.closest('code, pre, [data-defuddle]') ||
+				!hasVisibleText(link, annotations, elementsToRemove)) {
+				return;
+			}
+			elementsToRemove.set(el, { type: 'partial', selector: 'screen-reader link text' });
+			partialSelectorCount++;
+		});
 	}
 
 	// Remove all collected elements in a single pass
@@ -174,12 +192,6 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
-		// Screen-reader operators may be the only text of a separator drawn by
-		// CSS (e.g. MediaWiki fractions). Keep the glyph, drop the wrapper.
-		if (isScreenReaderOperator(el, elementsToRemove)) {
-			el.replaceWith(...Array.from(el.childNodes));
-			return;
-		}
 		if (debug && debugRemovals) {
 			debugRemovals.push({
 				step: 'removeBySelector',
@@ -200,45 +212,9 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 	});
 }
 
-const OPERATOR_GLYPH_REGEX = /^[/⁄∕·×÷−+±=-]$/;
-const SCREEN_READER_ONLY_REGEX = /sr-only|visually-hidden|screen-reader-text/;
-const LEFT_NON_OPERAND_EDGE_REGEX = /[\s.,;:?…"“”‘]/u;
-const RIGHT_NON_OPERAND_EDGE_REGEX = /[\s.,;:!?…"'“”‘’]/u;
-
-// Keep a screen-reader glyph only between operands that survive clutter removal.
-function isScreenReaderOperator(el: Element, elementsToRemove: ReadonlyMap<Element, unknown>): boolean {
-	if (el.children.length > 0 || !INLINE_ELEMENTS.has(el.tagName.toLowerCase()) ||
-		!OPERATOR_GLYPH_REGEX.test((el.textContent || '').trim()) ||
-		!SCREEN_READER_ONLY_REGEX.test(`${getClassName(el)} ${el.id}`.toLowerCase())) return false;
-	const left = adjacentEdgeChar(el.previousSibling, 'previousSibling', 'end', elementsToRemove);
-	const right = adjacentEdgeChar(el.nextSibling, 'nextSibling', 'start', elementsToRemove);
-	return !!left && !!right && !LEFT_NON_OPERAND_EDGE_REGEX.test(left) && !RIGHT_NON_OPERAND_EDGE_REGEX.test(right);
-}
-
-function adjacentEdgeChar(node: Node | null, direction: 'previousSibling' | 'nextSibling', edge: 'start' | 'end', elementsToRemove: ReadonlyMap<Element, unknown>): string | null {
-	while (node) {
-		if (node.nodeType === 1 && elementsToRemove.has(node as Element)) return null;
-		const char = survivingEdgeChar(node, edge, elementsToRemove);
-		if (char !== null) return char;
-		node = node[direction];
-	}
-	return null;
-}
-
-function survivingEdgeChar(node: Node | null, edge: 'start' | 'end', elementsToRemove: ReadonlyMap<Element, unknown>): string | null {
-	if (!node) return null;
-	if (node.nodeType === 3) {
-		const text = node.textContent || '';
-		return text ? (edge === 'start' ? text.charAt(0) : text.charAt(text.length - 1)) : null;
-	}
-	if (node.nodeType !== 1) return null;
-	const el = node as Element;
-	if (elementsToRemove.has(el)) return null;
-	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.tagName === 'BR') return '';
-	const children = el.childNodes;
-	for (let i = edge === 'start' ? 0 : children.length - 1; i >= 0 && i < children.length; i += edge === 'start' ? 1 : -1) {
-		const char = survivingEdgeChar(children[i], edge, elementsToRemove);
-		if (char !== null) return char;
-	}
-	return null;
+function hasVisibleText(node: Node, hidden: Set<Element>, elementsToRemove: Map<Element, unknown>): boolean {
+	return Array.from(node.childNodes).some(child =>
+		child.nodeType === 3 ? !!child.textContent?.trim() :
+		child.nodeType === 1 && !hidden.has(child as Element) && !elementsToRemove.has(child as Element) &&
+			hasVisibleText(child, hidden, elementsToRemove));
 }
