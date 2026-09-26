@@ -29,6 +29,7 @@ export interface DebugRemoval {
 export interface DebugInfo {
 	contentSelector: string;
 	removals: DebugRemoval[];
+	errors?: string[];
 }
 
 export interface DefuddleResponse extends DefuddleMetadata {

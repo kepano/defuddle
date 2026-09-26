@@ -140,6 +140,21 @@ describe('contentSelector', () => {
 		);
 	});
 
+	test('contentSelector falls back to auto-detection when unparseable', async () => {
+		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
+		const fallbackResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
+			contentSelector: 'div#S:a',
+		});
+
+		expect(fallbackResult.content).toBe(autoResult.content);
+
+		const debugResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
+			debug: true,
+			contentSelector: 'div#S:a',
+		});
+		expect(debugResult.debug!.errors).toEqual([expect.stringContaining('Invalid contentSelector "div#S:a"')]);
+	});
+
 	test('contentSelector with specific element narrows content', async () => {
 		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
 
