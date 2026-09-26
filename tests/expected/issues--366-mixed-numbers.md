@@ -9,7 +9,7 @@
 
 This article describes how quantities and ratings are written in a typical recipe page, where accessible markup provides the text that screen readers announce while the visual presentation is drawn with styles.
 
-A recipe calls for 4+1/2 cups of flour, and dropping the operator between the whole number and the fraction would change the quantity entirely.
+A recipe calls for 4+1/2 cups of flour and 2+3⁄4 cups of milk, and dropping the operator between the whole number and the fraction would change the quantity entirely.
 
 The reviewer gave it a score of in the summary, and hidden duplicates of that score should not leave a stray separator behind.
 

@@ -174,9 +174,9 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
-		// Accessible operators may be the only textual representation of a
-		// separator drawn by CSS. Preserve the glyph, not its clutter attributes.
-		if (isInlineMathSeparator(el, elementsToRemove)) {
+		// Screen-reader operators may be the only text of a separator drawn by
+		// CSS (e.g. MediaWiki fractions). Keep the glyph, drop the wrapper.
+		if (isScreenReaderOperator(el)) {
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
@@ -200,35 +200,23 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 	});
 }
 
-const MATH_OPERATORS = '/⁄∕·×÷−+±=\\-';
-const MATH_OPERATOR_REGEX = new RegExp(`^[${MATH_OPERATORS}]$`);
-const LEFT_OPERAND_REGEX = /(?:^|\s)(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})$|[)\]}]$/u;
-// A right operand may itself be an expression (e.g. the "1/2" of a mixed number).
-const RIGHT_OPERAND_REGEX = new RegExp(`^(?:\\p{N}+(?:[.,]\\p{N}+)?|\\p{L})(?=$|[\\s)\\]}.!,;${MATH_OPERATORS}])|^[([{]`, 'u');
+const OPERATOR_GLYPH_REGEX = /^[/⁄∕·×÷−+±=-]$/;
+const SCREEN_READER_ONLY_REGEX = /sr-only|visually-hidden|screen-reader-text/;
 
-function isInlineMathSeparator(el: Element, elementsToRemove: Map<Element, unknown>): boolean {
-	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.children.length > 0 ||
-		!MATH_OPERATOR_REGEX.test(el.textContent?.trim() || '')) return false;
+// An operator glyph hidden from sight but read aloud, touching text on both
+// sides: 4<span class="sr-only">/</span>3. A glyph spaced apart from its
+// neighbours is decorative and is still removed.
+function isScreenReaderOperator(el: Element): boolean {
+	if (el.children.length > 0 || !INLINE_ELEMENTS.has(el.tagName.toLowerCase()) ||
+		!OPERATOR_GLYPH_REGEX.test((el.textContent || '').trim()) ||
+		!SCREEN_READER_ONLY_REGEX.test(`${getClassName(el)} ${el.id}`.toLowerCase())) return false;
+	return touchesText(el.previousSibling, 'end') && touchesText(el.nextSibling, 'start');
+}
 
-	const adjacentText = (direction: 'previousSibling' | 'nextSibling'): string => {
-		let node = el[direction];
-		while (node) {
-			if (node.nodeType === 1) {
-				// Siblings queued for removal are not operands in the output.
-				if (elementsToRemove.has(node as Element)) {
-					node = node[direction];
-					continue;
-				}
-				if (!INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return '';
-			}
-			if (node.nodeType === 1 || node.nodeType === 3) {
-				const text = node.textContent?.trim();
-				if (text) return text;
-			}
-			node = node[direction];
-		}
-		return '';
-	};
-	return LEFT_OPERAND_REGEX.test(adjacentText('previousSibling')) &&
-		RIGHT_OPERAND_REGEX.test(adjacentText('nextSibling'));
+function touchesText(node: Node | null, edge: 'start' | 'end'): boolean {
+	if (!node || (node.nodeType !== 1 && node.nodeType !== 3)) return false;
+	if (node.nodeType === 1 && !INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return false;
+	const text = node.textContent || '';
+	const char = edge === 'start' ? text.charAt(0) : text.charAt(text.length - 1);
+	return char !== '' && !/\s/.test(char);
 }
