@@ -76,6 +76,17 @@ export class Defuddle {
 	 * Parse the document and extract its main content
 	 */
 	parse(): DefuddleResponse {
+		const startTime = Date.now();
+		return this._parse() ?? this._fallbackResponse(startTime);
+	}
+
+	/**
+	 * Run the extraction and its retries. Returns null when no attempt found
+	 * content, so callers decide how to fall back.
+	 */
+	private _parse(): DefuddleResponse | null {
+		const startTime = Date.now();
+
 		// Normalize non-standard attribute casing (e.g. React SSR outputs
 		// "srcSet" instead of "srcset") before any image processing.
 		if (this.doc.body) {
@@ -87,7 +98,7 @@ export class Defuddle {
 		let result = this.parseInternal();
 
 		// If result has very little content, try again without clutter removal
-		if (result.wordCount < 200) {
+		if ((result?.wordCount ?? 0) < 200) {
 			this._log('Initial parse returned very little content, trying again');
 			const retryResult = this.parseInternal({
 				removePartialSelectors: false
@@ -97,7 +108,7 @@ export class Defuddle {
 			// A small increase likely means partial selectors correctly removed
 			// clutter (author blocks, related articles, etc.) from a short article.
 			// A large increase (2x+) suggests partial selectors were too aggressive.
-			if (retryResult.wordCount > result.wordCount * 2) {
+			if (retryResult && (!result || retryResult.wordCount > result.wordCount * 2)) {
 				this._log('Retry produced more content');
 				result = retryResult;
 			}
@@ -106,12 +117,12 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// or a page that reveals content at runtime from a hidden wrapper.
 		// Retry once with hidden-element removal disabled.
-		if (result.wordCount < 50) {
+		if ((result?.wordCount ?? 0) < 50) {
 			this._log('Still very little content, retrying without hidden-element removal');
 			const hiddenRetry = this.parseInternal({
 				removeHiddenElements: false
 			});
-			if (hiddenRetry.wordCount > result.wordCount * 2) {
+			if (hiddenRetry && (!result || hiddenRetry.wordCount > result.wordCount * 2)) {
 				this._log('Hidden-element retry produced more content');
 				result = hiddenRetry;
 			}
@@ -126,13 +137,14 @@ export class Defuddle {
 					removePartialSelectors: false,
 					contentSelector: hiddenSelector
 				});
-				if (
+				if (hiddenSelectorRetry && (
+					!result ||
 					hiddenSelectorRetry.wordCount > result.wordCount ||
 					(
 						hiddenSelectorRetry.wordCount > Math.max(20, result.wordCount * 0.7) &&
 						hiddenSelectorRetry.content.length < result.content.length
 					)
-				) {
+				)) {
 					this._log('Hidden-selector retry produced better focused content');
 					result = hiddenSelectorRetry;
 				}
@@ -142,14 +154,14 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// where card elements were scored as non-content or removed by partial
 		// selectors (e.g. "post-preview"). Retry with both disabled.
-		if (result.wordCount < 50) {
+		if ((result?.wordCount ?? 0) < 50) {
 			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
 			const indexRetry = this.parseInternal({
 				removeLowScoring: false,
 				removePartialSelectors: false,
 				removeContentPatterns: false
 			});
-			if (indexRetry.wordCount > result.wordCount) {
+			if (indexRetry && (!result || indexRetry.wordCount > result.wordCount)) {
 				this._log('Index page retry produced more content');
 				result = indexRetry;
 			}
@@ -159,8 +171,8 @@ export class Defuddle {
 		// extracted, the scorer likely picked the wrong element from a feed page.
 		// Use a 1.5x threshold to avoid triggering when the difference is small
 		// (e.g. just related-content link text removed).
-		const schemaText = this._getSchemaText(result.schemaOrgData);
-		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
+		const schemaText = this._getSchemaText(result?.schemaOrgData ?? this._metadata?.schemaOrgData);
+		if (schemaText && this.countHtmlWords(schemaText) > (result?.wordCount ?? 0) * 1.5) {
 			// Re-extract from a sanitized clone so dangerous elements and URI
 			// attributes (e.g. data:text/html in an img src) in the matched
 			// element are stripped, without mutating the caller's live document.
@@ -178,12 +190,18 @@ export class Defuddle {
 					const selector = this.getElementSelector(bestMatch);
 					this._log('Schema.org suggests a better content element, retrying with selector:', selector);
 					const schemaRetry = this.parseInternal({ contentSelector: selector });
-					result = schemaRetry;
+					if (schemaRetry) {
+						result = schemaRetry;
+					}
 				} else {
 					this._log('Using schema.org text as content (DOM element not found)');
 					const safeSchemaHtml = this._sanitizeExtractorHtml(schemaText);
-					result.content = safeSchemaHtml;
-					result.wordCount = this.countHtmlWords(safeSchemaHtml);
+					if (result) {
+						result.content = safeSchemaHtml;
+						result.wordCount = this.countHtmlWords(safeSchemaHtml);
+					} else {
+						result = this._metadataResponse(safeSchemaHtml, startTime);
+					}
 				}
 			} finally {
 				this.doc = liveDoc;
@@ -220,6 +238,21 @@ export class Defuddle {
 			}
 		}
 		return '';
+	}
+
+	private _metadataResponse(content: string, startTime: number): DefuddleResponse {
+		return {
+			content,
+			...this._metadata,
+			wordCount: this.countHtmlWords(content),
+			parseTime: Math.round(Date.now() - startTime),
+			metaTags: this._metaTags
+		};
+	}
+
+	/** The whole <body>, returned only after every extraction attempt failed. */
+	private _fallbackResponse(startTime: number): DefuddleResponse {
+		return this._metadataResponse(this._serializeFallbackBody(), startTime);
 	}
 
 	/**
@@ -726,15 +759,16 @@ export class Defuddle {
 			if (asyncResult) return asyncResult;
 		}
 
-		const result = this.parse();
+		const startTime = Date.now();
+		const result = this._parse();
 
-		if (result.wordCount > 0 || this.options.useAsync === false) {
-			return result;
+		if ((result && result.wordCount > 0) || this.options.useAsync === false) {
+			return result ?? this._fallbackResponse(startTime);
 		}
 
 		return (await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
-		)) ?? result;
+		)) ?? result ?? this._fallbackResponse(startTime);
 	}
 
 	/**
@@ -786,9 +820,10 @@ export class Defuddle {
 	}
 
 	/**
-	 * Internal parse method that does the actual work
+	 * Internal parse method that does the actual work. Returns null when no
+	 * content element is found or extraction throws.
 	 */
-	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
+	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse | null {
 		const startTime = Date.now();
 		const profile: Record<string, number> = {};
 		const doProfile = this.options.profile ?? false;
@@ -872,6 +907,7 @@ export class Defuddle {
 								removeLowScoring: false,
 								removeHiddenElements: false,
 							});
+							if (!pipelineResult) return null;
 							const variables = this.getExtractorVariables(extracted.variables);
 							return {
 								...pipelineResult,
@@ -965,15 +1001,7 @@ export class Defuddle {
 			});
 
 			if (!mainContent) {
-				const fallbackContent = this._serializeFallbackBody();
-				const endTime = Date.now();
-				return {
-					content: fallbackContent,
-					...metadata,
-					wordCount: this.countHtmlWords(fallbackContent),
-					parseTime: Math.round(endTime - startTime),
-					metaTags: pageMetaTags
-				};
+				return null;
 			}
 
 			// Generate before removals and unsafe-root neutralization, so sibling
@@ -1116,15 +1144,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this._serializeFallbackBody();
-			const endTime = Date.now();
-			return {
-				content: errorContent,
-				...metadata,
-				wordCount: this.countHtmlWords(errorContent),
-				parseTime: Math.round(endTime - startTime),
-				metaTags: pageMetaTags
-			};
+			return null;
 		}
 	}
 
