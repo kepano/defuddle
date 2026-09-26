@@ -643,7 +643,14 @@ export class Defuddle {
 
 
 	private findLargestHiddenContentSelector(): string | undefined {
-		const body = this.doc.body;
+		if (!this.doc.body) return undefined;
+
+		// Search the DOM a contentSelector retry queries: shadow-root hoisting and
+		// streamed-content swaps move elements and shift sibling positions.
+		const doc = this.doc.cloneNode(true) as Document;
+		this.flattenShadowRoots(this.doc, doc);
+		this.resolveStreamedContent(doc);
+		const body = doc.body;
 		if (!body) return undefined;
 
 		const candidates = Array.from(

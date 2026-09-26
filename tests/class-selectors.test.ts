@@ -10,6 +10,8 @@ const PROSE = '<p>This is the main article with meaningful prose about a practic
 type SelectorParser = {
 	getElementSelector(el: Element): string;
 	flattenDeclarativeShadowRoots(doc: Document): void;
+	resolveStreamedContent(doc: Document): void;
+	findLargestHiddenContentSelector(): string | undefined;
 };
 
 describe.each(['linkedom', 'jsdom'])('Generated selectors (%s)', implementation => {
@@ -82,5 +84,20 @@ describe.each(['linkedom', 'jsdom'])('Generated selectors (%s)', implementation 
 		const clone = doc.cloneNode(true) as Document;
 		parser.flattenDeclarativeShadowRoots(clone);
 		expect(clone.querySelector(selector)?.textContent).toBe('Article');
+	});
+
+	test('keeps the hidden content selector valid across streamed content swaps', async () => {
+		// The swap replaces two skeleton cards with one streamed card, shifting positions.
+		const html = `<html><head><title>Selector example</title></head><body><section><template id="B:0"></template><div class="card">Skeleton one</div><div class="card">Skeleton two</div><!--/$--><div class="card">Short visible teaser.</div><div class="card"><div hidden>${PROSE.repeat(4)}</div></div></section><div hidden id="S:0"><div class="card">Streamed card.</div></div><script>$RC("B:0","S:0")</script></body></html>`;
+		const doc = parse(html);
+		const parser = new DefuddleClass(doc) as unknown as SelectorParser;
+		const selector = parser.findLargestHiddenContentSelector()!;
+		const clone = doc.cloneNode(true) as Document;
+		parser.resolveStreamedContent(clone);
+		expect(clone.querySelector(selector)?.textContent).toContain('meaningful prose');
+		const result = await Defuddle(parse(html), URL_);
+		expect(result.content).toContain('meaningful prose');
+		expect(result.content).not.toContain('Short visible teaser');
+		expect(result.content).not.toContain('Streamed card');
 	});
 });
