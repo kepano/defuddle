@@ -191,6 +191,16 @@ describe('degraded whole-<body> fallback', () => {
 		const res = defuddle().parse();
 		expect(res.content).toContain('Copyright 2026');
 		expect(res.debug?.errors).toEqual(['Error: simulated preprocessing failure']);
+		expect(res).toMatchObject({ title: 'Test Article', domain: 'example.com', description: '', author: '', site: 'example.com' });
 		expect((await defuddle().parseAsync()).content).toContain('Copyright 2026');
+
+		const { MetadataExtractor } = await import('../src/metadata');
+		vi.spyOn(MetadataExtractor, 'extract').mockImplementation(() => {
+			throw new Error('simulated metadata failure');
+		});
+		const noMetadata = defuddle().parse();
+		expect(noMetadata.content).toContain('Copyright 2026');
+		expect(noMetadata).toMatchObject({ title: '', domain: 'example.com', description: '', favicon: '', image: '', language: '', published: '', author: '', site: '', schemaOrgData: null });
+		expect(noMetadata.debug?.errors).toEqual(['Error: simulated preprocessing failure', 'Error: simulated metadata failure']);
 	});
 });

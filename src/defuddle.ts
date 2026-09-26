@@ -1,5 +1,5 @@
 import { MetadataExtractor } from './metadata';
-import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
+import { DefuddleOptions, DefuddleMetadata, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import type { ExtractorOptions } from './extractors/_base';
 import { BaseExtractor } from './extractors/_base';
@@ -258,10 +258,47 @@ export class Defuddle {
 		return '';
 	}
 
+	/** Page meta tags and metadata, computed once and cached across retries. */
+	private _ensureMetadata(): void {
+		if (!this._metaTags) {
+			this._metaTags = this._collectMetaTags();
+		}
+		if (!this._metadata) {
+			this._metadata = MetadataExtractor.extract(this.doc, this.getSchemaOrgData(), this._metaTags, this.options.url);
+		}
+	}
+
+	private _emptyMetadata(): Omit<DefuddleMetadata, 'parseTime' | 'wordCount'> {
+		let domain = '';
+		try {
+			domain = this.options.url ? new URL(this.options.url).hostname : '';
+		} catch {
+			// Invalid URL: leave the domain empty.
+		}
+		return {
+			title: '',
+			description: '',
+			domain,
+			favicon: '',
+			image: '',
+			language: '',
+			published: '',
+			author: '',
+			site: '',
+			schemaOrgData: null,
+		};
+	}
+
 	private _metadataResponse(content: string, startTime: number): DefuddleResponse {
+		// Preprocessing can fail before any attempt initialized metadata.
+		try {
+			this._ensureMetadata();
+		} catch (error) {
+			this._recordError(error);
+		}
 		return {
 			content,
-			...this._metadata,
+			...(this._metadata ?? this._emptyMetadata()),
 			wordCount: this.countHtmlWords(content),
 			parseTime: Math.round(Date.now() - startTime),
 			metaTags: this._metaTags
@@ -873,20 +910,10 @@ export class Defuddle {
 
 		// Guard against empty/broken documents (e.g. empty HTML, bot-blocked pages)
 		if (!this.doc.documentElement) {
-			const url = this.options.url || '';
 			return {
 				content: '',
-				title: '',
-				description: '',
-				domain: url ? new URL(url).hostname : '',
-				favicon: '',
-				image: '',
-				language: '',
+				...this._emptyMetadata(),
 				parseTime: Date.now() - startTime,
-				published: '',
-				author: '',
-				site: '',
-				schemaOrgData: null,
 				wordCount: 0,
 			};
 		}
@@ -908,15 +935,8 @@ export class Defuddle {
 		// Extract schema.org data (cached — must happen before _stripUnsafeElements removes scripts)
 		const schemaOrgData = this.getSchemaOrgData();
 
-		// Cache meta tags and metadata across retries
-		if (!this._metaTags) {
-			this._metaTags = this._collectMetaTags();
-		}
-		const pageMetaTags = this._metaTags;
-
-		if (!this._metadata) {
-			this._metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags, options.url);
-		}
+		this._ensureMetadata();
+		const pageMetaTags = this._metaTags!;
 		const metadata = this._metadata;
 
 		if (options.removeImages) {
