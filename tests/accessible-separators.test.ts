@@ -67,6 +67,23 @@ describe('Accessible separators', () => {
 		expect(doc.body.textContent).toBe(`${left}${operator}${right}`);
 	});
 
+	test.each([
+		['5!', '/', '3!'],
+		["f'", '/', "g'"],
+		['f′', '/', 'g′'],
+		['x″', '+', '1']
+	])('preserves an operator after a factorial or prime in %s%s%s', (left, operator, right) => {
+		const doc = parseDocument(`<html><body><p>${left}<span class="sr-only">${operator}</span>${right}</p></body></html>`);
+		removeBySelector(doc, false);
+		expect(doc.body.textContent).toBe(`${left}${operator}${right}`);
+	});
+
+	test('preserves a MediaWiki-style factorial fraction', () => {
+		const doc = parseDocument('<html><body><p><span class="sfrac"><span class="tion"><span class="num"><i>n</i>!</span><span class="sr-only">/</span><span class="den"><i>k</i>!</span></span></span></p></body></html>');
+		removeBySelector(doc, false);
+		expect(doc.body.textContent).toBe('n!/k!');
+	});
+
 	test('skips an empty inline sibling without crossing whitespace', () => {
 		const doc = parseDocument('<html><body><p>4<span></span><span class="sr-only">/</span>3 and 5 <span></span><span class="sr-only">/</span>2</p></body></html>');
 		removeBySelector(doc, false);

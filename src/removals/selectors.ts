@@ -202,7 +202,8 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 
 const OPERATOR_GLYPH_REGEX = /^[/⁄∕·×÷−+±=-]$/;
 const SCREEN_READER_ONLY_REGEX = /sr-only|visually-hidden|screen-reader-text/;
-const NON_OPERAND_EDGE_REGEX = /[\s.,;:!?…"'“”‘’]/u;
+const LEFT_NON_OPERAND_EDGE_REGEX = /[\s.,;:?…"“”‘]/u;
+const RIGHT_NON_OPERAND_EDGE_REGEX = /[\s.,;:!?…"'“”‘’]/u;
 
 // Keep a screen-reader glyph only between operands that survive clutter removal.
 function isScreenReaderOperator(el: Element, elementsToRemove: ReadonlyMap<Element, unknown>): boolean {
@@ -211,7 +212,7 @@ function isScreenReaderOperator(el: Element, elementsToRemove: ReadonlyMap<Eleme
 		!SCREEN_READER_ONLY_REGEX.test(`${getClassName(el)} ${el.id}`.toLowerCase())) return false;
 	const left = adjacentEdgeChar(el.previousSibling, 'previousSibling', 'end', elementsToRemove);
 	const right = adjacentEdgeChar(el.nextSibling, 'nextSibling', 'start', elementsToRemove);
-	return !!left && !!right && !NON_OPERAND_EDGE_REGEX.test(left) && !NON_OPERAND_EDGE_REGEX.test(right);
+	return !!left && !!right && !LEFT_NON_OPERAND_EDGE_REGEX.test(left) && !RIGHT_NON_OPERAND_EDGE_REGEX.test(right);
 }
 
 function adjacentEdgeChar(node: Node | null, direction: 'previousSibling' | 'nextSibling', edge: 'start' | 'end', elementsToRemove: ReadonlyMap<Element, unknown>): string | null {
