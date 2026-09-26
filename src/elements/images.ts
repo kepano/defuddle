@@ -2,7 +2,7 @@
  * Standardization rules for handling images
  */
 
-import { isElement } from '../utils';
+import { isElement, isTextNode } from '../utils';
 import { transferContent, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
@@ -130,9 +130,9 @@ export const imageRules = [
 					// Try to get cleaner text from specific inner element if possible
 					const richTextP = figcaptionEl.querySelector('.rich-text p');
 					if (richTextP) {
-						transferCaptionContent(richTextP, figcaption, doc);
+						transferCaptionContent(richTextP, figcaption, doc, el);
 					} else {
-						transferCaptionContent(figcaptionEl, figcaption, doc);
+						transferCaptionContent(figcaptionEl, figcaption, doc, el);
 					}
 					figure.appendChild(figcaption);
 				}
@@ -198,7 +198,7 @@ export const imageRules = [
 				const processedImg = processImageElement(imgElement, doc);
 
 				if (caption && hasMeaningfulCaption(caption)) {
-					const figure = createFigureWithCaption(processedImg, caption, doc);
+					const figure = createFigureWithCaption(processedImg, caption, doc, el);
 
 					// Remove the original caption element from its parent
 					// to prevent duplication, as the span itself might remain.
@@ -257,7 +257,7 @@ export const imageRules = [
 
 					// Use the helper function to create the figure
 					// The helper clones the imageToAdd before appending.
-					return createFigureWithCaption(imageToAdd, caption, doc);
+					return createFigureWithCaption(imageToAdd, caption, doc, el);
 				} else {
 					// No meaningful caption found. Return the original element 'el'.
 					// Preceding rules should have processed the image content *within* 'el'.
@@ -273,8 +273,10 @@ export const imageRules = [
 
 /**
  * Creates a standard <figure> element containing an image and a caption.
+ * `container` is the element being replaced; caption content found outside it
+ * is copied rather than moved so the surrounding document stays intact.
  */
-function createFigureWithCaption(imageElement: Element, captionElement: Element, doc: Document): Element {
+function createFigureWithCaption(imageElement: Element, captionElement: Element, doc: Document, container: Element): Element {
 	const figure = doc.createElement('figure');
 	
 	// Append a clone of the image element to prevent side effects
@@ -282,24 +284,36 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
-	transferCaptionContent(captionElement, figcaption, doc);
+	transferCaptionContent(captionElement, figcaption, doc, container);
 	figure.appendChild(figcaption);
 
 	return figure;
 }
 
-/** Preserve caption phrasing and inline markup, without media or document headings. */
-function transferCaptionContent(source: Element, caption: Element, doc: Document): void {
-	transferContent(source, caption);
+const CAPTION_MEDIA_SELECTOR = 'img, picture, source, video, svg, figure, iframe, audio, object, embed';
+const CAPTION_BLOCK_SELECTOR = Array.from(BLOCK_LEVEL_ELEMENTS).join(', ');
+
+/**
+ * Preserve caption phrasing and inline markup, without media or block structure.
+ * Nodes are moved only when the source lies inside `container` (the element
+ * being replaced); otherwise a copy is used so the source is left untouched.
+ */
+function transferCaptionContent(source: Element, caption: Element, doc: Document, container: Element): void {
+	transferContent(container.contains(source) ? source : source.cloneNode(true), caption);
 	// A caption candidate may wrap the same media already added to the figure.
-	for (const media of Array.from(caption.querySelectorAll('img, picture, source, video, svg, figure, iframe, audio, object, embed'))) {
+	for (const media of Array.from(caption.querySelectorAll(CAPTION_MEDIA_SELECTOR))) {
 		media.remove();
 	}
 
 	// Block wrappers express phrase boundaries, not sections of the article.
-	for (const block of Array.from(caption.querySelectorAll('div, p, section, h1, h2, h3, h4, h5, h6')).reverse()) {
-		block.replaceWith(doc.createTextNode(' '), ...Array.from(block.childNodes), doc.createTextNode(' '));
+	const separators: Text[] = [];
+	for (const block of Array.from(caption.querySelectorAll(CAPTION_BLOCK_SELECTOR)).reverse()) {
+		const before = doc.createTextNode(' ');
+		const after = doc.createTextNode(' ');
+		separators.push(before, after);
+		block.replaceWith(before, ...Array.from(block.childNodes), after);
 	}
+	removeRedundantSeparators(caption, new Set(separators));
 
 	// Distinct adjacent caption spans often represent a caption and a credit.
 	// Preserve their boundary before generic cleanup unwraps the spans. Leave
@@ -311,6 +325,40 @@ function transferCaptionContent(source: Element, caption: Element, doc: Document
 		const right = next.textContent || '';
 		if (left && right && !/[\s([{]$/.test(left) && !/^[\s.,!?:;)'’\]}]/.test(right)) {
 			span.after(doc.createTextNode(' '));
+		}
+	}
+}
+
+/**
+ * Drop inserted separator spaces at the caption edges or next to existing
+ * whitespace, keeping one space wherever two words would otherwise touch.
+ */
+function removeRedundantSeparators(caption: Element, separators: Set<Text>): void {
+	if (separators.size === 0) return;
+	const textNodes: Text[] = [];
+	const collect = (node: Node) => {
+		for (const child of Array.from(node.childNodes)) {
+			if (isTextNode(child)) textNodes.push(child);
+			else if (isElement(child)) collect(child);
+		}
+	};
+	collect(caption);
+
+	let previous = '';
+	for (let i = 0; i < textNodes.length; i++) {
+		const node = textNodes[i];
+		if (!separators.has(node)) {
+			previous += node.textContent || '';
+			continue;
+		}
+		let next = '';
+		for (let j = i + 1; j < textNodes.length && !next; j++) {
+			next = textNodes[j].textContent || '';
+		}
+		if (!previous || /\s$/.test(previous) || !next.trim() || /^\s/.test(next)) {
+			node.remove();
+		} else {
+			previous += node.textContent || '';
 		}
 	}
 }
@@ -486,6 +534,8 @@ function findMainImage(element: Element): Element | null {
 	return null;
 }
 
+const SIBLING_NON_CAPTION_SELECTOR = 'img, picture, video, audio, iframe, object, embed, canvas, figure, figcaption, h1, h2, h3, h4, h5, h6';
+
 /**
  * Find caption in an element
  */
@@ -566,7 +616,9 @@ function findCaption(element: Element): Element | null {
 				cls.includes('description')
 			);
 			
-			if (hasCaptionClass) {
+			// Sections, figures, and media that happen to match (e.g. `text-base`)
+			// are article content, not captions for this image.
+			if (hasCaptionClass && !sibling.matches(SIBLING_NON_CAPTION_SELECTOR) && !sibling.querySelector(SIBLING_NON_CAPTION_SELECTOR)) {
 				const textContent = sibling.textContent?.trim();
 				if (textContent && textContent.length > 0) {
 					return sibling;
