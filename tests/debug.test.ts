@@ -140,6 +140,15 @@ describe('contentSelector', () => {
 		);
 	});
 
+	test('contentSelector falls back to auto-detection when unparseable', async () => {
+		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
+		const fallbackResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
+			contentSelector: 'div#S:a',
+		});
+
+		expect(fallbackResult.content).toBe(autoResult.content);
+	});
+
 	test('contentSelector with specific element narrows content', async () => {
 		const autoResult = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl);
 

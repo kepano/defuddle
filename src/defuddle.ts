@@ -928,7 +928,12 @@ export class Defuddle {
 			const mainContent = profileStep('findMainContent', (): Element | null => {
 				let found: Element | null = null;
 				if (options.contentSelector) {
-					found = clone.querySelector(options.contentSelector);
+					// contentSelector is public API input and may be unparseable.
+					try {
+						found = clone.querySelector(options.contentSelector);
+					} catch (e) {
+						this._log('Invalid contentSelector, falling back to auto-detection:', options.contentSelector, e);
+					}
 					this._log('Using contentSelector:', options.contentSelector, found ? 'found' : 'not found');
 				}
 				if (!found) {
