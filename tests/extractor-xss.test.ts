@@ -65,8 +65,6 @@ describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
 	});
 });
 
-// Image captions keep their inline markup (links, emphasis) rather than being
-// flattened to text, including captions taken from a sibling credit element.
 describe('Image caption markup sanitization', () => {
 	const CAPTION_URL = 'https://example.com/article';
 	const intro = '<p>This article has enough surrounding prose for its main content to be detected by the extractor.</p>';
@@ -74,11 +72,12 @@ describe('Image caption markup sanitization', () => {
 	test.each([
 		['figcaption', `<figure><img src="https://example.com/photo.jpg" alt="Photo"><figcaption>A caption <a href="javascript:alert(1)" onclick="alert(2)">with a link</a> <em onmouseover="alert(3)">and emphasis</em>.</figcaption></figure>`],
 		['sibling credit', `<div><figure><img src="https://example.com/photo.jpg" alt=""></figure><div class="image-credit" onclick="alert(1)">Photo by <a href="javascript:alert(2)" onfocus="alert(3)">a photographer</a> for the article.</div></div>`],
-	])('strips handlers and javascript: URLs from %s markup', async (_name, figure) => {
+	])('strips handlers and javascript: URLs from %s markup', async (name, figure) => {
 		const doc = parseLinkedomHTML(`<html><head><title>Caption</title></head><body><article>${intro}${figure}${intro}</article></body></html>`, CAPTION_URL);
 		const response = await Defuddle(doc, CAPTION_URL);
 
-		expect(response.content).toContain('<figcaption>');
+		if (name === 'figcaption') expect(response.content).toContain('<figcaption>');
+		expect(response.content).toContain(name === 'figcaption' ? 'with a link' : 'a photographer');
 		assertNoExecutableAttributes(response.content);
 	});
 });

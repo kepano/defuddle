@@ -194,26 +194,18 @@ export const imageRules = [
 
 				const caption = findCaption(el);
 
-				// Process the image element (might return the img itself or handle picture/source)
 				const processedImg = processImageElement(imgElement, doc);
+				if (caption?.parentNode && !el.contains(caption)) {
+					return processedImg;
+				}
 
 				if (caption && hasMeaningfulCaption(caption)) {
 					const figure = createFigureWithCaption(processedImg, caption, doc, el);
-
-					// Remove the original caption element from its parent
-					// to prevent duplication, as the span itself might remain.
-					if (caption.parentNode) {
-						caption.parentNode.removeChild(caption);
-					}
-
-					return figure; // Replace the span (or its content) with the figure
+					return figure;
 				} else {
-					// No meaningful caption, return just the processed image.
-					// This might replace the span content or the span itself depending on framework.
 					return processedImg;
 				}
 			} catch (error) {
-				// Failed to process span with image, return as-is
 				return el;
 			}
 		}
@@ -238,6 +230,9 @@ export const imageRules = [
 				// Note: Previous rules might have processed the image inside 'el'.
 				
 				const caption = findCaption(el);
+				if (caption?.parentNode && !el.contains(caption)) {
+					return el;
+				}
 				
 				if (caption && hasMeaningfulCaption(caption)) {
 					// Find the *current* image element inside 'el' again.
@@ -271,18 +266,12 @@ export const imageRules = [
 	},
 ];
 
-/**
- * Creates a standard <figure> element containing an image and a caption.
- * `container` is the element being replaced; caption content found outside it
- * is copied rather than moved so the surrounding document stays intact.
- */
 function createFigureWithCaption(imageElement: Element, captionElement: Element, doc: Document, container: Element): Element {
 	const figure = doc.createElement('figure');
 	
 	// Append a clone of the image element to prevent side effects
 	figure.appendChild(imageElement.cloneNode(true)); 
 	
-	// Add caption
 	const figcaption = doc.createElement('figcaption');
 	transferCaptionContent(captionElement, figcaption, doc, container);
 	figure.appendChild(figcaption);

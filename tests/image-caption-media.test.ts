@@ -30,6 +30,7 @@ describe('Media inside caption wrappers', () => {
 
 describe('Captions outside the replaced element', () => {
 	const figureRule = imageRules.find(rule => rule.selector === 'figure, p:has([class*="caption"])')!;
+	const spanRule = imageRules.find(rule => rule.selector === 'span:has(img)')!;
 
 	test('does not take a sibling section with headings and media as a caption', () => {
 		const doc = parseDocument('<html><body><div class="prose"><div class="text-base"><h2>Setup</h2><p>Para one of the setup section.</p><img src="https://example.com/chart.png" alt="Chart"><p>Para two of the setup section.</p></div><figure><img src="https://example.com/photo.png" alt=""></figure><p>After.</p></div></body></html>');
@@ -57,9 +58,17 @@ describe('Captions outside the replaced element', () => {
 		const creditHtml = credit.outerHTML;
 		const result = figureRule.transform(doc.querySelector('figure')!, doc);
 		expect(credit.outerHTML).toBe(creditHtml);
-		const caption = result.querySelector('figcaption')!;
-		expect(caption.querySelector('a')?.getAttribute('href')).toBe('https://example.net/photographer');
-		expect(caption.textContent).toBe('Photo by a photographer.');
+		expect(result.querySelector('figcaption')).toBeNull();
+		expect(credit.querySelector('a')?.getAttribute('href')).toBe('https://example.net/photographer');
+	});
+
+	test('keeps a caption beside a span-wrapped image', () => {
+		const doc = parseDocument('<html><body><div><span><img src="https://example.com/photo.png" alt=""></span><span class="image-credit">Photo by <a href="https://example.net/photographer">a photographer</a>.</span></div></body></html>');
+		const credit = doc.querySelector('.image-credit')!;
+		const creditHtml = credit.outerHTML;
+		const result = spanRule.transform(doc.querySelector('span')!, doc);
+		expect(credit.outerHTML).toBe(creditHtml);
+		expect(result.querySelector('figcaption')).toBeNull();
 	});
 });
 
