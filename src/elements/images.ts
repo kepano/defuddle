@@ -8,22 +8,17 @@ import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
-const srcsetPattern = /\.(jpg|jpeg|png|webp)\s+\d/;
-const srcPattern = /^\s*\S+\.(jpg|jpeg|png|webp)\S*\s*$/;
 const imageUrlPattern = /\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i;
 const widthPattern = /\s(\d+)w/;
 const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-// URL-like: has a scheme or a path separator, or is a filename with an image extension
-const lazySourceUrlPattern = /^[a-z][a-z0-9+.-]*:|\/|\.(jpe?g|png|gif|webp|avif|svg)(?:[?#,\s]|$)/i;
-// Spacer filenames made only of placeholder words, e.g. blank.gif, grey.gif, spacer-1x1.png
-const placeholderFilenamePattern = /^(?:(?:blank|spacer|placeholder|transparent|pixel|grey|gray|empty|clear|loading|lazy|\d+x\d+)[-_]?)+\.(gif|png|jpe?g|svg|webp)$/i;
-
-const LAZY_IMAGE_SOURCE_ATTRIBUTES = [
-	'data-src', 'data-original', 'data-lazy-src'
-];
+// Explicit lazy-loading conventions, in precedence order. Other attributes are metadata.
+const LAZY_IMAGE_ATTRIBUTES = [
+	['src', ['data-src', 'data-original', 'data-lazy-src']],
+	['srcset', ['data-srcset', 'data-lazy-srcset']]
+] as const;
 
 export const imageRules = [
 	// Handle picture elements first to ensure we get the highest resolution
@@ -147,71 +142,31 @@ export const imageRules = [
 		}
 	},
 	
-	// Handle lazy-loaded images
+	// Promote only explicit lazy sources; never infer image URLs from metadata.
 	{
-		selector: [
-			...LAZY_IMAGE_SOURCE_ATTRIBUTES.map(attr => `img[${attr}]`),
-			'img[data-srcset]', 'img[loading="lazy"]', 'img.lazy', 'img.lazyload', 'img[src^="data:image/svg+xml"]'
-		].join(', '),
+		selector: LAZY_IMAGE_ATTRIBUTES.flatMap(([, attrs]) => attrs.map(attr => `img[${attr}]`)).concat('img[data-image-loader]').join(', '),
 		element: 'img',
-		transform: (el: Element, doc: Document): Element => {
-			// Check for base64 placeholder images
+		transform: (el: Element): Element => {
+			for (const [target, attrs] of LAZY_IMAGE_ATTRIBUTES) {
+				const source = attrs.map(attr => el.getAttribute(attr)?.trim())
+					.find(value => value && !isDangerousUrl(value));
+				if (source) el.setAttribute(target, source);
+				for (const attr of attrs) el.removeAttribute(attr);
+			}
+			// This loader also remains on loaded images; use it only for missing or inline previews.
 			const src = el.getAttribute('src') || '';
-			const hasBetterSource = hasBetterImageSource(el);
-			
-			if ((isBase64Placeholder(src) || isSvgDataUrl(src)) && hasBetterSource) {
-				// Remove the placeholder src if we have better alternatives
-				el.removeAttribute('src');
+			const loader = el.getAttribute('data-image-loader')?.trim();
+			if (loader && !isDangerousUrl(loader) && (!src || isBase64Placeholder(src) || isSvgDataUrl(src))) {
+				el.setAttribute('src', loader);
 			}
-
-			// Named lazy sources take precedence even over nonempty src values:
-			// placeholders may be external files or large inline previews.
-			// Values that are not URLs (e.g. data-src="true") or are unsafe are ignored.
-			const lazySrc = LAZY_IMAGE_SOURCE_ATTRIBUTES
-				.map(attr => el.getAttribute(attr)?.trim())
-				.find(value => value && isUsableLazySource(value));
-			if (lazySrc) el.setAttribute('src', lazySrc);
-
-			const dataSrcset = el.getAttribute('data-srcset')?.trim();
-			if (dataSrcset && isUsableLazySource(dataSrcset)) {
-				el.setAttribute('srcset', dataSrcset);
-			}
-
-			// Check for other attributes that might contain image URLs
-			for (let i = 0; i < el.attributes.length; i++) {
-				const attr = el.attributes[i];
-				if (attr.name === 'src' || attr.name === 'srcset' || attr.name === 'alt') {
-					continue; // Skip these attributes
-				}
-
-				// Skip JSON-like values (e.g., Substack's data-attrs containing image metadata)
-				const firstChar = attr.value.charAt(0);
-				if (firstChar === '{' || firstChar === '[') {
-					continue;
-				}
-
-				if (srcsetPattern.test(attr.value)) {
-					// Unknown metadata must not replace the image's own srcset.
-					const srcset = el.getAttribute('srcset') || '';
-					if (isPlaceholderSrc(extractFirstUrlFromSrcset(srcset) || '')) el.setAttribute('srcset', attr.value);
-				} else if (srcPattern.test(attr.value) && isPlaceholderSrc(el.getAttribute('src') || '')) {
-					// Unknown attributes may hold page URLs (e.g. RDFa resource),
-					// so only use them when the image has no real source of its own.
-					el.setAttribute('src', attr.value);
-				}
-			}
-
-			// Remove lazy loading related classes and attributes
+			el.removeAttribute('data-image-loader');
 			el.classList.remove('lazy', 'lazyload');
 			el.removeAttribute('data-ll-status');
-			for (const attr of LAZY_IMAGE_SOURCE_ATTRIBUTES) el.removeAttribute(attr);
-			el.removeAttribute('data-srcset');
 			el.removeAttribute('loading');
-			
 			return el;
 		}
 	},
-	
+
 	// Handle span elements containing images with captions
 	{
 		selector: 'span:has(img)',
@@ -383,25 +338,6 @@ export function isBase64Placeholder(src: string): boolean {
 	return b64length < 133;
 }
 
-function isUsableLazySource(value: string): boolean {
-	return lazySourceUrlPattern.test(value)
-		&& !isDangerousUrl(value)
-		&& !isBase64Placeholder(value);
-}
-
-/**
- * Check if an image src is missing or a placeholder that lazy-loading will replace.
- * External placeholders are only recognized by spacer-style filenames, so a real
- * image (e.g. 220px-Gray_whale.jpg) keeps its src over unrelated metadata.
- */
-function isPlaceholderSrc(src: string): boolean {
-	src = src.trim();
-	if (!src || isBase64Placeholder(src) || isSvgDataUrl(src)) return true;
-	if (src.startsWith('data:')) return false;
-	const filename = src.split(/[?#]/)[0].split('/').pop() || '';
-	return placeholderFilenamePattern.test(filename);
-}
-
 /**
  * Check if a string is an SVG data URL
  */
@@ -428,36 +364,6 @@ function isValidImageUrl(src: string): boolean {
 		src.includes('image') || 
 		src.includes('img') || 
 		src.includes('photo');
-}
-
-/**
- * Check if an element has better image sources than the current src
- */
-function hasBetterImageSource(element: Element): boolean {
-	// Check for data-src or data-srcset
-	if (element.hasAttribute('data-src') || element.hasAttribute('data-srcset')) {
-		return true;
-	}
-	
-	// Check for other attributes that might contain image URLs
-	for (let i = 0; i < element.attributes.length; i++) {
-		const attr = element.attributes[i];
-		if (attr.name === 'src') {
-			continue;
-		}
-		
-		// Check if it's a data-* attribute and contains an image URL
-		if (attr.name.startsWith('data-') && /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(attr.value)) {
-			return true;
-		}
-		
-		// Check non-data attributes for image extensions
-		if (/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(attr.value)) {
-			return true;
-		}
-	}
-	
-	return false;
 }
 
 /**

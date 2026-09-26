@@ -1,0 +1,9 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html><html><head><title>Explicit image sources</title></head><body><article>
+<p>Lazy sources can be relative URLs without file extensions. Metadata must never supply an image source, even when its filename resembles an image or a placeholder.</p>
+<p><img data-src="photo" alt="Relative"></p>
+<p><img data-src="?image=123" alt="Query"></p>
+<p><img src="/blank.gif" resource="https://example.com/wiki/File:photo.jpg" data-echo="https://example.com/unrelated.jpg" loading="lazy" alt="Blank"></p>
+<p><img src="/assets/loader.gif" data-backup="https://example.com/unrelated.jpg" loading="lazy" alt="Loader"></p>
+<p>The explicit source determines each image independently of attribute order, filename, and unrelated metadata.</p>
+</article></body></html>

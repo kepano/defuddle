@@ -7,9 +7,9 @@
 }
 ```
 
-Lazy-loading attributes sometimes hold flags or unsafe values instead of image URLs, and must not overwrite a working source.
+Lazy-loading attributes sometimes hold empty or unsafe values instead of image URLs, and must not overwrite a working source.
 
-![Flag](https://images.example.com/flag.jpg)
+![Empty](https://images.example.com/empty.jpg)
 
 ![Script](https://images.example.com/script.jpg)
 
@@ -17,4 +17,4 @@ Lazy-loading attributes sometimes hold flags or unsafe values instead of image U
 
 ![Fallback](https://images.example.com/real.jpg)
 
-Each image should keep a usable source that points to an actual image rather than a flag or an unsafe URL.
+Each image should keep a usable source that points to an actual image rather than an empty or unsafe URL.
