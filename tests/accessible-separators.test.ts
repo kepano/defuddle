@@ -47,10 +47,30 @@ describe('Accessible separators', () => {
 		expect(doc.body.textContent).toBe('4');
 	});
 
-	test('does not treat punctuation as an operand', () => {
-		const doc = parseDocument('<html><body><p>Word<span class="sr-only">/</span>.</p></body></html>');
+	test.each(['.', '!', '?'])('does not treat %s as an operand', punctuation => {
+		const doc = parseDocument(`<html><body><p>Word<span class="sr-only">/</span>${punctuation}</p></body></html>`);
 		removeBySelector(doc, false);
-		expect(doc.body.textContent).toBe('Word.');
+		expect(doc.body.textContent).toBe(`Word${punctuation}`);
+	});
+
+	test.each([
+		['x', '=', '−3'],
+		['4', '−', '−3'],
+		['a', '+', '√b'],
+		['50%', '/', '50%'],
+		['90°', '/', '2'],
+		['$5', '/', '$3'],
+		['1', '/', '∞']
+	])('preserves a symbol-edged operator in %s%s%s', (left, operator, right) => {
+		const doc = parseDocument(`<html><body><p>${left}<span class="sr-only">${operator}</span>${right}</p></body></html>`);
+		removeBySelector(doc, false);
+		expect(doc.body.textContent).toBe(`${left}${operator}${right}`);
+	});
+
+	test('skips an empty inline sibling without crossing whitespace', () => {
+		const doc = parseDocument('<html><body><p>4<span></span><span class="sr-only">/</span>3 and 5 <span></span><span class="sr-only">/</span>2</p></body></html>');
+		removeBySelector(doc, false);
+		expect(doc.body.textContent).toBe('4/3 and 5 2');
 	});
 
 	test('still removes boilerplate, standalone markers, and block-level clutter', () => {
