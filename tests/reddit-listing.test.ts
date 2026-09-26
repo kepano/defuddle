@@ -7,7 +7,7 @@ describe('Reddit extractor applicability', () => {
 		'<shreddit-post><div slot="text-body"><p>A post body.</p></div></shreddit-post>',
 		'<div class="thing link"><div class="usertext-body"><p>A post body.</p></div></div>',
 	];
-	test.each(['/', '/r/example/', '/user/example/', '/u/example/', '/r/example/comments/', '/?next=/r/example/comments/abc/'])('declines listing %s in both layouts', path => {
+	test.each(['/', '/r/example/', '/user/example/', '/u/example/', '/u/example/s/', '/user/example/s/', '/r/example/comments/', '/?next=/r/example/comments/abc/'])('declines listing %s in both layouts', path => {
 		for (const html of markup) {
 			const url = 'https://www.reddit.com' + path;
 			const extractor = new RedditExtractor(parseDocument(html, url), url);
@@ -29,6 +29,24 @@ describe('Reddit extractor applicability', () => {
 			expect(extractor.canExtract()).toBe(true);
 			// Share tokens are not post IDs for the comments/feed API.
 			expect(extractor.canExtractAsync()).toBe(false);
+		}
+	});
+
+	test.each(['/u/example/s/abc123', '/user/example/s/abc123/'])('accepts profile share link %s', path => {
+		for (const html of markup) {
+			const url = 'https://www.reddit.com' + path;
+			const extractor = new RedditExtractor(parseDocument(html, url), url);
+			expect(extractor.canExtract()).toBe(true);
+			// Share tokens are not post IDs for the comments/feed API.
+			expect(extractor.canExtractAsync()).toBe(false);
+		}
+	});
+
+	test.each(['/comments/abc/', '/u/example/comments/abc/post/', '/user/example/comments/abc/post/'])('does not report a bare r/ site for %s', path => {
+		for (const html of markup) {
+			const url = 'https://www.reddit.com' + path;
+			const site = new RedditExtractor(parseDocument(html, url), url).extract().variables?.site;
+			expect(site).toBe('Reddit');
 		}
 	});
 

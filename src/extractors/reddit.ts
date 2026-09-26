@@ -114,7 +114,7 @@ export class RedditExtractor extends BaseExtractor {
 
 	private isSharePage(): boolean {
 		try {
-			return /^\/r\/[^/]+\/s\/[^/]+\/?$/.test(new URL(this.url).pathname);
+			return /^\/(?:r|u|user)\/[^/]+\/s\/[^/]+\/?$/.test(new URL(this.url).pathname);
 		} catch {
 			return false;
 		}
@@ -337,7 +337,8 @@ export class RedditExtractor extends BaseExtractor {
 			variables: {
 				title: meta.title,
 				author: meta.author,
-				site: `r/${meta.subreddit}`,
+				// Profile posts and bare /comments/ links carry no subreddit in the URL.
+				site: meta.subreddit ? `r/${meta.subreddit}` : 'Reddit',
 				description,
 			}
 		};
