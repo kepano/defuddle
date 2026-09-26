@@ -3,7 +3,7 @@
  */
 
 import { isElement, isTextNode } from '../utils';
-import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
@@ -16,6 +16,10 @@ const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+// URL-like: has a scheme or a path separator, or is a filename with an image extension
+const lazySourceUrlPattern = /^[a-z][a-z0-9+.-]*:|\/|\.(jpe?g|png|gif|webp|avif|svg)(?:[?#,\s]|$)/i;
+// Spacer filenames made only of placeholder words, e.g. blank.gif, grey.gif, spacer-1x1.png
+const placeholderFilenamePattern = /^(?:(?:blank|spacer|placeholder|transparent|pixel|grey|gray|empty|clear|loading|lazy|\d+x\d+)[-_]?)+\.(gif|png|jpe?g|svg|webp)$/i;
 
 // These attributes explicitly identify the real source of a lazy-loaded image.
 const LAZY_IMAGE_SOURCE_ATTRIBUTES = [
@@ -163,14 +167,15 @@ export const imageRules = [
 
 			// Named lazy sources take precedence even over nonempty src values:
 			// placeholders may be external files or large inline previews.
+			// Values that are not URLs (e.g. data-src="true") or are unsafe are ignored.
 			const lazySrc = LAZY_IMAGE_SOURCE_ATTRIBUTES
 				.map(attr => el.getAttribute(attr)?.trim())
-				.find(value => value);
+				.find(value => value && isUsableLazySource(value));
 			if (lazySrc) el.setAttribute('src', lazySrc);
 
-			// Handle data-srcset
-			const dataSrcset = el.getAttribute('data-srcset');
-			if (dataSrcset && !el.getAttribute('srcset')) {
+			// data-srcset is likewise explicit and replaces any placeholder srcset
+			const dataSrcset = el.getAttribute('data-srcset')?.trim();
+			if (dataSrcset && isUsableLazySource(dataSrcset)) {
 				el.setAttribute('srcset', dataSrcset);
 			}
 
@@ -190,10 +195,11 @@ export const imageRules = [
 				// Check if attribute contains an image URL
 				if (srcsetPattern.test(attr.value)) {
 					// Unknown metadata must not replace the image's own srcset.
-					if (!el.getAttribute('srcset')?.trim()) el.setAttribute('srcset', attr.value);
-				} else if (srcPattern.test(attr.value) && !el.getAttribute('src')?.trim()) {
+					const srcset = el.getAttribute('srcset') || '';
+					if (isPlaceholderSrc(extractFirstUrlFromSrcset(srcset) || '')) el.setAttribute('srcset', attr.value);
+				} else if (srcPattern.test(attr.value) && isPlaceholderSrc(el.getAttribute('src') || '')) {
 					// Unknown attributes may hold page URLs (e.g. RDFa resource),
-					// so only use them when the image has no source of its own.
+					// so only use them when the image has no real source of its own.
 					el.setAttribute('src', attr.value);
 				}
 			}
@@ -378,6 +384,28 @@ export function isBase64Placeholder(src: string): boolean {
 	
 	// If less than 133 bytes (100 bytes after base64 encoding), it's likely a placeholder
 	return b64length < 133;
+}
+
+/**
+ * Check if a named lazy-loading attribute value can be used as an image source
+ */
+function isUsableLazySource(value: string): boolean {
+	return lazySourceUrlPattern.test(value)
+		&& !isDangerousUrl(value)
+		&& !isBase64Placeholder(value);
+}
+
+/**
+ * Check if an image src is missing or a placeholder that lazy-loading will replace.
+ * External placeholders are only recognized by spacer-style filenames, so a real
+ * image (e.g. 220px-Gray_whale.jpg) keeps its src over unrelated metadata.
+ */
+function isPlaceholderSrc(src: string): boolean {
+	src = src.trim();
+	if (!src || isBase64Placeholder(src) || isSvgDataUrl(src)) return true;
+	if (src.startsWith('data:')) return false;
+	const filename = src.split(/[?#]/)[0].split('/').pop() || '';
+	return placeholderFilenamePattern.test(filename);
 }
 
 /**

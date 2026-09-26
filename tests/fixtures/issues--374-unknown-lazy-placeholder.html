@@ -1,0 +1,10 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html>
+<html><head><title>Unknown lazy attributes</title></head><body><article>
+<p>Some lazy-loading scripts store the real source in attributes other than data-src, with an external spacer image as the placeholder.</p>
+<p><img src="/img/blank.gif" data-lazy="https://cdn.example.com/real.jpg" class="lazyload" alt="Blank placeholder"></p>
+<p><img src="https://pic.example.com/grey.gif" data-actualsrc="https://pic.example.com/photo_b.jpg" class="lazy" alt="Grey placeholder"></p>
+<p><img src="https://example.com/assets/spacer-1x1.png" data-echo="https://cdn.example.com/echo.jpg" loading="lazy" alt="Spacer placeholder"></p>
+<p><img resource="./File:Gray_whale.jpg" src="//upload.example.com/thumb/Gray_whale.jpg/220px-Gray_whale.jpg" loading="lazy" alt="Gray whale"></p>
+<p>Placeholder images should be replaced by the real sources, while a real image whose name merely contains a placeholder-like word should keep its own source.</p>
+</article></body></html>
