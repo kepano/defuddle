@@ -1388,8 +1388,6 @@ export class Defuddle {
 			const classNames = idSelector ? [] : getClassName(current).split(/[\t\n\f\r ]+/)
 				.filter(name => classOrIdSelector('class', name) !== null);
 			selector += idSelector ?? classNames.map(name => classOrIdSelector('class', name)).join('');
-			// Keep unique compounds independent of sibling positions: shadow-root
-			// hoisting can insert siblings between generation and query.
 			if (!idSelector && current.parentElement) {
 				const siblings = Array.from(current.parentElement.children);
 				const tagName = current.tagName;

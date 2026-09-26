@@ -152,7 +152,6 @@ const UNSELECTABLE_VALUE_RE = /\0|[^\S\t\n\f\r ]/;
 export function classOrIdSelector(attribute: 'class' | 'id', value: string): string | null {
 	if (!value || UNSELECTABLE_VALUE_RE.test(value)) return null;
 	if (PLAIN_CSS_IDENT_RE.test(value)) return (attribute === 'class' ? '.' : '#') + value;
-	// CSS strings can't contain raw newlines; hex-escape control characters.
 	const escaped = value.replace(/["\\]/g, '\\$&')
 		.replace(/[\x01-\x1f\x7f]/g, char => `\\${char.charCodeAt(0).toString(16)} `);
 	return `[${attribute}${attribute === 'class' ? '~' : ''}="${escaped}"]`;

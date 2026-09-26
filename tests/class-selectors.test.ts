@@ -87,7 +87,6 @@ describe.each(['linkedom', 'jsdom'])('Generated selectors (%s)', implementation 
 	});
 
 	test('keeps the hidden content selector valid across streamed content swaps', async () => {
-		// The swap replaces two skeleton cards with one streamed card, shifting positions.
 		const html = `<html><head><title>Selector example</title></head><body><section><template id="B:0"></template><div class="card">Skeleton one</div><div class="card">Skeleton two</div><!--/$--><div class="card">Short visible teaser.</div><div class="card"><div hidden>${PROSE.repeat(4)}</div></div></section><div hidden id="S:0"><div class="card">Streamed card.</div></div><script>$RC("B:0","S:0")</script></body></html>`;
 		const doc = parse(html);
 		const parser = new DefuddleClass(doc) as unknown as SelectorParser;
