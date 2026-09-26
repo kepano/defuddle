@@ -800,7 +800,8 @@ export class Defuddle {
 		const asyncResult = await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
 		);
-		if (asyncResult && asyncResult.wordCount > 0) {
+		// Content is already sanitized; an image or embed can be valid with no words.
+		if (asyncResult?.content.trim()) {
 			return this._withDebugErrors(asyncResult);
 		}
 		return this._withDebugErrors(result ?? this._fallbackResponse(startTime));

@@ -135,6 +135,21 @@ describe('degraded whole-<body> fallback', () => {
 		expect(res.content).toContain('substantial paragraph');
 	});
 
+	test('parseAsync accepts an async result with content but no words', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		const { ExtractorRegistry } = await import('../src/extractor-registry');
+		vi.spyOn(ExtractorRegistry, 'findAsyncExtractor').mockReturnValue({
+			extractAsync: async () => ({ content: '', contentHtml: '<img src="https://example.com/photo.jpg" alt="">' })
+		} as any);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		throwAlways.value = true;
+
+		const res = await new Defuddle(parseDocument(HTML, 'https://example.com/'), { url: 'https://example.com/' }).parseAsync();
+
+		expect(res.content).toContain('photo.jpg');
+		expect(res.content).not.toContain('Copyright 2026');
+	});
+
 	test('returns the body fallback when the hidden-content search throws', async () => {
 		const { default: Defuddle } = await import('../src/index');
 		vi.spyOn(Defuddle.prototype as any, 'resolveStreamedContent').mockImplementation(() => {
