@@ -41,6 +41,7 @@ export class Defuddle {
 	private doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
+	private _parseErrors = new Set<string>();
 	private _schemaOrgData: any = undefined;
 	private _schemaOrgExtracted = false;
 	private _metaTags: MetaTagItem[] | undefined;
@@ -77,7 +78,7 @@ export class Defuddle {
 	 */
 	parse(): DefuddleResponse {
 		const startTime = Date.now();
-		return this._parse() ?? this._fallbackResponse(startTime);
+		return this._withDebugErrors(this._parse() ?? this._fallbackResponse(startTime));
 	}
 
 	/**
@@ -86,6 +87,7 @@ export class Defuddle {
 	 */
 	private _parse(): DefuddleResponse | null {
 		const startTime = Date.now();
+		this._parseErrors.clear();
 
 		// Normalize non-standard attribute casing (e.g. React SSR outputs
 		// "srcSet" instead of "srcset") before any image processing.
@@ -248,6 +250,14 @@ export class Defuddle {
 			parseTime: Math.round(Date.now() - startTime),
 			metaTags: this._metaTags
 		};
+	}
+
+	/** In debug mode, report errors that parse attempts caught and recovered from. */
+	private _withDebugErrors(result: DefuddleResponse): DefuddleResponse {
+		if (this.debug && this._parseErrors.size > 0) {
+			result.debug = { contentSelector: '', removals: [], ...result.debug, errors: [...this._parseErrors] };
+		}
+		return result;
 	}
 
 	/** The whole <body>, returned only after every extraction attempt failed. */
@@ -763,12 +773,12 @@ export class Defuddle {
 		const result = this._parse();
 
 		if ((result && result.wordCount > 0) || this.options.useAsync === false) {
-			return result ?? this._fallbackResponse(startTime);
+			return this._withDebugErrors(result ?? this._fallbackResponse(startTime));
 		}
 
-		return (await this.tryAsyncExtractor(
+		return this._withDebugErrors((await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
-		)) ?? result ?? this._fallbackResponse(startTime);
+		)) ?? result ?? this._fallbackResponse(startTime));
 	}
 
 	/**
@@ -969,6 +979,7 @@ export class Defuddle {
 						found = clone.querySelector(options.contentSelector);
 					} catch (e) {
 						this._log('Invalid contentSelector, falling back to auto-detection:', options.contentSelector, e);
+						this._parseErrors.add(`Invalid contentSelector "${options.contentSelector}": ${String(e)}`);
 					}
 					this._log('Using contentSelector:', options.contentSelector, found ? 'found' : 'not found');
 				}
@@ -1144,6 +1155,7 @@ export class Defuddle {
 			return result;
 		} catch (error) {
 			console.error('Defuddle', 'Error processing document:', error);
+			this._parseErrors.add(String(error));
 			return null;
 		}
 	}

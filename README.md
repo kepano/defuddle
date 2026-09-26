@@ -167,7 +167,7 @@ Defuddle returns an object with the following properties:
 | `schemaOrgData` | object | Raw schema.org data extracted from the page |
 | `title` | string | Title of the article |
 | `wordCount` | number | Total number of words in the extracted content |
-| `debug` | object | Debug info including content selector and removals (when `debug: true`) |
+| `debug` | object | Debug info including content selector, removals, and caught errors (when `debug: true`) |
 
 ## Bundles
 
@@ -313,6 +313,7 @@ const result = new Defuddle(document, { debug: true }).parse();
 // Access debug info
 console.log(result.debug.contentSelector); // CSS selector path of chosen main content element
 console.log(result.debug.removals);        // Array of removed elements with reasons
+console.log(result.debug.errors);          // Errors caught during extraction, if any
 ```
 
 When debug mode is enabled:
@@ -329,6 +330,7 @@ The `debug` field contains:
 |----------|------|-------------|
 | `contentSelector` | string | CSS selector path of the chosen main content element |
 | `removals` | array | List of elements removed during processing |
+| `errors` | array | Errors caught and recovered from during extraction, such as an unparseable `contentSelector`. Present only when errors occurred. When every attempt fails, the response contains the whole page body and `contentSelector` is empty. |
 
 Each removal entry contains:
 

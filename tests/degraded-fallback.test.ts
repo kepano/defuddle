@@ -102,4 +102,22 @@ describe('degraded whole-<body> fallback', () => {
 
 		expect(findAsyncExtractor).toHaveBeenCalled();
 	});
+
+	test('debug reports errors caught by parse attempts', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const parse = () => new Defuddle(parseDocument(HTML, 'https://example.com/'), { url: 'https://example.com/', debug: true }).parse();
+
+		expect(parse().debug?.errors).toBeUndefined();
+
+		throwOnNextCall.value = true;
+		const retried = parse();
+		expect(retried.debug?.errors).toEqual(['Error: simulated pipeline failure']);
+		expect(retried.debug?.contentSelector).toBeTruthy();
+
+		throwAlways.value = true;
+		const fallback = parse();
+		expect(fallback.debug?.errors).toEqual(['Error: simulated pipeline failure']);
+		expect(fallback.debug?.contentSelector).toBe('');
+	});
 });
