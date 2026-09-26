@@ -12,6 +12,10 @@ import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
 
+const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
+	.map(name => `a [class*="${name}"]`).join(', ');
+const LINK_ANNOTATION_REGEX = /^[\s,(–-]*(?:(?:link )?opens in (?:a )?new (?:window|tab)|new (?:window|tab)|external(?: link| site| website)?)[\s).]*$/i;
+
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
@@ -128,6 +132,23 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				partialSelectorCount++;
 			}
 		});
+
+		// Screen-reader text is content, except known link annotations such as
+		// "opens in a new window" on links that have visible text of their own.
+		const annotations = new Set<Element>([
+			...doc.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR),
+			...(mainContent ? mainContent.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR) : [])
+		]);
+		annotations.forEach(el => {
+			const link = el.closest('a');
+			if (!link || elementsToRemove.has(el) || el.closest('code, pre, [data-defuddle]') ||
+				!LINK_ANNOTATION_REGEX.test(el.textContent || '') ||
+				!hasVisibleText(link, annotations, elementsToRemove)) {
+				return;
+			}
+			elementsToRemove.set(el, { type: 'partial', selector: 'screen-reader link text' });
+			partialSelectorCount++;
+		});
 	}
 
 	// Remove all collected elements in a single pass
@@ -191,4 +212,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		total: elementsToRemove.size,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
+}
+
+function hasVisibleText(node: Node, hidden: Set<Element>, elementsToRemove: Map<Element, unknown>): boolean {
+	return Array.from(node.childNodes).some(child =>
+		child.nodeType === 3 ? !!child.textContent?.trim() :
+		child.nodeType === 1 && !hidden.has(child as Element) && !elementsToRemove.has(child as Element) &&
+			hasVisibleText(child, hidden, elementsToRemove));
 }

@@ -832,7 +832,6 @@ export const PARTIAL_SELECTORS = [
 	'rss-link',
 	'rubricwrapper',
 
-	'screen-reader-text',
 	'scroll_to',
 	'scroll-to',
 	'_search',
@@ -889,7 +888,6 @@ export const PARTIAL_SELECTORS = [
 	'speedbump',
 	'sponsor',
 	'springercitation',
-	'sr-only',
 //	'-stats',
 	'_stats',
 //	'sticky',
@@ -956,7 +954,6 @@ export const PARTIAL_SELECTORS = [
 	'viewbottom',
 	'view-language',
 	'yarpp-related',
-	'visually-hidden',
 	'welcomebox',
 	'widget_pages',
 	'window__widget',
