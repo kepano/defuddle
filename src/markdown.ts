@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { parseHTML, serializeHTML, isDirectTableChild } from './utils/dom';
+import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -63,13 +63,57 @@ const COMPLEX_MATHML_NODE_NAMES = new Set([
 ]);
 
 function formatMarkdownLinkDestination(href: string): string {
+	if (isDangerousUrl(href)) return '';
+	href = href.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;')
+		.replace(/\\/g, '\\\\')
+		.replace(/[<>\u0000-\u001f\u007f]/g, char => encodeURIComponent(char));
 	if (!/\s/.test(href)) return href.replace(/([()])/g, '\\$1');
-	return `<${href.replace(/>/g, '\\>')}>`;
+	return `<${href}>`;
 }
 
 function formatMarkdownLinkTitle(title: string | null): string {
 	if (!title) return '';
-	return ` "${title.replace(/(\n+\s*)+/g, '\n').replace(/"/g, '\\"')}"`;
+	return ` "${escapeHtml(title.replace(/[\r\n]+/g, ' ')).replace(/\\/g, '\\\\')}"`;
+}
+
+function formatFootnoteId(id: string): string {
+	return id.toLowerCase().replace(/[^a-z0-9_-]/g, char =>
+		'%' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
+function longestBacktickRun(code: string): number {
+	return (code.match(/`+/g) || []).reduce((size, run) => Math.max(size, run.length), 0);
+}
+
+function formatFencedCode(code: string, language = ''): string {
+	const cleanCode = code.trim();
+	const safeLanguage = (language.trim().split(/\s/)[0] || '').replace(/`/g, '');
+	// Table cells flatten fences into code spans, so count every backtick run.
+	const fence = '`'.repeat(Math.max(3, longestBacktickRun(cleanCode) + 1));
+	return `\n${fence}${safeLanguage}\n${cleanCode}\n${fence}\n`;
+}
+
+function formatCodeSpan(code: string): string {
+	const text = code.replace(/\s*\n\s*/g, ' ').trim();
+	const fence = '`'.repeat(longestBacktickRun(text) + 1);
+	return `${fence} ${text} ${fence}`;
+}
+
+function formatMath(latex: string, block: boolean): string {
+	// Markdown without math support still parses HTML and links inside $...$.
+	const tag = block
+		? /<(?=[!?/]|[a-z][a-z0-9-]*(?:[\s/>]|$)|[a-z][a-z0-9+.-]*:)/gi
+		: /<(?=[!?/]|[a-z][a-z0-9-]*[\s/>]|[a-z][a-z0-9+.-]*:)/gi;
+	const safeLatex = latex
+		.replace(/\n\s*\n/g, '\n')
+		.replace(tag, '< ')
+		.replace(/\](?=[(:[])/g, '] ');
+	// Preserve significant spaces in text and literal arguments.
+	const hasLiteralCommand = /\\(?:text[a-z]*|mbox|hbox|vbox|verb|url|href|operatorname|tag|label|ref|eqref)(?![a-z])/i.test(latex);
+	if (safeLatex !== latex && hasLiteralCommand) {
+		return block ? `\n${formatFencedCode(latex)}\n` : formatCodeSpan(latex);
+	}
+	return block ? `\n$$\n${safeLatex}\n$$\n` : `$${safeLatex}$`;
 }
 
 function getBestImageSrc(node: GenericElement): string {
@@ -89,7 +133,7 @@ function getBestImageSrc(node: GenericElement): string {
 				const width = parseInt(widthMatch[1], 10);
 				if (urlParts.length > 0 && width > bestWidth) {
 					const url = urlParts.join(' ').replace(/^,\s*/, '');
-					if (url) {
+					if (url && !isDangerousUrl(url)) {
 						bestWidth = width;
 						bestUrl = url;
 					}
@@ -132,7 +176,16 @@ export function createMarkdownContent(content: string, url: string) {
 	// kept elements (video/iframe/svg/…) are DOM nodes, not text, so keep rules are safe.
 	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
 	turndownService.escape = (s: string) =>
-		baseEscape(s).replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<');
+		baseEscape(s)
+			.replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<')
+			// A tag or autolink can span adjacent text nodes.
+			.replace(/<(?=[^<>\s]*$)/, '\\<')
+			.replace(/<([^<>\s]+)>/g, (match, destination) =>
+				isDangerousUrl(destination, false) ? `\\${match}` : match);
+	const escapeInlineText = (value: string): string =>
+		baseEscape(value.replace(/[\r\n]+/g, ' '))
+			.replace(/</g, '\\<')
+			.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;');
 
 	turndownService.addRule('table', {
 		filter: 'table',
@@ -355,49 +408,21 @@ export function createMarkdownContent(content: string, url: string) {
 			});
 			if (hasParagraphsOutsideFigcaption) return content;
 
-			const alt = img.getAttribute('alt') || '';
-			const src = getBestImageSrc(img);
+			const alt = escapeInlineText(img.getAttribute('alt') || '');
+			const src = formatMarkdownLinkDestination(getBestImageSrc(img));
 			let caption = '';
 
 			if (figcaption && isGenericElement(figcaption)) {
 				const tagSpan = figcaption.querySelector('.ltx_tag_figure');
 				const tagText = tagSpan && isGenericElement(tagSpan) ? tagSpan.textContent?.trim() : '';
 				
-				// Process the caption content, including math elements
-				let captionContent = serializeHTML(figcaption);
-				const ownerDoc = (node as any).ownerDocument;
-				captionContent = captionContent.replace(/<math.*?>(.*?)<\/math>/g, (match, mathContent, offset, string) => {
-					let latex = '';
-					if (ownerDoc) {
-						const fragment = parseHTML(ownerDoc, match);
-						const mathElement = fragment.querySelector('math');
-						latex = mathElement && isGenericElement(mathElement) ? extractLatex(mathElement) : '';
-					}
-					const prevChar = string[offset - 1] || '';
-					const nextChar = string[offset + match.length] || '';
-
-					const isStartOfLine = offset === 0 || /\s/.test(prevChar);
-					const isEndOfLine = offset + match.length === string.length || /\s/.test(nextChar);
-
-					const leftSpace = (!isStartOfLine && !/[\s$]/.test(prevChar)) ? ' ' : '';
-					const rightSpace = (!isEndOfLine && !/[\s$]/.test(nextChar)) ? ' ' : '';
-
-					return `${leftSpace}$${latex}$${rightSpace}`;
-				});
-
-				// Convert the processed caption content to markdown
-				const captionMarkdown = turndownService.turndown(captionContent);
+				const captionMarkdown = turndownService.turndown(serializeHTML(figcaption));
 				
 				// Combine tag and processed caption
-				caption = `${tagText} ${captionMarkdown}`.trim();
+				caption = `${escapeInlineText(tagText || '')} ${captionMarkdown}`.trim();
 			}
 
-			// Handle references in the caption
-			caption = caption.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, href) => {
-				return `[${text}](${href})`;
-			});
-
-			return `![${alt}](${src})\n\n${caption}\n\n`;
+			return `${src ? `![${alt}](${src})` : alt}\n\n${caption}\n\n`;
 		}
 	});
 
@@ -406,10 +431,9 @@ export function createMarkdownContent(content: string, url: string) {
 		filter: 'img',
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
-			const alt = node.getAttribute('alt') || '';
-			const src = getBestImageSrc(node);
-			const title = node.getAttribute('title') || '';
-			const titlePart = title ? ` "${title}"` : '';
+			const alt = escapeInlineText(node.getAttribute('alt') || '');
+			const src = formatMarkdownLinkDestination(getBestImageSrc(node));
+			const titlePart = formatMarkdownLinkTitle(node.getAttribute('title'));
 			return src ? `![${alt}](${src}${titlePart})` : '';
 		}
 	});
@@ -433,7 +457,7 @@ export function createMarkdownContent(content: string, url: string) {
 					return `\n![](https://www.youtube.com/watch?v=${youtubeMatch[1]})\n`;
 				}
 				// Direct URL: /user/status/id
-				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([^/]+)\/status\/([0-9]+)/);
+				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)\/status\/([0-9]+)/);
 				if (tweetDirectMatch) {
 					return `\n![](https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]})\n`;
 				}
@@ -472,6 +496,7 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!href) return content;
 			const title = formatMarkdownLinkTitle(node.getAttribute('title'));
 			const destination = formatMarkdownLinkDestination(href);
+			if (!destination) return content;
 			return `[${content}](${destination}${title})`;
 		}
 	});
@@ -504,8 +529,9 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			// Construct the new markdown
 			let markdown = `${headingContent}\n\n${remainingContent}\n\n`;
-			if (href) {
-				markdown += `[View original](${formatMarkdownLinkDestination(href)}${formatMarkdownLinkTitle(title)})`;
+			const destination = href ? formatMarkdownLinkDestination(href) : '';
+			if (destination) {
+				markdown += `[View original](${destination}${formatMarkdownLinkTitle(title)})`;
 			}
 			
 			return markdown;
@@ -543,8 +569,20 @@ export function createMarkdownContent(content: string, url: string) {
 			if (isGenericElement(node)) {
 				const id = node.getAttribute('id');
 				if (node.nodeName === 'SUP' && id !== null && id.startsWith('fnref:')) {
-					const primaryNumber = id.replace('fnref:', '').split('-')[0];
-					return `[^${primaryNumber}]`;
+					// Nested conversions may not contain the footnote definition.
+					const referenceId = id.slice('fnref:'.length);
+					let linkedId = node.querySelector('a[href^="#fn:"]')?.getAttribute('href')?.slice('#fn:'.length);
+					if (linkedId) {
+						try {
+							linkedId = decodeURIComponent(linkedId);
+						} catch {
+							// Keep malformed escapes literal.
+						}
+					}
+					const ownerDoc = (node as unknown as Element).ownerDocument;
+					const primaryId = linkedId || (ownerDoc?.getElementById(`fn:${referenceId}`)
+						? referenceId : referenceId.replace(/-\d+$/, ''));
+					return `[^${formatFootnoteId(primaryId)}]`;
 				}
 			}
 			return content;
@@ -590,7 +628,7 @@ export function createMarkdownContent(content: string, url: string) {
 					const referenceContent = turndownService.turndown(serializeHTML(li));
 					// Remove the backlink from the footnote content
 					const cleanedContent = referenceContent.replace(/\s*↩︎$/, '').trim();
-					return `[^${id?.toLowerCase()}]: ${cleanedContent}`;
+					return `[^${formatFootnoteId(id || '')}]: ${cleanedContent}`;
 				}
 				return '';
 			});
@@ -640,15 +678,7 @@ export function createMarkdownContent(content: string, url: string) {
 				|| '';
 			const code = codeElement.textContent || '';
 			
-			// Backslash escapes are literal inside a fence, so escaping backticks here would
-			// corrupt the code. A run of three or more backticks, indented by up to three
-			// spaces, can close the block, so grow the fence past the longest such run.
-			const cleanCode = code.trim();
-			const fenceSize = (cleanCode.match(/^ {0,3}`{3,}/gm) || [])
-				.reduce((size, run) => Math.max(size, run.trim().length + 1), 3);
-			const fence = '`'.repeat(fenceSize);
-
-			return `\n${fence}${language}\n${cleanCode}\n${fence}\n`;
+			return formatFencedCode(code, language);
 		}
 	});
 
@@ -682,21 +712,23 @@ export function createMarkdownContent(content: string, url: string) {
 				node.parentNode.previousSibling.nodeName.toLowerCase() === 'p')
 			)) {
 				latex = formatBlockLatex(latex);
-				return `\n$$\n${latex}\n$$\n`;
+				return formatMath(latex, true);
 			} else {
 				// For inline math, ensure there's a space before and after only if needed
 				const prevNode = node.previousSibling;
 				const nextNode = node.nextSibling;
-				const prevChar = prevNode && isGenericElement(prevNode) ? prevNode.textContent?.slice(-1) || '' : '';
-				const nextChar = nextNode && isGenericElement(nextNode) ? nextNode.textContent?.[0] || '' : '';
+				const prevChar = prevNode?.textContent?.slice(-1) || '';
+				const nextChar = nextNode?.textContent?.[0] || '';
 
 				const isStartOfLine = !prevNode || (isTextNode(prevNode) && prevNode.textContent?.trim() === '');
 				const isEndOfLine = !nextNode || (isTextNode(nextNode) && nextNode.textContent?.trim() === '');
 
-				const leftSpace = (!isStartOfLine && prevChar && !/[\s$]/.test(prevChar)) ? ' ' : '';
-				const rightSpace = (!isEndOfLine && nextChar && !/[\s$]/.test(nextChar)) ? ' ' : '';
+				// Turndown already moves edge whitespace outside the element.
+				const text = node.textContent || '';
+				const leftSpace = (!isStartOfLine && !/^\s/.test(text) && /[\p{L}\p{N}]/u.test(prevChar)) ? ' ' : '';
+				const rightSpace = (!isEndOfLine && !/\s$/.test(text) && /[\p{L}\p{N}]/u.test(nextChar)) ? ' ' : '';
 
-				return `${leftSpace}$${latex}$${rightSpace}`;
+				return `${leftSpace}${formatMath(latex, false)}${rightSpace}`;
 			}
 		}
 	});
@@ -730,9 +762,9 @@ export function createMarkdownContent(content: string, url: string) {
 				(mathElement && isGenericElement(mathElement) && mathElement.getAttribute('display') !== 'block');
 			
 			if (isInline) {
-				return `$${latex}$`;
+				return formatMath(latex, false);
 			} else {
-				return `\n$$\n${latex}\n$$\n`;
+				return formatMath(latex, true);
 			}
 		}
 	});
@@ -749,7 +781,8 @@ export function createMarkdownContent(content: string, url: string) {
 		},
 		replacement: (content, node) => {
 			if (!isGenericElement(node)) return content;
-			const type = node.getAttribute('data-callout') || 'note';
+			const rawType = node.getAttribute('data-callout') || 'note';
+			const type = /^[a-z0-9_-]+$/i.test(rawType) ? rawType : 'note';
 
 			// Fold indicator: data-callout-fold="-" means collapsed,
 			// "+" means collapsible but open, absent means not foldable
@@ -758,7 +791,7 @@ export function createMarkdownContent(content: string, url: string) {
 
 			// Extract title from .callout-title-inner
 			const titleInner = node.querySelector('.callout-title-inner');
-			const title = titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
+			const title = escapeInlineText(titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1));
 
 			// Remove the title from the DOM so it doesn't appear in content
 			const titleDiv = node.querySelector('.callout-title');
@@ -769,8 +802,8 @@ export function createMarkdownContent(content: string, url: string) {
 			// Re-convert without the title element
 			const contentEl = node.querySelector('.callout-content');
 			const calloutContent = contentEl
-				? turndownService.turndown(contentEl.innerHTML)
-				: turndownService.turndown(node.innerHTML);
+				? turndownService.turndown(serializeHTML(contentEl))
+				: turndownService.turndown(serializeHTML(node));
 
 			const lines = calloutContent.trim().split('\n');
 			const quotedContent = lines.map(line => `> ${line}`).join('\n');
@@ -788,7 +821,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const latex = annotation?.textContent?.trim() || mathElement.getAttribute('alttext')?.trim();
 			if (latex) {
 				const isInline = mathElement.closest('.ltx_eqn_inline, .mwe-math-element-inline') !== null;
-				return isInline ? `$${latex}$` : `\n$$\n${latex}\n$$`;
+				return formatMath(latex, !isInline);
 			}
 			return '';
 		}).join('\n\n');
@@ -814,13 +847,8 @@ export function createMarkdownContent(content: string, url: string) {
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
 
-		// outerHTML encodes & as &amp;, which breaks LaTeX alignment
-		// characters inside math delimiters. Decode common entities since
-		// the output goes into markdown, not back through an HTML parser.
-		return tableClone.outerHTML
-			.replace(/&amp;/g, '&')
-			.replace(/&lt;/g, '<')
-			.replace(/&gt;/g, '>');
+		// Entity decoding here would turn literal text into HTML.
+		return tableClone.outerHTML;
 	}
 
 	function extractLatex(element: GenericElement): string {

@@ -89,6 +89,7 @@
 		"@types/turndown": "^5.0.5",
 		"concurrently": "^8.2.2",
 		"jsdom": "^24.0.0",
+		"marked": "^18.0.14",
 		"terser-webpack-plugin": "^5.3.14",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
