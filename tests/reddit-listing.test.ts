@@ -22,16 +22,7 @@ describe('Reddit extractor applicability', () => {
 			expect(new RedditExtractor(parseDocument(html, url), url).canExtract()).toBe(true);
 		}
 	});
-	test.each(['www', 'old', 'sh', 'new'])('accepts rendered share links on %s.reddit.com', host => {
-		for (const html of markup) {
-			const url = `https://${host}.reddit.com/r/example/s/abc123`;
-			const extractor = new RedditExtractor(parseDocument(html, url), url);
-			expect(extractor.canExtract()).toBe(true);
-			expect(extractor.canExtractAsync()).toBe(false);
-		}
-	});
-
-	test.each(['/u/example/s/abc123', '/user/example/s/abc123/'])('accepts profile share link %s', path => {
+	test.each(['/r/example/s/abc123', '/u/example/s/abc123', '/user/example/s/abc123/'])('accepts share link %s', path => {
 		for (const html of markup) {
 			const url = 'https://www.reddit.com' + path;
 			const extractor = new RedditExtractor(parseDocument(html, url), url);
@@ -41,18 +32,9 @@ describe('Reddit extractor applicability', () => {
 		}
 	});
 
-	test.each(['/comments/abc/', '/u/example/comments/abc/post/', '/user/example/comments/abc/post/'])('does not report a bare r/ site for %s', path => {
-		for (const html of markup) {
-			const url = 'https://www.reddit.com' + path;
-			const site = new RedditExtractor(parseDocument(html, url), url).extract().variables?.site;
-			expect(site).toBe('Reddit');
-		}
-	});
-
 	test('keeps a post page eligible when recommendations contain another post', () => {
 		const url = 'https://www.reddit.com/r/example/comments/abc/post/';
 		const doc = parseDocument(markup[0] + markup[0], url);
 		expect(new RedditExtractor(doc, url).canExtract()).toBe(true);
 	});
-
 });

@@ -92,7 +92,7 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	canExtractAsync(): boolean {
-		return this.isCommentsPage() && !this.isOldReddit;
+		return this.isSubredditCommentsPage() && !this.isOldReddit;
 	}
 
 	prefersAsync(): boolean {
@@ -101,12 +101,21 @@ export class RedditExtractor extends BaseExtractor {
 		// window), use the rendered DOM directly since both are CORS-blocked
 		// from www.reddit.com.
 		const isBrowser = typeof window !== 'undefined' && this.document.defaultView === window;
-		return this.isCommentsPage() && !this.isOldReddit && !isBrowser;
+		return this.isSubredditCommentsPage() && !this.isOldReddit && !isBrowser;
 	}
 
 	private isCommentsPage(): boolean {
 		try {
 			return /^\/(?:(?:r|user|u)\/[^/]+\/)?comments\/[^/]+(?:\/|$)/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
+	}
+
+	// Feed fetching is only verified for subreddit post URLs.
+	private isSubredditCommentsPage(): boolean {
+		try {
+			return /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/.test(new URL(this.url).pathname);
 		} catch {
 			return false;
 		}
