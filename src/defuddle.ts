@@ -19,7 +19,7 @@ import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, classOrIdSelector } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -28,9 +28,6 @@ interface StyleChange {
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
-
-// CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
-const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
 
 // Mirrors the descendant removal list for unsafe-root checks.
 const UNSAFE_ELEMENT_TAGS = new Set([
@@ -646,7 +643,14 @@ export class Defuddle {
 
 
 	private findLargestHiddenContentSelector(): string | undefined {
-		const body = this.doc.body;
+		if (!this.doc.body) return undefined;
+
+		// Search the DOM a contentSelector retry queries: shadow-root hoisting and
+		// streamed-content swaps move elements and shift sibling positions.
+		const doc = this.doc.cloneNode(true) as Document;
+		this.flattenShadowRoots(this.doc, doc);
+		this.resolveStreamedContent(doc);
+		const body = doc.body;
 		if (!body) return undefined;
 
 		const candidates = Array.from(
@@ -967,6 +971,10 @@ export class Defuddle {
 				};
 			}
 
+			// Generate before removals and unsafe-root neutralization, so sibling
+			// positions, id, and classes match the DOM a contentSelector retry queries.
+			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
+
 			// Remove h1-adjacent date/author metadata blocks from the content.
 			// These are extracted as frontmatter but also appear in the body when a
 			// wide container (e.g. <main>) is selected as the content element.
@@ -1070,9 +1078,6 @@ export class Defuddle {
 			if (bestCoverUrl) {
 				metadata.image = bestCoverUrl;
 			}
-
-			// Neutralizing an unsafe root strips the selector's id/class.
-			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
 
 			// Strip dangerous elements and URI attributes from the final output.
 			// Runs unconditionally — the pipeline steps above are all optional, so
@@ -1378,13 +1383,18 @@ export class Defuddle {
 
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
-			if (current.id) {
-				selector += '#' + current.id;
-			} else if (getClassName(current)) {
-				const safe = getClassName(current).trim().split(/\s+/)
-					.filter(cls => !UNSAFE_CSS_CLASS_RE.test(cls));
-				if (safe.length) {
-					selector += '.' + safe.join('.');
+			const idSelector = current.id ? classOrIdSelector('id', current.id) : null;
+			// Class tokens split on ASCII whitespace only, like DOMTokenList.
+			const classNames = idSelector ? [] : getClassName(current).split(/[\t\n\f\r ]+/)
+				.filter(name => classOrIdSelector('class', name) !== null);
+			selector += idSelector ?? classNames.map(name => classOrIdSelector('class', name)).join('');
+			if (!idSelector && current.parentElement) {
+				const siblings = Array.from(current.parentElement.children);
+				const tagName = current.tagName;
+				const sameTag = siblings.filter(sibling => sibling.tagName === tagName);
+				// Compare tokens directly instead of relying on each engine's matches().
+				if (sameTag.filter(sibling => classNames.every(name => sibling.classList.contains(name))).length > 1) {
+					selector += `:nth-of-type(${sameTag.indexOf(current) + 1})`;
 				}
 			}
 			parts.unshift(selector);

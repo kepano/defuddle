@@ -139,3 +139,20 @@ export function parseHTML(doc: Document, html: string): DocumentFragment {
 	}
 	return fragment;
 }
+
+const PLAIN_CSS_IDENT_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
+// NUL and non-ASCII whitespace don't round-trip through selectors in every DOM engine.
+const UNSELECTABLE_VALUE_RE = /\0|[^\S\t\n\f\r ]/;
+
+/**
+ * Build a selector matching a class token or ID, or null if DOM engines can't
+ * round-trip the value. Special values use quoted attribute selectors because
+ * JSDOM mismatches escaped identifiers that are followed by more selector text.
+ */
+export function classOrIdSelector(attribute: 'class' | 'id', value: string): string | null {
+	if (!value || UNSELECTABLE_VALUE_RE.test(value)) return null;
+	if (PLAIN_CSS_IDENT_RE.test(value)) return (attribute === 'class' ? '.' : '#') + value;
+	const escaped = value.replace(/["\\]/g, '\\$&')
+		.replace(/[\x01-\x1f\x7f]/g, char => `\\${char.charCodeAt(0).toString(16)} `);
+	return `[${attribute}${attribute === 'class' ? '~' : ''}="${escaped}"]`;
+}
