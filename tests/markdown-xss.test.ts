@@ -9,13 +9,11 @@ const url = 'https://example.com/article';
 const payload = '<img src=x onerror=alert(1)>';
 const filler = '<p>This example article contains enough ordinary text to keep its contents during extraction. It explains a generic subject with several useful details for readers.</p>';
 
-function renderedDocument(markdown: string): DocumentFragment {
-	const doc = parseDocument('<html><body></body></html>', url);
-	return parseHTML(doc, marked.parse(markdown, { async: false }));
-}
+const breakout = escapeHtml('x)\n\n' + payload + '\n\n![y](z');
 
 function expectSafe(markdown: string): DocumentFragment {
-	const rendered = renderedDocument(markdown);
+	const doc = parseDocument('<html><body></body></html>', url);
+	const rendered = parseHTML(doc, marked.parse(markdown, { async: false }));
 	for (const el of rendered.querySelectorAll('*')) {
 		for (const attr of Array.from(el.attributes)) {
 			expect(attr.name, el.outerHTML).not.toMatch(/^on/i);
@@ -29,9 +27,9 @@ function expectSafe(markdown: string): DocumentFragment {
 }
 
 const cases = [
-	['image alt', `<img src="https://example.com/p.png" alt="${escapeHtml('x)\n\n' + payload + '\n\n![y](z')}">`],
+	['image alt', `<img src="https://example.com/p.png" alt="${breakout}">`],
 	['image title', `<img src="https://example.com/p.png" alt="photo" title="${escapeHtml('x")\n\n' + payload + '\n\n![y](z')}">`],
-	['figure alt', `<figure><img src="https://example.com/p.png" alt="${escapeHtml('x)\n\n' + payload + '\n\n![y](z')}"><figcaption>Example caption</figcaption></figure>`],
+	['figure alt', `<figure><img src="https://example.com/p.png" alt="${breakout}"><figcaption>Example caption</figcaption></figure>`],
 	['complex table', `<table><tr><td colspan="2">${escapeHtml(payload)}</td><td>Example</td></tr><tr><td>A</td><td>B</td><td>C</td></tr></table>`],
 	['callout title', `<div class="admonition"><p class="admonition-title">${escapeHtml(payload)}</p><p>Example callout content.</p></div>`],
 	['callout type', `<div class="callout" data-callout="${escapeHtml('note]\n\n' + payload)}"><div class="callout-content">Example callout content.</div></div>`],
@@ -82,7 +80,7 @@ describe('Markdown output security', () => {
 	});
 
 	test('preserves image labels, titles, and structural URL characters without adding elements', () => {
-		const alt = 'A [label] <tag> and \\ brackets';
+		const alt = 'A [label] <tag> and \\ brackets &lt;b&gt; &copy; A & B';
 		const title = 'A "title" with \\ and <tag>';
 		const src = 'https://example.com/p(1).png?x=1&y=2';
 		const rendered = expectSafe(createMarkdownContent(`<img alt="${escapeHtml(alt)}" title="${escapeHtml(title)}" src="${escapeHtml(src)}">`, url));
@@ -180,11 +178,12 @@ describe('Markdown output security', () => {
 		expectSafe(result.content);
 	});
 
-	test('keeps malformed percent escapes in a footnote fragment literal', () => {
-		const id = 'note-%ZZ';
-		const html = `<p>Text<sup id="fnref:${id}"><a href="#fn:${id}">1</a></sup></p>`
-			+ `<div id="footnotes"><ol><li id="fn:${id}">Note</li></ol></div>`;
-		const markdown = createMarkdownContent(html, url);
+	test.each([
+		['note-%ZZ', true],
+		['note [one]-2', false],
+	])('uses the same normalized ID for footnote %s and its definition (linked: %s)', (id, linked) => {
+		const reference = linked ? `<a href="#fn:${id}">1</a>` : '1';
+		const markdown = createMarkdownContent(`<p>Text<sup id="fnref:${id}">${reference}</sup></p><div id="footnotes"><ol><li id="fn:${id}">Note</li></ol></div>`, url);
 		const referenceId = markdown.match(/Text\[\^([^\]]+)\]/)?.[1];
 		expect(referenceId).toBeTruthy();
 		expect(markdown).toContain(`[^${referenceId}]: Note`);
@@ -196,12 +195,6 @@ describe('Markdown output security', () => {
 		expect(rendered.querySelectorAll('a')).toHaveLength(1);
 		expect(rendered.querySelector('a')?.getAttribute('href')).toBe('https://example.com/a%5C(b)');
 		expect(rendered.querySelector('p')?.textContent).toBe('Link');
-	});
-
-	test('keeps entity-like text in image descriptions literal', () => {
-		const alt = '&lt;b&gt; &copy; A & B';
-		const rendered = expectSafe(createMarkdownContent(`<img src="https://example.com/p.png" alt="${escapeHtml(alt)}">`, url));
-		expect(rendered.querySelector('img')?.getAttribute('alt')).toBe(alt);
 	});
 
 	test.each([
@@ -219,13 +212,5 @@ describe('Markdown output security', () => {
 		expect(Array.from(rendered.querySelectorAll('img'), img => img.getAttribute('src'))).toEqual([
 			'https://example.com/medium.png', 'data:image/png;base64,AAAA'
 		]);
-	});
-
-	test('uses the same normalized ID for a footnote reference and definition', () => {
-		const id = 'note [one]-2';
-		const markdown = createMarkdownContent(`<p>Text<sup id="fnref:${id}">1</sup></p><div id="footnotes"><ol><li id="fn:${id}">Note</li></ol></div>`, url);
-		const reference = markdown.match(/Text\[\^([^\]]+)\]/)?.[1];
-		expect(reference).toBeTruthy();
-		expect(markdown).toContain(`[^${reference}]: Note`);
 	});
 });

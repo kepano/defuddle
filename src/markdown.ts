@@ -62,9 +62,13 @@ const COMPLEX_MATHML_NODE_NAMES = new Set([
 	'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder', 'munderover'
 ]);
 
+function escapeEntityLike(value: string): string {
+	return value.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;');
+}
+
 function formatMarkdownLinkDestination(href: string): string {
 	if (isDangerousUrl(href)) return '';
-	href = href.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;')
+	href = escapeEntityLike(href)
 		.replace(/\\/g, '\\\\')
 		.replace(/[<>\u0000-\u001f\u007f]/g, char => encodeURIComponent(char));
 	if (!/\s/.test(href)) return href.replace(/([()])/g, '\\$1');
@@ -81,13 +85,21 @@ function formatFootnoteId(id: string): string {
 		'%' + char.charCodeAt(0).toString(16).padStart(4, '0'));
 }
 
+function decodeFragment(fragment: string): string {
+	try {
+		return decodeURIComponent(fragment);
+	} catch {
+		return fragment;
+	}
+}
+
 function longestBacktickRun(code: string): number {
 	return (code.match(/`+/g) || []).reduce((size, run) => Math.max(size, run.length), 0);
 }
 
 function formatFencedCode(code: string, language = ''): string {
 	const cleanCode = code.trim();
-	const safeLanguage = (language.trim().split(/\s/)[0] || '').replace(/`/g, '');
+	const safeLanguage = language.trim().split(/\s/)[0].replace(/`/g, '');
 	// Table cells flatten fences into code spans, so count every backtick run.
 	const fence = '`'.repeat(Math.max(3, longestBacktickRun(cleanCode) + 1));
 	return `\n${fence}${safeLanguage}\n${cleanCode}\n${fence}\n`;
@@ -99,6 +111,8 @@ function formatCodeSpan(code: string): string {
 	return `${fence} ${text} ${fence}`;
 }
 
+const LITERAL_MATH_COMMAND = /\\(?:text[a-z]*|mbox|hbox|vbox|verb|url|href|operatorname|tag|label|ref|eqref)(?![a-z])/i;
+
 function formatMath(latex: string, block: boolean): string {
 	// Markdown without math support still parses HTML and links inside $...$.
 	const tag = block
@@ -109,11 +123,14 @@ function formatMath(latex: string, block: boolean): string {
 		.replace(tag, '< ')
 		.replace(/\](?=[(:[])/g, '] ');
 	// Preserve significant spaces in text and literal arguments.
-	const hasLiteralCommand = /\\(?:text[a-z]*|mbox|hbox|vbox|verb|url|href|operatorname|tag|label|ref|eqref)(?![a-z])/i.test(latex);
-	if (safeLatex !== latex && hasLiteralCommand) {
+	if (safeLatex !== latex && LITERAL_MATH_COMMAND.test(latex)) {
 		return block ? `\n${formatFencedCode(latex)}\n` : formatCodeSpan(latex);
 	}
 	return block ? `\n$$\n${safeLatex}\n$$\n` : `$${safeLatex}$`;
+}
+
+function formatEmbed(url: string): string {
+	return `\n![](${formatMarkdownLinkDestination(url)})\n`;
 }
 
 function getBestImageSrc(node: GenericElement): string {
@@ -158,7 +175,6 @@ function getBestImageSrc(node: GenericElement): string {
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
 export function createMarkdownContent(content: string, url: string) {
-	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
 		headingStyle: 'atx',
 		hr: '---',
@@ -175,17 +191,18 @@ export function createMarkdownContent(content: string, url: string) {
 	// <https://x> have "@"/":" after the name and are left intact, as is "a < b". Real
 	// kept elements (video/iframe/svg/…) are DOM nodes, not text, so keep rules are safe.
 	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
-	turndownService.escape = (s: string) =>
-		baseEscape(s)
+	turndownService.escape = (s: string) => {
+		const escaped = baseEscape(s);
+		if (!escaped.includes('<')) return escaped;
+		return escaped
 			.replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<')
 			// A tag or autolink can span adjacent text nodes.
 			.replace(/<(?=[^<>\s]*$)/, '\\<')
 			.replace(/<([^<>\s]+)>/g, (match, destination) =>
 				isDangerousUrl(destination, false) ? `\\${match}` : match);
+	};
 	const escapeInlineText = (value: string): string =>
-		baseEscape(value.replace(/[\r\n]+/g, ' '))
-			.replace(/</g, '\\<')
-			.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;');
+		escapeEntityLike(baseEscape(value.replace(/[\r\n]+/g, ' ')).replace(/</g, '\\<'));
 
 	turndownService.addRule('table', {
 		filter: 'table',
@@ -454,17 +471,17 @@ export function createMarkdownContent(content: string, url: string) {
 			if (src) {
 				const youtubeMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/);
 				if (youtubeMatch && youtubeMatch[1]) {
-					return `\n![](https://www.youtube.com/watch?v=${youtubeMatch[1]})\n`;
+					return formatEmbed(`https://www.youtube.com/watch?v=${youtubeMatch[1]}`);
 				}
 				// Direct URL: /user/status/id
 				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)\/status\/([0-9]+)/);
 				if (tweetDirectMatch) {
-					return `\n![](https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]})\n`;
+					return formatEmbed(`https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]}`);
 				}
 				// Platform embed: ?id=
 				const tweetEmbedMatch = src.match(/(?:https?:\/\/)?(?:platform\.)?twitter\.com\/embed\/Tweet\.html\?.*?id=([0-9]+)/);
 				if (tweetEmbedMatch) {
-					return `\n![](https://x.com/i/status/${tweetEmbedMatch[1]})\n`;
+					return formatEmbed(`https://x.com/i/status/${tweetEmbedMatch[1]}`);
 				}
 			}
 			return content;
@@ -529,7 +546,7 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			// Construct the new markdown
 			let markdown = `${headingContent}\n\n${remainingContent}\n\n`;
-			const destination = href ? formatMarkdownLinkDestination(href) : '';
+			const destination = formatMarkdownLinkDestination(href || '');
 			if (destination) {
 				markdown += `[View original](${destination}${formatMarkdownLinkTitle(title)})`;
 			}
@@ -566,26 +583,14 @@ export function createMarkdownContent(content: string, url: string) {
 			return false;
 		},
 		replacement: (content, node) => {
-			if (isGenericElement(node)) {
-				const id = node.getAttribute('id');
-				if (node.nodeName === 'SUP' && id !== null && id.startsWith('fnref:')) {
-					// Nested conversions may not contain the footnote definition.
-					const referenceId = id.slice('fnref:'.length);
-					let linkedId = node.querySelector('a[href^="#fn:"]')?.getAttribute('href')?.slice('#fn:'.length);
-					if (linkedId) {
-						try {
-							linkedId = decodeURIComponent(linkedId);
-						} catch {
-							// Keep malformed escapes literal.
-						}
-					}
-					const ownerDoc = (node as unknown as Element).ownerDocument;
-					const primaryId = linkedId || (ownerDoc?.getElementById(`fn:${referenceId}`)
-						? referenceId : referenceId.replace(/-\d+$/, ''));
-					return `[^${formatFootnoteId(primaryId)}]`;
-				}
-			}
-			return content;
+			if (!isGenericElement(node)) return content;
+			const referenceId = node.getAttribute('id')!.slice('fnref:'.length);
+			// Nested conversions may not contain the footnote definition.
+			const linkedId = decodeFragment(node.querySelector('a[href^="#fn:"]')?.getAttribute('href')?.slice('#fn:'.length) || '');
+			const ownerDoc = (node as unknown as Element).ownerDocument;
+			const primaryId = linkedId || (ownerDoc?.getElementById(`fn:${referenceId}`)
+				? referenceId : referenceId.replace(/-\d+$/, ''));
+			return `[^${formatFootnoteId(primaryId)}]`;
 		}
 	});
 
@@ -761,11 +766,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const isInline = node.classList?.contains('math-inline') || 
 				(mathElement && isGenericElement(mathElement) && mathElement.getAttribute('display') !== 'block');
 			
-			if (isInline) {
-				return formatMath(latex, false);
-			} else {
-				return formatMath(latex, true);
-			}
+			return formatMath(latex, !isInline);
 		}
 	});
 
@@ -1001,14 +1002,6 @@ export function createMarkdownContent(content: string, url: string) {
 
 		// Collapse runs of empty blank blockquote lines that start with a >
 		markdown = markdown.replace(BLANK_QUOTE_LINE_RUN, '$1');
-
-		// Append footnotes at the end of the document
-		if (Object.keys(footnotes).length > 0) {
-			markdown += '\n\n---\n\n';
-			for (const [id, content] of Object.entries(footnotes)) {
-				markdown += `[^${id}]: ${content}\n\n`;
-			}
-		}
 		
 		return markdown.trim();
 	} catch (error) {
