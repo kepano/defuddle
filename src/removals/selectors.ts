@@ -176,7 +176,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		}
 		// Accessible operators may be the only textual representation of a
 		// separator drawn by CSS. Preserve the glyph, not its clutter attributes.
-		if (isInlineMathSeparator(el)) {
+		if (isInlineMathSeparator(el, elementsToRemove)) {
 			el.replaceWith(...Array.from(el.childNodes));
 			return;
 		}
@@ -200,15 +200,28 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 	});
 }
 
+const MATH_OPERATORS = '/⁄∕·×÷−+±=\\-';
+const MATH_OPERATOR_REGEX = new RegExp(`^[${MATH_OPERATORS}]$`);
+const LEFT_OPERAND_REGEX = /(?:^|\s)(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})$|[)\]}]$/u;
+// A right operand may itself be an expression (e.g. the "1/2" of a mixed number).
+const RIGHT_OPERAND_REGEX = new RegExp(`^(?:\\p{N}+(?:[.,]\\p{N}+)?|\\p{L})(?=$|[\\s)\\]}.!,;${MATH_OPERATORS}])|^[([{]`, 'u');
+
 /** Recognize an inline operator between textual operands, regardless of CSS names. */
-function isInlineMathSeparator(el: Element): boolean {
+function isInlineMathSeparator(el: Element, elementsToRemove: Map<Element, unknown>): boolean {
 	if (!INLINE_ELEMENTS.has(el.tagName.toLowerCase()) || el.children.length > 0 ||
-		!/^[/⁄∕·×÷−+±=\-]$/.test(el.textContent?.trim() || '')) return false;
+		!MATH_OPERATOR_REGEX.test(el.textContent?.trim() || '')) return false;
 
 	const adjacentText = (direction: 'previousSibling' | 'nextSibling'): string => {
 		let node = el[direction];
 		while (node) {
-			if (node.nodeType === 1 && !INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return '';
+			if (node.nodeType === 1) {
+				// Siblings queued for removal are not operands in the output.
+				if (elementsToRemove.has(node as Element)) {
+					node = node[direction];
+					continue;
+				}
+				if (!INLINE_ELEMENTS.has((node as Element).tagName.toLowerCase())) return '';
+			}
 			if (node.nodeType === 1 || node.nodeType === 3) {
 				const text = node.textContent?.trim();
 				if (text) return text;
@@ -217,6 +230,6 @@ function isInlineMathSeparator(el: Element): boolean {
 		}
 		return '';
 	};
-	return /(?:^|\s)(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})$|[)\]}]$/u.test(adjacentText('previousSibling')) &&
-		/^(?:\p{N}+(?:[.,]\p{N}+)?|\p{L})(?=$|[\s)\]}.!,;])|^[([{]/u.test(adjacentText('nextSibling'));
+	return LEFT_OPERAND_REGEX.test(adjacentText('previousSibling')) &&
+		RIGHT_OPERAND_REGEX.test(adjacentText('nextSibling'));
 }
