@@ -818,7 +818,7 @@ export class Defuddle {
 			const asyncResult = await this.tryAsyncExtractor(
 				ExtractorRegistry.findPreferredAsyncExtractor.bind(ExtractorRegistry)
 			);
-			if (asyncResult) return asyncResult;
+			if (asyncResult?.content.trim()) return asyncResult;
 		}
 
 		const startTime = Date.now();
