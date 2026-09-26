@@ -140,7 +140,6 @@ export function parseHTML(doc: Document, html: string): DocumentFragment {
 	return fragment;
 }
 
-// Identifiers that need no escaping in a class or ID selector.
 const PLAIN_CSS_IDENT_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
 // NUL and non-ASCII whitespace don't round-trip through selectors in every DOM engine.
 const UNSELECTABLE_VALUE_RE = /\0|[^\S\t\n\f\r ]/;
