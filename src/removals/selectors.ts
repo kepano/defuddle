@@ -85,9 +85,13 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// For headings, only check class — IDs are auto-slugs and data-testid
 			// values (e.g. "article-header") cause false positives.
 			const isHeading = /^H[1-6]$/.test(tag);
+			// Tailwind arbitrary values/variants contain CSS, not element labels.
+			// For example, scroll-mt-[var(--article-breadcrumb-height)] does not
+			// make a section heading a breadcrumb. Keep matching ordinary classes.
+			const className = getClassName(el).replace(/\[[^\]]*\]/g, '');
 			const attrs = (isHeading
-				? getClassName(el)
-				: getClassName(el) + ' ' +
+				? className
+				: className + ' ' +
 					(el.getAttribute('data-component') || '') + ' ' +
 					(el.getAttribute('data-test') || '') + ' ' +
 					(el.getAttribute('data-testid') || '') + ' ' +
