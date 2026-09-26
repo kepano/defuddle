@@ -19,7 +19,7 @@ import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, escapeCssIdent } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, classOrIdSelector } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -964,6 +964,10 @@ export class Defuddle {
 				};
 			}
 
+			// Generate before removals and unsafe-root neutralization, so sibling
+			// positions, id, and classes match the DOM a contentSelector retry queries.
+			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
+
 			// Remove h1-adjacent date/author metadata blocks from the content.
 			// These are extracted as frontmatter but also appear in the body when a
 			// wide container (e.g. <main>) is selected as the content element.
@@ -1067,9 +1071,6 @@ export class Defuddle {
 			if (bestCoverUrl) {
 				metadata.image = bestCoverUrl;
 			}
-
-			// Neutralizing an unsafe root strips the selector's id/class.
-			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
 
 			// Strip dangerous elements and URI attributes from the final output.
 			// Runs unconditionally — the pipeline steps above are all optional, so
@@ -1375,20 +1376,18 @@ export class Defuddle {
 
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
-			const classNames = getClassName(current).trim().split(/\s+/).filter(Boolean);
-			if (current.id) {
-				selector += '#' + escapeCssIdent(current.id);
-			} else if (classNames.length) {
-				selector += '.' + classNames.map(escapeCssIdent).join('.');
-			}
+			const idSelector = current.id ? classOrIdSelector('id', current.id) : null;
+			// Class tokens split on ASCII whitespace only, like DOMTokenList.
+			const classNames = idSelector ? [] : getClassName(current).split(/[\t\n\f\r ]+/)
+				.filter(name => classOrIdSelector('class', name) !== null);
+			selector += idSelector ?? classNames.map(name => classOrIdSelector('class', name)).join('');
 			// Keep unique compounds independent of sibling positions: shadow-root
 			// hoisting can insert siblings between generation and query.
-			if (!current.id && current.parentElement) {
+			if (!idSelector && current.parentElement) {
 				const siblings = Array.from(current.parentElement.children);
 				const tagName = current.tagName;
 				const sameTag = siblings.filter(sibling => sibling.tagName === tagName);
-				// Compare tokens directly; some DOM engines disagree on escaped
-				// identifiers between matches() and querySelector().
+				// Compare tokens directly instead of relying on each engine's matches().
 				if (sameTag.filter(sibling => classNames.every(name => sibling.classList.contains(name))).length > 1) {
 					selector += `:nth-of-type(${sameTag.indexOf(current) + 1})`;
 				}

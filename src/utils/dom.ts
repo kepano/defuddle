@@ -140,24 +140,21 @@ export function parseHTML(doc: Document, html: string): DocumentFragment {
 	return fragment;
 }
 
-/** Escape a CSS identifier without depending on the browser-only CSS.escape API. */
-export function escapeCssIdent(value: string): string {
-	let escaped = '';
-	for (let i = 0; i < value.length; i++) {
-		const code = value.charCodeAt(i);
-		const char = value[i];
-		if (code === 0) {
-			escaped += '\uFFFD';
-		} else if (code <= 31 || code === 127 ||
-			(code >= 48 && code <= 57 && (i === 0 || (i === 1 && value[0] === '-')))) {
-			escaped += `\\${code.toString(16)} `;
-		} else if (value === '-') {
-			escaped += '\\-';
-		} else if (code >= 128 || /[a-zA-Z0-9_-]/.test(char)) {
-			escaped += char;
-		} else {
-			escaped += `\\${code.toString(16)} `;
-		}
-	}
-	return escaped;
+// Identifiers that need no escaping in a class or ID selector.
+const PLAIN_CSS_IDENT_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
+// NUL and non-ASCII whitespace don't round-trip through selectors in every DOM engine.
+const UNSELECTABLE_VALUE_RE = /\0|[^\S\t\n\f\r ]/;
+
+/**
+ * Build a selector matching a class token or ID, or null if DOM engines can't
+ * round-trip the value. Special values use quoted attribute selectors because
+ * JSDOM mismatches escaped identifiers that are followed by more selector text.
+ */
+export function classOrIdSelector(attribute: 'class' | 'id', value: string): string | null {
+	if (!value || UNSELECTABLE_VALUE_RE.test(value)) return null;
+	if (PLAIN_CSS_IDENT_RE.test(value)) return (attribute === 'class' ? '.' : '#') + value;
+	// CSS strings can't contain raw newlines; hex-escape control characters.
+	const escaped = value.replace(/["\\]/g, '\\$&')
+		.replace(/[\x01-\x1f\x7f]/g, char => `\\${char.charCodeAt(0).toString(16)} `);
+	return `[${attribute}${attribute === 'class' ? '~' : ''}="${escaped}"]`;
 }
