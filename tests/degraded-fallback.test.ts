@@ -63,6 +63,29 @@ describe('degraded whole-<body> fallback', () => {
 		expect(degradedThenRetried.content).toEqual(clean.content);
 	});
 
+	test('keeps successful content when later attempts fail', async () => {
+		const { default: Defuddle } = await import('../src/index');
+		const standardize = await import('../src/standardize');
+		const html = HTML.replace(PARA.repeat(8), PARA.repeat(2));
+		const parse = () => new Defuddle(parseDocument(html, 'https://example.com/'), { url: 'https://example.com/' }).parse();
+		const clean = parse();
+		expect(clean.wordCount).toBeGreaterThanOrEqual(50);
+		expect(clean.wordCount).toBeLessThan(200);
+
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const original = standardize.standardizeContent;
+		const standardizeContent = vi.spyOn(standardize, 'standardizeContent')
+			.mockImplementation(() => { throw new Error('simulated retry failure'); })
+			.mockImplementationOnce(original);
+
+		const retried = parse();
+
+		expect(standardizeContent.mock.calls.length).toBeGreaterThan(1);
+		expect(retried.content).toEqual(clean.content);
+		expect(retried.content).not.toContain('Copyright 2026');
+		expect(retried.content).not.toContain('Gamma');
+	});
+
 	test('returns the whole <body> only when every parse fails', async () => {
 		const { default: Defuddle } = await import('../src/index');
 		vi.spyOn(console, 'error').mockImplementation(() => {});
