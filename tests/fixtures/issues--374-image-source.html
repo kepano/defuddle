@@ -1,0 +1,5 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html><html><head><title>Image sources</title></head><body><article><p>Images should retain their real source even when metadata attributes also contain URLs ending in image extensions.</p>
+<p><img resource="https://example.com/wiki/File:diagram.png" src="//images.example.com/diagram.png" loading="lazy" alt="Diagram"></p>
+<p><img data-page="https://example.com/wiki/File:chart.png" src="/images/chart.png" loading="lazy" alt="Chart"></p>
+<p>Both images have usable sources that should remain intact after extraction. Metadata must not replace either the relative source or the protocol-relative source.</p></article></body></html>
