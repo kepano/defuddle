@@ -105,4 +105,49 @@ describe('CLI parseSource', () => {
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
 	});
+
+	test('registers the --source-url flag', () => {
+		const parseCommand = createProgram().commands.find((c) => c.name() === 'parse');
+		const option = parseCommand?.options.find((o) => o.long === '--source-url');
+
+		expect(option).toBeDefined();
+		// commander camelCases --source-url → options.sourceUrl, which parseSource reads.
+		expect(option?.attributeName()).toBe('sourceUrl');
+	});
+
+	test('uses --source-url to activate site-specific extractors for stdin input', async () => {
+		// The Claude conversation fixture has data-testid="user-message" and
+		// .font-claude-response divs, which the ClaudeExtractor recognises and
+		// formats with **You** / **Claude** author labels — but only when a
+		// claude.ai URL is supplied as the document URL. Without a URL, the
+		// extractor registry has no domain match, generic scoring runs, and
+		// the author labels are absent from the output.
+		const claudeFixture = readFileSync(
+			join(__dirname, 'fixtures', 'extractor--claude-conversation.html'),
+			'utf-8'
+		);
+
+		// Baseline: without --source-url, ClaudeExtractor does not run, so the
+		// "**You**" / "**Claude**" author labels (only the conversation
+		// extractor emits these) are missing from the output.
+		const baseline = await parseSource(
+			'-',
+			{ markdown: true },
+			createMockStdin(claudeFixture)
+		);
+		expect(baseline.output).not.toContain('**You**');
+		expect(baseline.output).not.toContain('**Claude**');
+
+		// With --source-url pointing at claude.ai, ClaudeExtractor activates
+		// and emits the structured conversation turns with author labels.
+		const result = await parseSource(
+			'-',
+			{ markdown: true, sourceUrl: 'https://claude.ai/chat/example-fixture' },
+			createMockStdin(claudeFixture)
+		);
+		expect(result.output).toContain('**You**');
+		expect(result.output).toContain('**Claude**');
+		expect(result.output).toContain('Paris');
+		expect(result.output).toContain('Berlin');
+	});
 });
