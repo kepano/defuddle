@@ -69,7 +69,7 @@ const DESKTOP_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 const MOBILE_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 	segments: 'transcript-segment-view-model',
 	timestamp: '.ytwTranscriptSegmentViewModelTimestamp',
-	text: 'span.yt-core-attributed-string',
+	text: '.ytAttributedStringHost, span.yt-core-attributed-string',
 	chapters: 'timeline-chapter-view-model h3',
 };
 
@@ -271,7 +271,16 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getTranscriptContainer(): Element | null {
-		// Desktop YouTube
+		// Desktop YouTube, modern panel. Find it by its rows: the panel with
+		// target-id="PAmodern_transcript_view" may only hold a spinner while the
+		// rows render in an unlabelled panel. Requiring rows also keeps
+		// waitForTranscriptContainer from stopping on the panel's header.
+		const modern = this.document
+			.querySelector(`ytd-engagement-panel-section-list-renderer ${MOBILE_TRANSCRIPT_SELECTORS.segments}`)
+			?.closest('ytd-engagement-panel-section-list-renderer');
+		if (modern) return modern;
+
+		// Desktop YouTube, legacy panel
 		const desktop = this.document.querySelector(
 			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #segments-container'
 		);
