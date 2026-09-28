@@ -37,6 +37,30 @@ interface StandardizationRule {
 	transform?: (el: Element, doc: Document) => Element;
 }
 
+/**
+ * Find the content container within a listitem element.
+ * Tries .content selector first, then falls back to the first block-level child,
+ * and finally uses the item itself if no suitable container is found.
+ *
+ * Some frameworks (e.g. Mintlify) use custom components with data-* attributes
+ * instead of .content wrappers, so the fallback is necessary to avoid losing
+ * content inside role="listitem" elements.
+ */
+function findContentContainer(item: Element): Element {
+	let content = item.querySelector('.content');
+	if (content) return content;
+
+	// Fallback: find first block-level child
+	for (let i = 0; i < item.children.length; i++) {
+		const child = item.children[i];
+		if (BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase())) {
+			return child;
+		}
+	}
+	// Last resort: use the item itself
+	return item;
+}
+
 const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 	...mathRules,
 	...codeBlockRules,
@@ -80,8 +104,8 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 			const items = el.querySelectorAll('div[role="listitem"]');
 			items.forEach(item => {
 				const li = doc.createElement('li');
-				const content = item.querySelector('.content');
-				
+				let content = findContentContainer(item);
+
 				if (content) {
 					// Convert any paragraph divs inside content
 					const paragraphDivs = content.querySelectorAll('div[role="paragraph"]');
@@ -104,8 +128,8 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 						const nestedItems = nestedList.querySelectorAll('div[role="listitem"]');
 						nestedItems.forEach(nestedItem => {
 							const nestedLi = doc.createElement('li');
-							const nestedContent = nestedItem.querySelector('.content');
-							
+							let nestedContent = findContentContainer(nestedItem);
+
 							if (nestedContent) {
 								// Convert paragraph divs in nested items
 								const nestedParagraphs = nestedContent.querySelectorAll('div[role="paragraph"]');
@@ -137,8 +161,7 @@ const ELEMENT_STANDARDIZATION_RULES: StandardizationRule[] = [
 		element: 'li',
 		// Custom handler for list item content
 		transform: (el: Element, doc: Document): Element => {
-			const content = el.querySelector('.content');
-			if (!content) return el;
+			let content = findContentContainer(el);
 			
 			// Convert any paragraph divs inside content
 			const paragraphDivs = content.querySelectorAll('div[role="paragraph"]');
