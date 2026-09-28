@@ -25,10 +25,12 @@ export interface ExtractorResult {
 	content: string;
 	contentHtml: string;
 	contentSelector?: string;
+	/** Fields whose empty values must not fall back to unvalidated page metadata. */
+	skipMetadataFallback?: ('title' | 'description')[];
 	extractedContent?: {
 		[key: string]: string;
 	};
 	variables?: {
 		[key: string]: string;
 	};
-} 
+}

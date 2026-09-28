@@ -1,4 +1,7 @@
 import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { Defuddle } from '../src/defuddle';
 import { YoutubeExtractor } from '../src/extractors/youtube';
 import { parseDocument } from './helpers';
 
@@ -69,4 +72,95 @@ describe('YouTube videoData selection', () => {
 		expect(videoData.name).toBe('Comment-derived title');
 		expect(videoData.description).toBeUndefined();
 	});
+});
+
+describe('YouTube metadata after SPA navigation', () => {
+	function createDocument() {
+		return parseDocument(readFileSync(join(__dirname, 'fixtures/youtube--spa-metadata.html'), 'utf8'), URL);
+	}
+
+	test.each(['sync', 'async'])('uses the current video metadata through %s parsing', async mode => {
+		const doc = createDocument();
+		const parser = new Defuddle(doc, { url: URL, fetch: async () => { throw new Error('offline'); } });
+		const result = mode === 'async' ? await parser.parseAsync() : parser.parse();
+
+		expect(result.title).toBe('Current video');
+		expect(result.description).toBe('Current description & details.');
+		expect(result.content).toContain('Current description &amp; details.');
+		expect(result.content).not.toContain('Previous description');
+	});
+
+	test('uses the collapsed description snippet without including UI text', () => {
+		const doc = createDocument();
+		doc.querySelector('#expanded yt-attributed-string')!.textContent = '';
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.description).toBe('Current description...');
+		expect(result.content).not.toContain('Show more');
+	});
+
+	test('does not restore a stale description when the current video has none', () => {
+		const doc = createDocument();
+		doc.querySelector('#description-inline-expander')!.remove();
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('Current video');
+		expect(result.description).toBe('');
+	});
+
+	test('rejects rendered metadata belonging to a different video', () => {
+		const doc = createDocument();
+		doc.querySelector('ytd-watch-flexy')!.setAttribute('video-id', 'oldVIDEO123');
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('');
+		expect(result.description).toBe('');
+		expect(result.content).not.toContain('Current description');
+	});
+
+	test('fills a description-less matching VideoObject from the current DOM', () => {
+		const doc = createDocument();
+		doc.querySelector('script[type="application/ld+json"]')!.textContent = JSON.stringify({
+			'@type': 'VideoObject', '@id': URL, name: 'Current schema title', comment: [],
+		});
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('Current schema title');
+		expect(result.description).toBe('Current description & details.');
+	});
+
+	test('preserves a matching VideoObject with a full description', () => {
+		const doc = createDocument();
+		doc.querySelector('script[type="application/ld+json"]')!.textContent = JSON.stringify({
+			'@type': 'VideoObject', '@id': URL, name: 'Current schema title', description: 'Full schema description',
+		});
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('Current schema title');
+		expect(result.description).toBe('Full schema description');
+	});
+
+	test('uses rendered metadata when matching Open Graph fields are missing', () => {
+		const doc = createDocument();
+		doc.querySelector('meta[property="og:url"]')!.setAttribute('content', URL);
+		doc.querySelector('meta[property="og:title"]')!.remove();
+		doc.querySelector('meta[property="og:description"]')!.remove();
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('Current video');
+		expect(result.description).toBe('Current description & details.');
+	});
+});
+
+test('keeps generic metadata fallbacks for other extractors', () => {
+	const url = 'https://lwn.net/Articles/123456/';
+	const doc = parseDocument(`<html><head>
+		<title>Article title</title><meta name="description" content="Article description">
+		</head><body><div class="PageHeadline"></div>
+		<div class="ArticleText"><main><p>Article body.</p></main></div></body></html>`, url);
+	const result = new Defuddle(doc, { url }).parse();
+
+	expect(result.extractorType).toBe('lwn');
+	expect(result.title).toBe('Article title');
+	expect(result.description).toBe('Article description');
 });
