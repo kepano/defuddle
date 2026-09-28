@@ -1,4 +1,6 @@
 import { describe, test, expect, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { YoutubeExtractor } from '../src/extractors/youtube';
 import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
@@ -887,6 +889,16 @@ get all of the hype.</p>
 		// Chapters should be extracted from mobile DOM
 		expect(result.content).toContain('Introduction');
 		expect(result.content).toContain('Main Topic');
+	});
+
+	test('extracts transcript from the modern desktop transcript panel', () => {
+		const html = readFileSync(join(__dirname, 'fixtures/issues--266-youtube-modern-transcript-panel.html'), 'utf8');
+		const extractor = createExtractor(html, 'https://www.youtube.com/watch?v=test266abcd');
+
+		const result = extractor.extract();
+
+		expect(result.variables.transcript).toContain('**0:00** · Welcome to the example video.');
+		expect(result.variables.transcript).toContain('**0:09** · Thanks for watching.');
 	});
 
 	test('extractAsync skips transcript panel opening in non-browser DOM contexts', async () => {
