@@ -18,7 +18,7 @@ import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
-import { getComputedStyle, textPreview, countWords } from './utils';
+import { getComputedStyle, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, classOrIdSelector } from './utils/dom';
 
 interface StyleChange {

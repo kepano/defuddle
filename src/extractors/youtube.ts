@@ -1,4 +1,4 @@
-import { BaseExtractor, ExtractorOptions } from './_base';
+import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 import { countWords, CJK_CHAR_RANGES } from '../utils';
@@ -74,15 +74,7 @@ const MOBILE_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 };
 
 export class YoutubeExtractor extends BaseExtractor {
-	private videoElement: HTMLVideoElement | null;
 	private inlineJsonCache = new Map<string, any>();
-	protected override schemaOrgData: any;
-
-	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
-		super(document, url, schemaOrgData, options);
-		this.videoElement = document.querySelector('video');
-		this.schemaOrgData = schemaOrgData;
-	}
 
 	canExtract(): boolean {
 		return true;

@@ -1,4 +1,4 @@
-import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/extractors';
+import { ExtractorResult } from '../types/extractors';
 
 export interface ExtractorOptions {
 	includeReplies?: boolean | 'extractors';

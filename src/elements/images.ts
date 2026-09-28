@@ -729,52 +729,6 @@ function processImgElement(element: Element, doc: Document): Element {
 }
 
 /**
- * Process a picture element
- */
-function processPictureElement(element: Element, doc: Document): Element {
-	// For picture elements, we want to process all sources and select the best one
-	// Create a new img element
-	const newImg = doc.createElement('img');
-	
-	// Get all source elements
-	const sourceElements = element.querySelectorAll('source');
-	
-	// If we have multiple sources, try to select the best one
-	if (sourceElements.length > 1) {
-		// Find the best source based on media queries and srcset
-		const bestSource = selectBestSource(sourceElements);
-		if (bestSource) {
-			// Get the srcset from the best source
-			const srcset = bestSource.getAttribute('srcset');
-			if (srcset) {
-				applySrcsetToImage(srcset, newImg);
-			}
-		}
-	} else if (sourceElements.length === 1) {
-		// If only one source, use it
-		const srcset = sourceElements[0].getAttribute('srcset');
-		if (srcset) {
-			applySrcsetToImage(srcset, newImg);
-		}
-	}
-	
-	// Copy other attributes from the original img if it exists
-	const originalImg = element.querySelector('img');
-	if (originalImg) {
-		// Copy all attributes except srcset
-		copyAttributesExcept(originalImg, newImg, ['srcset']);
-		
-		// Always set the src attribute directly from the original img
-		const originalSrc = originalImg.getAttribute('src');
-		if (originalSrc) {
-			newImg.setAttribute('src', originalSrc);
-		}
-	}
-	
-	return newImg;
-}
-
-/**
  * Process a source element
  */
 function processSourceElement(element: Element, doc: Document): Element {

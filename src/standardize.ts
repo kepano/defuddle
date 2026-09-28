@@ -20,7 +20,7 @@ import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE }
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
+import { isElement, isTextNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 import { isExtractorClass } from './utils/comments';
 
@@ -1673,46 +1673,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return false;
 	};
 
-	const isWrapperElement = (el: Element): boolean => {
-		// If it directly contains inline content, it's NOT a wrapper
-		if (hasDirectInlineContent(el)) {
-			return false;
-		}
-
-		// Check if it's just empty space
-		if (!el.textContent?.trim()) return true;
-
-		// Check if it only contains other block elements
-		const children = Array.from(el.children);
-		if (children.length === 0) return true;
-		
-		// Check if all children are block elements
-		const allBlockElements = children.every(child => {
-			return BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase());
-		});
-		if (allBlockElements) return true;
-
-		// Check for common wrapper patterns
-		const className = getClassName(el).toLowerCase();
-		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
-		if (isWrapper) return true;
-
-		// Check if it has excessive whitespace or empty text nodes
-		const textNodes = Array.from(el.childNodes).filter(node => 
-			isTextNode(node) && node.textContent?.trim()
-		);
-		if (textNodes.length === 0) return true;
-
-		// Check if it only contains block elements
-		const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
-			const tag = child.tagName.toLowerCase();
-			return INLINE_ELEMENTS.has(tag);
-		});
-		if (hasOnlyBlockElements) return true;
-
-		return false;
-	};
-
 	// Function to process a single element
 	const processElement = (el: Element): boolean => {
 		// Skip processing if element has been removed or should be preserved
@@ -1746,7 +1706,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		}
 
 		// Case 3: Wrapper element - merge up aggressively
-		if (isWrapperElement(el)) {
+		if (!hasDirectInlineContent(el)) {
 			const fragment = doc.createDocumentFragment();
 			while (el.firstChild) {
 				fragment.appendChild(el.firstChild);
@@ -1785,28 +1745,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 				processedCount++;
 				return true;
 			}
-		}
-
-		// Case 6: Deeply nested element - merge up
-		let nestingDepth = 0;
-		let parent = el.parentElement;
-		while (parent) {
-			const parentTag = parent.tagName.toLowerCase();
-			if (BLOCK_ELEMENTS_SET.has(parentTag)) {
-				nestingDepth++;
-			}
-			parent = parent.parentElement;
-		}
-
-		// Only unwrap if nested AND does not contain direct inline content
-		if (nestingDepth > 0 && !hasDirectInlineContent(el)) {
-			const fragment = doc.createDocumentFragment();
-			while (el.firstChild) {
-				fragment.appendChild(el.firstChild);
-			}
-			el.replaceWith(fragment);
-			processedCount++;
-			return true;
 		}
 
 		return false;
@@ -1866,7 +1804,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
 			
 			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper element
-			if (onlyParagraphs || (!shouldPreserveElement(el) && isWrapperElement(el))) {
+			if (onlyParagraphs || (!shouldPreserveElement(el) && !hasDirectInlineContent(el))) {
 				const fragment = doc.createDocumentFragment();
 				while (el.firstChild) {
 					fragment.appendChild(el.firstChild);

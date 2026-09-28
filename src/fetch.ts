@@ -1,4 +1,3 @@
-import { countWords } from './utils';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 export const FETCH_TIMEOUT = 10_000; // 10s

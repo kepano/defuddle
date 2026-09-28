@@ -52,10 +52,10 @@ export class MetadataExtractor {
 
 		return {
 			title,
-			description: this.getDescription(doc, schemaOrgData, metaTags),
+			description: this.getDescription(schemaOrgData, metaTags),
 			domain,
 			favicon: this.getFavicon(doc, url, metaTags),
-			image: this.getImage(doc, schemaOrgData, metaTags),
+			image: this.getImage(schemaOrgData, metaTags),
 			language: this.getLanguage(doc, schemaOrgData, metaTags),
 			published: this.getPublished(doc, schemaOrgData, metaTags, url),
 			author,
@@ -480,7 +480,7 @@ export class MetadataExtractor {
 		return null;
 	}
 
-	private static getDescription(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getDescription(schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return this.firstValid([
 			() => this.getMetaContent(metaTags, "name", "description"),
 			() => this.getMetaContent(metaTags, "property", "description"),
@@ -491,7 +491,7 @@ export class MetadataExtractor {
 		]);
 	}
 
-	private static getImage(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getImage(schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return (
 			this.getMetaContent(metaTags, "property", "og:image") ||
 			this.getMetaContent(metaTags, "name", "twitter:image") ||
