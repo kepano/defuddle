@@ -51,6 +51,7 @@
 		"test": "TZ=UTC vitest run",
 		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
 		"lint:innerhtml": "node scripts/check-no-innerhtml.mjs",
+		"lint:unused": "tsc --noEmit --noUnusedLocals",
 		"size": "node scripts/check-bundle-size.mjs",
 		"playground": "node playground/server.js"
 	},

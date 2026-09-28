@@ -21,19 +21,6 @@ export interface Footnote {
 	text: string;
 }
 
-export interface ExtractorVariables {
-	[key: string]: string;
-}
-
-export interface ExtractedContent {
-	title?: string;
-	author?: string;
-	published?: string;
-	content?: string;
-	contentHtml?: string;
-	variables?: ExtractorVariables;
-}
-
 export interface ExtractorResult {
 	content: string;
 	contentHtml: string;
