@@ -1,0 +1,17 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html>
+<html>
+<head><title>Wrapped image caption</title></head>
+<body>
+<article>
+<p>This article includes an image inside a caption wrapper. Extracting its caption should preserve the source link without copying the image twice.</p>
+<figure>
+<div class="caption-wrapper">
+<img src="https://example.com/diagram.png" width="600" height="400" alt="Diagram">
+<span>A wrapped caption links to <a href="https://example.net/reference">the source</a> for more information.</span>
+</div>
+</figure>
+<p>The image belongs to the figure, while the caption contains the accompanying text and its reference to the source.</p>
+</article>
+</body>
+</html>
