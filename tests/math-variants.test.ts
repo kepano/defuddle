@@ -43,6 +43,25 @@ describe.each([
 		expect(result.querySelector('mi')?.textContent).toBe('x');
 	});
 
+	test('transforms cloned content in its owner document without mutating the original', () => {
+		const doc = parseDocument(`<html><body>${SHARED_CASES['data-mathml with sibling scripts']}</body></html>`);
+		const originalHtml = doc.documentElement.outerHTML;
+		const clone = doc.cloneNode(true) as Document;
+		const el = clone.querySelector('#target')!;
+
+		// The pipeline passes the original document while transforming cloned nodes.
+		const result = mod.mathRules[0].transform(el, doc);
+		// linkedom clones retain the original ownerDocument; JSDOM uses the clone.
+		expect(result.ownerDocument === el.ownerDocument).toBe(true);
+		el.replaceWith(result);
+
+		expect(clone.querySelector('math mi')?.textContent).toBe('x');
+		expect(clone.querySelector('math')?.getAttribute('data-latex')).toBe('x');
+		expect(clone.querySelector('script[type^="math/"], .MathJax_Preview')).toBeNull();
+		expect(clone.querySelector('p')?.textContent).toBe('keep');
+		expect(doc.documentElement.outerHTML).toBe(originalHtml);
+	});
+
 	test('removes sibling math scripts and previews but keeps other content', () => {
 		const { parent } = transform(mod, SHARED_CASES['data-mathml with sibling scripts']);
 		expect(parent.querySelector('script[type^="math/"]')).toBeNull();
