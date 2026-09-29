@@ -283,7 +283,7 @@ export const EXACT_SELECTORS = [
 	// footnotes, citations
 	'[class*="clickable-icon" i]',
 	'li span[class*="ltx_tag" i][class*="ltx_tag_item" i]',
-	'a[href^="#"][class*="anchor" i]',
+	// 'a[href^="#"][class*="anchor" i]', // see issue #287
 	'a[href^="#"][class*="ref" i]:not(.ltx_ref):not(.footnote-backref)',
 
 	// link lists
