@@ -4,10 +4,12 @@ import { Command } from 'commander';
 import { Defuddle } from './node';
 import { writeFile, readFile } from 'fs/promises';
 import { resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { parseLinkedomHTML } from './utils/linkedom-compat';
 import { countWords } from './utils';
 import { buildFrontmatter } from './frontmatter';
 import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
+import { ExtractorRegistry } from './extractor-registry';
 
 export interface ParseOptions {
 	output?: string;
@@ -19,6 +21,38 @@ export interface ParseOptions {
 	lang?: string;
 	userAgent?: string;
 	frontmatter?: boolean;
+	extractor?: string[];
+}
+
+function collectExtractor(value: string, previous: string[]): string[] {
+	return previous.concat([value]);
+}
+
+// Production CJS builds: `await import(s)` is lowered by tsc (module=CommonJS)
+// to a `require(s)` equivalent that cannot resolve file:// URLs or .mjs files.
+// Hide the dynamic import inside a Function() so tsc doesn't see it, and the
+// expression is parsed at runtime by Node, which honours native ESM dynamic
+// import.
+//
+// Vitest (test runs): the source TS goes through esbuild, which preserves
+// `import()`. But the Function()-eval shortcut runs outside vitest's module
+// graph and trips its "A dynamic import callback was not specified" check.
+// Detect that environment and use the in-source `import()` form so vitest
+// can hook it normally.
+const __INSIDE_VITEST__ = (globalThis as Record<string, unknown>).__vitest_worker__ !== undefined;
+const dynamicImport: (specifier: string) => Promise<{ default?: unknown; [k: string]: unknown }> =
+	__INSIDE_VITEST__
+		? ((specifier: string) => import(specifier)) as never
+		: (new Function('specifier', 'return import(specifier)') as never);
+
+async function loadExtractor(extractorPath: string): Promise<void> {
+	const absPath = resolve(process.cwd(), extractorPath);
+	const mod = await dynamicImport(pathToFileURL(absPath).href);
+	const mapping = (mod.default ?? mod) as { patterns?: unknown; extractor?: unknown };
+	if (!mapping || !Array.isArray(mapping.patterns) || typeof mapping.extractor !== 'function') {
+		throw new Error(`--extractor ${extractorPath}: module must default-export { patterns: (string | RegExp)[], extractor: class }`);
+	}
+	ExtractorRegistry.register(mapping as { patterns: (string | RegExp)[]; extractor: new (...args: unknown[]) => unknown } as never);
 }
 
 interface ParseResult {
@@ -59,6 +93,12 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 		separateMarkdown: options.markdown || options.json,
 		language: options.lang,
 	};
+
+	if (options.extractor && options.extractor.length > 0) {
+		for (const extractorPath of options.extractor) {
+			await loadExtractor(extractorPath);
+		}
+	}
 
 	let html: string;
 	let url: string | undefined;
@@ -174,6 +214,7 @@ export function createProgram(): Command {
 		.option('--debug', 'Enable debug mode')
 		.option('-l, --lang <code>', 'Preferred language (BCP 47, e.g. en, fr, ja)')
 		.option('-u, --user-agent <string>', 'Custom User-Agent header for HTTP requests (helps with 403/FORBIDDEN responses)')
+		.option('--extractor <path>', 'Load a custom extractor module (repeatable). The file must default-export { patterns, extractor }.', collectExtractor, [])
 		.action(async (source: string | undefined, options: ParseOptions) => {
 			try {
 				const { output } = await parseSource(source, options);
