@@ -143,7 +143,8 @@ export const EXACT_SELECTORS = [
 	// so they don't need the :not(:has(img)) guard — their images are logos/icons.
 	'header[class~="fixed"]',
 	'header[class~="sticky"]',
-	'.header:not(.banner)',
+	// Pandoc/Quarto tables mark the heading row as <tr class="header"> (see #395).
+	'.header:not(.banner):not(tr):not(th)',
 	'#header',
 	'#Header',
 	'#banner',
