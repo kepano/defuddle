@@ -1,5 +1,7 @@
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
+import { Defuddle } from '../src/defuddle';
+import { Defuddle as DefuddleNode } from '../src/node';
 import type { ExtractorOptions } from '../src/extractors/_base';
 import { parseDocument } from './helpers';
 
@@ -317,8 +319,10 @@ describe('YouTube transcript parsing', () => {
 		expect(lines[3]).toBe('**0:06** · I think this approach is promising in a narrow set of cases.');
 	});
 
-	test('escapes HTML in output', () => {
-		const extractor = createExtractor();
+	test.each([false, true])('escapes HTML in output with preserveTranscriptSegments=%s', (preserveTranscriptSegments) => {
+		const extractor = createExtractor(undefined, undefined, {
+			youtube: { preserveTranscriptSegments },
+		});
 		const xml = `<timedtext><body>
 <p t="0" d="1000"><s>a &lt;script&gt; tag</s></p>
 </body></timedtext>`;
@@ -913,5 +917,129 @@ get all of the hype.</p>
 
 		expect(result.variables.transcript).toBeUndefined();
 		expect(clickSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe('YouTube preserved transcript segments', () => {
+	const url = 'https://www.youtube.com/watch?v=example123';
+	const html = `<!DOCTYPE html>
+	<html>
+	<head><title>Example video - YouTube</title></head>
+	<body>
+	<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+	  <div id="segments-container">
+	    <ytd-transcript-segment-renderer>
+	      <div class="segment-timestamp">0:00</div>
+	      <div class="segment-text">The quick brown</div>
+	    </ytd-transcript-segment-renderer>
+	    <ytd-transcript-segment-renderer>
+	      <div class="segment-timestamp">0:02</div>
+	      <div class="segment-text">fox jumps over the lazy dog.</div>
+	    </ytd-transcript-segment-renderer>
+	    <ytd-transcript-segment-renderer>
+	      <div class="segment-timestamp">0:04</div>
+	      <div class="segment-text">Then it ran</div>
+	    </ytd-transcript-segment-renderer>
+	    <ytd-transcript-segment-renderer>
+	      <div class="segment-timestamp">0:06</div>
+	      <div class="segment-text">away quickly.</div>
+	    </ytd-transcript-segment-renderer>
+	  </div>
+	</ytd-engagement-panel-section-list-renderer>
+	</body>
+	</html>`;
+	const expected = [
+		'**0:00** · The quick brown',
+		'**0:02** · fox jumps over the lazy dog.',
+		'**0:04** · Then it ran',
+		'**0:06** · away quickly.',
+	].join('\n');
+	const options = { extractors: { youtube: { preserveTranscriptSegments: true } } };
+	const extractorOptions = { youtube: options.extractors.youtube };
+	const grouped = '**0:00** · The quick brown fox jumps over the lazy dog.\n**0:04** · Then it ran away quickly.';
+
+	test.each(['sync', 'async', 'variables', 'node'])('forwards the option through the %s API', async (api) => {
+		const doc = parseDocument(html, url);
+		const defuddle = new Defuddle(doc, { url, ...options });
+		if (api === 'variables') defuddle.parse();
+		const result = api === 'sync' ? defuddle.parse()
+			: api === 'async' ? await defuddle.parseAsync()
+			: api === 'node' ? await DefuddleNode(doc, url, options)
+			: { variables: await defuddle.fetchAsyncVariables() };
+		expect(result.variables?.transcript).toBe(expected);
+	});
+
+	test('forwards preservation, language and custom fetch through async API caption extraction', async () => {
+		const captionUrl = 'https://www.youtube.com/api/timedtext?v=example123';
+		const fetch = vi.fn(async (input: RequestInfo | URL) => {
+			if (String(input) === captionUrl) {
+				return new Response('<transcript><text start="1.25">Hello</text><text start="2.75">world.</text></transcript>');
+			}
+			return new Response(JSON.stringify({
+				captions: { playerCaptionsTracklistRenderer: {
+					captionTracks: [{ baseUrl: captionUrl, languageCode: 'en' }],
+				} },
+			}));
+		});
+		const result = await new Defuddle(parseDocument('<html><body></body></html>', url), {
+			url, fetch, language: 'en', ...options,
+		}).parseAsync();
+		expect(result.variables?.transcript).toBe('**0:01** · Hello\n**0:02** · world.');
+		expect(parseDocument(result.content, url).querySelectorAll('p')).toHaveLength(2);
+		expect(fetch).toHaveBeenCalledWith(captionUrl, expect.objectContaining({
+			headers: expect.objectContaining({ 'Accept-Language': 'en' }),
+		}));
+	});
+
+	test.each([undefined, false])('keeps grouping when preservation is %s', (preserveTranscriptSegments) => {
+		const result = new Defuddle(parseDocument(html, url), {
+			url, extractors: { youtube: { preserveTranscriptSegments } },
+		}).parse();
+		expect(result.variables?.transcript).toBe(grouped);
+	});
+
+	test.each([
+		'<timedtext><body><p t="0"><s>The quick brown</s></p><p t="2000"><s>fox jumps over the lazy dog.</s></p><p t="4000"><s>Then it ran</s></p><p t="6000"><s>away quickly.</s></p></body></timedtext>',
+		'<transcript><text start="0">The quick brown</text><text start="2">fox jumps over the lazy dog.</text><text start="4">Then it ran</text><text start="6">away quickly.</text></transcript>',
+	])('preserves fetched caption cues in either XML format', async (xml) => {
+		const fetch = vi.fn().mockResolvedValue({ ok: true, text: async () => xml });
+		const extractor = new YoutubeExtractor(parseDocument('<html></html>', url), url, undefined, {
+			fetch, language: 'en', ...extractorOptions,
+		});
+		const result = await (extractor as any).fetchCaptionXml({
+			baseUrl: 'https://www.youtube.com/api/timedtext?v=example123', languageCode: 'en',
+		}, Promise.resolve([]));
+		expect(result.text).toBe(expected);
+		expect(result.languageCode).toBe('en');
+		expect(fetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+			headers: expect.objectContaining({ 'Accept-Language': 'en' }),
+		}));
+	});
+
+	test('preserves mobile DOM cue boundaries', () => {
+		const mobileHtml = html
+			.replace(/<div id="segments-container">/, '<ytm-macro-markers-list-renderer class="browsing-mode"><div class="ytm-macro-markers-list-container">')
+			.replace('</ytd-engagement-panel-section-list-renderer>', '</ytm-macro-markers-list-renderer></ytd-engagement-panel-section-list-renderer>')
+			.replace(/ytd-transcript-segment-renderer/g, 'transcript-segment-view-model')
+			.replace(/segment-timestamp/g, 'ytwTranscriptSegmentViewModelTimestamp')
+			.replace(/<div class="segment-text">(.*?)<\/div>/g, '<span class="yt-core-attributed-string">$1</span>');
+		const mobileUrl = 'https://m.youtube.com/watch?v=example123';
+		const extractor = new YoutubeExtractor(parseDocument(mobileHtml, mobileUrl), mobileUrl, undefined, extractorOptions);
+		expect(extractor.extract().variables?.transcript).toBe(expected);
+	});
+
+	test('keeps normalization, fractional start times, chapters and literal speaker markers', () => {
+		const extractor = new YoutubeExtractor(parseDocument('<html></html>', url), url, undefined, extractorOptions);
+		const result = (extractor as any).parseTranscriptXml(
+			'<timedtext><body><p t="1250"><s>  &gt;&gt; Hello\n</s><s>   &amp; welcome</s></p><p t="2750"><s>to the show.</s></p><p t="3000"><s> </s></p></body></timedtext>',
+			'en', [{ start: 2, title: 'Next & part' }],
+		);
+		expect(result.text).toBe('**0:01** · >> Hello & welcome\n\n### Next & part\n\n**0:02** · to the show.');
+		expect(result.html).toContain('data-timestamp="1.25"');
+		expect(result.html).toContain('data-timestamp="2.75"');
+		expect(result.html).toContain('&gt;&gt; Hello &amp; welcome');
+		expect(result.html).toContain('<h3>Next &amp; part</h3>');
+		expect(result.html.match(/class="transcript-segment"/g)).toHaveLength(2);
+		expect(result.html).not.toContain('speaker-');
 	});
 });

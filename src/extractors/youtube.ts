@@ -3,6 +3,7 @@ import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 import { countWords, CJK_CHAR_RANGES } from '../utils';
 import { buildTranscript } from '../utils/transcript';
+import type { TranscriptSegment } from '../utils/transcript';
 
 const CJK_SENTENCE_PUNCT = '\u3002\uFF01\uFF1F';  // 。！？
 const CJK_CLOSE_QUOTES = '\u300D\u300F\uFF09';    // 」』）
@@ -342,7 +343,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		if (segments.length === 0) return undefined;
 
 		const effectiveChapters = chapters.length > 0 ? chapters : domChapters;
-		const groups = this.groupTranscriptSegments(segments);
+		const groups = this.getTranscriptSegments(segments);
 		const { html, text } = buildTranscript('youtube', groups, effectiveChapters);
 
 		return {
@@ -998,7 +999,7 @@ export class YoutubeExtractor extends BaseExtractor {
 
 		if (segments.length === 0) return undefined;
 
-		const groups = this.groupTranscriptSegments(segments);
+		const groups = this.getTranscriptSegments(segments);
 		const { html, text } = buildTranscript('youtube', groups, chapters);
 
 		return { html, text, languageCode };
@@ -1027,6 +1028,13 @@ export class YoutubeExtractor extends BaseExtractor {
 				: new URLSearchParams(url.search).get('v') || '';
 		}
 		return this._videoId;
+	}
+
+	private getTranscriptSegments(segments: { start: number; text: string }[]): TranscriptSegment[] {
+		if (this.options.youtube?.preserveTranscriptSegments === true) {
+			return segments.map(segment => ({ ...segment, speakerChange: false }));
+		}
+		return this.groupTranscriptSegments(segments);
 	}
 
 	/**
