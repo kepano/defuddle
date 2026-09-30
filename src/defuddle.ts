@@ -849,7 +849,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch };
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch, youtube: this.options.extractors?.youtube };
 			const extractor = ExtractorRegistry.findPreferredAsyncExtractor(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
@@ -869,7 +869,7 @@ export class Defuddle {
 		try {
 			const url = this.options.url || this.doc.URL;
 			const schemaOrgData = this.getSchemaOrgData();
-			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch };
+			const extractorOpts: ExtractorOptions = { includeReplies: this.options.includeReplies ?? 'extractors', language: this.options.language, fetch: this.options.fetch, youtube: this.options.extractors?.youtube };
 			const extractor = finder(this.doc, url, schemaOrgData, extractorOpts);
 
 			if (extractor) {
@@ -941,6 +941,7 @@ export class Defuddle {
 				includeReplies: options.includeReplies as ExtractorOptions['includeReplies'],
 				language: options.language,
 				fetch: options.fetch,
+				youtube: options.extractors?.youtube,
 			};
 			if (!this._inExtractorPipelineRun) {
 				const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);

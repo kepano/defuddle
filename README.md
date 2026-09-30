@@ -198,6 +198,7 @@ The core bundle is recommended for most use cases. It still handles math content
 | `useAsync`               | boolean | true    | Allow async extractors to fetch from third-party APIs when no local content is available. |
 | `language`               | string  |         | Preferred language (BCP 47 tag, e.g. `en`, `fr`). Sets `Accept-Language` header and selects transcript language. |
 | `includeReplies`         | boolean \| 'extractors' | 'extractors' | Include replies: `'extractors'` for site-specific extractors only, `true` for all, `false` for none. |
+| `extractors.youtube.preserveTranscriptSegments` | boolean | false | Preserve individual parsed YouTube caption cues and their start times instead of grouping them. |
 
 ## HTML standardization
 

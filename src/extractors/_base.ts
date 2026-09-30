@@ -4,6 +4,9 @@ export interface ExtractorOptions {
 	includeReplies?: boolean | 'extractors';
 	language?: string;
 	fetch?: typeof globalThis.fetch;
+	youtube?: {
+		preserveTranscriptSegments?: boolean;
+	};
 }
 
 export abstract class BaseExtractor {

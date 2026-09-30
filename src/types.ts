@@ -142,6 +142,19 @@ export interface DefuddleOptions {
 	 */
 	includeReplies?: boolean | 'extractors';
 
+	/** Extractor-specific options */
+	extractors?: {
+		youtube?: {
+			/**
+			 * Preserve each non-empty parsed caption cue's boundary and start time
+			 * instead of grouping cues into readable blocks. Text decoding and
+			 * normalization still apply; literal speaker markers are retained.
+			 * Defaults to false.
+			 */
+			preserveTranscriptSegments?: boolean;
+		};
+	};
+
 	/**
 	 * Enable per-step profiling. Timings are returned in result.profile.
 	 */
