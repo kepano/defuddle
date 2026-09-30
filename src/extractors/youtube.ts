@@ -521,9 +521,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			|| '';
 	}
 
-	/** Returns ytInitialPlayerResponse only if its video ID matches the current URL (stale after SPA navigation). */
-	private getValidatedPlayerResponse(): any | null {
-		const videoId = this.getVideoId();
+	/** Returns ytInitialPlayerResponse only if its video ID matches the expected video (stale after SPA navigation). */
+	private getValidatedPlayerResponse(videoId = this.getVideoId()): any | null {
 		if (!videoId) return null;
 		const data = this.parseInlineJson('ytInitialPlayerResponse');
 		if (!data) return null;
@@ -844,12 +843,11 @@ export class YoutubeExtractor extends BaseExtractor {
 				}
 			}
 		} catch {
-			// Fall through to unvalidated inline data below.
+			// Fall through to validated inline data below.
 		}
 
-		// Last resort: unvalidated inline data (may be stale after SPA navigation,
-		// but better than nothing when all API calls fail)
-		const fallbackData = this.parseInlineJson('ytInitialPlayerResponse');
+		// Last resort: inline data matching the requested video ID.
+		const fallbackData = this.getValidatedPlayerResponse(videoId);
 		if (this.getCaptionTracks(fallbackData).length > 0) {
 			return fallbackData;
 		}

@@ -459,6 +459,90 @@ describe('YouTube transcript parsing', () => {
 		}
 	});
 
+	test.each(['failure', 'no captions'])('fetchPlayerData rejects stale inline data after API %s', async apiResult => {
+		const html = `
+			<html>
+				<body>
+					<script>
+						var ytInitialPlayerResponse = {
+							"videoDetails": { "videoId": "other456" },
+							"captions": {
+								"playerCaptionsTracklistRenderer": {
+									"captionTracks": [
+										{
+											"languageCode": "en",
+											"baseUrl": "https://www.youtube.com/api/timedtext?v=other456&lang=en"
+										}
+									]
+								}
+							}
+						};
+					</script>
+				</body>
+			</html>
+		`;
+		const fetchMock = apiResult === 'failure'
+			? vi.fn().mockRejectedValue(new Error('API unavailable'))
+			: vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+		const extractor = createExtractor(html, undefined, { fetch: fetchMock });
+
+		expect(await (extractor as any).fetchPlayerData('test123')).toBeUndefined();
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	test.each([
+		{ name: 'videoDetails', identity: { videoDetails: { videoId: 'test123' } }, accepted: true },
+		{ name: 'microformat', identity: { microformat: { playerMicroformatRenderer: { externalVideoId: 'test123' } } }, accepted: true },
+		{ name: 'missing identity', identity: {}, accepted: false },
+		{ name: 'empty identity', identity: { videoDetails: { videoId: '' } }, accepted: false },
+	])('fetchPlayerData validates inline $name after API failure', async ({ identity, accepted }) => {
+		const data = {
+			...identity,
+			captions: { playerCaptionsTracklistRenderer: { captionTracks: [
+				{ languageCode: 'en', baseUrl: 'https://www.youtube.com/api/timedtext?v=test123&lang=en' },
+			] } },
+		};
+		const fetchMock = vi.fn().mockRejectedValue(new Error('API unavailable'));
+		const extractor = createExtractor(`<html><body><script>var ytInitialPlayerResponse = ${JSON.stringify(data)};</script></body></html>`, undefined, { fetch: fetchMock });
+
+		const result = await (extractor as any).fetchPlayerData('test123');
+		if (accepted) {
+			expect(result).toEqual(data);
+		} else {
+			expect(result).toBeUndefined();
+		}
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
+	test.each(['test123', 'other456'])('fetchPlayerData uses the requested ID after navigation with inline %s', async inlineVideoId => {
+		const extractor = createExtractor();
+		const data = {
+			videoDetails: { videoId: inlineVideoId },
+			captions: { playerCaptionsTracklistRenderer: { captionTracks: [
+				{ languageCode: 'en', baseUrl: `https://www.youtube.com/api/timedtext?v=${inlineVideoId}&lang=en` },
+			] } },
+		};
+		const document = (extractor as any).document as Document;
+		const script = document.createElement('script');
+		const fetchMock = vi.fn().mockImplementation(async (_url, init) => {
+			expect(JSON.parse(init.body).videoId).toBe('test123');
+			// Simulate navigation while the player API request is pending.
+			(extractor as any).url = 'https://www.youtube.com/watch?v=other456';
+			script.textContent = `var ytInitialPlayerResponse = ${JSON.stringify(data)};`;
+			document.body.appendChild(script);
+			throw new Error('API unavailable');
+		});
+		(extractor as any).options.fetch = fetchMock;
+
+		const result = await (extractor as any).fetchPlayerData('test123');
+		if (inlineVideoId === 'test123') {
+			expect(result).toEqual(data);
+		} else {
+			expect(result).toBeUndefined();
+		}
+		expect(fetchMock).toHaveBeenCalledTimes(3);
+	});
+
 	test('extractAsync uses an existing transcript panel before opening it', async () => {
 		const extractor = createExtractor(`
 			<html>
