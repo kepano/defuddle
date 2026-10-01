@@ -1,0 +1,61 @@
+<!doctype html>
+<!-- {"url":"https://www.perplexity.ai/search/test-conversation"} -->
+<html>
+<head>
+	<title>Build a streaming parser - Perplexity</title>
+</head>
+<body>
+	<main>
+		<section>
+			<div role="heading">
+				<span class="select-text">How should I parse streamed Markdown?</span>
+			</div>
+			<div id="markdown-content-0">
+				<div data-renderer="lm">
+					<p>Start with an incremental parser.<span class="citation-nbsp"></span>
+						<span data-pplx-citation-url="https://example.com/parser">
+							<span>Example Docs</span><span>+2</span>
+						</span>
+					</p>
+					<h2>Checklist</h2>
+					<ul>
+						<li>Preserve incomplete tokens</li>
+						<li>Render stable blocks</li>
+					</ul>
+					<pre><code>parser.write(chunk);</code></pre>
+					<div data-saveai-injected="true">Injected extension control</div>
+					<button>Copy answer</button>
+					<div><span>Prepared by GPT-5.4 Thinking</span></div>
+				</div>
+			</div>
+		</section>
+		<section>
+			<div>
+				<span class="select-text">How do I keep citations?</span>
+			</div>
+			<div id="markdown-content-1">
+				<div data-renderer="lm">
+					<p>Convert citation pills to footnotes
+						<span data-pplx-citation-url="https://example.com/parser">
+							<span>Example Docs</span>
+						</span>
+						and keep distinct sources
+						<span data-pplx-citation-url="https://example.org/spec">
+							<span>Spec &amp; Guide</span>
+						</span>.
+					</p>
+					<p>An invalid citation keeps its visible label:
+						<span data-pplx-citation-url="javascript:alert(1)">Unsafe label</span>.
+					</p>
+				</div>
+			</div>
+		</section>
+		<aside><span class="select-text">Unrelated selectable sidebar text</span></aside>
+		<div class="follow-up">Follow-up prompt</div>
+		<div data-ask-input-container="true">
+			<div id="ask-input">Search input</div>
+			<span>Search</span><span>Computer</span><span>Model</span>
+		</div>
+	</main>
+</body>
+</html>
