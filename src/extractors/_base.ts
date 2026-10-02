@@ -1,6 +1,7 @@
 import { ExtractorResult } from '../types/extractors';
 
 export interface ExtractorOptions {
+	contentSelector?: string;
 	includeReplies?: boolean | 'extractors';
 	language?: string;
 	fetch?: typeof globalThis.fetch;
@@ -51,4 +52,4 @@ export abstract class BaseExtractor {
 	async extractAsync(): Promise<ExtractorResult> {
 		return this.extract();
 	}
-} 
+}
