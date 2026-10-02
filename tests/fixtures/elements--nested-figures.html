@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!-- {"url":"https://example.com/article/nested-figures"} -->
+<html>
+<head>
+	<title>Nested figure panels</title>
+</head>
+<body>
+	<article>
+		<h1>Panel comparison</h1>
+		<p>These three panels compare measurements under different conditions. Each panel is a distinct image in a nested figure.</p>
+		<div class="quarto-layout-panel">
+			<figure class="quarto-float quarto-float-fig figure">
+				<div class="quarto-layout-row">
+					<div class="quarto-layout-cell">
+						<figure class="quarto-float quarto-subfloat-fig figure">
+							<div><img src="/images/panel-one.png" width="672"></div>
+							<figcaption class="quarto-subfloat-caption"></figcaption>
+						</figure>
+					</div>
+					<div class="quarto-layout-cell">
+						<figure class="quarto-float quarto-subfloat-fig figure">
+							<div><img src="/images/panel-two.png" width="672"></div>
+							<figcaption class="quarto-subfloat-caption"></figcaption>
+						</figure>
+					</div>
+					<div class="quarto-layout-cell">
+						<figure class="quarto-float quarto-subfloat-fig figure">
+							<div><img src="/images/panel-three.png" width="672"></div>
+							<figcaption class="quarto-subfloat-caption"></figcaption>
+						</figure>
+					</div>
+				</div>
+				<figcaption>Three panels show the same measurements under different conditions.</figcaption>
+			</figure>
+		</div>
+		<p>The comparison requires all three panels. The article continues after the figure with further discussion of the measurements.</p>
+	</article>
+</body>
+</html>
