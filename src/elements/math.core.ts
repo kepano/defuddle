@@ -3,6 +3,7 @@ import {
 	getMathMLFromElement,
 	getBasicLatexFromElement as getLatexFromElement,
 	isBlockDisplay,
+	isNestedDataFormula,
 	mathSelectors,
 	mathFastCheck
 } from './math.base';
@@ -43,6 +44,7 @@ export const mathRules = [
 		fastCheck: mathFastCheck,
 		transform: (el: Element, doc: Document): Element => {
 			if (!hasHTMLElementProps(el)) return el;
+			if (isNestedDataFormula(el)) return el;
 
 			const mathData = getMathMLFromElement(el);
 			const latex = getLatexFromElement(el);
@@ -62,4 +64,4 @@ export const mathRules = [
 			return cleanMathEl;
 		}
 	}
-]; 
+];
