@@ -985,6 +985,33 @@ get all of the hype.</p>
 		expect(result.variables.transcript).toContain('**0:09** · Thanks for watching.');
 	});
 
+	test.each([
+		{ name: 'an expanded modern panel over an earlier hidden one', panels: ['modern:HIDDEN', 'modern:EXPANDED'], expected: 'modern:EXPANDED' },
+		{ name: 'an expanded legacy panel over a hidden modern one', panels: ['modern:HIDDEN', 'legacy:EXPANDED'], expected: 'legacy:EXPANDED' },
+		{ name: 'a hidden modern panel when nothing is expanded', panels: ['modern:HIDDEN', 'legacy:HIDDEN:empty'], expected: 'modern:HIDDEN' },
+	])('reads the transcript from $name', ({ panels, expected }) => {
+		const html = panels.map(panel => {
+			const [layout, visibility, empty] = panel.split(':');
+			const text = `Text from ${layout}:${visibility}.`;
+			const rows = empty ? '' : layout === 'modern'
+				? `<transcript-segment-view-model>
+						<div class="ytwTranscriptSegmentViewModelTimestamp">0:00</div>
+						<span class="ytAttributedStringHost">${text}</span>
+					</transcript-segment-view-model>`
+				: `<ytd-transcript-segment-renderer>
+						<div class="segment-timestamp">0:00</div>
+						<div class="segment-text">${text}</div>
+					</ytd-transcript-segment-renderer>`;
+			const targetId = layout === 'legacy' ? ' target-id="engagement-panel-searchable-transcript"' : '';
+			return `<ytd-engagement-panel-section-list-renderer${targetId} visibility="ENGAGEMENT_PANEL_VISIBILITY_${visibility}">
+					<div id="content"><div id="segments-container">${rows}</div></div>
+				</ytd-engagement-panel-section-list-renderer>`;
+		}).join('');
+		const extractor = createExtractor(`<html><body>${html}</body></html>`);
+
+		expect(extractor.extract().variables.transcript).toBe(`**0:00** · Text from ${expected}.`);
+	});
+
 	test('extractAsync skips transcript panel opening in non-browser DOM contexts', async () => {
 		const extractor = createExtractor(`
 			<html>
