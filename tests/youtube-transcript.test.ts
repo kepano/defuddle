@@ -950,6 +950,27 @@ describe('YouTube default audio language (#410)', () => {
 		expect(pick().languageCode).toBe('en-US');
 	});
 
+	test.each([false, true])('does not infer the default audio from track order without a default index, reversed: %s', reverse => {
+		const { renderer, pick } = setup();
+		delete renderer.defaultAudioTrackIndex;
+		if (reverse) renderer.audioTracks.reverse();
+		expect(pick().languageCode).toBe('en-US');
+	});
+
+	test('uses a single audio track without a default index', () => {
+		const { renderer, pick } = setup();
+		delete renderer.defaultAudioTrackIndex;
+		renderer.audioTracks.pop();
+		expect(pick().languageCode).toBe('ja');
+	});
+
+	test('keeps the first audio track\'s explicit default caption without a default index', () => {
+		const { renderer, pick } = setup();
+		delete renderer.defaultAudioTrackIndex;
+		renderer.audioTracks[0].defaultCaptionTrackIndex = 1;
+		expect(pick().languageCode).toBe('ja');
+	});
+
 	test('prefers manual captions in the default audio language', () => {
 		const { renderer, pick } = setup();
 		renderer.captionTracks.push({ languageCode: 'ja' });

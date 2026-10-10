@@ -162,17 +162,22 @@ export class YoutubeExtractor extends BaseExtractor {
 		return this.languageBase(track?.languageCode) === 'en';
 	}
 
-	private isCaptionTrackIndex(value: unknown, captionTracks: any[]): value is number {
-		return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < captionTracks.length;
+	private isIndexOf(value: unknown, list: any[]): value is number {
+		return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < list.length;
 	}
 
+	private getAudioTracks(playerData?: any): any[] {
+		const audioTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.audioTracks;
+		return Array.isArray(audioTracks) ? audioTracks : [];
+	}
+
+	// The audio track YouTube marks as default. The order of several audio
+	// tracks varies between requests, so without a valid index none is assumed.
 	private getDefaultAudioTrack(playerData?: any): any | undefined {
-		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
-		const audioTracks = Array.isArray(renderer?.audioTracks) ? renderer.audioTracks : [];
-		const defaultAudioIndex = typeof renderer?.defaultAudioTrackIndex === 'number'
-			? renderer.defaultAudioTrackIndex
-			: 0;
-		return audioTracks[defaultAudioIndex] ?? audioTracks[0];
+		const audioTracks = this.getAudioTracks(playerData);
+		const index = playerData?.captions?.playerCaptionsTracklistRenderer?.defaultAudioTrackIndex;
+		if (this.isIndexOf(index, audioTracks)) return audioTracks[index];
+		return audioTracks.length === 1 ? audioTracks[0] : undefined;
 	}
 
 	// YouTube's default caption for the current audio track. Translation
@@ -182,9 +187,12 @@ export class YoutubeExtractor extends BaseExtractor {
 		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
 		if (!renderer || captionTracks.length === 0) return undefined;
 
+		// An explicit default caption is still read from the first audio track
+		// when none is marked as default.
 		const audioTrack = this.getDefaultAudioTrack(playerData);
-		const index = [audioTrack?.defaultCaptionTrackIndex, renderer.defaultCaptionTrackIndex]
-			.find((value): value is number => this.isCaptionTrackIndex(value, captionTracks));
+		const explicitTrack = audioTrack ?? this.getAudioTracks(playerData)[0];
+		const index = [explicitTrack?.defaultCaptionTrackIndex, renderer.defaultCaptionTrackIndex]
+			.find((value): value is number => this.isIndexOf(value, captionTracks));
 		if (index !== undefined) return captionTracks[index];
 
 		// Auto-dubbed videos may have several ASR tracks but no default caption
@@ -206,7 +214,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		const isAsr = (track: any) => track.kind === 'asr';
 		const indices = this.getDefaultAudioTrack(playerData)?.captionTrackIndices;
 		const associatedTracks = (Array.isArray(indices) ? indices : [])
-			.filter((value): value is number => this.isCaptionTrackIndex(value, captionTracks))
+			.filter((value): value is number => this.isIndexOf(value, captionTracks))
 			.map(index => captionTracks[index]);
 		const asrTrack = associatedTracks.find(isAsr) ?? captionTracks.find(isAsr);
 		const base = this.languageBase(asrTrack?.languageCode);
