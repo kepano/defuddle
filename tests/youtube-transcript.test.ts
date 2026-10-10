@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, test, expect, vi } from 'vitest';
 import { YoutubeExtractor } from '../src/extractors/youtube';
 import type { ExtractorOptions } from '../src/extractors/_base';
@@ -913,5 +915,117 @@ get all of the hype.</p>
 
 		expect(result.variables.transcript).toBeUndefined();
 		expect(clickSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe('YouTube default audio language (#410)', () => {
+	// Anonymized from the report: a Japanese video with an English auto-dub.
+	// Neither audio track names a default caption, and both list the same order.
+	// Kept in a subdirectory because this fixture needs mocked caption responses,
+	// unlike the generic offline DOM fixture runner.
+	const html = readFileSync(join(__dirname, 'fixtures/youtube/issues--410-default-audio.html'), 'utf8');
+	const expected = JSON.parse(readFileSync(join(__dirname, 'expected/youtube/issues--410-default-audio.json'), 'utf8'));
+	const url = 'https://www.youtube.com/watch?v=example123';
+
+	function setup(language?: string) {
+		const extractor = createExtractor(html, url, { language });
+		const playerData = (extractor as any).getValidatedPlayerResponse();
+		const renderer = playerData.captions.playerCaptionsTracklistRenderer;
+		const pick = () => (extractor as any).pickCaptionTrack(renderer.captionTracks, playerData);
+		return { renderer, pick };
+	}
+
+	test.each([false, true])('uses default Japanese audio with reversed order: %s', reverse => {
+		const { renderer, pick } = setup();
+		if (reverse) {
+			renderer.audioTracks.reverse();
+			renderer.defaultAudioTrackIndex = 1;
+		}
+		expect(pick().languageCode).toBe('ja');
+	});
+
+	test('uses English audio even when its caption indices list Japanese first', () => {
+		const { renderer, pick } = setup();
+		renderer.defaultAudioTrackIndex = 1;
+		expect(pick().languageCode).toBe('en-US');
+	});
+
+	test('prefers manual captions in the default audio language', () => {
+		const { renderer, pick } = setup();
+		renderer.captionTracks.push({ languageCode: 'ja' });
+		expect(pick()).toBe(renderer.captionTracks[2]);
+	});
+
+	test('matches regional audio languages before other variants', () => {
+		const { renderer, pick } = setup();
+		renderer.audioTracks[0].audioTrackId = 'en-GB.4';
+		renderer.captionTracks.push({ languageCode: 'en-GB' });
+		expect(pick()).toBe(renderer.captionTracks[2]);
+	});
+
+	test('prefers a manual regional variant over ASR in the exact audio language', () => {
+		const { renderer, pick } = setup();
+		renderer.captionTracks = [{ languageCode: 'en', kind: 'asr' }, { languageCode: 'en-GB' }];
+		renderer.audioTracks = [{ audioTrackId: 'en.4', captionTrackIndices: [0, 1] }];
+		expect(pick()).toBe(renderer.captionTracks[1]);
+	});
+
+	test.each(['audio', 'renderer'])('preserves explicit %s default caption selection', location => {
+		const { renderer, pick } = setup();
+		(location === 'audio' ? renderer.audioTracks[0] : renderer).defaultCaptionTrackIndex = 0;
+		expect(pick().languageCode).toBe('en-US');
+	});
+
+	test('uses the renderer default when the audio default is invalid', () => {
+		const { renderer, pick } = setup();
+		renderer.audioTracks[0].defaultCaptionTrackIndex = -1;
+		renderer.defaultCaptionTrackIndex = 0;
+		expect(pick().languageCode).toBe('en-US');
+	});
+
+	test('preserves the caller language override', () => {
+		expect(setup('en').pick().languageCode).toBe('en-US');
+	});
+
+	test.each([undefined, 'unknown.4'])('orders ASR tracks by associated caption indices without a matching audio language: %s', audioTrackId => {
+		const { renderer, pick } = setup();
+		renderer.audioTracks[0].audioTrackId = audioTrackId;
+		renderer.audioTracks[0].captionTrackIndices = [-1, 0.5, 99, '0', 1, 0];
+		expect(pick().languageCode).toBe('ja');
+	});
+
+	test('does not take a translation from associated caption indices', () => {
+		const { renderer, pick } = setup();
+		renderer.captionTracks = [{ languageCode: 'ar' }, { languageCode: 'en' }, { languageCode: 'en', kind: 'asr' }];
+		renderer.audioTracks = [{ captionTrackIndices: [0, 1, 2] }];
+		expect(pick()).toBe(renderer.captionTracks[1]);
+	});
+
+	test('ignores invalid caption indices and still uses audio language', () => {
+		const { renderer, pick } = setup();
+		renderer.audioTracks[0].defaultCaptionTrackIndex = 0.5;
+		expect(pick().languageCode).toBe('ja');
+	});
+
+	test('retains ASR fallback when audio metadata is absent', () => {
+		const { renderer, pick } = setup();
+		delete renderer.audioTracks;
+		expect(pick().languageCode).toBe('en-US');
+	});
+
+	test.each(['inline', 'API'])('extracts Japanese transcript from the %s player response fixture', async source => {
+		const fetch = vi.fn(async (input: string | URL | Request) => {
+			const language = new URL(String(input)).searchParams.get('lang');
+			const text = language === 'ja' ? 'これは元の音声です。' : 'This is the dubbed audio.';
+			return new Response(`<transcript><text start="0" dur="2">${text}</text></transcript>`);
+		});
+		const extractor = createExtractor(html, url, { fetch });
+		const playerData = (extractor as any).getValidatedPlayerResponse();
+		vi.spyOn(extractor as any, 'fetchChapters').mockResolvedValue([]);
+		vi.spyOn(extractor as any, 'fetchPlayerData').mockResolvedValue(source === 'API' ? playerData : undefined);
+		if (source === 'API') vi.spyOn(extractor as any, 'getInlineCaptionTrack').mockReturnValue(undefined);
+		const result = await extractor.extractAsync();
+		expect({ language: result.variables?.language, transcript: result.variables?.transcript }).toEqual(expected);
+		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 });

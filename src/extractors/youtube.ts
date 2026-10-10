@@ -162,6 +162,19 @@ export class YoutubeExtractor extends BaseExtractor {
 		return this.languageBase(track?.languageCode) === 'en';
 	}
 
+	private isCaptionTrackIndex(value: unknown, captionTracks: any[]): value is number {
+		return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < captionTracks.length;
+	}
+
+	private getDefaultAudioTrack(playerData?: any): any | undefined {
+		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
+		const audioTracks = Array.isArray(renderer?.audioTracks) ? renderer.audioTracks : [];
+		const defaultAudioIndex = typeof renderer?.defaultAudioTrackIndex === 'number'
+			? renderer.defaultAudioTrackIndex
+			: 0;
+		return audioTracks[defaultAudioIndex] ?? audioTracks[0];
+	}
+
 	// YouTube's default caption for the current audio track. Translation
 	// tracks are listed alphabetically (Afrikaans, Arabic, …), so index 0
 	// is usually a translation rather than the spoken language.
@@ -169,36 +182,33 @@ export class YoutubeExtractor extends BaseExtractor {
 		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
 		if (!renderer || captionTracks.length === 0) return undefined;
 
-		const audioTracks = Array.isArray(renderer.audioTracks) ? renderer.audioTracks : [];
-		const defaultAudioIndex = typeof renderer.defaultAudioTrackIndex === 'number'
-			? renderer.defaultAudioTrackIndex
-			: 0;
-		const audioTrack = audioTracks[defaultAudioIndex] ?? audioTracks[0];
-		const index = audioTrack?.defaultCaptionTrackIndex ?? renderer.defaultCaptionTrackIndex;
-		const validIndex = (value: unknown): value is number =>
-			typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < captionTracks.length;
-		if (validIndex(index)) return captionTracks[index];
+		const audioTrack = this.getDefaultAudioTrack(playerData);
+		const index = [audioTrack?.defaultCaptionTrackIndex, renderer.defaultCaptionTrackIndex]
+			.find((value): value is number => this.isCaptionTrackIndex(value, captionTracks));
+		if (index !== undefined) return captionTracks[index];
 
 		// Auto-dubbed videos may have several ASR tracks but no default caption
-		// index. Match the selected audio's language (e.g. "ja.4" or "en-US.10")
-		// before using captionTrackIndices, which can list the same captions in
-		// the same order for both the original and dubbed audio.
+		// index. Match the default audio's language (e.g. "ja.4" or "en-US.10"),
+		// preferring a manual track in that family over the auto-generated one.
 		const audioLanguage = typeof audioTrack?.audioTrackId === 'string'
 			? audioTrack.audioTrackId.split('.')[0] : undefined;
-		const languageTrack = this.findPreferredCaptionTrack(captionTracks, audioLanguage);
-		if (languageTrack) return languageTrack;
-
-		if (Array.isArray(audioTrack?.captionTrackIndices)) {
-			const associatedIndex = audioTrack.captionTrackIndices.find(validIndex);
-			if (associatedIndex !== undefined) return captionTracks[associatedIndex];
-		}
-		return undefined;
+		const manualTracks = captionTracks.filter((track: any) => track.kind !== 'asr');
+		return this.findPreferredCaptionTrack(manualTracks, audioLanguage)
+			?? this.findPreferredCaptionTrack(captionTracks, audioLanguage);
 	}
 
-	// Without default audio metadata, infer the spoken language from ASR.
+	// Without a default audio language, infer the spoken language from ASR.
 	// Prefer a manual track in that family over the auto-generated track itself.
-	private getOriginalLanguageTrack(captionTracks: any[]): any | undefined {
-		const asrTrack = captionTracks.find((track: any) => track.kind === 'asr');
+	private getOriginalLanguageTrack(captionTracks: any[], playerData?: any): any | undefined {
+		// A dub adds its own ASR track, which can be listed first. The default
+		// audio's captionTrackIndices only order the ASR tracks here: their
+		// first entry is often a translation, so it is not taken directly.
+		const isAsr = (track: any) => track.kind === 'asr';
+		const indices = this.getDefaultAudioTrack(playerData)?.captionTrackIndices;
+		const associatedTracks = (Array.isArray(indices) ? indices : [])
+			.filter((value): value is number => this.isCaptionTrackIndex(value, captionTracks))
+			.map(index => captionTracks[index]);
+		const asrTrack = associatedTracks.find(isAsr) ?? captionTracks.find(isAsr);
 		const base = this.languageBase(asrTrack?.languageCode);
 		if (!base) return undefined;
 
@@ -220,7 +230,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		const defaultTrack = this.getDefaultCaptionTrack(captionTracks, playerData);
 		if (defaultTrack) return defaultTrack;
 
-		const originalTrack = this.getOriginalLanguageTrack(captionTracks);
+		const originalTrack = this.getOriginalLanguageTrack(captionTracks, playerData);
 		if (originalTrack) return originalTrack;
 
 		// Prefer English including regional variants (en-US, en-GB). The
