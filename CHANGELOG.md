@@ -1,3 +1,14 @@
+## 0.19.5
+
+- Hardened Markdown escaping for links, images, footnotes, callouts, code blocks, and math, preventing page content from becoming unintended markup or unsafe links (#396).
+- Fixed lazy-loaded images using explicit source attributes, preventing filenames and unrelated metadata from replacing image URLs (#388).
+- Preserved screen-reader text, including mixed numbers and link labels, while removing redundant link annotations (#390).
+- Fixed extraction on pages with special characters in IDs and classes, including Tailwind classes and React streaming content. Kept generated selectors stable after shadow DOM and streamed-content changes (#392).
+- Fixed whole-page fallbacks overriding successfully extracted content during retries, and allowed async extractors to run before falling back to the page body (#358).
+- Added caught extraction errors to `debug.errors` and automatic content detection when `contentSelector` is invalid (#358).
+- Shared math processing between core and full builds, fixed element creation in cloned documents, and added direct tests for both variants.
+- Removed unused code and added unused-code checks to CI.
+
 ## 0.19.4
 
 - Fixed metadata and content extraction inconsistencies between linkedom and JSDOM, including missing site names and dates removed from email headers.
