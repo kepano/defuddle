@@ -175,14 +175,28 @@ export class YoutubeExtractor extends BaseExtractor {
 			: 0;
 		const audioTrack = audioTracks[defaultAudioIndex] ?? audioTracks[0];
 		const index = audioTrack?.defaultCaptionTrackIndex ?? renderer.defaultCaptionTrackIndex;
-		if (typeof index !== 'number' || index < 0 || index >= captionTracks.length) {
-			return undefined;
+		const validIndex = (value: unknown): value is number =>
+			typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < captionTracks.length;
+		if (validIndex(index)) return captionTracks[index];
+
+		// Auto-dubbed videos may have several ASR tracks but no default caption
+		// index. Match the selected audio's language (e.g. "ja.4" or "en-US.10")
+		// before using captionTrackIndices, which can list the same captions in
+		// the same order for both the original and dubbed audio.
+		const audioLanguage = typeof audioTrack?.audioTrackId === 'string'
+			? audioTrack.audioTrackId.split('.')[0] : undefined;
+		const languageTrack = this.findPreferredCaptionTrack(captionTracks, audioLanguage);
+		if (languageTrack) return languageTrack;
+
+		if (Array.isArray(audioTrack?.captionTrackIndices)) {
+			const associatedIndex = audioTrack.captionTrackIndices.find(validIndex);
+			if (associatedIndex !== undefined) return captionTracks[associatedIndex];
 		}
-		return captionTracks[index];
+		return undefined;
 	}
 
-	// ASR language is the spoken language. Prefer a manual track in that
-	// family (en-US, en-GB) over the auto-generated track itself.
+	// Without default audio metadata, infer the spoken language from ASR.
+	// Prefer a manual track in that family over the auto-generated track itself.
 	private getOriginalLanguageTrack(captionTracks: any[]): any | undefined {
 		const asrTrack = captionTracks.find((track: any) => track.kind === 'asr');
 		const base = this.languageBase(asrTrack?.languageCode);
