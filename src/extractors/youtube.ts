@@ -409,13 +409,37 @@ export class YoutubeExtractor extends BaseExtractor {
 			contentHtml: contentHtml,
 			// getVideoData validates the video ID. Generic metadata does not, and
 			// could restore the previous video's values after SPA navigation.
-			skipMetadataFallback: ['title', 'description'],
+			skipMetadataFallback: this.hasStaleMetadata() ? ['title', 'description'] : undefined,
 			extractedContent: {
 				videoId: this.getVideoId(),
 				author: channelName,
 			},
 			variables,
 		};
+	}
+
+	// True when the page's own metadata names a different video, as it does
+	// after SPA navigation. Metadata that names no video is not stale, so
+	// channel pages and sparse watch pages keep the generic fallback.
+	private hasStaleMetadata(): boolean {
+		const videoId = this.getVideoId();
+		if (!videoId) return false;
+
+		const urls: unknown[] = [
+			this.document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+			this.document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+		];
+		for (const script of Array.from(this.document.querySelectorAll('script[type="application/ld+json"]'))) {
+			try {
+				const data = JSON.parse(script.textContent || '');
+				for (const item of Array.isArray(data) ? data : [data]) {
+					if (item?.['@type'] === 'VideoObject') urls.push(item['@id'] || item['url'] || item['embedUrl']);
+				}
+			} catch {
+				// ignore invalid JSON
+			}
+		}
+		return urls.some(url => typeof url === 'string' && url !== '' && !url.includes(videoId));
 	}
 
 	private formatDescription(description: string): string {

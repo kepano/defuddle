@@ -118,6 +118,16 @@ describe('YouTube metadata after SPA navigation', () => {
 		expect(result.content).not.toContain('Current description');
 	});
 
+	test('does not restore metadata that only structured data marks as stale', () => {
+		const doc = createDocument();
+		doc.querySelector('meta[property="og:url"]')!.remove();
+		doc.querySelector('ytd-watch-flexy')!.setAttribute('video-id', 'oldVIDEO123');
+		const result = new Defuddle(doc, { url: URL }).parse();
+
+		expect(result.title).toBe('');
+		expect(result.description).toBe('');
+	});
+
 	test('fills a description-less matching VideoObject from the current DOM', () => {
 		const doc = createDocument();
 		doc.querySelector('script[type="application/ld+json"]')!.textContent = JSON.stringify({
@@ -163,4 +173,21 @@ test('keeps generic metadata fallbacks for other extractors', () => {
 	expect(result.extractorType).toBe('lwn');
 	expect(result.title).toBe('Article title');
 	expect(result.description).toBe('Article description');
+});
+
+
+test.each([
+	{ name: 'a channel page', url: 'https://www.youtube.com/@example' },
+	{ name: 'a playlist page', url: 'https://www.youtube.com/playlist?list=PL123' },
+	{ name: 'a watch page whose metadata names no video', url: URL },
+])('keeps generic metadata fallbacks for $name', ({ url }) => {
+	const doc = parseDocument(`<html><head>
+		<title>Page title - YouTube</title><meta property="og:title" content="Page title">
+		<meta name="description" content="Page description">
+		</head><body><p>Body.</p></body></html>`, url);
+	const result = new Defuddle(doc, { url }).parse();
+
+	expect(result.extractorType).toBe('youtube');
+	expect(result.title).toBe('Page title');
+	expect(result.description).toBe('Page description');
 });
