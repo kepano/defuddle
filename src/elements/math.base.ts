@@ -658,6 +658,10 @@ export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
 
 export type LatexToMathML = (latex: string, isBlock: boolean, doc: Document) => Element | null;
 
+// Already allowed by the sanitizer and meaningful on the MathML root.
+// Keep this narrow: xmlns, display and data-latex are normalized separately.
+const MATHML_ROOT_PRESENTATION_ATTRIBUTES = ['dir', 'displaystyle', 'mathsize'];
+
 export const createMathElement = (
 	mathData: MathData | null,
 	latex: string | null,
@@ -676,6 +680,10 @@ export const createMathElement = (
 		const fragment = parseHTML(doc, mathData.mathml);
 		const mathContent = fragment.querySelector('math');
 		if (mathContent) {
+			for (const name of MATHML_ROOT_PRESENTATION_ATTRIBUTES) {
+				const value = mathContent.getAttribute(name);
+				if (value !== null) cleanMathEl.setAttribute(name, value);
+			}
 			transferContent(mathContent, cleanMathEl);
 		}
 	}

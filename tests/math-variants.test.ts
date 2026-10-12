@@ -5,6 +5,8 @@ import { dirname, resolve } from 'path';
 import { MathMLToLaTeX } from 'mathml-to-latex';
 import * as core from '../src/elements/math.core';
 import * as full from '../src/elements/math.full';
+import { createMathElement } from '../src/elements/math.base';
+import Defuddle from '../src/index';
 import { parseDocument, normalizeHtmlAttributes } from './helpers';
 
 // Vitest aliases './elements/math' to the full implementation, so the
@@ -41,6 +43,60 @@ describe.each([
 		expect(result.getAttribute('display')).toBe('inline');
 		expect(result.getAttribute('data-latex')).toBe('x');
 		expect(result.querySelector('mi')?.textContent).toBe('x');
+	});
+
+	test.each([
+		['dir', 'rtl'],
+		['displaystyle', 'true'],
+		['mathsize', '200%'],
+	])('preserves existing root %s', (name, value) => {
+		const { result } = transform(mod, `<p><math id="target" ${name}="${value}"><mi>x</mi></math></p>`);
+		expect(normalizeHtmlAttributes(result.outerHTML)).toBe(normalizeHtmlAttributes(
+			`<math xmlns="${MATHML_NS}" display="inline" data-latex="x" ${name}="${value}"><mi>x</mi></math>`
+		));
+	});
+
+	test.each([
+		['data-mathml', '<span class="MathJax" id="target" dir="ltr" displaystyle="true" mathsize="50%" data-mathml="&lt;math dir=&quot;rtl&quot; displaystyle=&quot;false&quot; mathsize=&quot;200%&quot;&gt;&lt;mi&gt;x&lt;/mi&gt;&lt;/math&gt;"></span>'],
+		['assistive MathML', '<mjx-container id="target" dir="ltr" displaystyle="true" mathsize="50%"><mjx-assistive-mml><math dir="rtl" displaystyle="false" mathsize="200%"><mi>x</mi></math></mjx-assistive-mml></mjx-container>'],
+		['KaTeX', '<span class="katex" id="target" dir="ltr" displaystyle="true" mathsize="50%"><span class="katex-mathml"><math dir="rtl" displaystyle="false" mathsize="200%"><mi>x</mi></math></span></span>'],
+	])('takes presentation attributes from MathML, not its %s wrapper', (_name, html) => {
+		const { result } = transform(mod, html);
+		expect(result.getAttribute('dir')).toBe('rtl');
+		expect(result.getAttribute('displaystyle')).toBe('false');
+		expect(result.getAttribute('mathsize')).toBe('200%');
+		expect(result.querySelector('mi')?.textContent).toBe('x');
+	});
+
+	test('serializes copied attribute values without creating executable attributes', () => {
+		const { result } = transform(mod, '<p><math id="target" mathsize="200%&quot; onmouseover=&quot;alert(1)"><mi>x</mi></math></p>');
+		const reparsed = parseDocument(`<html><body>${result.outerHTML}</body></html>`).querySelector('math')!;
+		expect(reparsed.getAttribute('mathsize')).toBe('200%" onmouseover="alert(1)');
+		expect(Array.from(reparsed.attributes).map(attr => attr.name).sort()).toEqual(
+			['data-latex', 'display', 'mathsize', 'xmlns']
+		);
+	});
+
+	test('copies only root presentation attributes without overriding canonical attributes', () => {
+		const doc = parseDocument('<html><body></body></html>');
+		const result = mod.createCleanMathEl({
+			mathml: '<math xmlns="https://example.com/not-mathml" display="inline" data-latex="forged" dir="rtl" displaystyle="false" mathsize="200%" onclick="alert(1)" onmouseover="alert(1)" href="javascript:alert(1)" xlink:href="javascript:alert(1)" src="data:text/html,evil" srcdoc="evil" style="background:url(https://example.com/track)" class="source" id="source" data-other="source" form="prefix" largeop="true" encoding="text/html" mathcolor="red" mathbackground="yellow"><mi>x</mi></math>',
+			latex: 'forged',
+			isBlock: false,
+		}, 'x', true, doc);
+		expect(normalizeHtmlAttributes(result.outerHTML)).toBe(normalizeHtmlAttributes(
+			`<math xmlns="${MATHML_NS}" display="block" data-latex="x" dir="rtl" displaystyle="false" mathsize="200%"><mi>x</mi></math>`
+		));
+	});
+
+	test('does not promote LaTeX source attributes to the rendered root', () => {
+		const { result } = transform(mod, '<p><script type="math/tex" id="target" dir="rtl" displaystyle="true" mathsize="200%">\\frac{a}{b}</script></p>');
+		for (const name of ['dir', 'displaystyle', 'mathsize']) {
+			expect(result.hasAttribute(name)).toBe(false);
+		}
+		expect(result.getAttribute('data-latex')).toBe('\\frac{a}{b}');
+		if (mod === full) expect(result.querySelector('mfrac')).not.toBeNull();
+		else expect(result.textContent).toBe('\\frac{a}{b}');
 	});
 
 	test('transforms cloned content in its owner document without mutating the original', () => {
@@ -86,6 +142,55 @@ describe.each([
 		expect(result.getAttribute('data-latex')).toBe('y');
 		expect(result.querySelector('annotation')?.textContent).toBe('y');
 	});
+});
+
+test('does not copy rendered LaTeX root attributes through the existing-MathML policy', () => {
+	const doc = parseDocument('<html><body></body></html>');
+	const render = vi.fn(() => {
+		const math = doc.createElement('math');
+		math.setAttribute('dir', 'rtl');
+		math.setAttribute('displaystyle', 'true');
+		math.setAttribute('mathsize', '200%');
+		math.appendChild(doc.createElement('mi')).textContent = 'x';
+		return math;
+	});
+	const result = createMathElement(null, 'x', false, doc, render);
+	expect(render).toHaveBeenCalledWith('x', false, doc);
+	expect(normalizeHtmlAttributes(result.outerHTML)).toBe(normalizeHtmlAttributes(
+		`<math xmlns="${MATHML_NS}" display="inline" data-latex="x"><mi>x</mi></math>`
+	));
+});
+
+test('preserves root attributes through extraction and sanitizes hostile descendants without fallback', () => {
+	const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+	const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+	try {
+		const doc = parseDocument(`<html><body><nav>Outside content</nav><article><p>Formula:
+			<math dir="rtl" displaystyle="false" mathsize="200%" onclick="alert(1)" href="javascript:alert(1)" style="background:url(https://example.com/track)">
+				<mi onclick="alert(1)" href="javascript:alert(1)" style="background:url(https://example.com/track)">x</mi>
+			</math> remains readable.</p></article></body></html>`, 'https://example.com/article');
+		const response = new Defuddle(doc, { url: 'https://example.com/article', contentSelector: 'article', debug: true }).parse();
+		expect(error).not.toHaveBeenCalled();
+		expect(response.debug?.errors).toBeUndefined();
+		expect(response.debug?.contentSelector).toContain('article');
+		expect(response.content).not.toContain('Outside content');
+		const math = parseDocument(`<html><body>${response.content}</body></html>`).querySelector('math')!;
+		expect(math.getAttribute('dir')).toBe('rtl');
+		expect(math.getAttribute('displaystyle')).toBe('false');
+		expect(math.getAttribute('mathsize')).toBe('200%');
+		expect(math.getAttribute('xmlns')).toBe(MATHML_NS);
+		expect(math.getAttribute('data-latex')).toBe('x');
+		expect(math.querySelector('mi')?.textContent).toBe('x');
+		for (const el of [math, ...Array.from(math.querySelectorAll('*'))]) {
+			for (const attr of Array.from(el.attributes)) {
+				expect(attr.name).not.toMatch(/^on/i);
+				expect(['href', 'src', 'xlink:href', 'style', 'srcdoc']).not.toContain(attr.name);
+			}
+		}
+	} finally {
+		log.mockRestore();
+		error.mockRestore();
+	}
 });
 
 describe('math rules core/full parity', () => {
