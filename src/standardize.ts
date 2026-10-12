@@ -195,6 +195,8 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	step('standardizeHeadings', () => standardizeHeadings(element, metadata.title, doc));
 	step('wrapPreformattedCode', () => wrapPreformattedCode(element, doc));
 	step('standardizeElements', () => standardizeElements(element, doc, subProfile));
+	// Validate ownership before wrapper cleanup can promote HTML integration content.
+	step('stripInvalidMathOperatorAttributes', () => stripInvalidMathOperatorAttributes(element));
 	step('resolveSvgColors', () => resolveSvgColors(element, doc));
 
 	if (!debug) {
@@ -462,6 +464,48 @@ function filterExtractorClasses(value: string): string {
 	return value.split(/\s+/).filter(isExtractorClass).join(' ');
 }
 
+// Only presentation containers may connect an operator to its owning math.
+// This excludes HTML integration content in tokens and annotation-xml, even
+// in linkedom, which reports MathML elements in the HTML namespace.
+const MATH_OPERATOR_CONTAINERS = new Set([
+	'mrow', 'mstyle', 'mfrac', 'msqrt', 'mroot', 'msub', 'msup', 'msubsup',
+	'munder', 'mover', 'munderover', 'mmultiscripts', 'mtable', 'mtr', 'mtd',
+	'mlabeledtr', 'menclose', 'merror', 'mpadded', 'mphantom', 'semantics', 'maction'
+]);
+
+function isMathOperator(el: Element): boolean {
+	if (el.tagName.toLowerCase() !== 'mo') return false;
+	for (let node: Element | null = el; node; node = node.parentElement) {
+		if (node.namespaceURI !== 'http://www.w3.org/1998/Math/MathML' &&
+			node.namespaceURI !== 'http://www.w3.org/1999/xhtml') return false;
+		const tag = node.tagName.toLowerCase();
+		if (tag === 'math') return true;
+		if (node !== el && !MATH_OPERATOR_CONTAINERS.has(tag)) return false;
+	}
+	return false;
+}
+
+function isMathOperatorAttribute(el: Element, name: string, value: string): boolean {
+	if (!isMathOperator(el)) return false;
+	// Exact ASCII-insensitive enums: do not trim or otherwise repair invalid values.
+	const lower = value.replace(/[A-Z]/g, char => char.toLowerCase());
+	return name === 'form'
+		? lower === 'prefix' || lower === 'infix' || lower === 'postfix'
+		: lower === 'true' || lower === 'false';
+}
+
+function stripInvalidMathOperatorAttributes(element: Element): void {
+	for (const el of [element, ...Array.from(element.querySelectorAll('[form], [largeop]'))]) {
+		if (isSVGElement(el)) continue;
+		for (const name of ['form', 'largeop']) {
+			const value = el.getAttribute(name);
+			if (value !== null && !isMathOperatorAttribute(el, name, value)) {
+				el.removeAttribute(name);
+			}
+		}
+	}
+}
+
 /**
  * Strip attributes that carry no meaning once the page's CSS is gone.
  *
@@ -488,6 +532,10 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 		attributes.forEach(attr => {
 			const attrName = attr.name.toLowerCase();
 			const attrValue = attr.value;
+
+			// Scoped operator intent, not a global HTML attribute allowance.
+			if ((attrName === 'form' || attrName === 'largeop') &&
+				isMathOperatorAttribute(el, attrName, attrValue)) return;
 
 			// Special cases for preserving specific attributes
 			if (

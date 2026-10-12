@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Operator attributes</title></head>
+<body>
+<article>
+<h1>Operator attributes</h1>
+<p>Explicit operator forms select dictionary spacing independently of the position of an operator in an expression.</p>
+<p><math display="block"><mi>x</mi><mo form="prefix">+</mo><mi>y</mi></math></p>
+<p><math display="block"><mo form="infix">-</mo><mi>x</mi></math></p>
+<p><math display="block"><mi>x</mi><mo form="PoStFiX">+</mo><mi>y</mi></math></p>
+<p>Large operators can opt out of enlargement in display style, while compact style remains compact.</p>
+<math display="block"><mo largeop="false">∑</mo><mi>x</mi></math>
+<p>Inline display style: <math display="inline"><mstyle displaystyle="true"><mo largeop="FALSE">∑</mo><mi>x</mi></mstyle></math>.</p>
+<math display="block"><mstyle displaystyle="false"><mo largeop="true">∑</mo><mi>x</mi></mstyle></math>
+<p>Invalid operator values and unsafe attributes must not survive extraction.</p>
+<math display="block"><mo form="infix&#10;" largeop="url(https://example.com/)" onclick="alert(1)" href="javascript:alert(1)" style="color:red">+</mo><mi>x</mi></math>
+<p>The extracted MathML should retain these narrow operator controls without retaining arbitrary styling or executable attributes.</p>
+</article>
+</body>
+</html>
