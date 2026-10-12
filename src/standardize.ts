@@ -1160,10 +1160,10 @@ function removeEmptyLines(element: Element, doc: Document): void {
 
 	// First pass: remove empty text nodes
 	const removeEmptyTextNodes = (node: Node) => {
-		// Skip if inside pre or code
+		// Skip pre, code and math: their whitespace is not prose
 		if (isElement(node)) {
 			const tag = (node as Element).tagName.toLowerCase();
-			if (tag === 'pre' || tag === 'code') {
+			if (tag === 'pre' || tag === 'code' || tag === 'math') {
 				return;
 			}
 		}
@@ -1205,9 +1205,9 @@ function removeEmptyLines(element: Element, doc: Document): void {
 	const cleanupEmptyElements = (node: Node) => {
 		if (!isElement(node)) return;
 
-		// Skip pre and code elements
+		// Skip pre, code and math elements
 		const tag = node.tagName.toLowerCase();
-		if (tag === 'pre' || tag === 'code') {
+		if (tag === 'pre' || tag === 'code' || tag === 'math') {
 			return;
 		}
 
