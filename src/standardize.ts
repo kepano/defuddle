@@ -504,7 +504,10 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 					/^callout(?:-|$)/.test(attrValue)
 				)) ||
 				// Marks the extractor output wrapper (emitted by buildContentHtml).
-				(extractorOutput && attrName === 'data-defuddle')
+				(extractorOutput && attrName === 'data-defuddle') ||
+				// annotation-xml encoding defines HTML integration points on reparse.
+				// Keep it only on this MathML element, not on ordinary annotations.
+				(attrName === 'encoding' && tag === 'annotation-xml' && el.closest('math'))
 			) {
 				return;
 			}
@@ -602,6 +605,9 @@ function replaceCustomElements(element: Element, doc: Document): void {
 		el => el.tagName.includes('-')
 			&& !INLINE_ELEMENTS.has(el.tagName.toLowerCase())
 			&& !isSVGElement(el)
+			// Standard MathML, not a custom HTML element. Use ancestry because
+			// linkedom does not assign the MathML namespace.
+			&& !(el.tagName.toLowerCase() === 'annotation-xml' && el.closest('math'))
 	).reverse();
 
 	let replacedCount = 0;

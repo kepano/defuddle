@@ -331,15 +331,23 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 		}
 	}
 
+	// XML annotations are alternative representations, not expression sources.
+	// Work on a clone so their content remains available in the HTML output.
+	let expression = el;
+	if (el.querySelector('annotation-xml')) {
+		expression = el.cloneNode(true) as Element;
+		expression.querySelectorAll('annotation-xml').forEach(annotation => annotation.remove());
+	}
+
 	// LaTeX in annotation
-	const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+	const annotation = expression.querySelector('annotation[encoding="application/x-tex"]');
 	if (annotation?.textContent) {
 		return annotation.textContent.trim();
 	}
 
 	// KaTeX formats
 	if (el.matches('.katex')) {
-		const katexAnnotation = el.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
+		const katexAnnotation = expression.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
 		if (katexAnnotation?.textContent) {
 			return katexAnnotation.textContent.trim();
 		}
@@ -352,7 +360,8 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 
 	// Check for sibling script element
 	if (el.parentElement) {
-		const siblingScript = el.parentElement.querySelector('script[type="math/tex"], script[type="math/tex; mode=display"]');
+		const siblingScript = Array.from(el.parentElement.querySelectorAll('script[type="math/tex"], script[type="math/tex; mode=display"]'))
+			.find(script => !script.closest('annotation-xml'));
 		if (siblingScript) {
 			return siblingScript.textContent?.trim() || null;
 		}
@@ -360,8 +369,9 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 
 	// For <math> elements, textContent gives clean Unicode (e.g. "f′", "a~")
 	// Only safe for <math> — other containers (mjx-container, .katex) have garbage textContent
-	if (el.tagName.toLowerCase() === 'math' && el.textContent?.trim()) {
-		return el.textContent.trim();
+	if (el.tagName.toLowerCase() === 'math') {
+		const text = expression.textContent?.trim();
+		if (text) return text;
 	}
 
 	// Fallback to alt text only
