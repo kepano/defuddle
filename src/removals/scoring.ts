@@ -44,7 +44,6 @@ const navigationIndicators = [
 	'popular',
 	'privacy',
 	'recommended',
-	'register',
 	'related',
 	'responses',
 	'share',
@@ -68,6 +67,22 @@ const datePattern = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]
 
 // Author attribution pattern — case-sensitive "By" + capitalized name
 const bylinePattern = /\bBy\s+[A-Z]/;
+
+// Bare "register" is also a CPU or quantum register. Count it only as a signup
+// prompt that opens a block, or as the label of a link or button.
+const registrationPromptPattern = /^\s*(?:please\s+)?register\s+(?:now|today|here|to\s+continue|for\s+(?:free|an?\s+account)|(?:an?|your)\s+account)\b/;
+const registrationControlPattern = /^(?:please\s+)?register(?:$|\s+(?:for|to)\b)/;
+
+function isRegistrationPrompt(element: Element): boolean {
+	const text = (element.textContent || '').trim().toLowerCase();
+	if (!text.includes('register')) return false;
+	if (registrationPromptPattern.test(text)) return true;
+	return Array.from(element.querySelectorAll('a[href], button, [role="button"]')).some(control => {
+		const label = (control.textContent || '').trim().toLowerCase();
+		return (registrationControlPattern.test(label) || registrationPromptPattern.test(label)) &&
+			!control.querySelector('code');
+	});
+}
 
 // Pre-compiled navigation indicator regexes for scoreNonContentBlock
 const navigationIndicatorRegexes = navigationIndicators.map(
@@ -355,6 +370,7 @@ export class ContentScorer {
 			if (headingText && headingText === text.trim()) {
 				const headingLower = headingText.toLowerCase();
 				if (!navigationHeadingPattern.test(headingLower) &&
+					!isRegistrationPrompt(headingChild) &&
 					!tocHeadingPattern.test(headingLower)) {
 					return true;
 				}
@@ -369,7 +385,7 @@ export class ContentScorer {
 			let hasNavigationHeading = false;
 			for (let i = 0; i < headings.length; i++) {
 				const headingText = (headings[i].textContent || '').toLowerCase().trim();
-				if (navigationHeadingPattern.test(headingText)) {
+				if (navigationHeadingPattern.test(headingText) || isRegistrationPrompt(headings[i])) {
 					hasNavigationHeading = true;
 					break;
 				}
@@ -478,6 +494,9 @@ export class ContentScorer {
 			if (regex.test(textLower)) {
 				indicatorMatches++;
 			}
+		}
+		if (isRegistrationPrompt(element)) {
+			indicatorMatches++;
 		}
 		score -= indicatorMatches * 10;
 
