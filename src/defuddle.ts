@@ -938,6 +938,8 @@ export class Defuddle {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
 			const extractorOpts: ExtractorOptions = {
+				// Preserve a caller's selection, independently of retry overrides.
+				contentSelector: this.options.contentSelector,
 				includeReplies: options.includeReplies as ExtractorOptions['includeReplies'],
 				language: options.language,
 				fetch: options.fetch,

@@ -27,6 +27,7 @@ import { LeetCodeExtractor } from './extractors/leetcode';
 import { LwnExtractor } from './extractors/lwn';
 import { MastodonExtractor } from './extractors/mastodon';
 import { GmailExtractor } from './extractors/gmail';
+import { ShamelaExtractor } from './extractors/shamela';
 
 type ExtractorConstructor = new (document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) => BaseExtractor;
 
@@ -39,6 +40,11 @@ export class ExtractorRegistry {
 	private static mappings: ExtractorMapping[] = [];
 
 	static initialize() {
+		this.register({
+			patterns: ['shamela.ws'],
+			extractor: ShamelaExtractor
+		});
+
 		// Register all extractors with their URL patterns
 		// X Article extractor must be registered BEFORE Twitter to take priority
 		// DOM-based canExtract() determines if page has article content

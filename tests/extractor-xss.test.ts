@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
+import { parseDocument } from './helpers';
 import { ConversationExtractor } from '../src/extractors/_conversation';
 import { C2WikiExtractor } from '../src/extractors/c2-wiki';
 import type { ConversationMessage, ConversationMetadata, Footnote } from '../src/types/extractors';
@@ -46,6 +47,25 @@ function assertNoExecutableAttributes(html: string) {
 }
 
 describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
+	test.each([{}, {
+		removeExactSelectors: false, removePartialSelectors: false,
+		removeHiddenElements: false, removeLowScoring: false,
+		removeSmallImages: false, removeContentPatterns: false, standardize: false,
+	}])('sanitizes Shamela book attributes with pipeline options %j', async options => {
+		const url = 'https://shamela.ws/book/0000000/0000000';
+		const html = `<html><body><div class="nass" onclick="alert(1)"><p>Safe chapter text.
+			<a href="javascript:alert(1)">Unsafe link</a><img src="data:text/html,bad" onerror="alert(1)">
+			<iframe srcdoc="bad" src="data:image/png,bad" onload="alert(1)"></iframe></p></div></body></html>`;
+		const result = await Defuddle(parseDocument(html, url), url, { ...options, useAsync: false });
+		expect(result.extractorType).toBe('shamela');
+		expect(result.content).toContain('Safe chapter text.');
+		assertNoExecutableAttributes(result.content);
+		const output = parseDocument(`<html><body>${result.content}</body></html>`, url);
+		expect(output.querySelector('[srcdoc]')).toBeNull();
+		expect(output.querySelector('img')?.getAttribute('src')).toBeNull();
+		expect(output.querySelector('iframe')?.getAttribute('src')).toBeNull();
+	});
+
 	test('does not emit an event handler attribute from X header image alt', async () => {
 		// alt contains a double-quote that, unescaped, would close the attribute
 		// and turn the rest into a real onerror handler.
