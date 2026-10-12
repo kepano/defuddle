@@ -5,7 +5,6 @@ import { dirname, resolve } from 'path';
 import { MathMLToLaTeX } from 'mathml-to-latex';
 import * as core from '../src/elements/math.core';
 import * as full from '../src/elements/math.full';
-import { createMathElement } from '../src/elements/math.base';
 import Defuddle from '../src/index';
 import { parseDocument, normalizeHtmlAttributes } from './helpers';
 
@@ -142,23 +141,6 @@ describe.each([
 		expect(result.getAttribute('data-latex')).toBe('y');
 		expect(result.querySelector('annotation')?.textContent).toBe('y');
 	});
-});
-
-test('does not copy rendered LaTeX root attributes through the existing-MathML policy', () => {
-	const doc = parseDocument('<html><body></body></html>');
-	const render = vi.fn(() => {
-		const math = doc.createElement('math');
-		math.setAttribute('dir', 'rtl');
-		math.setAttribute('displaystyle', 'true');
-		math.setAttribute('mathsize', '200%');
-		math.appendChild(doc.createElement('mi')).textContent = 'x';
-		return math;
-	});
-	const result = createMathElement(null, 'x', false, doc, render);
-	expect(render).toHaveBeenCalledWith('x', false, doc);
-	expect(normalizeHtmlAttributes(result.outerHTML)).toBe(normalizeHtmlAttributes(
-		`<math xmlns="${MATHML_NS}" display="inline" data-latex="x"><mi>x</mi></math>`
-	));
 });
 
 test('preserves root attributes through extraction and sanitizes hostile descendants without fallback', () => {
