@@ -28,7 +28,8 @@ export function serializeMathMLForConversion(source: Element | string, doc: Docu
 	};
 	normalizeTokens(math);
 
-	// HTML serializers may use this named entity, which the XML converter
-	// cannot read. Do not decode literal text serialized as &amp;nbsp;.
-	return math.outerHTML.replace(/&nbsp;/g, '&#xA0;');
+	// The XML converter cannot read the named entity
+	return math.outerHTML
+		.replace(/&amp;nbsp;/g, '&#xA0;')
+		.replace(/&nbsp;/g, '&#xA0;');
 }

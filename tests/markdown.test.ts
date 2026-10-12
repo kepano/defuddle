@@ -179,6 +179,15 @@ describe('Markdown conversion', () => {
 	});
 
 	describe('math conversion', () => {
+		test('should treat escaped nbsp in MathML as a space', () => {
+			const markdown = createMarkdownContent(
+				'<p>x <math><mrow><mtext>A&amp;nbsp;B</mtext><mo>+</mo><mi>c</mi></mrow></math> y</p>',
+				'https://example.com'
+			);
+
+			expect(markdown).not.toContain('nbsp');
+		});
+
 		test('should prefer MathML over degraded data-latex', () => {
 			const markdown = createMarkdownContent(`
 				<p>
