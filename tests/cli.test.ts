@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { readFileSync, rmSync, writeFileSync, mkdtempSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -6,6 +6,7 @@ import { Readable } from 'stream';
 import { Defuddle } from '../src/node';
 import { parseSource, createProgram } from '../src/cli';
 import { parseDocument } from './helpers';
+import { BROWSER_UA } from '../src/fetch';
 
 const fixturePath = join(__dirname, 'fixtures', 'general--appendix-heading.html');
 const fixtureHtml = readFileSync(fixturePath, 'utf-8');
@@ -105,4 +106,58 @@ describe('CLI parseSource', () => {
 		// commander camelCases --user-agent → options.userAgent, which parseSource reads.
 		expect(option?.attributeName()).toBe('userAgent');
 	});
+
+	test('retries a 403 with a browser user agent', async () => {
+		const buffer = new TextEncoder().encode(fixtureHtml).buffer;
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce({
+				ok: false,
+				status: 403,
+				statusText: 'Forbidden',
+				headers: { get: () => null },
+			})
+			.mockResolvedValueOnce({
+				ok: true,
+				status: 200,
+				statusText: 'OK',
+				headers: { get: (header: string) => header === 'content-type' ? 'text/html' : null },
+				arrayBuffer: () => Promise.resolve(buffer),
+			});
+		vi.stubGlobal('fetch', fetchMock);
+		for (const name of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy']) {
+			vi.stubEnv(name, undefined as any);
+		}
+
+		const result = await parseSource('https://example.com', {});
+
+		expect(result.output).toContain('Appendix I');
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(fetchMock.mock.calls[1][1].headers['User-Agent']).toBe(BROWSER_UA);
+	});
+
+	test('does not replace an explicitly supplied user agent after a 403', async () => {
+		const customUserAgent = 'custom-agent';
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 403,
+			statusText: 'Forbidden',
+			headers: { get: () => null },
+		});
+		vi.stubGlobal('fetch', fetchMock);
+		for (const name of ['HTTPS_PROXY', 'https_proxy', 'HTTP_PROXY', 'http_proxy', 'ALL_PROXY', 'all_proxy']) {
+			vi.stubEnv(name, undefined as any);
+		}
+
+		await expect(parseSource('https://example.com', { userAgent: customUserAgent })).rejects.toThrow(
+			'Failed to fetch: 403 Forbidden'
+		);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(fetchMock.mock.calls[0][1].headers['User-Agent']).toBe(customUserAgent);
+		expect(fetchMock.mock.calls[0][1].headers['User-Agent']).not.toBe(BROWSER_UA);
+	});
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.unstubAllEnvs();
 });

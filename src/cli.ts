@@ -7,7 +7,7 @@ import { resolve } from 'path';
 import { parseLinkedomHTML } from './utils/linkedom-compat';
 import { countWords } from './utils';
 import { buildFrontmatter } from './frontmatter';
-import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
+import { getInitialUA, fetchPage, fetchPageWithRetry, extractRawMarkdown, cleanMarkdownContent, BOT_UA } from './fetch';
 
 export interface ParseOptions {
 	output?: string;
@@ -74,7 +74,9 @@ export async function parseSource(source: string | undefined, options: ParseOpti
 	} else if (isUrl) {
 		url = source;
 		const initialUA = options.userAgent || getInitialUA(source);
-		html = await fetchPage(source, initialUA, options.lang);
+		html = options.userAgent
+			? await fetchPage(source, initialUA, options.lang)
+			: await fetchPageWithRetry(source, initialUA, options.lang);
 	} else {
 		const filePath = resolve(process.cwd(), source);
 		html = await readFile(filePath, 'utf-8');
