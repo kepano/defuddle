@@ -81,6 +81,23 @@ describe.each([
 		expect(result.querySelectorAll('mi, mo, mn').length).toBe(3);
 	});
 
+	test.each([
+		['explicit inline among prose', '<p>Before <math id="target" display="inline"><mi>x</mi></math> after.</p>', 'inline'],
+		['explicit inline after a paragraph', '<div><p>Before.</p><math id="target" display="inline"><mi>x</mi></math> after.</div>', 'inline'],
+		['explicit inline between paragraphs', '<div><p>Before.</p><math id="target" display="inline"><mi>x</mi></math><p>After.</p></div>', 'inline'],
+		['explicit inline over block classes', '<div data-display="block"><math id="target" class="math-display" display="inline"><mi>x</mi></math></div>', 'inline'],
+		['case-insensitive native inline', '<div><p>Before.</p><math id="target" display="InLiNe"><mi>x</mi></math></div>', 'inline'],
+		['explicit block among prose', '<p>Before <math id="target" display="block"><mi>x</mi></math> after.</p>', 'block'],
+		['absent display among prose', '<p>Before <math id="target"><mi>x</mi></math> after.</p>', 'inline'],
+		['absent display after a paragraph', '<div><p>Before.</p><math id="target"><mi>x</mi></math><p>After.</p></div>', 'block'],
+		['MathJax display true', '<div><mjx-container id="target" display="true"><mjx-assistive-mml><math><mi>x</mi></math></mjx-assistive-mml></mjx-container></div>', 'block'],
+		['non-native inline retains block heuristics', '<div><p>Before.</p><mjx-container id="target" display="inline"><mjx-assistive-mml><math><mi>x</mi></math></mjx-assistive-mml></mjx-container></div>', 'block'],
+	])('respects display: %s', (_name, html, display) => {
+		const { result } = transform(mod, html);
+		expect(result.getAttribute('display')).toBe(display);
+		expect(result.querySelector('mi')?.textContent).toBe('x');
+	});
+
 	test('reads LaTeX from a KaTeX annotation', () => {
 		const { result } = transform(mod, SHARED_CASES['KaTeX with TeX annotation']);
 		expect(result.getAttribute('data-latex')).toBe('y');

@@ -371,6 +371,10 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 export const isBlockDisplay = (el: Element): boolean => {
 	// Check explicit display attribute
 	const displayAttr = el.getAttribute('display');
+	// Native MathML's explicit inline display takes precedence over HTML heuristics.
+	if (el.tagName.toLowerCase() === 'math' && displayAttr?.toLowerCase() === 'inline') {
+		return false;
+	}
 	if (displayAttr === 'block') {
 		return true;
 	}
