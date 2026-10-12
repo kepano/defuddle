@@ -959,6 +959,9 @@ function removeEmptyElements(element: Element): void {
 
 	const isEmptyElement = (el: Element): boolean => {
 		if (ALLOWED_EMPTY_ELEMENTS.has(el.tagName.toLowerCase())) return false;
+		// Empty MathML nodes can be argument slots, spacing or matrix cells
+		if (el.parentElement?.closest('math')) return false;
+		if (el.tagName.toLowerCase() === 'math' && el.getAttribute('data-latex')?.trim()) return false;
 
 		// Special case: divs that only contain spans with commas
 		if (el.tagName === 'DIV') {
