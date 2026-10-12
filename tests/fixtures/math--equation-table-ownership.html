@@ -1,0 +1,23 @@
+<!-- {"url":"https://example.com/equation-tables"} -->
+<!doctype html>
+<html><head><title>Equation table ownership</title></head><body><article>
+<h1>Equation table ownership</h1>
+<p>Equations may use tables to arrange a whole expression, individual fragments, operators and labels. Extraction must not confuse a second representation with an independent equation.</p>
+<h2>Single equation</h2>
+<table class="ltx_equation"><tbody><tr><td><math display="inline"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math></td></tr></tbody></table>
+<h2>Label</h2>
+<table class="ltx_equation"><tbody><tr><td><math display="inline"><semantics><mi>b</mi><annotation encoding="application/x-tex">b</annotation></semantics></math></td><td>(7)</td></tr></tbody></table>
+<h2>Rows and operators</h2>
+<table class="ltx_equationgroup"><tbody><tr><td><math display="inline"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math></td><td>=</td><td><math display="inline"><semantics><mi>y</mi><annotation encoding="application/x-tex">y</annotation></semantics></math></td><td>(8a)</td></tr><tr><td><math display="inline"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math></td><td>=</td><td><math display="inline"><semantics><mi>w</mi><annotation encoding="application/x-tex">w</annotation></semantics></math></td><td>(8b)</td></tr></tbody></table>
+<h2>Native source without annotation</h2>
+<table class="ltx_equation"><tbody><tr><td><math display="inline"><semantics><mi>c</mi><annotation encoding="application/x-tex">c</annotation></semantics></math></td></tr><tr><td><math display="inline"><mi>d</mi></math></td></tr></tbody></table>
+<h2>Header and mixed content</h2>
+<table class="ltx_eqn_table"><tbody><tr><th>Expression</th><th>Meaning</th></tr><tr><td><math display="inline"><mi>g</mi></math></td><td>Measured value</td></tr></tbody></table>
+<h2>Nested table</h2>
+<table class="ltx_equation"><tbody><tr><td><math display="inline"><mi>h</mi></math></td><td><table class="ltx_equation"><tbody><tr><td><math display="inline"><mi>i</mi></math></td></tr></tbody></table></td><td>(9)</td></tr></tbody></table>
+<h2>Ordinary data table</h2>
+<table><tbody><tr><th>Item</th><th>Value</th></tr><tr><td>Sample</td><td>10</td></tr></tbody></table>
+<h2>Sanitized label</h2>
+<table class="ltx_equation" onclick="alert(1)"><tbody><tr><td><math display="inline" data-latex="j"><mi>j</mi></math></td><td><a href="javascript:alert(1)" onclick="alert(1)"><span title='label" onmouseover="alert(1)'>(10)</span></a><script>alert(1)</script></td></tr></tbody></table>
+<p>The single standalone equation retains the existing promotion policy. Tables containing fragments retain their cell boundaries rather than implying that every fragment is a complete display equation.</p>
+</article></body></html>

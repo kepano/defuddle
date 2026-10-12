@@ -814,18 +814,16 @@ export function createMarkdownContent(content: string, url: string) {
 	});
 
 	function handleNestedEquations(element: GenericElement): string {
-		const mathElements = element.querySelectorAll('math');
-		if (mathElements.length === 0) return '';
-
-		return Array.from(mathElements).map(mathElement => {
-			const annotation = mathElement.querySelector('annotation[encoding="application/x-tex"]');
-			const latex = annotation?.textContent?.trim() || mathElement.getAttribute('alttext')?.trim();
-			if (latex) {
-				const isInline = mathElement.closest('.ltx_eqn_inline, .mwe-math-element-inline') !== null;
+		return Array.from(element.querySelectorAll('math'))
+			.filter(math => !math.parentElement?.closest('math'))
+			.map(math => {
+				const latex = extractLatex(asGenericElement(math));
+				if (!latex) return '';
+				const isInline = math.closest('.ltx_eqn_inline, .mwe-math-element-inline') !== null;
 				return formatMath(latex, !isInline);
-			}
-			return '';
-		}).join('\n\n');
+			})
+			.filter(Boolean)
+			.join('\n\n');
 	}
 
 	function cleanupTableHTML(element: GenericElement): string {
