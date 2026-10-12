@@ -1,6 +1,7 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
 import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl } from './utils/dom';
+import { serializeMathMLForConversion } from './utils/mathml';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -904,9 +905,8 @@ export function createMarkdownContent(content: string, url: string) {
 	function convertMathMLToLatex(element: GenericElement): string {
 		try {
 			const { MathMLToLaTeX } = require('mathml-to-latex');
-			const mathML = (element.outerHTML || `<math>${element.innerHTML}</math>`)
-				.replace(/&amp;nbsp;/g, '&#xA0;')
-				.replace(/&nbsp;/g, '&#xA0;');
+			const math = element as unknown as Element;
+			const mathML = serializeMathMLForConversion(math, math.ownerDocument);
 			return MathMLToLaTeX.convert(mathML).trim();
 		} catch (e) {
 			// not available or conversion failed

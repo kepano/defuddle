@@ -8,6 +8,7 @@ import {
 	createMathRules
 } from './math.base';
 import { parseHTML } from '../utils/dom';
+import { serializeMathMLForConversion } from '../utils/mathml';
 
 export const getLatexFromElement = (el: Element): string | null => {
 	// First try basic LaTeX extraction
@@ -20,7 +21,7 @@ export const getLatexFromElement = (el: Element): string | null => {
 	const mathData = getMathMLFromElement(el);
 	if (mathData?.mathml) {
 		try {
-			return MathMLToLaTeX.convert(mathData.mathml);
+			return MathMLToLaTeX.convert(serializeMathMLForConversion(mathData.mathml, el.ownerDocument));
 		} catch (e) {
 			console.warn('Failed to convert MathML to LaTeX:', e);
 		}
