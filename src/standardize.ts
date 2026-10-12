@@ -16,6 +16,7 @@ import {
 
 import { DefuddleMetadata } from './types';
 import { mathRules, createCleanMathEl } from './elements/math';
+import { EQUATION_TABLE_SELECTOR, getSingleEquationMath } from './elements/equation-table';
 import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE } from './elements/math.base';
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
@@ -499,6 +500,7 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 				)) ||
 				// Preserve code block language classes, footnote backref class, and callout classes
 				(attrName === 'class' && (
+					(tag === 'table' && attrValue === 'ltx_eqn_table') ||
 					(tag === 'code' && attrValue.startsWith('language-')) ||
 					attrValue === 'footnote-backref' ||
 					/^callout(?:-|$)/.test(attrValue)
@@ -1381,54 +1383,22 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 		outerCode.replaceWith(pre);
 	});
 
-	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
-	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
-	const hasPresentationalMathContent = (mathEl: Element): boolean => {
-		const isPresentationalNode = (node: Node): boolean => {
-			if (isTextNode(node)) return Boolean(node.textContent?.trim());
-			if (!isElement(node)) return false;
-
-			const tag = node.tagName.toLowerCase();
-			if (tag === 'annotation' || tag === 'annotation-xml') return false;
-			if (tag === 'semantics') {
-				return Array.from(node.childNodes).some(isPresentationalNode);
+	// Math rules own normalization. The table adapter only unwraps a single
+	// whole equation; labels, fragments, alternatives and mixed content stay put.
+	const equationTables = Array.from(element.querySelectorAll(EQUATION_TABLE_SELECTOR));
+	equationTables.reverse().forEach(table => {
+		if (table.parentElement?.closest('math, annotation-xml')) return;
+		const math = getSingleEquationMath(table);
+		if (math) {
+			// Retain the existing standalone equation display policy.
+			if (table.classList.contains('ltx_equation') || table.classList.contains('ltx_equationgroup')) {
+				math.setAttribute('display', 'block');
 			}
-
-			return true;
-		};
-
-		return Array.from(mathEl.childNodes).some(isPresentationalNode);
-	};
-	equationTables.forEach(table => {
-		const mathElements = table.querySelectorAll('math');
-		if (mathElements.length === 0) return;
-
-		const fragment = doc.createDocumentFragment();
-		mathElements.forEach(mathEl => {
-			// Extract LaTeX from alttext or annotation
-			const alttext = mathEl.getAttribute('alttext');
-			const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]');
-			const latex = alttext || annotation?.textContent?.trim() || '';
-
-			if (!latex) return;
-
-			const isBlock = mathEl.getAttribute('display') === 'block' ||
-				table.classList.contains('ltx_equation') ||
-				table.classList.contains('ltx_equationgroup');
-
-			const cleanMath = mathEl.cloneNode(true) as Element;
-			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
-			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
-			cleanMath.setAttribute('data-latex', latex);
-			if (!hasPresentationalMathContent(cleanMath)) {
-				cleanMath.textContent = latex;
-			}
-			fragment.appendChild(cleanMath);
-		});
-
-		if (fragment.childNodes.length > 0) {
-			table.replaceWith(fragment);
+			table.replaceWith(math);
 			processedCount++;
+		} else {
+			// A narrow marker survives attribute stripping and layout cleanup.
+			table.setAttribute('class', 'ltx_eqn_table');
 		}
 	});
 
@@ -1472,6 +1442,7 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 	const tables = Array.from(element.querySelectorAll('table'));
 	tables.forEach(table => {
 		if (!table.parentNode) return;
+		if (table.classList.contains('ltx_eqn_table')) return;
 
 		const directCells = Array.from(table.querySelectorAll('td, th'))
 			.filter(cell => isDirectTableChild(cell, table));
