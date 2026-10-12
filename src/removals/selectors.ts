@@ -11,6 +11,7 @@ import {
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+import { isMathMLArgument } from './math';
 
 const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
 	.map(name => `a [class*="${name}"]`).join(', ');
@@ -41,6 +42,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements inside code blocks (e.g. syntax highlighting spans)
 				if (el.closest('pre, code')) {
+					return;
+				}
+				// Page-chrome names must not delete formula arguments. Retain
+				// hiding/deduplication rules, but preserve in-flow invisible boxes.
+				if (isMathMLArgument(el) && !el.matches('[hidden], [aria-hidden="true"], .hidden')) {
 					return;
 				}
 				// Skip elements with responsive show classes (e.g. "hidden sm:flex")
@@ -81,6 +87,9 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// where class names indicate language/syntax, not page structure
 			const tag = el.tagName;
 			if (tag === 'CODE' || tag === 'PRE' || el.querySelector('pre') || el.closest('code, pre')) {
+				return;
+			}
+			if (isMathMLArgument(el)) {
 				return;
 			}
 

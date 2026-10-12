@@ -1,0 +1,18 @@
+<!-- {"url":"https://example.com/mathml-arguments"} -->
+<!DOCTYPE html>
+<html>
+<head><title>MathML arguments</title></head>
+<body>
+<article>
+<h1>MathML arguments</h1>
+<p>A fraction needs both arguments, even when a class resembles page navigation or one argument is invisible but still occupies space.</p>
+<p>Mathematical notation is a tree of expressions rather than a collection of unrelated page elements. A fraction contains a numerator and a denominator in a particular order. A power contains a base followed by an exponent. Removing one of those children changes the expression, even when the surviving characters still look plausible. This article compares several ways of describing the same two argument structure. The examples use generic letters so that the surrounding prose does not provide a second source for the missing symbols. Each formula has its own paragraph and must be extracted from the original document. Class names may describe a local component without describing its role on the page. A mathematical token named like a header is still an argument, not a navigation heading. Visibility and opacity can make a box invisible while leaving it in the layout tree. Such boxes are useful for alignment and spacing within an equation. They differ from elements removed from layout with display none. Accessibility sources can also live inside hidden wrappers alongside a visible rendering. Keeping those sources does not require keeping unrelated navigation or duplicate render trees. The extraction process should retain mathematical arguments while continuing to clean page structure and sanitize unsafe markup. The following examples make each of these boundaries explicit.</p>
+<p>Exact: <math><mfrac><mi class="header">a</mi><mi>b</mi></mfrac></math>.</p>
+<p>Partial: <math><mfrac><mi class="article-header">c</mi><mi id="feedback-form">d</mi></mfrac></math>.</p>
+<p>Visibility: <math><mfrac><mi style="visibility:hidden">e</mi><mi>f</mi></mfrac></math>.</p>
+<p>Opacity: <math><mfrac><mi style="opacity:0">g</mi><mi>h</mi></mfrac></math>.</p>
+<p>Utilities: <math><mfrac><mi class="invisible">i</mi><mi class="sm:invisible">j</mi></mfrac></math>.</p>
+<p>Phantom: <math><mfrac><mphantom><mi>k</mi></mphantom><mi>l</mi></mfrac></math>.</p>
+</article>
+</body>
+</html>

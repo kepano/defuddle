@@ -1,6 +1,7 @@
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { hasResponsiveShowClass } from '../utils/dom';
+import { isMathMLArgument } from './math';
 
 export function removeHiddenElements(doc: Document, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	let count = 0;
@@ -8,6 +9,7 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 
 	// Check inline styles and CSS class-based hidden patterns.
 	const hiddenStylePattern = /(?:^|;\s*)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)(?:\s*;|\s*$)/i;
+	const displayNonePattern = /(?:^|;\s*)display\s*:\s*none(?:\s*;|\s*$)/i;
 
 	// Only use getComputedStyle in browser environments where it's meaningful.
 	// In JSDOM/linkedom without stylesheets, it's extremely slow and unreliable.
@@ -25,8 +27,11 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 		}
 
 		// Check inline style for hidden patterns
+		// Invisible MathML boxes still occupy argument slots (e.g. mphantom).
+		// display:none is different: it does not participate in layout.
+		const mathArgument = isMathMLArgument(element);
 		const style = element.getAttribute('style');
-		if (style && hiddenStylePattern.test(style)) {
+		if (style && hiddenStylePattern.test(style) && (!mathArgument || displayNonePattern.test(style))) {
 			const reason = style.includes('display') ? 'display:none' :
 				style.includes('visibility') ? 'visibility:hidden' : 'opacity:0';
 			elementsToRemove.set(element, reason);
@@ -40,8 +45,8 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 				const computedStyle = defaultView!.getComputedStyle(element);
 				let reason = '';
 				if (computedStyle.display === 'none') reason = 'display:none';
-				else if (computedStyle.visibility === 'hidden') reason = 'visibility:hidden';
-				else if (computedStyle.opacity === '0') reason = 'opacity:0';
+				else if (!mathArgument && computedStyle.visibility === 'hidden') reason = 'visibility:hidden';
+				else if (!mathArgument && computedStyle.opacity === '0') reason = 'opacity:0';
 				if (reason) {
 					elementsToRemove.set(element, reason);
 					count++;
@@ -62,9 +67,9 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 				// "sm:hidden", "lg:invisible". Skip Tailwind arbitrary variants
 				// containing "[" (e.g. "[&_.class]:hidden", "group-[.state]:hidden")
 				// — those are conditional state selectors, not unconditional hiding.
-				const isExact = token === 'hidden' || token === 'invisible';
+				const isExact = token === 'hidden' || (!mathArgument && token === 'invisible');
 				const isVariant = !token.includes('[') &&
-					(token.endsWith(':hidden') || token.endsWith(':invisible'));
+					(token.endsWith(':hidden') || (!mathArgument && token.endsWith(':invisible')));
 
 				if (isExact || isVariant) {
 					elementsToRemove.set(element, `class:${token}`);
