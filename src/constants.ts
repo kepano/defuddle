@@ -187,9 +187,11 @@ export const EXACT_SELECTORS = [
 	// '[href*="/tag/"]',
 	// '[href*="/tags/"]',
 	// '[href*="/topics"]', // see issue #131
-	'[href*="/author/"]',
-	'[href*="/author?"]',
-	'[href$="/author"]',
+	// Author links can be legitimate article content (see issue #252).
+	// Author metadata/widgets are handled by class selectors and content-pattern removals.
+	// '[href*="/author/"]',
+	// '[href*="/author?"]',
+	// '[href$="/author"]',
 	'a[href*="copyright.com"]',
 	'a[href*="google.com/preferences"]',
 	'[href="#top"]',
