@@ -110,6 +110,26 @@ function precedingProseWords(el: Element, mainContent: Element): number {
 	return words;
 }
 
+// Tag names of an element's children and grandchildren, e.g.
+// "SPAN(SPAN),DIV(DIV,DIV,DIV)". Ignores classes, which may be hashed.
+function layoutSignature(el: Element): string {
+	return Array.from(el.children, child =>
+		child.tagName + '(' + Array.from(child.children, grandchild => grandchild.tagName).join(',') + ')'
+	).join(',');
+}
+
+// True when another sibling of `el` has the same tag and layout, meaning `el` is
+// one entry in a run of repeated items (forum posts, comments) rather than a
+// standalone block.
+function hasRepeatedSibling(el: Element): boolean {
+	const parent = el.parentElement;
+	if (!parent) return false;
+	const signature = layoutSignature(el);
+	return Array.from(parent.children).some(sibling =>
+		sibling !== el && sibling.tagName === el.tagName && layoutSignature(sibling) === signature
+	);
+}
+
 function walkUpToWrapper(el: Element, text: string, mainContent: Element): Element {
 	let target = el;
 	while (target.parentElement && target.parentElement !== mainContent) {
@@ -1151,6 +1171,13 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// illustrative image row mid-article and removing its trailing siblings
 		// would drop real content.
 		if (hasFollowingProse(target)) continue;
+
+		// A forum post's columns (poster sidebar, message area, footer bar) can
+		// each hold an icon and a link, so one post reads as a card grid. Posts
+		// repeat one layout, so a target with a same-layout sibling is one entry
+		// in a thread, not a trailing related block. This also keeps a real
+		// related block that happens to sit beside a same-layout sibling.
+		if (hasRepeatedSibling(target)) continue;
 
 		removeThinPrecedingSection(target, debug, debugRemovals);
 
