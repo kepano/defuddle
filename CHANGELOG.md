@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Sped up selector-based removal in Safari and other WebKit browsers: a lookbehind in the partial-selector regex kept JavaScriptCore from compiling it, making `parse()` several times slower on long pages (#439).
 - Fixed YouTube auto-dub captions being selected instead of the default audio language when the player response omits the default caption index (#410).
 
 ## 0.19.5
