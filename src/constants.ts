@@ -322,7 +322,6 @@ export const EXACT_SELECTORS = [
 	'.licensebox',
 	'#page-info',
 	'#rss',
-	'#feed',
 	'.gutter',
 	'#primaryaudio', // NPR
 	'#NYT_ABOVE_MAIN_CONTENT_REGION',
