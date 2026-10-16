@@ -37,7 +37,11 @@ module.exports = (env, argv) => {
 				terserOptions: {
 					output: {
 					ascii_only: true
-					}
+					},
+					// `extractorType` is derived from `constructor.name`
+					// (src/defuddle.ts), so the extractor classes must keep
+					// their names through minification.
+					keep_classnames: /Extractor$/
 				}
 				})
 			]

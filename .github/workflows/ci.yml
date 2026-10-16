@@ -54,6 +54,8 @@ jobs:
       - run: npm run build
       - name: Bundle size budget
         run: npm run size
+      - name: Extractor names
+        run: npm run lint:extractor-names
 
   # Enforces the security rule from CLAUDE.md: no direct innerHTML/outerHTML
   # assignment outside src/utils/dom.ts.

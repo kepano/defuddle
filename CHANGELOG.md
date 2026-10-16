@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Kept extractor class names in the browser bundles, so `extractorType` reports the site (`github`, `youtube`, ...) instead of a minified name like `a` (#414).
 - Fixed YouTube auto-dub captions being selected instead of the default audio language when the player response omits the default caption index (#410).
 
 ## 0.19.5
