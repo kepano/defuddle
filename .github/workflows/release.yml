@@ -40,6 +40,8 @@ jobs:
         run: npm run build
       - name: Bundle size budget
         run: npm run size
+      - name: Extractor names
+        run: npm run lint:extractor-names
       - name: Security lint
         run: npm run lint:innerhtml
       # Build already ran above, so pack with --ignore-scripts to guarantee the
