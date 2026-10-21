@@ -1002,6 +1002,64 @@ get all of the hype.</p>
 	});
 });
 
+describe('YouTube mobile caption requests (#310)', () => {
+	// This fixture needs mocked caption responses rather than the offline DOM runner.
+	const html = readFileSync(join(__dirname, 'fixtures/youtube/issues--310-mobile-captions.html'), 'utf8');
+	const expected = JSON.parse(readFileSync(join(__dirname, 'expected/youtube/issues--310-mobile-captions.json'), 'utf8'));
+	const url = 'https://m.youtube.com/watch?v=example123';
+	const relativeUrl = '/api/timedtext?v=example123&lang=en';
+	const absoluteUrl = `https://www.youtube.com${relativeUrl}`;
+
+	test.each([
+		{ browser: true, baseUrl: absoluteUrl, resolvedUrl: absoluteUrl },
+		{ browser: true, baseUrl: relativeUrl, resolvedUrl: `https://m.youtube.com${relativeUrl}` },
+		{ browser: false, baseUrl: absoluteUrl, resolvedUrl: absoluteUrl },
+		{ browser: false, baseUrl: relativeUrl, resolvedUrl: `https://m.youtube.com${relativeUrl}` },
+	])('extracts captions with browser=$browser from $baseUrl', async ({ browser, baseUrl, resolvedUrl }) => {
+		const fetch = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+			// Model WebKit rejecting the non-safelisted header on a cross-origin fetch.
+			if (browser && new Headers(init?.headers).has('User-Agent')) {
+				throw new TypeError('Load failed');
+			}
+			return new Response('<transcript><text start="0" dur="2">Example caption.</text></transcript>');
+		});
+		const extractor = createExtractor(html.replace(relativeUrl, baseUrl), url, { fetch, language: 'en-US' });
+		vi.spyOn(extractor as any, 'fetchChapters').mockResolvedValue([]);
+		vi.spyOn(extractor as any, 'fetchPlayerData').mockResolvedValue(undefined);
+		vi.stubGlobal('window', browser ? {} : undefined);
+		try {
+			const result = await extractor.extractAsync();
+			expect.soft({ language: result.variables?.language, transcript: result.variables?.transcript }).toEqual(expected);
+			expect(fetch).toHaveBeenCalledTimes(1);
+			const [input, init] = fetch.mock.calls[0];
+			expect(String(input)).toBe(resolvedUrl);
+			const headers = new Headers(init?.headers);
+			expect(headers.get('User-Agent')).toBe(browser ? null : 'Mozilla/5.0');
+			expect(headers.get('Accept-Language')).toBe('en-US');
+			expect(result.content).toContain('<h2>Transcript</h2>');
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	test.each([
+		'https://example.com/api/timedtext',
+		'//example.com/api/timedtext',
+		'https://www.youtube.com.example.com/api/timedtext',
+		'https://www.youtube.com@example.com/api/timedtext',
+		'ftp://www.youtube.com/api/timedtext',
+	])('does not fetch captions from an unsafe destination: %s', async baseUrl => {
+		const fetch = vi.fn().mockRejectedValue(new Error('Unexpected request'));
+		const extractor = createExtractor(html.replace(relativeUrl, baseUrl), url, { fetch });
+		vi.spyOn(extractor as any, 'fetchChapters').mockResolvedValue([]);
+		vi.spyOn(extractor as any, 'fetchPlayerData').mockResolvedValue(undefined);
+
+		const result = await extractor.extractAsync();
+		expect(fetch).not.toHaveBeenCalled();
+		expect(result.variables?.transcript).toBeUndefined();
+	});
+});
+
 describe('YouTube default audio language (#410)', () => {
 	// Anonymized from the report: a Japanese video with an English auto-dub.
 	// Neither audio track names a default caption, and both list the same order.

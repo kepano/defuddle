@@ -652,14 +652,19 @@ export class YoutubeExtractor extends BaseExtractor {
 	): Promise<TranscriptResult | undefined> {
 		try {
 			// Validate URL to prevent SSRF in server-side contexts
-			const captionUrl = new URL(track.baseUrl);
-			if (!captionUrl.hostname.endsWith('.youtube.com')) return undefined;
+			const captionUrl = new URL(track.baseUrl, this.url);
+			if (!['http:', 'https:'].includes(captionUrl.protocol)
+				|| !captionUrl.hostname.endsWith('.youtube.com')) return undefined;
 
-			const captionHeaders: Record<string, string> = { 'User-Agent': 'Mozilla/5.0' };
+			const captionHeaders: Record<string, string> = {};
+			// A custom User-Agent triggers a CORS preflight in WebKit on m.youtube.com.
+			if (typeof window === 'undefined') {
+				captionHeaders['User-Agent'] = 'Mozilla/5.0';
+			}
 			if (this.options.language) {
 				captionHeaders['Accept-Language'] = this.options.language;
 			}
-			const response = await this.fetch(track.baseUrl, {
+			const response = await this.fetch(captionUrl.href, {
 				headers: captionHeaders,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 			});
