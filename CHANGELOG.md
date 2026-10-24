@@ -1,6 +1,9 @@
-## Unreleased
+## 0.19.6
 
+- Fixed HTML kept in Markdown output (embeds, SVG, superscripts, and complex tables) carrying unsafe links and event handlers, or Markdown that renders as links, including when calling `createMarkdownContent` directly (GHSA-6frv-jcwm-xqcj).
 - Fixed YouTube auto-dub captions being selected instead of the default audio language when the player response omits the default caption index (#410).
+- Fixed YouTube transcripts using stale inline player data from another video when caption requests fail (#400).
+- Updated development dependencies with security fixes.
 
 ## 0.19.5
 
