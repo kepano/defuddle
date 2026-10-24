@@ -177,11 +177,13 @@ const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 const VOID_ELEMENTS = new Set([
 	'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
 ]);
-// CommonMark tag and attribute names; anything else would turn the tag into Markdown text.
+// Invalid CommonMark names expose the tag as Markdown text.
 const HTML_TAG_NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
 const HTML_ATTRIBUTE_NAME = /^[A-Za-z_:][A-Za-z0-9_.:-]*$/;
-// Markdown syntax inside raw HTML text and attributes is parsed when the HTML is
-// inline, and a blank line ends an HTML block, so encode both.
+// Replace raw-text elements so character references are decoded.
+const RAW_TEXT_REPLACEMENTS = new Map([['xmp', 'pre'], ['plaintext', 'pre']]);
+const HIDDEN_RAW_TEXT_ELEMENTS = new Set(['noembed', 'noframes']);
+// Inline HTML still parses Markdown; blank lines end HTML blocks.
 const MARKDOWN_UNSAFE_CHARS = /[\n\r&<>"'`\\[\]]/g;
 
 function encodeMarkdownUnsafe(value: string): string {
@@ -191,8 +193,10 @@ function encodeMarkdownUnsafe(value: string): string {
 function serializeInertHTML(node: Node): string {
 	if (isTextNode(node)) return encodeMarkdownUnsafe(node.textContent || '');
 	if (!isElement(node)) return '';
+	const localName = node.localName || node.nodeName.toLowerCase();
+	if (HIDDEN_RAW_TEXT_ELEMENTS.has(localName.toLowerCase())) return '';
 	const children = Array.from(node.childNodes, serializeInertHTML).join('');
-	const name = node.localName || node.nodeName.toLowerCase();
+	const name = RAW_TEXT_REPLACEMENTS.get(localName.toLowerCase()) ?? localName;
 	if (!HTML_TAG_NAME.test(name)) return children;
 	const attributes = Array.from(node.attributes)
 		.filter(attr => HTML_ATTRIBUTE_NAME.test(attr.name))
@@ -203,7 +207,7 @@ function serializeInertHTML(node: Node): string {
 		: `<${name}${attributes}>${children}</${name}>`;
 }
 
-// Raw HTML in the Markdown must be safe even when the input was not sanitized.
+// Direct conversion can receive unsanitized HTML.
 function sanitizedOuterHTML(element: Element): string {
 	const clone = element.cloneNode(true) as Element;
 	return stripUnsafeElements(clone) ? '' : serializeInertHTML(clone);

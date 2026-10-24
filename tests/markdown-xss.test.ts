@@ -132,6 +132,12 @@ describe('Markdown output security', () => {
 		expect(rendered.querySelector('td img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
 	});
 
+	test('shows raw-text element content as text', () => {
+		const rendered = expectSafe(createMarkdownContent(complexTable('<xmp>A & B <b>literal</b></xmp><noembed>hidden</noembed>'), url));
+		expect(rendered.querySelector('td pre')?.textContent).toBe('A & B <b>literal</b>');
+		expect(rendered.querySelector('td')?.textContent).not.toContain('hidden');
+	});
+
 	test('preserves literal text in kept elements', () => {
 		const text = 'a [b](c) `d` \\ <e> & "f"';
 		const rendered = expectSafe(createMarkdownContent(`<p>Text<sup title="${escapeHtml(text)}">${escapeHtml(text)}</sup></p>`, url));

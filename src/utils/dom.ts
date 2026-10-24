@@ -79,18 +79,15 @@ export function isDangerousUrl(url: string, allowInlineImage: boolean = true): b
 	return false;
 }
 
-// Mirrors the descendant removal list for unsafe-root checks.
+// Keep this list in sync with UNSAFE_ELEMENT_SELECTOR.
 const UNSAFE_ELEMENT_TAGS = new Set([
 	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
 	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
 ]);
 
-// Iframes are kept — same-origin policy isolates them, and they're widely used
-// for legitimate media embeds; their srcdoc and dangerous src are stripped in
-// the attribute pass. Math scripts are preserved for LaTeX content. SVG <style>
-// is removed too: CSS @import / url() inside it can fetch external resources
-// from the reader's IP. SVG SMIL elements can mutate sanitized URL attributes.
-// Template fragments evade descendant traversal and can cause mutation XSS.
+// Keep iframes for embeds and math scripts for LaTeX.
+// Styles can load remote resources; SMIL can change sanitized URLs.
+// Templates hide content from descendant traversal.
 const UNSAFE_ELEMENT_SELECTOR =
 	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
 	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
@@ -104,7 +101,6 @@ function isUnsafeElement(el: Element): boolean {
 	return UNSAFE_ELEMENT_TAGS.has(tag);
 }
 
-/** Remove attributes, children, and inert template content from an unsafe root. */
 function neutralizeUnsafeElement(el: Element): void {
 	for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
 	while (el.firstChild) el.removeChild(el.firstChild);
@@ -114,13 +110,9 @@ function neutralizeUnsafeElement(el: Element): void {
 	}
 }
 
-/**
- * Remove dangerous elements, event handlers, srcdoc, and dangerous URLs from
- * `root` and its descendants. Returns true when the root is itself unsafe and
- * must not be serialized by the caller.
- */
+/** Returns true if the root is unsafe and must not be serialized. */
 export function stripUnsafeElements(root: Element): boolean {
-	// querySelectorAll omits the root; neutralize it and let the caller omit it.
+	// querySelectorAll excludes the root.
 	const unsafeRoot = isUnsafeElement(root);
 	if (unsafeRoot) {
 		neutralizeUnsafeElement(root);
@@ -130,14 +122,13 @@ export function stripUnsafeElements(root: Element): boolean {
 		el.parentNode?.removeChild(el);
 	}
 
-	// Includes the root: callers serialize it with outerHTML.
 	for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
 		for (const attr of Array.from(el.attributes)) {
 			const name = attr.name.toLowerCase();
 			if (name.startsWith('on') || name === 'srcdoc') {
 				el.removeAttribute(attr.name);
 			} else if (URL_ATTRIBUTES.has(name)) {
-				// An SVG document in an iframe can run script, so iframes get no data: URIs.
+				// SVG data URLs can run scripts in iframes.
 				const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
 				if (isDangerousUrl(attr.value, allowInlineImage)) {
 					el.removeAttribute(attr.name);
