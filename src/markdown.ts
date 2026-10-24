@@ -174,10 +174,39 @@ function getBestImageSrc(node: GenericElement): string {
 // the survivor byte-for-byte so the quote depth is not rewritten.
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
+const VOID_ELEMENTS = new Set([
+	'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+// CommonMark tag and attribute names; anything else would turn the tag into Markdown text.
+const HTML_TAG_NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
+const HTML_ATTRIBUTE_NAME = /^[A-Za-z_:][A-Za-z0-9_.:-]*$/;
+// Markdown syntax inside raw HTML text and attributes is parsed when the HTML is
+// inline, and a blank line ends an HTML block, so encode both.
+const MARKDOWN_UNSAFE_CHARS = /[\n\r&<>"'`\\[\]]/g;
+
+function encodeMarkdownUnsafe(value: string): string {
+	return value.replace(MARKDOWN_UNSAFE_CHARS, char => `&#${char.charCodeAt(0)};`);
+}
+
+function serializeInertHTML(node: Node): string {
+	if (isTextNode(node)) return encodeMarkdownUnsafe(node.textContent || '');
+	if (!isElement(node)) return '';
+	const children = Array.from(node.childNodes, serializeInertHTML).join('');
+	const name = node.localName || node.nodeName.toLowerCase();
+	if (!HTML_TAG_NAME.test(name)) return children;
+	const attributes = Array.from(node.attributes)
+		.filter(attr => HTML_ATTRIBUTE_NAME.test(attr.name))
+		.map(attr => ` ${attr.name}="${encodeMarkdownUnsafe(attr.value)}"`)
+		.join('');
+	return VOID_ELEMENTS.has(name.toLowerCase())
+		? `<${name}${attributes}>`
+		: `<${name}${attributes}>${children}</${name}>`;
+}
+
 // Raw HTML in the Markdown must be safe even when the input was not sanitized.
 function sanitizedOuterHTML(element: Element): string {
 	const clone = element.cloneNode(true) as Element;
-	return stripUnsafeElements(clone) ? '' : clone.outerHTML;
+	return stripUnsafeElements(clone) ? '' : serializeInertHTML(clone);
 }
 
 export function createMarkdownContent(content: string, url: string) {
@@ -857,10 +886,7 @@ export function createMarkdownContent(content: string, url: string) {
 		// Create a clone of the table to avoid modifying the original DOM
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
-		stripUnsafeElements(tableClone);
-
-		// Entity decoding here would turn literal text into HTML.
-		return tableClone.outerHTML;
+		return stripUnsafeElements(tableClone) ? '' : serializeInertHTML(tableClone);
 	}
 
 	function extractLatex(element: GenericElement): string {

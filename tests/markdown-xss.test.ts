@@ -41,6 +41,10 @@ const cases = [
 	['math annotation', `<math display="block"><annotation encoding="application/x-tex">${escapeHtml('x\n$$\n\n' + payload + '\n\n$$')}</annotation></math>`],
 	['math attribute', `<math display="block" data-latex="${escapeHtml(payload)}"><mi>x</mi></math>`],
 	['katex attribute', `<span class="katex" data-latex="${escapeHtml(payload)}">x</span>`],
+	['link syntax in kept text', '<p>Text<sup>[click](javascript:alert(1))</sup></p>'],
+	['blank line in kept attribute', `<p>Text<sup title="${escapeHtml('a\n\n[click](javascript:alert(1))')}">1</sup></p>`],
+	['blank line in complex table', complexTable(`<pre>${escapeHtml('a\n\n[click](javascript:alert(1))')}</pre>`)],
+	['code span in kept text', `<p>Text<sup>\`<span title="\`${escapeHtml(payload)}">x</span></sup></p>`],
 	['footnote reference', `<p>Reference <sup id="${escapeHtml('fnref:x]\n\n' + payload + '\n\n[^y')}">1</sup></p>`],
 ] as const;
 
@@ -80,6 +84,8 @@ describe('Markdown output security', () => {
 		['kept iframe', '<p>Text</p><iframe src="javascript:alert(1)"></iframe><iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe><iframe src="data:image/svg+xml,&lt;svg onload=alert(1)&gt;"></iframe>'],
 		['kept video', '<p>Text</p><video src="x" onerror="alert(1)"></video>'],
 		['kept sup', '<p>Text<sup onclick="alert(1)">1</sup></p>'],
+		['URL spliced by empty link removal', '<p>Text</p><iframe src="java[](x)script:alert(1)"></iframe>'],
+		['invalid attribute name', `<p>Text<sup x[y]="${escapeHtml('[click](javascript:alert(1))')}">1</sup></p>`],
 	])('keeps %s inert in direct conversion', (_name, html) => {
 		expectSafe(createMarkdownContent(html, url));
 	});
@@ -124,6 +130,13 @@ describe('Markdown output security', () => {
 		expect(rendered.querySelector('iframe')?.getAttribute('src')).toBe('https://example.com/embed');
 		expect(rendered.querySelector('td a')?.getAttribute('href')).toBe('https://example.com/a');
 		expect(rendered.querySelector('td img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+	});
+
+	test('preserves literal text in kept elements', () => {
+		const text = 'a [b](c) `d` \\ <e> & "f"';
+		const rendered = expectSafe(createMarkdownContent(`<p>Text<sup title="${escapeHtml(text)}">${escapeHtml(text)}</sup></p>`, url));
+		expect(rendered.querySelector('sup')?.textContent).toBe(text);
+		expect(rendered.querySelector('sup')?.getAttribute('title')).toBe(text);
 	});
 
 	test('keeps input inert when conversion fails', () => {
