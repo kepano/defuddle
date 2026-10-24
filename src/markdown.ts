@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl } from './utils/dom';
+import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -174,6 +174,12 @@ function getBestImageSrc(node: GenericElement): string {
 // the survivor byte-for-byte so the quote depth is not rewritten.
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
+// Raw HTML in the Markdown must be safe even when the input was not sanitized.
+function sanitizedOuterHTML(element: Element): string {
+	const clone = element.cloneNode(true) as Element;
+	return stripUnsafeElements(clone) ? '' : clone.outerHTML;
+}
+
 export function createMarkdownContent(content: string, url: string) {
 	const turndownService = new TurndownService({
 		headingStyle: 'atx',
@@ -182,6 +188,10 @@ export function createMarkdownContent(content: string, url: string) {
 		codeBlockStyle: 'fenced',
 		emDelimiter: '*',
 		preformattedCode: true,
+		keepReplacement: (_content, node) => {
+			const html = sanitizedOuterHTML(node as unknown as Element);
+			return (node as any).isBlock ? '\n\n' + html + '\n\n' : html;
+		},
 	});
 
 	// Escape tag-like sequences (e.g. a post titled "Monte<video>") in text nodes so
@@ -847,6 +857,7 @@ export function createMarkdownContent(content: string, url: string) {
 		// Create a clone of the table to avoid modifying the original DOM
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
+		stripUnsafeElements(tableClone);
 
 		// Entity decoding here would turn literal text into HTML.
 		return tableClone.outerHTML;
@@ -1007,7 +1018,8 @@ export function createMarkdownContent(content: string, url: string) {
 	} catch (error) {
 		console.error('Error converting HTML to Markdown:', error);
 		console.log('Problematic content:', content.substring(0, 1000) + '...');
-		return `Partial conversion completed with errors. Original HTML:\n\n${content}`;
+		const fence = '`'.repeat(Math.max(3, ...[...content.matchAll(/`+/g)].map(match => match[0].length + 1)));
+		return `Partial conversion completed with errors. Original HTML:\n\n${fence}html\n${content}\n${fence}`;
 	}
 }
 

@@ -79,6 +79,76 @@ export function isDangerousUrl(url: string, allowInlineImage: boolean = true): b
 	return false;
 }
 
+// Mirrors the descendant removal list for unsafe-root checks.
+const UNSAFE_ELEMENT_TAGS = new Set([
+	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
+	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
+]);
+
+// Iframes are kept — same-origin policy isolates them, and they're widely used
+// for legitimate media embeds; their srcdoc and dangerous src are stripped in
+// the attribute pass. Math scripts are preserved for LaTeX content. SVG <style>
+// is removed too: CSS @import / url() inside it can fetch external resources
+// from the reader's IP. SVG SMIL elements can mutate sanitized URL attributes.
+// Template fragments evade descendant traversal and can cause mutation XSS.
+const UNSAFE_ELEMENT_SELECTOR =
+	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
+	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
+	'animateMotion, animateTransform, animateColor';
+
+const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+
+function isUnsafeElement(el: Element): boolean {
+	const tag = el.tagName.toUpperCase();
+	if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
+	return UNSAFE_ELEMENT_TAGS.has(tag);
+}
+
+/** Remove attributes, children, and inert template content from an unsafe root. */
+function neutralizeUnsafeElement(el: Element): void {
+	for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+	while (el.firstChild) el.removeChild(el.firstChild);
+	const content = (el as HTMLTemplateElement).content;
+	if (content) {
+		while (content.firstChild) content.removeChild(content.firstChild);
+	}
+}
+
+/**
+ * Remove dangerous elements, event handlers, srcdoc, and dangerous URLs from
+ * `root` and its descendants. Returns true when the root is itself unsafe and
+ * must not be serialized by the caller.
+ */
+export function stripUnsafeElements(root: Element): boolean {
+	// querySelectorAll omits the root; neutralize it and let the caller omit it.
+	const unsafeRoot = isUnsafeElement(root);
+	if (unsafeRoot) {
+		neutralizeUnsafeElement(root);
+	}
+
+	for (const el of Array.from(root.querySelectorAll(UNSAFE_ELEMENT_SELECTOR))) {
+		el.parentNode?.removeChild(el);
+	}
+
+	// Includes the root: callers serialize it with outerHTML.
+	for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+		for (const attr of Array.from(el.attributes)) {
+			const name = attr.name.toLowerCase();
+			if (name.startsWith('on') || name === 'srcdoc') {
+				el.removeAttribute(attr.name);
+			} else if (URL_ATTRIBUTES.has(name)) {
+				// An SVG document in an iframe can run script, so iframes get no data: URIs.
+				const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
+				if (isDangerousUrl(attr.value, allowInlineImage)) {
+					el.removeAttribute(attr.name);
+				}
+			}
+		}
+	}
+
+	return unsafeRoot;
+}
+
 /**
  * Check if an element belongs directly to an ancestor table,
  * not to an intervening nested TABLE.
