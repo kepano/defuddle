@@ -44,10 +44,17 @@ type PlayerV2Response = {
 	code: number;
 	message?: string;
 	data?: {
+		aid?: number;
 		subtitle?: {
 			subtitles?: PlayerSubtitleTrack[];
 		};
 	};
+};
+
+type PagelistResponse = {
+	code: number;
+	message?: string;
+	data?: ViewApiPage[];
 };
 
 type SubtitleLine = {
@@ -90,7 +97,24 @@ export class BilibiliExtractor extends BaseExtractor {
 		const bvid = this.getBvid();
 		if (!bvid) return this.buildResult();
 
-		const view = await this.fetchViewData(bvid);
+		let view = await this.fetchViewData(bvid);
+		if (!view?.aid || !view?.pages?.length) {
+			// The view API is Bilibili's most aggressively rate-limited
+			// endpoint (it frequently returns HTTP 412). The pagelist and
+			// player endpoints expose the same aid/cid pair and are not
+			// gated the same way, so fall back to them before giving up
+			// on the transcript.
+			const fallback = await this.fetchFallbackIds(bvid);
+			if (fallback) {
+				view = {
+					...fallback,
+					...view,
+					bvid,
+					aid: view?.aid ?? fallback.aid,
+					pages: view?.pages?.length ? view.pages : fallback.pages,
+				} as ViewApiData;
+			}
+		}
 		if (!view) return this.buildResult();
 
 		const { aid, pages = [] } = view;
@@ -159,7 +183,10 @@ export class BilibiliExtractor extends BaseExtractor {
 		pageNumber?: number,
 	): ExtractorResult {
 		const bvid = this.getBvid();
-		const title = view?.title || this.document.title || '';
+		// For single-part videos the pagelist part name is the video title;
+		// it is the only title available when the view API is unreachable.
+		const partTitle = view?.pages && view.pages.length > 1 ? '' : (pageInfo?.part || '');
+		const title = view?.title || partTitle || this.document.title || '';
 		const author = view?.owner?.name || '';
 		const desc = view?.desc || '';
 		const description = desc.slice(0, 200).trim();
@@ -248,7 +275,11 @@ export class BilibiliExtractor extends BaseExtractor {
 
 		const ranked = tracks
 			.map((t, index) => {
-				const code = this.normalizeLanguageCode(t.lan);
+				// dm/view codes AI tracks as ai-zh, ai-en, … — strip the
+				// "ai-" prefix so language preference/priority matching
+				// treats them as the language they actually are.
+				const rawCode = this.normalizeLanguageCode(t.lan);
+				const code = rawCode.startsWith('ai-') ? rawCode.slice(3) : rawCode;
 				let prefScore = 3;
 				if (pref) {
 					if (code === pref) prefScore = 0;
@@ -256,7 +287,7 @@ export class BilibiliExtractor extends BaseExtractor {
 					else if (prefBase && code.split('-')[0] === prefBase) prefScore = 2;
 				}
 
-				const aiScore = t.is_ai_subtitle || isLikelyAiDoc(t.lan_doc) ? 1 : 0;
+				const aiScore = t.is_ai_subtitle || rawCode.startsWith('ai-') || isLikelyAiDoc(t.lan_doc) ? 1 : 0;
 				const lp = langPriority(code);
 				const id = typeof t.id === 'number' ? t.id : Number.MAX_SAFE_INTEGER;
 				const doc = normalizeDoc(t.lan_doc);
@@ -292,6 +323,62 @@ export class BilibiliExtractor extends BaseExtractor {
 			const json = await response.json() as ViewApiResponse;
 			if (json?.code !== 0) return undefined;
 			return json.data;
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * Resolve aid/cid without the view API: the pagelist endpoint returns
+	 * the cid for every part, and the player endpoint echoes the aid for a
+	 * bvid+cid pair — both work in cases where the view API is rejected
+	 * with HTTP 412 (Bilibili risk control).
+	 */
+	private async fetchFallbackIds(bvid: string): Promise<{ aid?: number; pages?: ViewApiPage[] } | undefined> {
+		const pages = await this.fetchPagelist(bvid);
+		if (!pages?.length) return undefined;
+		const firstCid = pages[0]?.cid;
+		const aid = firstCid ? await this.fetchPlayerAid(bvid, firstCid) : undefined;
+		return aid ? { aid, pages } : { pages };
+	}
+
+	private async fetchPagelist(bvid: string): Promise<ViewApiPage[] | undefined> {
+		try {
+			const url = `https://api.bilibili.com/x/player/pagelist?bvid=${encodeURIComponent(bvid)}`;
+			const response = await this.fetch(url, {
+				headers: {
+					'Accept': 'application/json',
+					'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
+				},
+				credentials: 'include' as RequestCredentials,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+			});
+			if (!response.ok) return undefined;
+			const json = await response.json() as PagelistResponse;
+			if (json?.code !== 0 || !Array.isArray(json.data)) return undefined;
+			const pages = json.data.filter(p => typeof p?.cid === 'number');
+			return pages.length > 0 ? pages : undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
+	private async fetchPlayerAid(bvid: string, cid: number): Promise<number | undefined> {
+		try {
+			const url = `https://api.bilibili.com/x/player/v2?bvid=${encodeURIComponent(bvid)}&cid=${encodeURIComponent(String(cid))}`;
+			const response = await this.fetch(url, {
+				headers: {
+					'Accept': 'application/json',
+					'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
+				},
+				credentials: 'include' as RequestCredentials,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+			});
+			if (!response.ok) return undefined;
+			const json = await response.json() as PlayerV2Response;
+			if (json?.code !== 0) return undefined;
+			const aid = json.data?.aid;
+			return typeof aid === 'number' && aid > 0 ? aid : undefined;
 		} catch {
 			return undefined;
 		}
@@ -344,7 +431,10 @@ export class BilibiliExtractor extends BaseExtractor {
 	private async fetchTranscript(aid: number, cid: number, bvid: string): Promise<TranscriptResult | undefined> {
 		try {
 			// Deterministic API order to minimize drift across repeated extraction:
-			// 1) wbi/v2 (most complete), 2) v2 with bvid+cid, 3) v2 with aid+cid.
+			// 1) wbi/v2 (most complete), 2) v2 with bvid+cid, 3) v2 with aid+cid,
+			// 4) dm/view (the only endpoint that lists AI subtitle tracks for
+			// logged-out sessions; the player endpoints return an empty list
+			// together with need_login_subtitle in that case).
 			const urlWbi = `https://api.bilibili.com/x/player/wbi/v2?bvid=${encodeURIComponent(String(bvid))}&aid=${encodeURIComponent(String(aid))}&cid=${encodeURIComponent(String(cid))}`;
 			const urlBvid = `https://api.bilibili.com/x/player/v2?bvid=${encodeURIComponent(String(bvid))}&cid=${encodeURIComponent(String(cid))}`;
 			const urlAid = `https://api.bilibili.com/x/player/v2?aid=${encodeURIComponent(String(aid))}&cid=${encodeURIComponent(String(cid))}`;
@@ -359,6 +449,9 @@ export class BilibiliExtractor extends BaseExtractor {
 				if (tracks.length === 0) {
 					const third = await this.fetchPlayerV2(urlAid);
 					tracks = third.tracks;
+				}
+				if (tracks.length === 0) {
+					tracks = await this.fetchDmViewTracks(aid, cid);
 				}
 			}
 
@@ -394,10 +487,60 @@ export class BilibiliExtractor extends BaseExtractor {
 			if (!transcript) {
 				return undefined;
 			}
-			return { ...transcript, languageCode: picked.lan };
+			// dm/view prefixes AI track codes with "ai-" (ai-zh, ai-en, …);
+			// that is a track-type marker, not part of the language code.
+			return { ...transcript, languageCode: picked.lan.replace(/^ai-/i, '') };
 		} catch {
 			return undefined;
 		}
+	}
+
+	/**
+	 * The danmaku view endpoint lists subtitle tracks — including the
+	 * AI-generated ones (lan codes ai-zh, ai-en, …) — without requiring a
+	 * logged-in session, unlike the player endpoints.
+	 */
+	private async fetchDmViewTracks(aid: number, cid: number): Promise<PlayerSubtitleTrack[]> {
+		try {
+			const url = `https://api.bilibili.com/x/v2/dm/view?type=1&oid=${encodeURIComponent(String(cid))}&pid=${encodeURIComponent(String(aid))}`;
+			const response = await this.fetch(url, {
+				headers: {
+					'Accept': 'application/json',
+					'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
+				},
+				credentials: 'include' as RequestCredentials,
+				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+			});
+			if (!response.ok) {
+				return [];
+			}
+			const json = await response.json() as any;
+			if (typeof json?.code === 'number' && json.code !== 0) {
+				return [];
+			}
+			// dm/view returns http:// subtitle URLs; upgrade them to https
+			// for the allow-listed CDN hosts so normalizeSubtitleUrl —
+			// which only accepts https — does not reject them.
+			return this.parseSubtitleTracks(json)
+				.map(t => ({ ...t, subtitle_url: this.upgradeSubtitleUrlScheme(t.subtitle_url) }));
+		} catch {
+			return [];
+		}
+	}
+
+	private upgradeSubtitleUrlScheme(url: string): string {
+		const trimmed = (url || '').trim();
+		if (!trimmed.toLocaleLowerCase().startsWith('http://')) return url;
+		try {
+			const parsed = new URL(trimmed);
+			if (this.isAllowedSubtitleHost(parsed)) {
+				parsed.protocol = 'https:';
+				return parsed.toString();
+			}
+		} catch {
+			// Not a parseable URL; leave it for normalizeSubtitleUrl to reject.
+		}
+		return url;
 	}
 
 	private normalizeSubtitleUrl(url: string): URL | null {
