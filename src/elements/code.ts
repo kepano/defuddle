@@ -286,17 +286,33 @@ export const codeBlockRules = [
 				return '';
 			};
 
+			// Whether a parent contains line elements, cached per parent. A
+			// line-number gutter holds one whitespace text node per line under a
+			// single parent, and querying that parent once per node is quadratic.
+			// extractStructuredText only reads the DOM, and runs after the removals
+			// above, so cached answers stay valid.
+			const lineParents = new WeakMap<Element, boolean>();
+			const hasLineElements = (parent: Element | null): boolean => {
+				if (!parent) return false;
+				let has = lineParents.get(parent);
+				if (has === undefined) {
+					has = !!parent.querySelector('[data-line], .line');
+					lineParents.set(parent, has);
+				}
+				return has;
+			};
+
 			// Recursively extract text content while preserving structure
 			const extractStructuredText = (element: Node): string => {
 				if (isTextNode(element)) {
+					const text = element.textContent || '';
 					// Skip whitespace-only text nodes between line spans
 					// (e.g. rehype-pretty-code / Shiki), since line handling
 					// already appends a newline per line.
-					if (element.parentElement?.querySelector('[data-line], .line') &&
-						!(element.textContent || '').trim()) {
+					if (!text.trim() && hasLineElements(element.parentElement)) {
 						return '';
 					}
-					return element.textContent || '';
+					return text;
 				}
 				
 				let text = '';
