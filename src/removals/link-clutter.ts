@@ -23,6 +23,13 @@ const DEPTH_DECAY = 0.1;
 const CJK_SAMPLE_NODES = 3;
 const CJK_SAMPLE_CHARS = 12;
 const CJK_MULTIPLIER = 3;
+const CJK_MIN_SHARE = 0.5;
+
+// Class multiplier contributions
+const ARTICLE_TAG_WEIGHT = 0.5;
+const BODY_NAME_WEIGHT = 0.5;
+const BOILERPLATE_NAME_PENALTY = 0.75;
+const SLIDER_NAME_PENALTY = 0.75;
 
 // Block proof
 const MIN_LINK_SHARE = 0.75;
@@ -99,7 +106,8 @@ const NOTES_SELECTOR = [
 	'[role="doc-bibliography"]'
 ].join(',');
 const MEDIA_SELECTOR = 'img, picture, video, audio, iframe, frame, embed, object, figure';
-const PROTECTED_SELECTOR = 'th, pre, figure, picture';
+// Figures, pictures and media embeds are kept at any size
+const PROTECTED_SELECTOR = 'th, pre, figure, picture, video, audio, iframe, embed, object';
 const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
 
 // Prompts that tell the reader the article continues elsewhere or is gated
@@ -253,7 +261,7 @@ export function findLinkClutterAnchor(doc: Document): Element | null {
 		if (!base) return 0;
 		const multiplier = Math.max(0, 1 + weightOf(el));
 		const s = samples.get(el);
-		const script = s && s.total > 0 && s.cjk * 2 >= s.total ? CJK_MULTIPLIER : 1;
+		const script = s && s.total > 0 && s.cjk >= s.total * CJK_MIN_SHARE ? CJK_MULTIPLIER : 1;
 		return base * multiplier * script;
 	};
 
@@ -282,11 +290,11 @@ function ownClassWeight(el: Element): number {
 	let weight = 0;
 	for (const value of [el.getAttribute('id') || '', getClassName(el)]) {
 		if (!value.trim()) continue;
-		if (value.split(/\s+/).some(token => BODY_CLASS_PATTERN.test(token))) weight += 0.5;
-		if (BOILERPLATE_CLASS_PATTERN.test(value)) weight -= 0.75;
-		if (SLIDER_CLASS_PATTERN.test(value)) weight -= 0.75;
+		if (value.split(/\s+/).some(token => BODY_CLASS_PATTERN.test(token))) weight += BODY_NAME_WEIGHT;
+		if (BOILERPLATE_CLASS_PATTERN.test(value)) weight -= BOILERPLATE_NAME_PENALTY;
+		if (SLIDER_CLASS_PATTERN.test(value)) weight -= SLIDER_NAME_PENALTY;
 	}
-	if (tagOf(el) === 'article') weight += 0.5;
+	if (tagOf(el) === 'article') weight += ARTICLE_TAG_WEIGHT;
 	return weight;
 }
 
@@ -328,10 +336,12 @@ function widenAnchor(winner: Element, score: (el: Element) => number): Element {
 		return article;
 	}
 
-	// 4. Sectioned body inside a body container
+	// 4. Sectioned body inside a body container. The search stops at an
+	// article: an article is a whole piece, never one part of a sectioned body.
 	const section = winner.closest('section');
 	const sectionParent = section?.parentElement;
-	if (section && sectionParent && sectionParent.matches(BODY_CONTAINER_SELECTOR)) {
+	const outsideArticle = !!section && !(article && section.contains(article));
+	if (section && outsideArticle && sectionParent && sectionParent.matches(BODY_CONTAINER_SELECTOR)) {
 		const hasPeers = Array.from(sectionParent.children).some(child =>
 			child !== section && (tagOf(child) === 'section' || tagOf(child) === 'header')
 		);
@@ -556,7 +566,7 @@ export function removeLinkClutter(
 	if (anchorWords === 0) return skip('anchor has no words');
 	const selectionWords = wordsOf(mainContent);
 	if (anchorWords < selectionWords * MIN_ANCHOR_SHARE) {
-		return skip('anchor share below 20%');
+		return skip(`anchor share below ${Math.round(MIN_ANCHOR_SHARE * 100)}%`);
 	}
 
 	const proven: Candidate[] = [];
@@ -583,7 +593,7 @@ export function removeLinkClutter(
 
 	const provenWords = proven.reduce((sum, c) => sum + c.words, 0);
 	if (selectionWords - provenWords < WORD_FLOOR) {
-		return skip('under 120-word floor');
+		return skip(`under ${WORD_FLOOR}-word floor`);
 	}
 
 	for (const candidate of proven) {

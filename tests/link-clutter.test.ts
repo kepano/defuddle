@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { DefuddleOptions, DefuddleResponse } from '../src/types';
-import { countBlockWords, removeLinkClutter } from '../src/removals/link-clutter';
+import { countBlockWords, findLinkClutterAnchor, removeLinkClutter } from '../src/removals/link-clutter';
 import { parseDocument } from './helpers';
 
 const URL = 'https://example.com/news/council-park-plan';
@@ -347,6 +347,30 @@ describe('Link clutter removal', () => {
 			expect(result.content).toContain('The riverside path at dawn');
 			expect(clutterRemovals(result)).toHaveLength(0);
 		}
+	});
+
+	test('keeps a linked block that holds a media embed, at any size', async () => {
+		// Three linked headlines are well over the small media limit, so only
+		// the embed guard can keep these blocks
+		const links = HEADLINES.slice(0, 3).map((h, i) => link(h, i)).join(' ');
+		for (const embed of [
+			'<video controls src="https://example.com/clip.mp4"></video>',
+			'<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="640" height="360"></iframe>',
+		]) {
+			for (const result of await extract(page({ after: `<div class="story-extra">${embed}${links}</div>` }))) {
+				expect(result.content).toContain(HEADLINES[2]);
+				expect(clutterRemovals(result)).toHaveLength(0);
+			}
+		}
+	});
+
+	test('widens a section of a sectioned body, but never past an article', () => {
+		const body = PARAGRAPHS.map(p => `<p>${p}</p>`).join('');
+		const closing = '<section><p>A short closing note for our readers.</p></section>';
+		const anchorOf = (inner: string) => findLinkClutterAnchor(parseDocument(
+			`<html><head><title>T</title></head><body><main><h1>T</h1>${inner}</main></body></html>`, URL));
+		expect(anchorOf(`<section>${body}</section>${closing}`)?.tagName.toLowerCase()).toBe('main');
+		expect(anchorOf(`<section><article>${body}</article></section>${closing}`)?.tagName.toLowerCase()).toBe('article');
 	});
 
 	test('is disabled together with low-score removal', async () => {
