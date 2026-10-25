@@ -18,6 +18,7 @@ import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
+import { findLinkClutterAnchor, removeLinkClutter } from './removals/link-clutter';
 import { getComputedStyle, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, getClassName, classOrIdSelector, stripUnsafeElements } from './utils/dom';
 
@@ -972,6 +973,12 @@ export class Defuddle {
 				return null;
 			}
 
+			// Find the densest run of prose before any removals, so link clutter
+			// removal can tell which part of the main content is the body.
+			const linkClutterAnchor = options.removeLowScoring
+				? profileStep('findLinkClutterAnchor', () => findLinkClutterAnchor(clone))
+				: null;
+
 			// Generate before removals and unsafe-root neutralization, so sibling
 			// positions, id, and classes match the DOM a contentSelector retry queries.
 			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
@@ -1056,6 +1063,14 @@ export class Defuddle {
 				if (options.removeContentPatterns && mainContent) {
 					const url = this.options.url || this.doc.URL || '';
 					removeByContentPattern(mainContent!, this.debug, url, metadata.title || '', metadata.description || '', debugRemovals);
+				}
+			});
+
+			// Remove link-dominated blocks (headline rails, related links, author
+			// link cards) beside the path from the prose anchor to the main content
+			profileStep('removeLinkClutter', () => {
+				if (options.removeLowScoring) {
+					removeLinkClutter(mainContent!, linkClutterAnchor, this.debug, debugRemovals);
 				}
 			});
 
