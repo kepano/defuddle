@@ -50,6 +50,7 @@
 		"dev": "npm run clean && npm run build:types && concurrently \"npm run dev:types\" \"npm run dev:node\" \"npm run dev:js\"",
 		"test": "TZ=UTC vitest run",
 		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
+		"lint:extractor-names": "node scripts/check-extractor-names.mjs",
 		"lint:innerhtml": "node scripts/check-no-innerhtml.mjs",
 		"lint:unused": "tsc --noEmit --noUnusedLocals",
 		"size": "node scripts/check-bundle-size.mjs",
