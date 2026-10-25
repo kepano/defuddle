@@ -289,6 +289,7 @@ describe('BilibiliExtractor — extractAsync', () => {
 	test('returns empty result when fetchViewData fails', async () => {
 		const e = createExtractor();
 		(e as any).fetchViewData = vi.fn().mockResolvedValue(undefined);
+		(e as any).fetchFallbackIds = vi.fn().mockResolvedValue(undefined);
 
 		const result = await e.extractAsync();
 		expect(result.variables!.title).toBeFalsy();
@@ -303,5 +304,125 @@ describe('BilibiliExtractor — extractAsync', () => {
 		const result = createExtractor().extract();
 		expect(result).toBeDefined();
 		expect(result.content).toBeDefined();
+	});
+});
+
+describe('BilibiliExtractor — pickSubtitleTrack with dm/view ai-* codes', () => {
+	test('prefers ai-zh over ai-en when no preference', () => {
+		const picked = (createExtractor() as any).pickSubtitleTrack([
+			{ lan: 'ai-en', subtitle_url: 'https://aisubtitle.hdslb.com/en', lan_doc: '英语（自动翻译）', id: 1 },
+			{ lan: 'ai-zh', subtitle_url: 'https://aisubtitle.hdslb.com/zh', lan_doc: '中文（自动生成）', id: 2 },
+		]);
+		expect(picked.lan).toBe('ai-zh');
+	});
+
+	test('respects explicit language preference for ai-* tracks', () => {
+		const e = createExtractor(undefined, undefined, { language: 'en' });
+		const picked = (e as any).pickSubtitleTrack([
+			{ lan: 'ai-zh', subtitle_url: 'https://aisubtitle.hdslb.com/zh', id: 1 },
+			{ lan: 'ai-en', subtitle_url: 'https://aisubtitle.hdslb.com/en', id: 2 },
+		], (e as any).normalizeLanguageCode((e as any).options.language));
+		expect(picked.lan).toBe('ai-en');
+	});
+
+	test('prefers a human track over an ai-* track in the same language', () => {
+		const picked = (createExtractor() as any).pickSubtitleTrack([
+			{ lan: 'ai-zh', subtitle_url: 'https://aisubtitle.hdslb.com/zh', id: 1 },
+			{ lan: 'zh-cn', subtitle_url: 'https://i0.hdslb.com/zh.json', id: 2 },
+		]);
+		expect(picked.lan).toBe('zh-cn');
+	});
+});
+
+describe('BilibiliExtractor — upgradeSubtitleUrlScheme', () => {
+	test('upgrades http to https for allow-listed CDN hosts', () => {
+		expect((createExtractor() as any).upgradeSubtitleUrlScheme('http://aisubtitle.hdslb.com/bfs/ai_subtitle/prod/123?auth_key=abc'))
+			.toBe('https://aisubtitle.hdslb.com/bfs/ai_subtitle/prod/123?auth_key=abc');
+	});
+
+	test('leaves http URLs for other hosts unchanged', () => {
+		expect((createExtractor() as any).upgradeSubtitleUrlScheme('http://evil.com/sub.json'))
+			.toBe('http://evil.com/sub.json');
+	});
+
+	test('leaves https and protocol-relative URLs unchanged', () => {
+		expect((createExtractor() as any).upgradeSubtitleUrlScheme('https://i0.hdslb.com/zh.json'))
+			.toBe('https://i0.hdslb.com/zh.json');
+		expect((createExtractor() as any).upgradeSubtitleUrlScheme('//i0.hdslb.com/zh.json'))
+			.toBe('//i0.hdslb.com/zh.json');
+	});
+});
+
+describe('BilibiliExtractor — fetchTranscript dm/view fallback', () => {
+	test('uses dm/view tracks when the player endpoints return none', async () => {
+		const fetchedSubtitleUrls: string[] = [];
+		const jsonResponse = (data: any) => ({ ok: true, status: 200, json: async () => data });
+		const mockFetch = vi.fn(async (input: any) => {
+			const url = String(input);
+			if (url.includes('/x/player/wbi/v2') || url.includes('/x/player/v2')) {
+				return jsonResponse({ code: 0, data: { subtitle: { subtitles: [] } } });
+			}
+			if (url.includes('/x/v2/dm/view')) {
+				expect(url).toContain('oid=456');
+				expect(url).toContain('pid=123');
+				return jsonResponse({ code: 0, data: { subtitle: { subtitles: [
+					{ lan: 'ai-en', lan_doc: '英语（自动翻译）', subtitle_url: 'http://aisubtitle.hdslb.com/bfs/ai_subtitle/en', id: 11 },
+					{ lan: 'ai-zh', lan_doc: '中文（自动生成）', subtitle_url: 'http://aisubtitle.hdslb.com/bfs/ai_subtitle/zh', id: 12 },
+				] } } });
+			}
+			if (url.includes('aisubtitle.hdslb.com')) {
+				fetchedSubtitleUrls.push(url);
+				return jsonResponse({ body: [
+					{ from: 0, to: 2, content: '你好世界' },
+					{ from: 2, to: 4, content: '第二句' },
+				] });
+			}
+			throw new Error(`unexpected fetch: ${url}`);
+		});
+
+		const e = createExtractor(undefined, undefined, { fetch: mockFetch as any });
+		const transcript = await (e as any).fetchTranscript(123, 456, 'BV1nNkFBMEDS');
+
+		expect(transcript).toBeDefined();
+		expect(transcript.text).toContain('你好世界');
+		expect(transcript.languageCode).toBe('zh');
+		// The ai-zh track wins over ai-en, and its http:// URL was upgraded.
+		expect(fetchedSubtitleUrls).toEqual(['https://aisubtitle.hdslb.com/bfs/ai_subtitle/zh']);
+	});
+});
+
+describe('BilibiliExtractor — view API fallback ids', () => {
+	test('fetchFallbackIds combines pagelist pages with the player aid', async () => {
+		const e = createExtractor();
+		(e as any).fetchPagelist = vi.fn().mockResolvedValue([{ cid: 456, page: 1 }]);
+		(e as any).fetchPlayerAid = vi.fn().mockResolvedValue(123);
+		await expect((e as any).fetchFallbackIds('BV1nNkFBMEDS'))
+			.resolves.toEqual({ aid: 123, pages: [{ cid: 456, page: 1 }] });
+	});
+
+	test('fetchFallbackIds returns undefined when pagelist has no pages', async () => {
+		const e = createExtractor();
+		(e as any).fetchPagelist = vi.fn().mockResolvedValue(undefined);
+		await expect((e as any).fetchFallbackIds('BV1nNkFBMEDS')).resolves.toBeUndefined();
+	});
+
+	test('extractAsync still gets a transcript when the view API fails', async () => {
+		(BilibiliExtractor as any).transcriptCache.clear();
+		const e = createExtractor(undefined, 'https://www.bilibili.com/video/BV1FALLBACK1');
+		(e as any).fetchViewData = vi.fn().mockResolvedValue(undefined);
+		(e as any).fetchFallbackIds = vi.fn().mockResolvedValue({
+			aid: 123, pages: [{ cid: 456, page: 1, part: 'Part 1' }],
+		});
+		(e as any).fetchTranscript = vi.fn().mockResolvedValue({
+			html: '<div class="bilibili transcript"><h2>Transcript</h2></div>',
+			text: '**0:00** · 你好世界',
+			languageCode: 'zh-cn',
+		});
+
+		const result = await e.extractAsync();
+		expect(result.variables!.transcript).toContain('你好世界');
+		expect(result.extractedContent.cid).toBe('456');
+		// Single-part fallback: the pagelist part name serves as the title.
+		expect(result.variables!.title).toBe('Part 1');
 	});
 });
