@@ -286,17 +286,27 @@ export const codeBlockRules = [
 				return '';
 			};
 
+			// Cache descendant checks so whitespace between table rows does not
+			// trigger a full parent subtree scan for every row.
+			const parentHasLines = new WeakMap<Element, boolean>();
+
 			// Recursively extract text content while preserving structure
 			const extractStructuredText = (element: Node): string => {
 				if (isTextNode(element)) {
+					const text = element.textContent || '';
+					const parent = element.parentElement;
 					// Skip whitespace-only text nodes between line spans
 					// (e.g. rehype-pretty-code / Shiki), since line handling
 					// already appends a newline per line.
-					if (element.parentElement?.querySelector('[data-line], .line') &&
-						!(element.textContent || '').trim()) {
-						return '';
+					if (!text.trim() && parent) {
+						let hasLines = parentHasLines.get(parent);
+						if (hasLines === undefined) {
+							hasLines = !!parent.querySelector('[data-line], .line');
+							parentHasLines.set(parent, hasLines);
+						}
+						if (hasLines) return '';
 					}
-					return element.textContent || '';
+					return text;
 				}
 				
 				let text = '';
