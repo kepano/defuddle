@@ -1489,11 +1489,13 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 		);
 		if (!isSingleColumn) return;
 
+		// Keep each cell as its own block so rows don't run together;
+		// flattenWrapperElements unwraps these divs later.
 		const fragment = doc.createDocumentFragment();
 		directCells.forEach(cell => {
-			while (cell.firstChild) {
-				fragment.appendChild(cell.firstChild);
-			}
+			const block = doc.createElement('div');
+			transferContent(cell, block);
+			fragment.appendChild(block);
 		});
 		table.replaceWith(fragment);
 		processedCount++;
