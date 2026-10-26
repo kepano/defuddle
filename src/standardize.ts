@@ -1734,19 +1734,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			return true;
 		}
 
-		// Case 5: Element has single child - unwrap only if child is block-level
-		if (el.children.length === 1) {
-			const child = el.firstElementChild!;
-			const childTag = child.tagName.toLowerCase();
-			
-			// Only unwrap if the single child is a block element and not preserved
-			if (BLOCK_ELEMENTS_SET.has(childTag) && !shouldPreserveElement(child)) {
-				el.replaceWith(child);
-				processedCount++;
-				return true;
-			}
-		}
-
 		return false;
 	};
 
