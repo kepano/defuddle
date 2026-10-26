@@ -224,6 +224,8 @@ export const imageRules = [
 		selector: 'figure, p:has([class*="caption"])',
 		element: 'figure',
 		transform: (el: Element, doc: Document): Element => {
+			// Nested figures are separate panels, not copies of one image.
+			if (el.querySelector('figure')) return el;
 			try {
 				const hasImage = containsImage(el);
 				if (!hasImage) {
@@ -524,7 +526,9 @@ function findCaption(element: Element): Element | null {
 	
 	// Check for sibling elements that might contain captions
 	// This is useful for cases like the example where the caption is in a sibling div
-	if (element.parentElement) {
+	// A subfigure's siblings belong to the enclosing figure, not to this image.
+	const isNestedFigure = element.tagName.toLowerCase() === 'figure' && element.parentElement?.closest('figure');
+	if (element.parentElement && !isNestedFigure) {
 		const parent = element.parentElement;
 		const siblings = parent.children;
 		
