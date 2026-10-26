@@ -1216,6 +1216,27 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
+	// LaTeXML (arXiv) keeps each footnote body in a hidden span.ltx_note_outer
+	// next to its marker. Replace each note with a reference to its body.
+	private collectLatexmlFootnotes(element: any, footnotes: FootnoteCollection): void {
+		let footnoteCount = Math.max(0, ...Object.keys(footnotes).map(Number)) + 1;
+		element.querySelectorAll('span.ltx_note.ltx_role_footnote').forEach((note: any) => {
+			const content = note.querySelector('.ltx_note_content')?.cloneNode(true);
+			if (!content) return;
+			content.querySelectorAll('.ltx_note_mark, .ltx_tag_note').forEach((label: any) => label.remove());
+			this.trimLeadingWhitespace(content);
+
+			footnotes[footnoteCount] = {
+				content,
+				originalId: note.id,
+				refs: [`fnref:${footnoteCount}`]
+			};
+
+			note.replaceWith(this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`));
+			footnoteCount++;
+		});
+	}
+
 	standardizeFootnotes(element: any) {
 		const sidenotes = this.collectInlineSidenotes(element);
 		const footnotes = this.collectHiddenAsideFootnotes(element);
@@ -1367,6 +1388,7 @@ class FootnoteHandler {
 		newList.id = 'footnotes';
 		const orderedList = this.doc.createElement('ol');
 		const allFootnotes = { ...sidenotes, ...footnotes };
+		this.collectLatexmlFootnotes(element, allFootnotes);
 
 		Object.entries(allFootnotes).forEach(([number, data]) => {
 			orderedList.appendChild(this.createFootnoteItem(parseInt(number), data.content, data.refs));
