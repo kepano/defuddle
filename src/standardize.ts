@@ -1489,11 +1489,13 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 		);
 		if (!isSingleColumn) return;
 
+		// Keep each cell as its own block so rows don't run together;
+		// flattenWrapperElements unwraps these divs later.
 		const fragment = doc.createDocumentFragment();
 		directCells.forEach(cell => {
-			while (cell.firstChild) {
-				fragment.appendChild(cell.firstChild);
-			}
+			const block = doc.createElement('div');
+			transferContent(cell, block);
+			fragment.appendChild(block);
 		});
 		table.replaceWith(fragment);
 		processedCount++;
@@ -1732,19 +1734,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			el.replaceWith(p);
 			processedCount++;
 			return true;
-		}
-
-		// Case 5: Element has single child - unwrap only if child is block-level
-		if (el.children.length === 1) {
-			const child = el.firstElementChild!;
-			const childTag = child.tagName.toLowerCase();
-			
-			// Only unwrap if the single child is a block element and not preserved
-			if (BLOCK_ELEMENTS_SET.has(childTag) && !shouldPreserveElement(child)) {
-				el.replaceWith(child);
-				processedCount++;
-				return true;
-			}
 		}
 
 		return false;
