@@ -247,6 +247,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('removeOrphanedDividers[2]', () => removeOrphanedDividers(element));
 		step('stripExtraBrElements', () => stripExtraBrElements(element));
 		step('removeEmptyLines', () => removeEmptyLines(element, doc));
+		step('normalizeDisplayMathParagraphs', () => normalizeDisplayMathParagraphs(element));
 	} else {
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
@@ -722,6 +723,27 @@ function unwrapBareSpans(element: Element): void {
 	}
 
 	logDebug(_debug, 'Unwrapped bare spans:', unwrappedCount);
+}
+
+function normalizeDisplayMathParagraphs(element: Element): void {
+	// Rich-text importers may flatten display math in a paragraph's inline-only
+	// content. Keep a block wrapper so Markdown retains paragraph separation.
+	for (const math of element.querySelectorAll('p > math[display="block"]')) {
+		const paragraph = math.parentElement!;
+		// The caller retains and serializes the selected root element.
+		if (paragraph === element) continue;
+
+		if (Array.from(paragraph.childNodes).every(node =>
+			node === math || (isTextNode(node) && !node.textContent?.trim())
+		)) {
+			const block = paragraph.ownerDocument.createElement('div');
+			for (const attr of Array.from(paragraph.attributes)) {
+				block.setAttribute(attr.name, attr.value);
+			}
+			transferContent(paragraph, block);
+			paragraph.replaceWith(block);
+		}
+	}
 }
 
 const LIGHT_DARK_RE = /light-dark\(\s*([^,]+?)\s*,\s*[^)]+?\)/g;
