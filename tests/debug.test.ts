@@ -114,6 +114,18 @@ describe('Pipeline toggles', () => {
 });
 
 describe('contentSelector', () => {
+	test('preserves a display equation when its paragraph is the selected root', async () => {
+		const url = 'https://example.com/equation';
+		const doc = parseDocument('<html><body><p id="equation"><math display="block" data-latex="x^2">x^2</math></p></body></html>', url);
+		const result = await Defuddle(doc, url, {
+			contentSelector: '#equation',
+			separateMarkdown: true,
+		});
+
+		expect(result.content).toContain('<math');
+		expect(result.contentMarkdown).toBe('$$\nx^2\n$$');
+	});
+
 	test('contentSelector selects the specified element', async () => {
 		// Use a broad selector that should exist in any HTML page
 		const result = await Defuddle(parseDocument(fixtureHtml, fixtureUrl), fixtureUrl, {
