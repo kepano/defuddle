@@ -12,11 +12,11 @@ This article describes three mathematical expressions. Each equation includes it
 $$
 x
 $$
- 
+
 $$
 y
 $$
- 
+
 $$
 z
 $$
