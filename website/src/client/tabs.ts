@@ -22,9 +22,11 @@ export function setupPlaygroundTabs() {
       update();
     });
     tab.addEventListener('keydown', (event) => {
+      const forward = getComputedStyle(tab).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+      const backward = forward === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
       let next: number;
-      if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
-      else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length;
+      if (event.key === forward) next = (index + 1) % tabs.length;
+      else if (event.key === backward) next = (index + tabs.length - 1) % tabs.length;
       else if (event.key === 'Home') next = 0;
       else if (event.key === 'End') next = tabs.length - 1;
       else return;

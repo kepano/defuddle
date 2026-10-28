@@ -3,6 +3,7 @@
   --selected-index: 0;
   --pill-scale: 1;
   --pill-shift: 0%;
+  --pill-direction: 1;
 
   position: relative;
   isolation: isolate;
@@ -19,15 +20,19 @@
     position: absolute;
     z-index: -1;
     inset-block: 0;
-    left: 0;
+    inset-inline-start: 0;
     width: calc(100% / var(--segment-count));
     border-radius: var(--radius-pill);
     background: var(--line);
     pointer-events: none;
-    transform: translateX(calc(var(--selected-index) * 100% + var(--pill-shift))) scaleX(var(--pill-scale));
+    transform: translateX(calc((var(--selected-index) * 100% + var(--pill-shift)) * var(--pill-direction))) scaleX(var(--pill-scale));
     transform-origin: left center;
     transition: transform 200ms ease;
   }
+
+  // In right-to-left pages the options run from the right, so the pill moves the other way.
+  &:dir(rtl) { --pill-direction: -1; }
+  &:dir(rtl)::before { transform-origin: right center; }
 
   @for $index from 1 through 4 {
     &:has(> button:nth-of-type(#{$index}):is([aria-selected="true"], [aria-pressed="true"])) {
@@ -73,7 +78,7 @@
   @media (prefers-reduced-motion: reduce) {
     &::before {
       transition: none;
-      transform: translateX(calc(var(--selected-index) * 100%));
+      transform: translateX(calc(var(--selected-index) * 100% * var(--pill-direction)));
     }
   }
 }

@@ -111,7 +111,7 @@ export function getSuccessPage(sessionId: string): string {
 
 		<div id="error" class="error" style="display:none">
 			<span id="errorMsg"></span>
-			<a href="/pricing" style="color:var(--syntax-red); margin-left: 0.25rem;">Return to pricing</a>
+			<a href="/pricing" style="color:var(--syntax-red); margin-inline-start: 0.25rem;">Return to pricing</a>
 		</div>
 
 		${getFooterHTML()}

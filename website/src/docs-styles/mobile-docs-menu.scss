@@ -28,7 +28,7 @@
       position: absolute;
       z-index: -1;
       inset-block: 0;
-      left: calc(50% - 50vw);
+      inset-inline-start: calc(50% - 50vw);
       width: 100vw;
       background: var(--ink);
     }
