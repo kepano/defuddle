@@ -2,7 +2,6 @@
  * Standardization rules for handling images
  */
 
-import { isElement, isTextNode } from '../utils';
 import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
@@ -51,7 +50,7 @@ export const imageRules = [
 				if (bestSource) {
 					bestSrcset = bestSource.getAttribute('srcset');
 					if (bestSrcset) {
-						bestSrc = extractFirstUrlFromSrcset(bestSrcset);
+						bestSrc = extractLargestUrlFromSrcset(bestSrcset);
 					}
 				}
 			}
@@ -62,7 +61,7 @@ export const imageRules = [
 			if (bestSrc && isValidImageUrl(bestSrc)) {
 				imgElement.setAttribute('src', bestSrc);
 			} else if (!imgElement.hasAttribute('src') || !isValidImageUrl(imgElement.getAttribute('src') || '')) {
-				const firstUrl = extractFirstUrlFromSrcset(imgElement.getAttribute('srcset') || bestSrcset || '');
+				const firstUrl = extractLargestUrlFromSrcset(imgElement.getAttribute('srcset') || bestSrcset || '');
 				if (firstUrl && isValidImageUrl(firstUrl)) {
 					imgElement.setAttribute('src', firstUrl);
 				}
@@ -296,7 +295,7 @@ function applySrcsetToImage(srcset: string, img: Element): void {
 	img.setAttribute('srcset', srcset);
 	
 	// Extract the first URL from srcset as the src
-	const firstUrl = extractFirstUrlFromSrcset(srcset);
+	const firstUrl = extractLargestUrlFromSrcset(srcset);
 	if (firstUrl && isValidImageUrl(firstUrl)) {
 		img.setAttribute('src', firstUrl);
 	}
@@ -596,45 +595,11 @@ function findCaption(element: Element): Element | null {
 }
 
 /**
- * Extract unique caption content to avoid duplication
+ * Extract caption content, preserving inline formatting such as links and
+ * footnote references rather than flattening it to plain text.
  */
 function extractUniqueCaptionContent(caption: Element): string {
-	// Get all text nodes and elements with text content
-	const textNodes: string[] = [];
-	const processedTexts = new Set<string>();
-	
-	// Helper function to process a node
-	const processNode = (node: Node) => {
-		if (isTextNode(node)) {
-			const text = node.textContent?.trim() || '';
-			if (text && !processedTexts.has(text)) {
-				textNodes.push(text);
-				processedTexts.add(text);
-			}
-		} else if (isElement(node)) {
-			// Process child nodes
-			const childNodes = node.childNodes;
-			for (let i = 0; i < childNodes.length; i++) {
-				processNode(childNodes[i]);
-			}
-		}
-	};
-	
-	// Process all child nodes
-	const childNodes = caption.childNodes;
-	for (let i = 0; i < childNodes.length; i++) {
-		processNode(childNodes[i]);
-	}
-	
-	// If we found unique text nodes, use them
-	if (textNodes.length > 0) {
-		return textNodes.join(' ');
-	}
-	
-	// Otherwise, just use the inner HTML but try to clean it up
-	const html = serializeHTML(caption);
-	
-	return html;
+	return serializeHTML(caption).trim();
 }
 
 /**
@@ -786,12 +751,14 @@ function processSourceElement(element: Element, doc: Document): Element {
 }
 
 /**
- * Extract the first URL from a srcset attribute.
+ * Extract the highest-resolution URL from a srcset attribute.
+ * Markdown keeps a single src, so pick the largest candidate rather than the
+ * first (which is usually the smallest).
  * Handles URLs that contain commas (e.g., Substack CDN URLs like
  * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
  * by parsing based on width/density descriptors rather than splitting on commas.
  */
-function extractFirstUrlFromSrcset(srcset: string): string | null {
+function extractLargestUrlFromSrcset(srcset: string): string | null {
 	if (!srcset || !srcset.trim()) return null;
 
 	const trimmed = srcset.trim();
@@ -800,9 +767,11 @@ function extractFirstUrlFromSrcset(srcset: string): string | null {
 	// Each entry ends with a width descriptor (e.g., "424w") or density descriptor (e.g., "2x").
 	// The URL is everything before the whitespace that precedes the descriptor.
 	// This handles URLs containing commas (which would break a simple comma-split).
-	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
+	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?)[wx]/g;
 	let match;
 	let lastIndex = 0;
+	let bestUrl: string | null = null;
+	let bestSize = -1;
 
 	while ((match = entryPattern.exec(trimmed)) !== null) {
 		// Extract URL from this entry, trimming any leading comma+whitespace from previous entry
@@ -819,8 +788,14 @@ function extractFirstUrlFromSrcset(srcset: string): string | null {
 		// Skip SVG data URLs
 		if (isSvgDataUrl(url)) continue;
 
-		return url;
+		const size = parseFloat(match[2]);
+		if (size > bestSize) {
+			bestSize = size;
+			bestUrl = url;
+		}
 	}
+
+	if (bestUrl) return bestUrl;
 
 	// Fallback: try extracting URL before first whitespace (for srcset with single entry and no descriptor)
 	const urlMatch = trimmed.match(urlPattern);
