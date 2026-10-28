@@ -722,6 +722,9 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (!list.parentNode) continue;
 		// Skip the standardized footnotes list
 		if (list.closest('#footnotes')) continue;
+		// Skip sub-lists — they belong to the parent list item, and are
+		// typically introduced by its text (e.g. "for scrolling:")
+		if (list.parentElement?.closest('li')) continue;
 		const isDl = list.tagName === 'DL';
 		const items = Array.from(list.children).filter(el =>
 			isDl ? el.tagName === 'DD' : el.tagName === 'LI'
