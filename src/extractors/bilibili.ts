@@ -63,7 +63,7 @@ type SubtitleJson = {
 type TranscriptResult = BuiltTranscript & { languageCode?: string };
 
 export class BilibiliExtractor extends BaseExtractor {
-	private static transcriptCache = new Map<string, TranscriptResult | null>();
+	private static transcriptCache = new Map<string, TranscriptResult>();
 	private _bvid: string | undefined;
 
 	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
@@ -103,12 +103,13 @@ export class BilibiliExtractor extends BaseExtractor {
 		let transcript: TranscriptResult | undefined;
 		if (aid && cid) {
 			if (cacheKey && BilibiliExtractor.transcriptCache.has(cacheKey)) {
-				const cached = BilibiliExtractor.transcriptCache.get(cacheKey);
-				transcript = cached ?? undefined;
+				transcript = BilibiliExtractor.transcriptCache.get(cacheKey);
 			} else {
 				transcript = await this.fetchTranscript(aid, cid, bvid);
-				if (cacheKey) {
-					BilibiliExtractor.transcriptCache.set(cacheKey, transcript ?? null);
+				// Only cache successes. A failed lookup is often transient
+				// (the player API sometimes returns no subtitle tracks).
+				if (cacheKey && transcript) {
+					BilibiliExtractor.transcriptCache.set(cacheKey, transcript);
 					if (BilibiliExtractor.transcriptCache.size > 300) {
 						const firstKey = BilibiliExtractor.transcriptCache.keys().next().value;
 						if (firstKey) BilibiliExtractor.transcriptCache.delete(firstKey);
@@ -281,10 +282,7 @@ export class BilibiliExtractor extends BaseExtractor {
 		try {
 			const url = `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(bvid)}`;
 			const response = await this.fetch(url, {
-				headers: {
-					'Accept': 'application/json',
-					'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
-				},
+				headers: { 'Accept': 'application/json' },
 				credentials: 'include' as RequestCredentials,
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 			});
@@ -322,10 +320,7 @@ export class BilibiliExtractor extends BaseExtractor {
 
 	private async fetchPlayerV2(url: string): Promise<{ tracks: PlayerSubtitleTrack[]; code?: number; message?: string }> {
 		const response = await this.fetch(url, {
-			headers: {
-				'Accept': 'application/json',
-				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
-			},
+			headers: { 'Accept': 'application/json' },
 			credentials: 'include' as RequestCredentials,
 			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 		});
@@ -379,11 +374,11 @@ export class BilibiliExtractor extends BaseExtractor {
 				return undefined;
 			}
 
+			// Do not set User-Agent on these requests. It is a forbidden header in
+			// browsers, and Firefox extensions send it anyway, which triggers a CORS
+			// preflight that the subtitle CDN rejects with 405.
 			const subtitleResponse = await this.fetch(subtitleUrl.toString(), {
-				headers: {
-					'Accept': 'application/json',
-					'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0)',
-				},
+				headers: { 'Accept': 'application/json' },
 				signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 			});
 			if (!subtitleResponse.ok) {
