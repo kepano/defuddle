@@ -6,7 +6,8 @@ import {
 	PARTIAL_SELECTORS_REGEX,
 	PARTIAL_SELECTORS_ANCHORED_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
-	FOOTNOTE_LIST_SELECTORS
+	FOOTNOTE_LIST_SELECTORS,
+	INLINE_ELEMENTS
 } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
@@ -105,8 +106,10 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// usually a content anchor concatenated from heading words (e.g.
 			// "theroleofthings", "loopsandfeedback") — substring matching would wrongly
 			// strip it (hitting 'hero'/'feedback'), so it must equal a selector token
-			// outright. Headings skip id entirely (they carry auto-generated slugs).
-			const id = isHeading ? '' : (el.id || '').toLowerCase();
+			// outright. Headings skip id entirely (they carry auto-generated slugs), as do
+			// inline elements inside paragraphs, which may anchor terms like "term-related-claim".
+			const skipId = isHeading || (INLINE_ELEMENTS.has(tag.toLowerCase()) && !!el.closest('p'));
+			const id = skipId ? '' : (el.id || '').toLowerCase();
 
 			// Skip if nothing to check
 			const hasAttrs = attrs.trim() !== '';
