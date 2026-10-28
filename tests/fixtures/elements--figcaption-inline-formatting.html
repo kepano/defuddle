@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/figcaption-inline-formatting"} -->
+<html>
+<head>
+	<title>Figcaption Inline Formatting</title>
+</head>
+<body>
+	<article>
+		<h1>Figcaption Inline Formatting</h1>
+		<p>This article tests that links and inline formatting inside image captions survive figure standardization.</p>
+
+		<!-- Case 1: Substack-style caption, text in spans with a link in between -->
+		<div class="captioned-image-container">
+			<figure>
+				<a class="image-link" href="https://www.example.com/images/chart.png">
+					<div class="image2-inset">
+						<picture>
+							<img src="https://www.example.com/images/chart.png" alt="A chart">
+						</picture>
+					</div>
+				</a>
+				<figcaption class="image-caption"><span>Figure 1: A chart of the results. You can find the source code </span><a href="https://www.example.com/code/notebook">here</a><span>.</span></figcaption>
+			</figure>
+		</div>
+
+		<p>Paragraph of text between the images to separate content sections properly for the parser to work with.</p>
+
+		<!-- Case 2: emphasis, inline code and a relative link -->
+		<figure>
+			<img src="https://www.example.com/images/diagram.png" alt="A diagram">
+			<figcaption>Figure 2: The <em>encoder</em> passes <code>hidden_state</code> to the <a href="/glossary/decoder">decoder</a>.</figcaption>
+		</figure>
+
+		<p>More article text here with enough words for the content detection scoring algorithm to work properly.</p>
+
+		<!-- Case 3: caption split across block elements keeps a space between them -->
+		<figure>
+			<img src="https://www.example.com/images/photo.jpg" alt="A photo">
+			<figcaption><div>A photo of the venue.</div><div>Photo credit: Example Studio</div></figcaption>
+		</figure>
+
+		<p>Another paragraph of text so that each figure is separated by regular body content in the article.</p>
+
+		<!-- Case 4: escaped markup in caption text stays text -->
+		<figure>
+			<img src="https://www.example.com/images/code.png" alt="Code sample">
+			<figcaption>Figure 4: Rendering &lt;img src=x&gt; as text, not as an element.</figcaption>
+		</figure>
+
+		<p>One more paragraph of text so the last figure is also surrounded by regular body content.</p>
+
+		<!-- Case 5: a javascript: link in a caption keeps its text but not its href -->
+		<figure>
+			<img src="https://www.example.com/images/warning.png" alt="Warning">
+			<figcaption>Figure 5: A <a href="javascript:alert(1)">dangerous link</a> stays plain text.</figcaption>
+		</figure>
+
+		<p>Final paragraph of the article with some concluding text for the content parser.</p>
+	</article>
+</body>
+</html>

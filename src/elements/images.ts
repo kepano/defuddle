@@ -3,7 +3,7 @@
  */
 
 import { isElement, isTextNode } from '../utils';
-import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
+import { transferContent, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
@@ -282,8 +282,7 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
-	const uniqueCaptionContent = extractUniqueCaptionContent(captionElement);
-	figcaption.appendChild(parseHTML(doc, uniqueCaptionContent));
+	appendUniqueCaptionContent(captionElement, figcaption, doc);
 	figure.appendChild(figcaption);
 
 	return figure;
@@ -595,46 +594,79 @@ function findCaption(element: Element): Element | null {
 	return null;
 }
 
+// Inline elements kept (as clean shells) when rebuilding a caption.
+const CAPTION_INLINE_TAGS = new Set(['a', 'em', 'i', 'strong', 'b', 'code', 'sub', 'sup']);
+
 /**
- * Extract unique caption content to avoid duplication
+ * Copy a caption's content into `target`, skipping repeated text.
+ *
+ * Captions are often duplicated in nested elements (e.g. a visually hidden
+ * copy), so text nodes whose trimmed text was already seen are dropped.
+ * Links and inline formatting are kept: a caption like
+ * `see the source code <a href="…">here</a>.` must not lose its link.
+ * Other wrappers are unwrapped, with a space at block boundaries so that
+ * `<div>A</div><div>B</div>` doesn't become "AB".
+ *
+ * Builds DOM nodes rather than an HTML string, so text such as `&lt;img&gt;`
+ * stays text instead of being re-parsed into an element.
  */
-function extractUniqueCaptionContent(caption: Element): string {
-	// Get all text nodes and elements with text content
-	const textNodes: string[] = [];
-	const processedTexts = new Set<string>();
-	
-	// Helper function to process a node
-	const processNode = (node: Node) => {
-		if (isTextNode(node)) {
-			const text = node.textContent?.trim() || '';
-			if (text && !processedTexts.has(text)) {
-				textNodes.push(text);
-				processedTexts.add(text);
-			}
-		} else if (isElement(node)) {
-			// Process child nodes
-			const childNodes = node.childNodes;
-			for (let i = 0; i < childNodes.length; i++) {
-				processNode(childNodes[i]);
+function appendUniqueCaptionContent(caption: Element, target: Element, doc: Document): void {
+	const seen = new Set<string>();
+
+	const copyChildren = (source: Node, parent: Node) => {
+		const childNodes = Array.from(source.childNodes);
+		for (const node of childNodes) {
+			if (isTextNode(node)) {
+				const text = node.textContent || '';
+				const trimmed = text.trim();
+				if (!trimmed) {
+					if (text) parent.appendChild(doc.createTextNode(' '));
+					continue;
+				}
+				if (seen.has(trimmed)) continue;
+				seen.add(trimmed);
+				parent.appendChild(doc.createTextNode(text));
+			} else if (isElement(node)) {
+				const tag = node.tagName.toLowerCase();
+				if (CAPTION_INLINE_TAGS.has(tag)) {
+					const shell = doc.createElement(tag);
+					if (tag === 'a') {
+						const href = node.getAttribute('href');
+						if (href && !isDangerousUrl(href, false)) shell.setAttribute('href', href);
+					}
+					copyChildren(node, shell);
+					if (shell.textContent?.trim()) parent.appendChild(shell);
+				} else if (tag === 'br') {
+					parent.appendChild(doc.createTextNode(' '));
+				} else {
+					const isBlock = BLOCK_LEVEL_ELEMENTS.has(tag);
+					if (isBlock) parent.appendChild(doc.createTextNode(' '));
+					copyChildren(node, parent);
+					if (isBlock) parent.appendChild(doc.createTextNode(' '));
+				}
 			}
 		}
 	};
-	
-	// Process all child nodes
-	const childNodes = caption.childNodes;
-	for (let i = 0; i < childNodes.length; i++) {
-		processNode(childNodes[i]);
+
+	copyChildren(caption, target);
+
+	// Collapse the whitespace introduced by unwrapping
+	const walker = doc.createTreeWalker(target, 4 /* NodeFilter.SHOW_TEXT */);
+	const textNodes: Text[] = [];
+	while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+	textNodes.forEach((t, i) => {
+		let v = (t.textContent || '').replace(/\s+/g, ' ');
+		if (i === 0) v = v.replace(/^ /, '');
+		if (i === textNodes.length - 1) v = v.replace(/ $/, '');
+		t.textContent = v;
+	});
+	// Drop a space that ends up right before closing punctuation after a removed node
+	for (let i = 1; i < textNodes.length; i++) {
+		const prev = textNodes[i - 1];
+		if (/ $/.test(prev.textContent || '') && /^ /.test(textNodes[i].textContent || '')) {
+			textNodes[i].textContent = (textNodes[i].textContent || '').replace(/^ /, '');
+		}
 	}
-	
-	// If we found unique text nodes, use them
-	if (textNodes.length > 0) {
-		return textNodes.join(' ');
-	}
-	
-	// Otherwise, just use the inner HTML but try to clean it up
-	const html = serializeHTML(caption);
-	
-	return html;
 }
 
 /**
