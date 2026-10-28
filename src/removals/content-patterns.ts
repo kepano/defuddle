@@ -16,7 +16,6 @@ const BOILERPLATE_PATTERNS = [
 	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
 	/^Any re-?use permitted\b/i,
 	/^©\s*(?:Copyright\s+)?\d{4}/i,
-	/^Comments?$/i,
 	/^Leave a (?:comment|reply)$/i,
 	/^Loading\.{3}$/,
 	/^Affiliate links\b.*\b(?:earn|commission)/i,
