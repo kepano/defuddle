@@ -1,0 +1,33 @@
+@use 'controls';
+@use 'menu';
+@use 'segmented-control';
+@use 'panels';
+@use '../docs-styles/command-palette';
+
+html, body { height: 100%; overflow: hidden; }
+.wordmark { font-size: var(--font-size-heading); font-weight: 700; line-height: 1; letter-spacing: -0.03em; text-decoration: none; color: var(--paper); }
+.playground-header h1 { letter-spacing: normal; line-height: 1.55; }
+.playground-panel-header h2 { line-height: 1.55; }
+.doc-code-copy { padding: 1px 6px; }
+.playground-header .playground-actions { gap: 20px; }
+.playground-editor .cm-editor { background: transparent; }
+.playground-output-formats { margin-right: auto; }
+.playground-panel-header:has(.playground-output-formats) { gap: 8px; }
+.playground-status[data-state='error'] { color: var(--syntax-red); }
+#input-status:empty { display: none; }
+.playground-status[data-state='loading'] { color: var(--muted); }
+.playground-editor .cm-placeholder { color: var(--faint); }
+@media (max-width: 760px) {
+  .playground-header { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .playground-header .playground-actions { gap: 16px; }
+  .playground-header .header-action { min-height: 32px; padding: 4px; }
+  .playground-header .header-action kbd { display: none; }
+}
+@container (max-width: 300px) {
+  .playground-panel-header:has(.playground-output-formats) { padding-inline: 12px; }
+  .playground-output-formats > button { padding-inline: 8px; }
+}
+
+@container (max-width: 420px) {
+  .playground-panel-header:has(.playground-output-formats) h2 { display: none; }
+}

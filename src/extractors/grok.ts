@@ -1,6 +1,7 @@
 import { ConversationExtractor } from './_conversation';
+import { ExtractorOptions } from './_base';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { serializeHTML } from '../utils/dom';
+import { serializeHTML, escapeHtml } from '../utils/dom';
 
 export class GrokExtractor extends ConversationExtractor {
 	// Note: This selector relies heavily on CSS utility classes and may break if Grok's UI changes.
@@ -9,8 +10,8 @@ export class GrokExtractor extends ConversationExtractor {
 	private footnotes: Footnote[];
 	private footnoteCounter: number;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.messageBubbles = document.querySelectorAll(this.messageContainerSelector);
 		this.footnotes = [];
 		this.footnoteCounter = 0;
@@ -140,10 +141,10 @@ export class GrokExtractor extends ConversationExtractor {
 				let domainText = url; // Default to full URL if parsing fails
 				try {
 					const domain = new URL(url).hostname.replace(/^www\./, '');
-					domainText = `<a href="${url}" target="_blank" rel="noopener noreferrer">${domain}</a>`;
+					domainText = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(domain)}</a>`;
 				} catch (e) {
 					// Keep domainText as the original URL if parsing fails
-					domainText = `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+					domainText = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>`;
 					console.warn(`GrokExtractor: Could not parse URL for footnote: ${url}`);
 				}
 

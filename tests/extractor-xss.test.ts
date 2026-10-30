@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
+import { ConversationExtractor } from '../src/extractors/_conversation';
+import { C2WikiExtractor } from '../src/extractors/c2-wiki';
+import type { ConversationMessage, ConversationMetadata, Footnote } from '../src/types/extractors';
 
 // Regression test for GHSA-jg4p-g6xj-4qmf: XSS via unescaped attribute
 // interpolation in site extractors. Extractor output is built from template
@@ -59,5 +62,122 @@ describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
 		const response = await Defuddle(doc, X_URL);
 
 		assertNoExecutableAttributes(response.content);
+	});
+});
+
+// ConversationExtractor.createContentHtml builds its markup from template
+// literals, interpolating values read straight off the page: the author name
+// (a sr-only heading's text), the timestamp, the metadata values behind
+// data-* attributes, and footnote URLs. Per CLAUDE.md every one of those must
+// be escaped at the point of interpolation.
+//
+// End-to-end this is currently masked. extract() re-parses the result through a
+// nested Defuddle pass whose attribute strip removes anything injected. That
+// backstop is not the guarantee (it can be reordered or bypassed by a future
+// caller), so the property is asserted here, on the markup the method emits.
+describe('ConversationExtractor markup escaping', () => {
+	// Minimal concrete subclass: createContentHtml is protected and takes its
+	// inputs directly, so no DOM is needed to exercise it.
+	class TestConversationExtractor extends ConversationExtractor {
+		protected extractMessages(): ConversationMessage[] { return []; }
+		protected getMetadata(): ConversationMetadata {
+			return { title: 'T', site: 'S', url: 'about:blank', messageCount: 0 };
+		}
+		build(messages: ConversationMessage[], footnotes: Footnote[] = []): string {
+			return this.createContentHtml(messages, footnotes);
+		}
+	}
+
+	const build = (messages: ConversationMessage[], footnotes: Footnote[] = []) =>
+		new TestConversationExtractor({} as Document, 'about:blank').build(messages, footnotes);
+
+	test('an author name cannot close the class attribute', () => {
+		const html = build([{
+			author: 'You" onclick="alert(1)',
+			content: '<p>hi</p>',
+			metadata: { role: 'user' },
+		}]);
+		assertNoExecutableAttributes(html);
+		expect(html).not.toContain('onclick="alert(1)"');
+	});
+
+	test('a metadata value cannot close its data attribute', () => {
+		const html = build([{
+			author: 'You',
+			content: '<p>hi</p>',
+			metadata: { role: 'user" onmouseover="alert(1)' },
+		}]);
+		assertNoExecutableAttributes(html);
+		expect(html).not.toContain('onmouseover="alert(1)"');
+	});
+
+	test('a timestamp cannot inject markup', () => {
+		const html = build([{
+			author: 'You',
+			content: '<p>hi</p>',
+			timestamp: '<img src=x onerror=alert(1)>',
+			metadata: { role: 'user' },
+		}]);
+		assertNoExecutableAttributes(html);
+	});
+
+	test('a footnote url cannot close the href attribute', () => {
+		const html = build([{ author: 'You', content: '<p>hi</p>', metadata: { role: 'user' } }], [
+			{ url: 'https://example.com/" onmouseenter="alert(1)', text: 'example.com' },
+		]);
+		assertNoExecutableAttributes(html);
+	});
+
+	test('message content is still passed through as HTML', () => {
+		const html = build([{
+			author: 'You',
+			content: '<p>Real <strong>markup</strong> survives.</p>',
+			metadata: { role: 'user' },
+		}]);
+		expect(html).toContain('<p>Real <strong>markup</strong> survives.</p>');
+	});
+});
+
+// C2 wiki source is public and must be escaped before it becomes HTML.
+describe('C2 wiki markup escaping', () => {
+	const render = (text: string): string =>
+		(new C2WikiExtractor({} as Document, 'https://wiki.c2.com/?TestPage') as any)
+			.renderPage({ text });
+
+	test('wiki source cannot inject an element with an event handler', () => {
+		const html = render('Some text <img src=x onerror=alert(1)> more text');
+		assertNoExecutableAttributes(html);
+		expect(html).not.toMatch(/<img\b/i);
+		expect(html).toContain('&lt;img');
+	});
+
+	test('wiki source cannot inject a script tag', () => {
+		const html = render('Intro <script>alert(1)</script> outro');
+		expect(html).not.toMatch(/<script\b/i);
+		expect(html).toContain('&lt;script&gt;');
+	});
+
+	test('wiki source cannot inject a template to smuggle a handler', () => {
+		const html = render('Intro <svg><template><img src=x onerror=alert(1)></template></svg> outro');
+		assertNoExecutableAttributes(html);
+		expect(html).not.toMatch(/<template\b/i);
+	});
+
+	test('wiki markup still renders', () => {
+		const html = render("This is '''bold''' and ''italic'' text");
+		expect(html).toContain('<strong>bold</strong>');
+		expect(html).toContain('<em>italic</em>');
+	});
+
+	test('a bare URL still becomes a link, with & rendered once', () => {
+		const html = render('See http://example.com/p?a=1&b=2 for details');
+		expect(html).toContain('<a href="http://example.com/p?a=1&amp;b=2" rel="nofollow" target="_blank">http://example.com/p?a=1&amp;b=2</a>');
+		expect(html).not.toContain('&amp;amp;');
+	});
+
+	test('an escaped delimiter after a URL is not swallowed into the href', () => {
+		const html = render('See http://example.com/p<b>x</b>');
+		expect(html).toContain('href="http://example.com/p"');
+		expect(html).not.toContain('&lt;b&gt;x&lt;/b&gt;"');
 	});
 });

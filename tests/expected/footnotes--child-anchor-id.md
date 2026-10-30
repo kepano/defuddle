@@ -2,7 +2,7 @@
 {
   "title": "Anchor-ID Footnote Pattern",
   "author": "",
-  "site": "",
+  "site": "child-anchor-id",
   "published": ""
 }
 ```

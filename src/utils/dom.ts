@@ -61,12 +61,83 @@ export function hasResponsiveShowClass(className: string): boolean {
 }
 
 /**
- * Check if a URL uses a dangerous protocol (javascript:, data:text/html).
+ * Check if a URL uses a dangerous protocol (javascript:, blob:, non-image data:).
  * Strips whitespace and control characters before checking.
+ *
+ * data: and blob: smuggle a whole document into an attribute, bypassing the
+ * script and event-handler stripping done elsewhere. Inline images are the one
+ * benign use of data:, so those are allowed and every other media type is
+ * rejected. Relative URLs (no scheme) are always allowed — the bbcode and
+ * comment builders pass them.
  */
-export function isDangerousUrl(url: string): boolean {
+export function isDangerousUrl(url: string, allowInlineImage: boolean = true): boolean {
 	const normalized = url.replace(/[\s\u0000-\u001F]+/g, '').toLowerCase();
-	return normalized.startsWith('javascript:') || normalized.startsWith('data:text/html');
+	if (normalized.startsWith('javascript:') || normalized.startsWith('blob:')) return true;
+	if (normalized.startsWith('data:')) {
+		return !(allowInlineImage && normalized.startsWith('data:image/'));
+	}
+	return false;
+}
+
+// Keep this list in sync with UNSAFE_ELEMENT_SELECTOR.
+const UNSAFE_ELEMENT_TAGS = new Set([
+	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
+	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
+]);
+
+// Keep iframes for embeds and math scripts for LaTeX.
+// Styles can load remote resources; SMIL can change sanitized URLs.
+// Templates hide content from descendant traversal.
+const UNSAFE_ELEMENT_SELECTOR =
+	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
+	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
+	'animateMotion, animateTransform, animateColor';
+
+const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+
+function isUnsafeElement(el: Element): boolean {
+	const tag = el.tagName.toUpperCase();
+	if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
+	return UNSAFE_ELEMENT_TAGS.has(tag);
+}
+
+function neutralizeUnsafeElement(el: Element): void {
+	for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+	while (el.firstChild) el.removeChild(el.firstChild);
+	const content = (el as HTMLTemplateElement).content;
+	if (content) {
+		while (content.firstChild) content.removeChild(content.firstChild);
+	}
+}
+
+/** Returns true if the root is unsafe and must not be serialized. */
+export function stripUnsafeElements(root: Element): boolean {
+	// querySelectorAll excludes the root.
+	const unsafeRoot = isUnsafeElement(root);
+	if (unsafeRoot) {
+		neutralizeUnsafeElement(root);
+	}
+
+	for (const el of Array.from(root.querySelectorAll(UNSAFE_ELEMENT_SELECTOR))) {
+		el.parentNode?.removeChild(el);
+	}
+
+	for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+		for (const attr of Array.from(el.attributes)) {
+			const name = attr.name.toLowerCase();
+			if (name.startsWith('on') || name === 'srcdoc') {
+				el.removeAttribute(attr.name);
+			} else if (URL_ATTRIBUTES.has(name)) {
+				// SVG data URLs can run scripts in iframes.
+				const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
+				if (isDangerousUrl(attr.value, allowInlineImage)) {
+					el.removeAttribute(attr.name);
+				}
+			}
+		}
+	}
+
+	return unsafeRoot;
 }
 
 /**
@@ -80,6 +151,30 @@ export function isDirectTableChild(el: Node, ancestor: Node): boolean {
 		parent = parent.parentNode;
 	}
 	return parent === ancestor;
+}
+
+/** Document order without relying on linkedom's cross-parent compareDocumentPosition. */
+export function isNodeBefore(node: Node, other: Node): boolean {
+	if (node === other) return false;
+	const ancestors = (current: Node): Node[] => {
+		const path: Node[] = [];
+		for (let n: Node | null = current; n; n = n.parentNode) path.push(n);
+		return path;
+	};
+	const left = ancestors(node);
+	const right = ancestors(other);
+	// Detached subtrees have no shared document order.
+	if (left[left.length - 1] !== right[right.length - 1]) return false;
+	while (left.length && right.length && left[left.length - 1] === right[right.length - 1]) {
+		left.pop();
+		right.pop();
+	}
+	if (!left.length) return true; // node is an ancestor of other
+	if (!right.length) return false;
+	for (let sibling: Node | null = left[left.length - 1].nextSibling; sibling; sibling = sibling.nextSibling) {
+		if (sibling === right[right.length - 1]) return true;
+	}
+	return false;
 }
 
 /**
@@ -104,4 +199,21 @@ export function parseHTML(doc: Document, html: string): DocumentFragment {
 		fragment.appendChild(div.firstChild);
 	}
 	return fragment;
+}
+
+const PLAIN_CSS_IDENT_RE = /^(?:--|-?[a-zA-Z_])[a-zA-Z0-9_-]*$/;
+// NUL and non-ASCII whitespace don't round-trip through selectors in every DOM engine.
+const UNSELECTABLE_VALUE_RE = /\0|[^\S\t\n\f\r ]/;
+
+/**
+ * Build a selector matching a class token or ID, or null if DOM engines can't
+ * round-trip the value. Special values use quoted attribute selectors because
+ * JSDOM mismatches escaped identifiers that are followed by more selector text.
+ */
+export function classOrIdSelector(attribute: 'class' | 'id', value: string): string | null {
+	if (!value || UNSELECTABLE_VALUE_RE.test(value)) return null;
+	if (PLAIN_CSS_IDENT_RE.test(value)) return (attribute === 'class' ? '.' : '#') + value;
+	const escaped = value.replace(/["\\]/g, '\\$&')
+		.replace(/[\x01-\x1f\x7f]/g, char => `\\${char.charCodeAt(0).toString(16)} `);
+	return `[${attribute}${attribute === 'class' ? '~' : ''}="${escaped}"]`;
 }

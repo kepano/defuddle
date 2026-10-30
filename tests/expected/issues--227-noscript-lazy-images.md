@@ -2,16 +2,10 @@
 {
   "title": "Test Article with Lazy Images",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```
-
-![Hero image caption.](https://www.example.com/images/hero.webp)
-
-Hero image caption. Photo Credit / Agency
-
-## Test article with multiple lazy-loaded images
 
 ![Hero image caption.](https://www.example.com/images/hero.webp)
 

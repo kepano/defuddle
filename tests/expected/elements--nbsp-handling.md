@@ -2,7 +2,7 @@
 {
   "title": "Non-breaking space test",
   "author": "",
-  "site": "",
+  "site": "nbsp-handling",
   "published": ""
 }
 ```

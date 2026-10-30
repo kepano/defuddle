@@ -1,14 +1,15 @@
 import { ConversationExtractor } from './_conversation';
+import { ExtractorOptions } from './_base';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 
 export class GeminiExtractor extends ConversationExtractor {
 	private conversationContainers: NodeListOf<Element> | null;
 	private footnotes: Footnote[];
 	private messageCount: number | null = null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.conversationContainers = document.querySelectorAll('div.conversation-container');
 		this.footnotes = [];
 	}
@@ -84,7 +85,7 @@ export class GeminiExtractor extends ConversationExtractor {
 					if (url && (domain || title)) {
 						this.footnotes.push({
 							url,
-							text: title ? `${domain}: ${title}` : domain
+							text: escapeHtml(title ? `${domain}: ${title}` : domain)
 						});
 					}
 				}

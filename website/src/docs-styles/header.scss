@@ -1,0 +1,106 @@
+.site-header {
+  position: relative;
+  width: min(var(--page-width), var(--reading));
+  min-height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-inline: auto;
+  color: var(--paper);
+}
+.site-header-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: auto;
+  font-weight: 400;
+}
+.header-action.sidebar-playground {
+  display: none;
+}
+.header-action {
+  display: inline-flex;
+  width: auto;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--paper);
+  padding: 6px 0;
+  font: inherit;
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+
+  @media (hover: hover) {
+    &:hover {
+      outline: 0;
+      color: #f2f0e5;
+    }
+  }
+  &:focus-visible {
+    outline: 0;
+    color: #f2f0e5;
+  }
+  svg {
+    flex: 0 0 auto;
+    color: var(--muted);
+  }
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  kbd {
+    border: 1px solid var(--line-hover);
+    border-radius: var(--radius-small);
+    color: var(--muted);
+    padding: 0 4px;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+  }
+}
+
+@media (max-width: 760px) {
+  html {
+    scroll-padding-top: calc(var(--mobile-header-height, var(--header-height)) + 16px);
+  }
+
+  .site-header {
+    width: 100%;
+    gap: 12px;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 6vw 12px;
+    transition: opacity 240ms ease;
+  }
+
+  [data-scroll-header].is-header-floating {
+    position: fixed;
+    z-index: 90;
+    top: 0;
+    right: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+    will-change: opacity;
+  }
+  [data-scroll-header].is-header-floating.is-header-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .site-header-links {
+    display: none;
+  }
+  .filter-search-trigger {
+    margin-left: auto;
+  }
+  .header-action {
+    min-height: 32px;
+    padding: 4px;
+
+    kbd {
+      display: none;
+    }
+  }
+}

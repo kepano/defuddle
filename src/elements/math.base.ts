@@ -1,4 +1,4 @@
-import { parseHTML, getClassName } from '../utils/dom';
+import { parseHTML, getClassName, transferContent } from '../utils/dom';
 import { isTextNode, isElement } from '../utils';
 
 export interface MathData {
@@ -650,3 +650,78 @@ export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
 		textNode.replaceWith(frag);
 	}
 }
+
+// --- Shared rule construction for the core and full builds -------------------
+//
+// The builds differ only in how they find LaTeX and whether LaTeX-only math
+// can be converted to MathML; math.core and math.full supply those pieces.
+
+export type LatexToMathML = (latex: string, isBlock: boolean, doc: Document) => Element | null;
+
+export const createMathElement = (
+	mathData: MathData | null,
+	latex: string | null,
+	isBlock: boolean,
+	doc: Document,
+	latexToMathML?: LatexToMathML
+): Element => {
+	const cleanMathEl = doc.createElement('math');
+
+	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+	cleanMathEl.setAttribute('display', isBlock ? 'block' : 'inline');
+	cleanMathEl.setAttribute('data-latex', latex || '');
+
+	// First try to use existing MathML content
+	if (mathData?.mathml) {
+		const fragment = parseHTML(doc, mathData.mathml);
+		const mathContent = fragment.querySelector('math');
+		if (mathContent) {
+			transferContent(mathContent, cleanMathEl);
+		}
+	}
+	// If no MathML but we have LaTeX, convert it when possible or keep it as text
+	else if (latex) {
+		const mathContent = latexToMathML?.(latex, isBlock, doc);
+		if (mathContent) {
+			transferContent(mathContent, cleanMathEl);
+		} else {
+			cleanMathEl.textContent = latex;
+		}
+	}
+
+	return cleanMathEl;
+};
+
+const MATH_SCRIPT_CLEANUP_SELECTOR = 'script[type^="math/"], .MathJax_Preview, script[type="text/javascript"][src*="mathjax"], script[type="text/javascript"][src*="katex"]';
+
+export const createMathRules = (
+	getLatex: (el: Element) => string | null,
+	latexToMathML?: LatexToMathML
+) => [
+	{
+		selector: mathSelectors,
+		element: 'math',
+		fastCheck: mathFastCheck,
+		transform: (el: Element, doc: Document): Element => {
+			if (!('classList' in el) || !('getAttribute' in el) || !('querySelector' in el)) {
+				return el;
+			}
+
+			const mathData = getMathMLFromElement(el);
+			const latex = getLatex(el);
+			const isBlock = isBlockDisplay(el);
+			// Create nodes in the element's own document; the pipeline passes the
+			// original document while standardizing a clone.
+			const cleanMathEl = createMathElement(mathData, latex, isBlock, el.ownerDocument || doc, latexToMathML);
+
+			// Clean up any associated math scripts after we've extracted their content.
+			// Skip when el itself is a math script — it will be replaced by the
+			// caller, and removing siblings here would destroy unprocessed scripts.
+			if (el.parentElement && !el.matches('script[type^="math/"]')) {
+				el.parentElement.querySelectorAll(MATH_SCRIPT_CLEANUP_SELECTOR).forEach(script => script.remove());
+			}
+
+			return cleanMathEl;
+		}
+	}
+];

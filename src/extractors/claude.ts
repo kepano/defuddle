@@ -1,12 +1,13 @@
 import { ConversationExtractor } from './_conversation';
+import { ExtractorOptions } from './_base';
 import { ConversationMessage, ConversationMetadata } from '../types/extractors';
 import { serializeHTML } from '../utils/dom';
 
 export class ClaudeExtractor extends ConversationExtractor {
 	private articles: NodeListOf<Element> | null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		// Find all message blocks - both user and assistant messages
 		this.articles = document.querySelectorAll('div[data-testid="user-message"], div[data-testid="assistant-message"], div.font-claude-response');
 	}

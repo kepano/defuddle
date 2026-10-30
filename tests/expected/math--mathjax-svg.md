@@ -2,7 +2,7 @@
 {
   "title": "MathJax v3 SVG Output",
   "author": "",
-  "site": "",
+  "site": "mathjax-svg",
   "published": ""
 }
 ```

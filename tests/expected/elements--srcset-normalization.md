@@ -2,7 +2,7 @@
 {
   "title": "React SSR srcSet Normalization",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

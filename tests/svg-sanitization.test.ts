@@ -30,4 +30,49 @@ describe('SVG sanitization', () => {
 		expect(result.content).not.toContain('attacker.example');
 		expect(result.content).not.toMatch(/<style\b/i);
 	});
+
+	const SMIL_PAYLOADS: Array<[string, string]> = [
+		['animate href', '<svg><a><animate attributeName="href" values="javascript:alert(1)" dur="1s" fill="freeze">x</animate><text>click</text></a></svg>'],
+		['animate xlink:href', '<svg><a><animate attributeName="xlink:href" values="javascript:alert(1)" dur="1s" fill="freeze">x</animate><text>click</text></a></svg>'],
+		['set href', '<svg><a><set attributeName="href" to="javascript:alert(1)">x</set><text>click</text></a></svg>'],
+		['animateTransform', '<svg><a><animateTransform attributeName="transform" values="javascript:alert(1)" dur="1s">x</animateTransform><text>click</text></a></svg>'],
+		['animateMotion', '<svg><a><animateMotion values="javascript:alert(1)" dur="1s">x</animateMotion><text>click</text></a></svg>']
+	];
+
+	const PARA = '<p>Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation.</p>';
+
+	for (const [name, payload] of SMIL_PAYLOADS) {
+		test(`strips SMIL animation from article content: ${name}`, async () => {
+			const html = `<!DOCTYPE html><html><head><title>SMIL</title></head>
+<body><article><h1>SMIL</h1>${PARA}${payload}${PARA}</article></body></html>`;
+
+			const result = await Defuddle(
+				parseDocument(html, 'https://example.com/smil'),
+				'https://example.com/smil'
+			);
+
+			expect(result.content).not.toMatch(/javascript:/i);
+			expect(result.content).not.toMatch(/<animate|<set\b/i);
+		});
+
+		test(`strips SMIL animation from schema.org text fallback: ${name}`, async () => {
+			const articleBody = `${payload} one two three four five six seven eight nine ten eleven twelve`;
+			const html = `<!DOCTYPE html><html><head><title>SMIL</title>
+<script type="application/ld+json">${JSON.stringify({
+				'@context': 'https://schema.org',
+				'@type': 'Article',
+				headline: 'SMIL',
+				articleBody
+			})}</script></head>
+<body><main><p>hi</p></main></body></html>`;
+
+			const result = await Defuddle(
+				parseDocument(html, 'https://example.com/smil-schema'),
+				'https://example.com/smil-schema'
+			);
+
+			expect(result.content).not.toMatch(/javascript:/i);
+			expect(result.content).not.toMatch(/<animate|<set\b/i);
+		});
+	}
 });

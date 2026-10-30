@@ -2,7 +2,7 @@
 {
   "title": "Sample Technical Post",
   "author": "",
-  "site": "example-blog.example.com",
+  "site": "date-adjacent-category-link",
   "published": "2025-03-08"
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Blog - Acme Corp",
   "author": "",
-  "site": "",
+  "site": "tailwind-hidden-blog-index",
   "published": "2026-03-01T00:00:00+00:00"
 }
 ```

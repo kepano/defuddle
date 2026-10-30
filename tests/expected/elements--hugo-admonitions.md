@@ -2,7 +2,7 @@
 {
   "title": "Hugo admonitions test",
   "author": "",
-  "site": "",
+  "site": "hugo-admonitions",
   "published": ""
 }
 ```

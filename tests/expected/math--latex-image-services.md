@@ -2,7 +2,7 @@
 {
   "title": "LaTeX Image Rendering Services",
   "author": "",
-  "site": "",
+  "site": "latex-image-services",
   "published": ""
 }
 ```

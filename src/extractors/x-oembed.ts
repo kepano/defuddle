@@ -130,6 +130,18 @@ export class XOembedExtractor extends BaseExtractor {
 	}
 
 	prefersAsync(): boolean {
+		// If the page DOM already contains rendered tweets, the sync DOM-based
+		// TwitterExtractor produces strictly richer output (the full thread plus
+		// replies) than oEmbed/FxTwitter, which return only the single main
+		// tweet. Defer to the DOM in that case, even when the document is
+		// detached (e.g. a cloned/parsed document, where defaultView !== window,
+		// as in a reader view). Only prefer the async network path when there is
+		// no rendered tweet content to read — e.g. a server-side fetch of X's JS
+		// shell.
+		if (this.document.querySelector('article[data-testid="tweet"]')) {
+			return false;
+		}
+
 		// Prefer async when not running in a browser window context.
 		const isBrowser = typeof window !== 'undefined' && this.document.defaultView == window;
 		return !isBrowser;

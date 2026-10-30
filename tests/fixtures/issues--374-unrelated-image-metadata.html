@@ -1,0 +1,10 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html>
+<html><head><title>Unrelated image metadata</title></head><body><article>
+<p>Working image sources should take precedence over unrelated or undocumented attributes. Responsive images should also retain their own source sets.</p>
+<p><img loading="lazy" src="https://example.com/first.jpg" data-backup="https://example.com/backup.jpg" alt="First"></p>
+<p><img loading="lazy" src="https://example.com/second.jpg" data-actualsrc="https://example.com/alternate.jpg" alt="Second"></p>
+<p><img loading="lazy" src="https://example.com/third.jpg" data-original-src="https://example.com/original.jpg" alt="Third"></p>
+<p><img loading="lazy" src="https://example.com/fallback.jpg" srcset="https://example.com/small.jpg 600w, https://example.com/large.jpg 1200w" data-metadata="https://example.com/unrelated.jpg 1800w" alt="Responsive"></p>
+<p>The accompanying text explains why metadata must not replace a working source merely because it contains another image URL.</p>
+</article></body></html>

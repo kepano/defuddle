@@ -2,7 +2,7 @@
 {
   "title": "Gallery Post with Lightbox",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

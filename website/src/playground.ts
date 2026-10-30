@@ -1,400 +1,81 @@
+import { getSiteCSS } from './styles';
+import { exampleHtml } from './client/example';
+import { getSearchHTML, searchTrigger } from './search';
+
+const icons = {
+	copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+	settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
+	file: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+	reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+	clear: '<path d="M10 11v6M14 11v6M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+	wrap: '<path d="m16 16-3 3 3 3M3 12h14.5a1 1 0 0 1 0 7H13M3 19h6M3 5h18"/>',
+	check: '<path d="m20 6-11 11-5-5"/>',
+};
+const icon = (name: keyof typeof icons, size = 16, className = '') => `<svg class="${className}" aria-hidden="true" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;
+const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function panel(name: string, label: string, language: string, value = ''): string {
+	return `<section class="playground-panel" id="${name}-panel" aria-labelledby="${name}-heading">
+		<header class="playground-panel-header">
+			<h2 id="${name}-heading">${label}</h2>
+			${name === 'output' ? `<div class="segmented-control playground-output-formats" style="--segment-count: 3" role="group" aria-label="Output format">
+				<button type="button" data-format="markdown" aria-pressed="true">Markdown</button>
+				<button type="button" data-format="html" aria-pressed="false">HTML</button>
+				<button type="button" data-format="metadata" aria-pressed="false">Metadata</button>
+			</div>` : `<span class="playground-language">${language}</span>`}
+			<button type="button" class="doc-code-copy playground-copy" id="copy-${name}" title="Copy ${label.toLowerCase()}" aria-label="Copy ${label.toLowerCase()}" disabled>${icon('copy', 14)}</button>
+		</header>
+		<div class="playground-editor" data-editor="${name}">
+			<textarea id="playground-${name}" aria-label="${label}" aria-describedby="${name}-status" ${name !== 'input' ? 'readonly' : ''} spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off">${escapeHtml(value)}</textarea>
+		</div>
+		<div class="playground-status" id="${name}-status" role="status" aria-atomic="true"></div>
+	</section>`;
+}
+const resizer = (left: string, right: string) => `<div class="playground-resizer" role="separator" tabindex="0" aria-label="Resize ${left} and ${right} columns" aria-orientation="vertical" aria-controls="${left}-panel ${right}-panel" aria-valuenow="50" title="Drag to resize. Use arrow keys when focused. Double-click to equalize."></div>`;
+
 export function getPlaygroundPage(prefillHtml: string = ''): string {
-	const escapedHtml = prefillHtml
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/`/g, '\\`')
-		.replace(/\$/g, '\\$');
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Defuddle Playground</title>
-	<style>
-		* {
-			margin: 0;
-			padding: 0;
-			box-sizing: border-box;
-		}
-
-		html, body {
-			height: 100%;
-			overflow: hidden;
-		}
-
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-			line-height: 1.5;
-			color: #B7B5AC;
-			background: #100F0F;
-		}
-
-		.container {
-			max-width: 1400px;
-			margin: 0 auto;
-			padding: 2rem;
-			height: 100%;
-			display: flex;
-			flex-direction: column;
-		}
-
-		header {
-			margin-bottom: 2rem;
-			flex-shrink: 0;
-			display: flex;
-			align-items: baseline;
-			gap: 0.5rem;
-		}
-
-		.logo {
-			font-size: 2rem;
-			font-weight: 700;
-			color: #F2F0E5;
-			text-decoration: none;
-			transition: color 0.2s;
-			border-bottom: none;
-		}
-
-		.logo:hover {
-			color: #B7B5AC;
-		}
-
-		.page-title {
-			font-size: 2rem;
-			font-weight: 700;
-			color: #878580;
-		}
-
-		h2 {
-			color: #F2F0E5;
-			font-size: 1rem;
-			font-weight: 600;
-		}
-
-		.playground-container {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 2rem;
-			flex: 1;
-			min-height: 0;
-		}
-
-		.input-section, .output-section {
-			display: flex;
-			flex-direction: column;
-			gap: 1rem;
-			min-height: 0;
-		}
-
-		.url-input {
-			display: none;
-			gap: 0.5rem;
-			align-items: center;
-			margin-bottom: 0.5rem;
-		}
-
-		.url-input input {
-			flex: 1;
-			padding: 1rem;
-			background: #1C1B1A;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			font-size: 0.875rem;
-			color: #F2F0E5;
-		}
-
-		.controls {
-			display: flex;
-			gap: 0.5rem;
-			flex-shrink: 0;
-		}
-
-		.btn {
-			padding: 0.5rem 1rem;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			background: #1C1B1A;
-			color: #B7B5AC;
-			cursor: pointer;
-			font-size: 0.875rem;
-			transition: all 0.2s;
-		}
-
-		.btn:hover {
-			background: #343331;
-			color: #F2F0E5;
-		}
-
-		.btn.primary {
-			background: #F2F0E5;
-			color: #1C1B1A;
-			border-color: #F2F0E5;
-			font-weight: 600;
-		}
-
-		.btn.primary:hover {
-			background: #B7B5AC;
-		}
-
-		textarea {
-			flex: 1;
-			padding: 1rem;
-			background: #1C1B1A;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			font-family: monospace;
-			font-size: 0.875rem;
-			color: #F2F0E5;
-			resize: none;
-			min-height: 0;
-			outline: none;
-			transition: border-color 0.2s;
-		}
-
-		textarea:focus {
-			border-color: #575653;
-		}
-
-		textarea::placeholder {
-			color: #575653;
-		}
-
-		.output-container {
-			flex: 1;
-			display: flex;
-			flex-direction: column;
-			border: 1px solid #343331;
-			border-radius: 8px;
-			overflow: hidden;
-			min-height: 0;
-		}
-
-		.output-tabs {
-			display: flex;
-			border-bottom: 1px solid #343331;
-			background: #1C1B1A;
-			flex-shrink: 0;
-		}
-
-		.tab {
-			padding: 0.75rem 1.5rem;
-			border: none;
-			background: none;
-			cursor: pointer;
-			font-size: 0.875rem;
-			color: #878580;
-			border-bottom: 2px solid transparent;
-			transition: color 0.2s;
-		}
-
-		.tab:hover {
-			color: #B7B5AC;
-		}
-
-		.tab.active {
-			color: #F2F0E5;
-			border-bottom-color: #F2F0E5;
-		}
-
-		.tab-content {
-			display: none;
-			flex: 1;
-			overflow: auto;
-			background: #100F0F;
-			min-height: 0;
-		}
-
-		.tab-content.active {
-			display: block;
-		}
-
-		.output-content {
-			font-family: monospace;
-			font-size: 0.875rem;
-			white-space: pre-wrap;
-			word-break: break-word;
-			padding: 1rem;
-			height: 100%;
-			overflow: auto;
-			color: #B7B5AC;
-		}
-
-		.error-container {
-			position: fixed;
-			bottom: 1rem;
-			right: 1rem;
-			max-width: 400px;
-			padding: 1rem;
-			background: #AF3029;
-			color: #F2F0E5;
-			border-radius: 8px;
-			display: none;
-			z-index: 1000;
-		}
-
-		.error-container.show {
-			display: block;
-		}
-
-		@media (max-width: 768px) {
-			.playground-container {
-				grid-template-columns: 1fr;
-			}
-			.container {
-				height: auto;
-				min-height: 100vh;
-			}
-			html, body {
-				overflow: auto;
-			}
-			.input-section, .output-section {
-				min-height: 400px;
-			}
-		}
-	</style>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>Playground · Defuddle</title>
+	<link rel="preconnect" href="https://rsms.me/" crossorigin>
+	<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+	<style>${getSiteCSS()}</style>
+	<link rel="stylesheet" href="/build/playground.css">
+	<script type="module" src="/build/playground.js"></script>
 </head>
 <body>
-	<div class="container">
-		<header>
-			<a href="/" class="logo">Defuddle</a>
-			<span class="page-title">Playground</span>
-		</header>
-
-		<div class="playground-container">
-			<div class="input-section">
-				<h2>Input HTML</h2>
-				<div class="controls">
-					<button id="clearInput" class="btn">Clear</button>
-				</div>
-				<div class="url-input">
-					<input type="text" id="url" placeholder="URL...">
-				</div>
-				<textarea id="input" placeholder="Paste your HTML here...">${escapedHtml}</textarea>
-			</div>
-
-			<div class="output-section">
-				<h2>Output</h2>
-				<div class="controls">
-					<button id="parse" class="btn primary">Parse HTML</button>
-					<button id="clearOutput" class="btn">Clear</button>
-				</div>
-				<div class="output-container">
-					<div class="output-tabs">
-						<button class="tab active" data-tab="markdown">Markdown</button>
-						<button class="tab" data-tab="html">HTML</button>
-						<button class="tab" data-tab="metadata">Metadata</button>
+	<main class="playground" data-active-panel="input">
+		<div class="playground-header-slot">
+			<header class="playground-header">
+				<div class="playground-brand"><a class="wordmark" href="/" aria-label="Defuddle home">Defuddle</a><h1>Playground</h1></div>
+				<div class="playground-actions">
+					<button class="header-action" type="button" id="playground-settings" aria-label="Playground settings" title="Settings" aria-haspopup="menu" aria-expanded="false" aria-controls="playground-settings-menu">${icon('settings', 18)}<span>Settings</span></button>
+					<div id="playground-settings-menu" class="menu" role="menu" aria-labelledby="playground-settings" hidden>
+						<button type="button" id="open-file" role="menuitem" tabindex="-1">${icon('file')}<span class="menu-label">Open HTML file…</span></button>
+						<button type="button" id="reset-example" role="menuitem" tabindex="-1">${icon('reset')}<span class="menu-label">Reset</span></button>
+						<button type="button" id="clear-playground" role="menuitem" tabindex="-1">${icon('clear')}<span class="menu-label">Clear</span></button>
+						<div class="menu-separator" role="separator"></div>
+						<button type="button" id="wrap-lines" role="menuitemcheckbox" aria-checked="false" tabindex="-1">${icon('wrap')}<span class="menu-label">Line wrap</span>${icon('check', 16, 'menu-check')}</button>
 					</div>
-					<div class="tab-content active" id="markdown">
-						<div id="markdownOutput" class="output-content"></div>
-					</div>
-					<div class="tab-content" id="html">
-						<div id="htmlOutput" class="output-content"></div>
-					</div>
-					<div class="tab-content" id="metadata">
-						<pre id="metadataOutput" class="output-content"></pre>
-					</div>
+					<input type="file" id="html-file" accept=".html,.htm,.txt,text/html" aria-label="Choose an HTML file" hidden>
 				</div>
-			</div>
+				${searchTrigger}
+			</header>
 		</div>
-
-		<div class="error-container" id="errorContainer"></div>
-	</div>
-
-	<script>
-		var input = document.getElementById('input');
-		var urlInput = document.getElementById('url');
-		var markdownOutput = document.getElementById('markdownOutput');
-		var htmlOutput = document.getElementById('htmlOutput');
-		var metadataOutput = document.getElementById('metadataOutput');
-		var clearInputBtn = document.getElementById('clearInput');
-		var parseBtn = document.getElementById('parse');
-		var clearOutputBtn = document.getElementById('clearOutput');
-		var errorContainer = document.getElementById('errorContainer');
-		var tabs = document.querySelectorAll('.tab');
-		var tabContents = document.querySelectorAll('.tab-content');
-
-		clearInputBtn.addEventListener('click', function() {
-			input.value = '';
-		});
-
-		clearOutputBtn.addEventListener('click', function() {
-			markdownOutput.textContent = '';
-			htmlOutput.textContent = '';
-			metadataOutput.textContent = '';
-			hideError();
-		});
-
-		parseBtn.addEventListener('click', async function() {
-			try {
-				parseBtn.disabled = true;
-				parseBtn.textContent = 'Parsing...';
-
-				var response = await fetch('/api/parse', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						html: input.value,
-						url: urlInput.value || undefined
-					})
-				});
-
-				if (!response.ok) {
-					throw new Error(await response.text());
-				}
-
-				var result = await response.json();
-
-				console.log('Defuddle Result:', result);
-
-				markdownOutput.textContent = result.content;
-				htmlOutput.textContent = result.contentHtml;
-
-				var metadata = Object.assign({}, result);
-				delete metadata.content;
-				delete metadata.contentHtml;
-				metadataOutput.textContent = JSON.stringify(metadata, null, 2);
-
-				hideError();
-			} catch (error) {
-				console.error('Defuddle Error:', error);
-				showError(error.message);
-			} finally {
-				parseBtn.disabled = false;
-				parseBtn.textContent = 'Parse HTML';
-			}
-		});
-
-		tabs.forEach(function(tab) {
-			tab.addEventListener('click', function() {
-				var targetTab = tab.dataset.tab;
-
-				tabs.forEach(function(t) { t.classList.remove('active'); });
-				tab.classList.add('active');
-
-				tabContents.forEach(function(c) {
-					c.classList.remove('active');
-					if (c.id === targetTab) {
-						c.classList.add('active');
-					}
-				});
-			});
-		});
-
-		function showError(message) {
-			errorContainer.textContent = message;
-			errorContainer.classList.add('show');
-		}
-
-		function hideError() {
-			errorContainer.classList.remove('show');
-		}
-
-		if (input.value.trim()) {
-			parseBtn.click();
-		}
-	</script>
+		<div class="playground-tabs segmented-control" style="--segment-count: 2" role="tablist" aria-label="Playground editors">
+			${['input', 'output'].map(name => `<button type="button" role="tab" id="${name}-tab" aria-controls="${name}-panel" aria-selected="${name === 'input'}" tabindex="${name === 'input' ? '0' : '-1'}" data-playground-tab="${name}">${name[0].toUpperCase() + name.slice(1)}</button>`).join('\n')}
+		</div>
+		<div class="playground-columns">
+			${panel('input', 'Input', 'HTML', prefillHtml || exampleHtml)}
+			${resizer('input', 'output')}
+			${panel('output', 'Output', 'Markdown')}
+		</div>
+		<noscript>Enable JavaScript to edit and parse HTML in the playground.</noscript>
+	</main>
+	${getSearchHTML()}
 </body>
 </html>`;
 }

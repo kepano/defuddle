@@ -2,7 +2,7 @@
 {
   "title": "Linguist, an ultimate browser extension for translation",
   "author": "",
-  "site": "",
+  "site": "114-leading-hr",
   "published": "2023-07-13T00:00:00+00:00"
 }
 ```

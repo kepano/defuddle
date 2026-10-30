@@ -2,7 +2,7 @@
 {
   "title": "Image Deduplication Test",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

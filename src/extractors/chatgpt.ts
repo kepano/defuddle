@@ -1,6 +1,7 @@
 import { ConversationExtractor } from './_conversation';
+import { ExtractorOptions } from './_base';
 import { ConversationMessage, ConversationMetadata, Footnote } from '../types/extractors';
-import { parseHTML, serializeHTML } from '../utils/dom';
+import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 
 export class ChatGPTExtractor extends ConversationExtractor {
 	private turns: NodeListOf<Element> | null;
@@ -8,8 +9,8 @@ export class ChatGPTExtractor extends ConversationExtractor {
 	private footnoteCounter: number;
 	private cachedMessages: ConversationMessage[] | null = null;
 
-	constructor(document: Document, url: string) {
-		super(document, url);
+	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
+		super(document, url, schemaOrgData, options);
 		this.turns = document.querySelectorAll('[data-testid^="conversation-turn-"]');
 		this.footnotes = [];
 		this.footnoteCounter = 0;
@@ -104,7 +105,7 @@ export class ChatGPTExtractor extends ConversationExtractor {
 					footnoteNumber = this.footnoteCounter;
 					this.footnotes.push({
 						url,
-						text: `<a href="${url}">${domain}</a>${fragmentText}`
+						text: `<a href="${escapeHtml(url)}">${escapeHtml(domain)}</a>${escapeHtml(fragmentText)}`
 					});
 				} else {
 					footnoteNumber = footnoteIndex + 1;

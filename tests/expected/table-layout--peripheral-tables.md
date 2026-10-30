@@ -2,7 +2,7 @@
 {
   "title": "Understanding cellular biology",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

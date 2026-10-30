@@ -2,7 +2,7 @@
 {
   "title": "Apartments for Sale | Updated 2025",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

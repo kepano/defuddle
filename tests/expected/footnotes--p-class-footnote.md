@@ -2,16 +2,16 @@
 {
   "title": "Testing Patterns",
   "author": "",
-  "site": "",
+  "site": "p-class-footnote",
   "published": ""
 }
 ```
 
-This pattern language [^1] describes a new approach. It avoids the common problems with testing and provides better reliability.
+This pattern language[^1] describes a new approach. It avoids the common problems with testing and provides better reliability.
 
 ## Getting Started
 
-To begin, you need to understand the basic concepts [^2] behind the approach.
+To begin, you need to understand the basic concepts[^2] behind the approach.
 
 The rest of the content continues here with more details about the testing patterns.
 

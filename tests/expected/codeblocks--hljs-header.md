@@ -2,7 +2,7 @@
 {
   "title": "Code Tutorial",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

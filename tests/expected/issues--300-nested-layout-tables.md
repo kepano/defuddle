@@ -2,7 +2,7 @@
 {
   "title": "Overview of shortcuts",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Example Post",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

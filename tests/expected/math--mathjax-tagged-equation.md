@@ -2,7 +2,7 @@
 {
   "title": "Tagged Equation Test",
   "author": "",
-  "site": "",
+  "site": "mathjax-tagged-equation",
   "published": ""
 }
 ```

@@ -2,6 +2,7 @@ import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords, normalizeText } from '../utils';
 import { findContentStart, isAboveContentStart } from '../content-boundary';
+import { isNodeBefore } from '../utils/dom';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago\b/i;
@@ -75,6 +76,40 @@ const BYLINE_STRIP_PATTERNS = [
 	/[/|·•—–\-,]+/g,
 ];
 
+// True when a following sibling of `el` contains a paragraph of article prose,
+// meaning `el` is embedded mid-article rather than trailing it.
+function hasFollowingProse(el: Element, minWords = 25): boolean {
+	let sibling = el.nextElementSibling;
+	while (sibling) {
+		if (sibling.tagName === 'P' && countWords(sibling.textContent || '') >= minWords) return true;
+		for (const p of sibling.querySelectorAll('p')) {
+			if (countWords(p.textContent || '') >= minWords) return true;
+		}
+		sibling = sibling.nextElementSibling;
+	}
+	return false;
+}
+
+// Words of article prose appearing before `el` in document order. Used when an
+// element has no text of its own to locate within the content string.
+function precedingProseWords(el: Element, mainContent: Element): number {
+	let words = 0;
+	let node: Element | null = el;
+	while (node && node !== mainContent) {
+		let sibling = node.previousElementSibling;
+		while (sibling) {
+			if (sibling.tagName === 'P') {
+				words += countWords(sibling.textContent || '');
+			} else {
+				for (const p of sibling.querySelectorAll('p')) words += countWords(p.textContent || '');
+			}
+			sibling = sibling.previousElementSibling;
+		}
+		node = node.parentElement;
+	}
+	return words;
+}
+
 function walkUpToWrapper(el: Element, text: string, mainContent: Element): Element {
 	let target = el;
 	while (target.parentElement && target.parentElement !== mainContent) {
@@ -82,6 +117,17 @@ function walkUpToWrapper(el: Element, text: string, mainContent: Element): Eleme
 		target = target.parentElement;
 	}
 	return target;
+}
+
+// A date inside a labeled row belongs to that row, even when only the label's
+// sibling span contains the date. Do not strip individual values from it.
+function isLabeledMetadata(el: Element, mainContent: Element): boolean {
+	for (let current: Element | null = el; current && current !== mainContent; current = current.parentElement) {
+		const text = current.textContent?.trim() || '';
+		if (countWords(text) > 15) break;
+		if (METADATA_LABEL_PATTERN.test(text)) return true;
+	}
+	return false;
 }
 
 function removeTrailingSiblings(element: Element, removeSelf: boolean, debug: boolean, debugRemovals?: DebugRemoval[]) {
@@ -334,7 +380,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	if (firstH1) {
 		for (const link of mainContent.querySelectorAll('a[href]')) {
 			if (!link.parentNode) continue;
-			if (!(link.compareDocumentPosition(firstH1) & 4)) continue;
+			if (!isNodeBefore(link, firstH1)) continue;
 			if (!link.querySelector('div')) continue;
 			if (link.querySelector('img, picture, video')) continue;
 			const text = link.textContent?.trim() || '';
@@ -475,6 +521,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const tag = el.tagName;
 		const hasDate = CONTENT_DATE_PATTERN.test(text);
+		if (hasDate && isLabeledMetadata(el, mainContent)) continue;
 		// Defer indexOf — only compute when a check needs it
 		let pos = -2; // sentinel: not yet computed
 		const getPos = () => { if (pos === -2) pos = contentText.indexOf(text); return pos; };
@@ -757,7 +804,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					// Skip links inside paragraphs — these are inline prose links, not breadcrumbs
 					if (el.closest('p')) continue;
 					if (!firstHeading) continue;
-					if (!(el.compareDocumentPosition(firstHeading) & 4)) continue;
+					if (!isNodeBefore(el, firstHeading)) continue;
 				}
 			}
 			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');
@@ -1012,6 +1059,20 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const target = walkUpIsolated(heading, mainContent);
 
+		// Mid-article injection (e.g. a "Related Stories" card block dropped
+		// between paragraphs). Remove just that block — truncating from here
+		// would discard the rest of the article. The headingless card-grid rule
+		// below reads the same signal but declines to remove anything, because a
+		// matched heading is far stronger evidence of clutter than structure alone.
+		if (hasFollowingProse(target)) {
+			if (target === heading) continue;
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'inline related content section', text: textPreview(target) });
+			}
+			target.remove();
+			continue;
+		}
+
 		if (target === heading) {
 			// Heading is a direct child — only remove CTA headings (never real content)
 			if (!isCta) continue;
@@ -1047,9 +1108,12 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// (e.g. the heading was removed by removeLowScoring before this step runs).
 	// Matches a container whose children are predominantly image-bearing cards (img + heading).
 	const contentWordCount = countWords(contentText);
-	for (const el of mainContent.querySelectorAll('div')) {
+	for (const el of mainContent.querySelectorAll('div, ul, ol')) {
 		if (!el.parentNode) continue;
 		if (el.children.length < 2) continue;
+		// Two cards need two images, so one subtree scan rejects nav and footer
+		// lists before paying for the per-child scans below.
+		if (el.querySelectorAll('img, picture').length < 2) continue;
 		const children = Array.from(el.children);
 
 		// Each qualifying card must contain an image and either a heading or a link
@@ -1059,9 +1123,15 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		).length;
 		if (cardCount < 2 || cardCount < children.length * 0.7) continue;
 
-		// Must appear after substantial content (not a top-of-page listing)
+		// Must appear after substantial content (not a top-of-page listing).
+		// Cards whose titles were stripped by earlier steps have no text to locate,
+		// so those fall back to document order, and must every one link elsewhere —
+		// which separates related-post grids from caption-less article galleries.
 		const firstText = children[0].textContent?.trim().substring(0, 30) || '';
-		if (firstText.length < 5 || contentText.indexOf(firstText) < 500) continue;
+		const followsContent = firstText.length >= 5
+			? contentText.indexOf(firstText) >= 500
+			: children.every(c => c.querySelector('a[href]')) && precedingProseWords(el, mainContent) >= 100;
+		if (!followsContent) continue;
 
 		// Skip grids whose text is a large share of total content (e.g. numbered takeaways).
 		const gridWords = countWords(el.textContent || '');
@@ -1069,6 +1139,18 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const target = walkUpIsolated(el, mainContent);
 		if (target === el) continue;
+
+		// The removal target must be essentially the grid itself (plus a heading).
+		// If it wraps substantial prose, the grid is an illustrative image row inside
+		// a real article section (e.g. Wikipedia multi-image thumbnails), not a
+		// related-posts block — removing it would take the section and everything after.
+		const targetWords = countWords(target.textContent || '');
+		if (targetWords > gridWords * 2 + 15) continue;
+
+		// Related cards trail the article. If prose follows the grid, it is an
+		// illustrative image row mid-article and removing its trailing siblings
+		// would drop real content.
+		if (hasFollowingProse(target)) continue;
 
 		removeThinPrecedingSection(target, debug, debugRemovals);
 

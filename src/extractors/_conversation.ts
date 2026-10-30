@@ -1,7 +1,7 @@
 import { BaseExtractor } from './_base';
 import { ConversationMessage, ConversationMetadata, Footnote, ExtractorResult } from '../types/extractors';
 import { Defuddle } from '../defuddle';
-import { parseHTML } from '../utils/dom';
+import { parseHTML, escapeHtml } from '../utils/dom';
 
 export abstract class ConversationExtractor extends BaseExtractor {
 	protected abstract extractMessages(): ConversationMessage[];
@@ -58,22 +58,28 @@ export abstract class ConversationExtractor extends BaseExtractor {
 	protected createContentHtml(messages: ConversationMessage[], footnotes: Footnote[]): string {
 		const messagesHtml = messages.map((message, index) => {
 			const timestampHtml = message.timestamp ?
-				`<div class="message-timestamp">${message.timestamp}</div>` : '';
+				`<div class="message-timestamp">${escapeHtml(message.timestamp)}</div>` : '';
 
 			// Check if content already has paragraph tags
 			const hasParagraphs = /<p[^>]*>[\s\S]*?<\/p>/i.test(message.content);
+			// The one value that is deliberately raw: subclasses build it from page
+			// nodes they have already serialized. Everything else here is escaped.
 			const contentHtml = hasParagraphs ? message.content : `<p>${message.content}</p>`;
 
-			// Add metadata to data attributes
+			// Add metadata to data attributes. The key becomes part of an attribute
+			// name, where escaping does not apply. A key holding a space or a quote
+			// would start a new attribute, so restrict it to the characters a name
+			// can hold and drop anything else.
 			const dataAttributes = message.metadata ?
 				Object.entries(message.metadata)
-					.map(([key, value]) => `data-${key}="${value}"`)
+					.filter(([key]) => /^[a-z][a-z0-9-]*$/i.test(key))
+					.map(([key, value]) => `data-${key}="${escapeHtml(value)}"`)
 					.join(' ') : '';
 
 			return `
-			<div class="message message-${message.author.toLowerCase()}" ${dataAttributes}>
+			<div class="message message-${escapeHtml(message.author.toLowerCase())}" ${dataAttributes}>
 				<div class="message-header">
-					<p class="message-author"><strong>${message.author}</strong></p>
+					<p class="message-author"><strong>${escapeHtml(message.author)}</strong></p>
 					${timestampHtml}
 				</div>
 				<div class="message-content">
@@ -82,14 +88,16 @@ export abstract class ConversationExtractor extends BaseExtractor {
 			</div>${index < messages.length - 1 ? '\n<hr>' : ''}`;
 		}).join('\n').trim();
 
-		// Add footnotes section if we have any
+		// Add footnotes section if we have any. `footnote.text` is raw HTML by
+		// contract (subclasses build a full <a> into it), so it is escaped at each
+		// construction site instead of here.
 		const footnotesHtml = footnotes.length > 0 ? `
 			<div id="footnotes">
 				<ol>
 					${footnotes.map((footnote, index) => `
 						<li class="footnote" id="fn:${index + 1}">
 							<p>
-								<a href="${footnote.url}" target="_blank">${footnote.text}</a>&nbsp;<a href="#fnref:${index + 1}" class="footnote-backref">↩</a>
+								<a href="${escapeHtml(footnote.url)}" target="_blank">${footnote.text}</a>&nbsp;<a href="#fnref:${index + 1}" class="footnote-backref">↩</a>
 							</p>
 						</li>
 					`).join('')}
