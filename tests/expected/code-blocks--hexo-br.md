@@ -2,7 +2,7 @@
 {
   "title": "Sample Technical Post",
   "author": "",
-  "site": "",
+  "site": "code-blocks--hexo-br",
   "published": ""
 }
 ```

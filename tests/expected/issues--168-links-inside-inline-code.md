@@ -2,7 +2,7 @@
 {
   "title": "Inline Code with Links",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

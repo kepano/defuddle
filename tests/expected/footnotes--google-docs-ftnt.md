@@ -2,7 +2,7 @@
 {
   "title": "Google Docs footnotes: ftnt/ftnt_ref pattern",
   "author": "",
-  "site": "",
+  "site": "google-docs-ftnt",
   "published": ""
 }
 ```

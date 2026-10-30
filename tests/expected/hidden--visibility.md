@@ -2,7 +2,7 @@
 {
   "title": "Visibility hidden test",
   "author": "",
-  "site": "",
+  "site": "visibility",
   "published": ""
 }
 ```

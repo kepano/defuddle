@@ -2,7 +2,7 @@
 {
   "title": "Blog Post with SVG Icons",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

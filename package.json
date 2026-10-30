@@ -1,6 +1,6 @@
 {
 	"name": "defuddle",
-	"version": "0.19.2",
+	"version": "0.19.6",
 	"description": "Extract article content and metadata from web pages.",
 	"main": "dist/index.js",
 	"bin": {
@@ -51,6 +51,7 @@
 		"test": "TZ=UTC vitest run",
 		"test:jsdom": "TZ=UTC DOM=jsdom vitest run",
 		"lint:innerhtml": "node scripts/check-no-innerhtml.mjs",
+		"lint:unused": "tsc --noEmit --noUnusedLocals",
 		"size": "node scripts/check-bundle-size.mjs",
 		"playground": "node playground/server.js"
 	},
@@ -75,25 +76,26 @@
 	},
 	"homepage": "https://github.com/kepano/defuddle",
 	"dependencies": {
-		"commander": "^12.1.0"
+		"commander": "^12.1.0",
+		"mathml-to-latex": "^1.8.0"
 	},
 	"optionalDependencies": {
 		"linkedom": "^0.18.12",
-		"mathml-to-latex": "^1.8.0",
 		"temml": "^0.13.3",
 		"turndown": "^7.2.0"
 	},
 	"devDependencies": {
 		"@types/jsdom": "^21.1.6",
-		"@types/node": "^20.19.0",
+		"@types/node": "^24.13.5",
 		"@types/turndown": "^5.0.5",
 		"concurrently": "^8.2.2",
 		"jsdom": "^24.0.0",
+		"marked": "^18.0.14",
 		"terser-webpack-plugin": "^5.3.14",
 		"ts-loader": "^9.5.1",
 		"typescript": "^5.3.3",
 		"undici-types": "^5.0.0",
-		"vitest": "^3.2.4",
+		"vitest": "^5.0.1",
 		"webpack": "^5.90.3",
 		"webpack-cli": "^5.1.4"
 	},

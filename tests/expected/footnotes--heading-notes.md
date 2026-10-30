@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: heading delimiter",
   "author": "",
-  "site": "",
+  "site": "heading-notes",
   "published": ""
 }
 ```

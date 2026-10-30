@@ -1,0 +1,84 @@
+.table-wrap {
+  margin: 26px 0;
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-small);
+  }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 13px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th:first-child, td:first-child {
+    padding-left: 0;
+  }
+  th {
+    color: var(--muted);
+    font-size: var(--font-size-small);
+    font-weight: 400;
+  }
+  td:first-child {
+    color: var(--paper);
+  }
+}
+
+.markdown-doc > table {
+  width: 100%;
+  margin: 26px 0;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 13px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th:first-child, td:first-child {
+    padding-left: 0;
+  }
+  th {
+    color: var(--muted);
+    font-size: var(--font-size-small);
+    font-weight: 400;
+  }
+  td:first-child {
+    color: var(--paper);
+  }
+}
+
+@media (max-width: 760px) {
+  .markdown-doc > .table-wrap {
+    --table-mobile-gutter: calc((100vw - var(--page-width)) / 2);
+    width: 100vw;
+    margin-inline: calc((100% - 100vw) / 2);
+
+    th:first-child,
+    td:first-child {
+      border-bottom: 0;
+      background-image: linear-gradient(var(--line), var(--line));
+      background-position: right bottom;
+      background-repeat: no-repeat;
+      background-size: calc(100% - var(--table-mobile-gutter)) 1px;
+      padding-left: var(--table-mobile-gutter);
+    }
+    th:last-child,
+    td:last-child {
+      border-bottom: 0;
+      background-image: linear-gradient(var(--line), var(--line));
+      background-position: left bottom;
+      background-repeat: no-repeat;
+      background-size: calc(100% - var(--table-mobile-gutter)) 1px;
+      padding-right: var(--table-mobile-gutter);
+    }
+    th:first-child:last-child,
+    td:first-child:last-child {
+      background-position: center bottom;
+      background-size: calc(100% - var(--table-mobile-gutter) - var(--table-mobile-gutter)) 1px;
+    }
+  }
+}

@@ -124,14 +124,6 @@ export interface ContentScore {
 }
 
 export class ContentScorer {
-	private doc: Document;
-	private debug: boolean;
-
-	constructor(doc: Document, debug: boolean = false) {
-		this.doc = doc;
-		this.debug = debug;
-	}
-
 	static scoreElement(element: Element): number {
 		let score = 0;
 

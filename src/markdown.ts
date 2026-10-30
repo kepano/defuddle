@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { parseHTML, serializeHTML, isDirectTableChild } from './utils/dom';
+import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -62,14 +62,75 @@ const COMPLEX_MATHML_NODE_NAMES = new Set([
 	'msubsup', 'msup', 'mtable', 'mtd', 'mtr', 'munder', 'munderover'
 ]);
 
+function escapeEntityLike(value: string): string {
+	return value.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;');
+}
+
 function formatMarkdownLinkDestination(href: string): string {
+	if (isDangerousUrl(href)) return '';
+	href = escapeEntityLike(href)
+		.replace(/\\/g, '\\\\')
+		.replace(/[<>\u0000-\u001f\u007f]/g, char => encodeURIComponent(char));
 	if (!/\s/.test(href)) return href.replace(/([()])/g, '\\$1');
-	return `<${href.replace(/>/g, '\\>')}>`;
+	return `<${href}>`;
 }
 
 function formatMarkdownLinkTitle(title: string | null): string {
 	if (!title) return '';
-	return ` "${title.replace(/(\n+\s*)+/g, '\n').replace(/"/g, '\\"')}"`;
+	return ` "${escapeHtml(title.replace(/[\r\n]+/g, ' ')).replace(/\\/g, '\\\\')}"`;
+}
+
+function formatFootnoteId(id: string): string {
+	return id.toLowerCase().replace(/[^a-z0-9_-]/g, char =>
+		'%' + char.charCodeAt(0).toString(16).padStart(4, '0'));
+}
+
+function decodeFragment(fragment: string): string {
+	try {
+		return decodeURIComponent(fragment);
+	} catch {
+		return fragment;
+	}
+}
+
+function longestBacktickRun(code: string): number {
+	return (code.match(/`+/g) || []).reduce((size, run) => Math.max(size, run.length), 0);
+}
+
+function formatFencedCode(code: string, language = ''): string {
+	const cleanCode = code.trim();
+	const safeLanguage = language.trim().split(/\s/)[0].replace(/`/g, '');
+	// Table cells flatten fences into code spans, so count every backtick run.
+	const fence = '`'.repeat(Math.max(3, longestBacktickRun(cleanCode) + 1));
+	return `\n${fence}${safeLanguage}\n${cleanCode}\n${fence}\n`;
+}
+
+function formatCodeSpan(code: string): string {
+	const text = code.replace(/\s*\n\s*/g, ' ').trim();
+	const fence = '`'.repeat(longestBacktickRun(text) + 1);
+	return `${fence} ${text} ${fence}`;
+}
+
+const LITERAL_MATH_COMMAND = /\\(?:text[a-z]*|mbox|hbox|vbox|verb|url|href|operatorname|tag|label|ref|eqref)(?![a-z])/i;
+
+function formatMath(latex: string, block: boolean): string {
+	// Markdown without math support still parses HTML and links inside $...$.
+	const tag = block
+		? /<(?=[!?/]|[a-z][a-z0-9-]*(?:[\s/>]|$)|[a-z][a-z0-9+.-]*:)/gi
+		: /<(?=[!?/]|[a-z][a-z0-9-]*[\s/>]|[a-z][a-z0-9+.-]*:)/gi;
+	const safeLatex = latex
+		.replace(/\n\s*\n/g, '\n')
+		.replace(tag, '< ')
+		.replace(/\](?=[(:[])/g, '] ');
+	// Preserve significant spaces in text and literal arguments.
+	if (safeLatex !== latex && LITERAL_MATH_COMMAND.test(latex)) {
+		return block ? `\n${formatFencedCode(latex)}\n` : formatCodeSpan(latex);
+	}
+	return block ? `\n$$\n${safeLatex}\n$$\n` : `$${safeLatex}$`;
+}
+
+function formatEmbed(url: string): string {
+	return `\n![](${formatMarkdownLinkDestination(url)})\n`;
 }
 
 function getBestImageSrc(node: GenericElement): string {
@@ -89,7 +150,7 @@ function getBestImageSrc(node: GenericElement): string {
 				const width = parseInt(widthMatch[1], 10);
 				if (urlParts.length > 0 && width > bestWidth) {
 					const url = urlParts.join(' ').replace(/^,\s*/, '');
-					if (url) {
+					if (url && !isDangerousUrl(url)) {
 						bestWidth = width;
 						bestUrl = url;
 					}
@@ -113,8 +174,46 @@ function getBestImageSrc(node: GenericElement): string {
 // the survivor byte-for-byte so the quote depth is not rewritten.
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
+const VOID_ELEMENTS = new Set([
+	'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+// Invalid CommonMark names expose the tag as Markdown text.
+const HTML_TAG_NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
+const HTML_ATTRIBUTE_NAME = /^[A-Za-z_:][A-Za-z0-9_.:-]*$/;
+// Replace raw-text elements so character references are decoded.
+const RAW_TEXT_REPLACEMENTS = new Map([['xmp', 'pre'], ['plaintext', 'pre']]);
+const HIDDEN_RAW_TEXT_ELEMENTS = new Set(['noembed', 'noframes']);
+// Inline HTML still parses Markdown; blank lines end HTML blocks.
+const MARKDOWN_UNSAFE_CHARS = /[\n\r&<>"'`\\[\]]/g;
+
+function encodeMarkdownUnsafe(value: string): string {
+	return value.replace(MARKDOWN_UNSAFE_CHARS, char => `&#${char.charCodeAt(0)};`);
+}
+
+function serializeInertHTML(node: Node): string {
+	if (isTextNode(node)) return encodeMarkdownUnsafe(node.textContent || '');
+	if (!isElement(node)) return '';
+	const localName = node.localName || node.nodeName.toLowerCase();
+	if (HIDDEN_RAW_TEXT_ELEMENTS.has(localName.toLowerCase())) return '';
+	const children = Array.from(node.childNodes, serializeInertHTML).join('');
+	const name = RAW_TEXT_REPLACEMENTS.get(localName.toLowerCase()) ?? localName;
+	if (!HTML_TAG_NAME.test(name)) return children;
+	const attributes = Array.from(node.attributes)
+		.filter(attr => HTML_ATTRIBUTE_NAME.test(attr.name))
+		.map(attr => ` ${attr.name}="${encodeMarkdownUnsafe(attr.value)}"`)
+		.join('');
+	return VOID_ELEMENTS.has(name.toLowerCase())
+		? `<${name}${attributes}>`
+		: `<${name}${attributes}>${children}</${name}>`;
+}
+
+// Direct conversion can receive unsanitized HTML.
+function sanitizedOuterHTML(element: Element): string {
+	const clone = element.cloneNode(true) as Element;
+	return stripUnsafeElements(clone) ? '' : serializeInertHTML(clone);
+}
+
 export function createMarkdownContent(content: string, url: string) {
-	const footnotes: { [key: string]: string } = {};
 	const turndownService = new TurndownService({
 		headingStyle: 'atx',
 		hr: '---',
@@ -122,6 +221,10 @@ export function createMarkdownContent(content: string, url: string) {
 		codeBlockStyle: 'fenced',
 		emDelimiter: '*',
 		preformattedCode: true,
+		keepReplacement: (_content, node) => {
+			const html = sanitizedOuterHTML(node as unknown as Element);
+			return (node as any).isBlock ? '\n\n' + html + '\n\n' : html;
+		},
 	});
 
 	// Escape tag-like sequences (e.g. a post titled "Monte<video>") in text nodes so
@@ -131,8 +234,18 @@ export function createMarkdownContent(content: string, url: string) {
 	// <https://x> have "@"/":" after the name and are left intact, as is "a < b". Real
 	// kept elements (video/iframe/svg/…) are DOM nodes, not text, so keep rules are safe.
 	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
-	turndownService.escape = (s: string) =>
-		baseEscape(s).replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<');
+	turndownService.escape = (s: string) => {
+		const escaped = baseEscape(s);
+		if (!escaped.includes('<')) return escaped;
+		return escaped
+			.replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<')
+			// A tag or autolink can span adjacent text nodes.
+			.replace(/<(?=[^<>\s]*$)/, '\\<')
+			.replace(/<([^<>\s]+)>/g, (match, destination) =>
+				isDangerousUrl(destination, false) ? `\\${match}` : match);
+	};
+	const escapeInlineText = (value: string): string =>
+		escapeEntityLike(baseEscape(value.replace(/[\r\n]+/g, ' ')).replace(/</g, '\\<'));
 
 	turndownService.addRule('table', {
 		filter: 'table',
@@ -355,49 +468,21 @@ export function createMarkdownContent(content: string, url: string) {
 			});
 			if (hasParagraphsOutsideFigcaption) return content;
 
-			const alt = img.getAttribute('alt') || '';
-			const src = getBestImageSrc(img);
+			const alt = escapeInlineText(img.getAttribute('alt') || '');
+			const src = formatMarkdownLinkDestination(getBestImageSrc(img));
 			let caption = '';
 
 			if (figcaption && isGenericElement(figcaption)) {
 				const tagSpan = figcaption.querySelector('.ltx_tag_figure');
 				const tagText = tagSpan && isGenericElement(tagSpan) ? tagSpan.textContent?.trim() : '';
 				
-				// Process the caption content, including math elements
-				let captionContent = serializeHTML(figcaption);
-				const ownerDoc = (node as any).ownerDocument;
-				captionContent = captionContent.replace(/<math.*?>(.*?)<\/math>/g, (match, mathContent, offset, string) => {
-					let latex = '';
-					if (ownerDoc) {
-						const fragment = parseHTML(ownerDoc, match);
-						const mathElement = fragment.querySelector('math');
-						latex = mathElement && isGenericElement(mathElement) ? extractLatex(mathElement) : '';
-					}
-					const prevChar = string[offset - 1] || '';
-					const nextChar = string[offset + match.length] || '';
-
-					const isStartOfLine = offset === 0 || /\s/.test(prevChar);
-					const isEndOfLine = offset + match.length === string.length || /\s/.test(nextChar);
-
-					const leftSpace = (!isStartOfLine && !/[\s$]/.test(prevChar)) ? ' ' : '';
-					const rightSpace = (!isEndOfLine && !/[\s$]/.test(nextChar)) ? ' ' : '';
-
-					return `${leftSpace}$${latex}$${rightSpace}`;
-				});
-
-				// Convert the processed caption content to markdown
-				const captionMarkdown = turndownService.turndown(captionContent);
+				const captionMarkdown = turndownService.turndown(serializeHTML(figcaption));
 				
 				// Combine tag and processed caption
-				caption = `${tagText} ${captionMarkdown}`.trim();
+				caption = `${escapeInlineText(tagText || '')} ${captionMarkdown}`.trim();
 			}
 
-			// Handle references in the caption
-			caption = caption.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, href) => {
-				return `[${text}](${href})`;
-			});
-
-			return `![${alt}](${src})\n\n${caption}\n\n`;
+			return `${src ? `![${alt}](${src})` : alt}\n\n${caption}\n\n`;
 		}
 	});
 
@@ -406,10 +491,9 @@ export function createMarkdownContent(content: string, url: string) {
 		filter: 'img',
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
-			const alt = node.getAttribute('alt') || '';
-			const src = getBestImageSrc(node);
-			const title = node.getAttribute('title') || '';
-			const titlePart = title ? ` "${title}"` : '';
+			const alt = escapeInlineText(node.getAttribute('alt') || '');
+			const src = formatMarkdownLinkDestination(getBestImageSrc(node));
+			const titlePart = formatMarkdownLinkTitle(node.getAttribute('title'));
 			return src ? `![${alt}](${src}${titlePart})` : '';
 		}
 	});
@@ -430,17 +514,17 @@ export function createMarkdownContent(content: string, url: string) {
 			if (src) {
 				const youtubeMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)\/(?:embed\/|watch\?v=)?([a-zA-Z0-9_-]+)/);
 				if (youtubeMatch && youtubeMatch[1]) {
-					return `\n![](https://www.youtube.com/watch?v=${youtubeMatch[1]})\n`;
+					return formatEmbed(`https://www.youtube.com/watch?v=${youtubeMatch[1]}`);
 				}
 				// Direct URL: /user/status/id
-				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([^/]+)\/status\/([0-9]+)/);
+				const tweetDirectMatch = src.match(/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/([A-Za-z0-9_]+)\/status\/([0-9]+)/);
 				if (tweetDirectMatch) {
-					return `\n![](https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]})\n`;
+					return formatEmbed(`https://x.com/${tweetDirectMatch[1]}/status/${tweetDirectMatch[2]}`);
 				}
 				// Platform embed: ?id=
 				const tweetEmbedMatch = src.match(/(?:https?:\/\/)?(?:platform\.)?twitter\.com\/embed\/Tweet\.html\?.*?id=([0-9]+)/);
 				if (tweetEmbedMatch) {
-					return `\n![](https://x.com/i/status/${tweetEmbedMatch[1]})\n`;
+					return formatEmbed(`https://x.com/i/status/${tweetEmbedMatch[1]}`);
 				}
 			}
 			return content;
@@ -472,6 +556,7 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!href) return content;
 			const title = formatMarkdownLinkTitle(node.getAttribute('title'));
 			const destination = formatMarkdownLinkDestination(href);
+			if (!destination) return content;
 			return `[${content}](${destination}${title})`;
 		}
 	});
@@ -504,8 +589,9 @@ export function createMarkdownContent(content: string, url: string) {
 			
 			// Construct the new markdown
 			let markdown = `${headingContent}\n\n${remainingContent}\n\n`;
-			if (href) {
-				markdown += `[View original](${formatMarkdownLinkDestination(href)}${formatMarkdownLinkTitle(title)})`;
+			const destination = formatMarkdownLinkDestination(href || '');
+			if (destination) {
+				markdown += `[View original](${destination}${formatMarkdownLinkTitle(title)})`;
 			}
 			
 			return markdown;
@@ -540,14 +626,14 @@ export function createMarkdownContent(content: string, url: string) {
 			return false;
 		},
 		replacement: (content, node) => {
-			if (isGenericElement(node)) {
-				const id = node.getAttribute('id');
-				if (node.nodeName === 'SUP' && id !== null && id.startsWith('fnref:')) {
-					const primaryNumber = id.replace('fnref:', '').split('-')[0];
-					return `[^${primaryNumber}]`;
-				}
-			}
-			return content;
+			if (!isGenericElement(node)) return content;
+			const referenceId = node.getAttribute('id')!.slice('fnref:'.length);
+			// Nested conversions may not contain the footnote definition.
+			const linkedId = decodeFragment(node.querySelector('a[href^="#fn:"]')?.getAttribute('href')?.slice('#fn:'.length) || '');
+			const ownerDoc = (node as unknown as Element).ownerDocument;
+			const primaryId = linkedId || (ownerDoc?.getElementById(`fn:${referenceId}`)
+				? referenceId : referenceId.replace(/-\d+$/, ''));
+			return `[^${formatFootnoteId(primaryId)}]`;
 		}
 	});
 
@@ -590,7 +676,7 @@ export function createMarkdownContent(content: string, url: string) {
 					const referenceContent = turndownService.turndown(serializeHTML(li));
 					// Remove the backlink from the footnote content
 					const cleanedContent = referenceContent.replace(/\s*↩︎$/, '').trim();
-					return `[^${id?.toLowerCase()}]: ${cleanedContent}`;
+					return `[^${formatFootnoteId(id || '')}]: ${cleanedContent}`;
 				}
 				return '';
 			});
@@ -640,12 +726,7 @@ export function createMarkdownContent(content: string, url: string) {
 				|| '';
 			const code = codeElement.textContent || '';
 			
-			// Clean up the content and escape backticks
-			const cleanCode = code
-				.trim()
-				.replace(/`/g, '\\`');
-			
-			return `\n\`\`\`${language}\n${cleanCode}\n\`\`\`\n`;
+			return formatFencedCode(code, language);
 		}
 	});
 
@@ -679,21 +760,23 @@ export function createMarkdownContent(content: string, url: string) {
 				node.parentNode.previousSibling.nodeName.toLowerCase() === 'p')
 			)) {
 				latex = formatBlockLatex(latex);
-				return `\n$$\n${latex}\n$$\n`;
+				return formatMath(latex, true);
 			} else {
 				// For inline math, ensure there's a space before and after only if needed
 				const prevNode = node.previousSibling;
 				const nextNode = node.nextSibling;
-				const prevChar = prevNode && isGenericElement(prevNode) ? prevNode.textContent?.slice(-1) || '' : '';
-				const nextChar = nextNode && isGenericElement(nextNode) ? nextNode.textContent?.[0] || '' : '';
+				const prevChar = prevNode?.textContent?.slice(-1) || '';
+				const nextChar = nextNode?.textContent?.[0] || '';
 
 				const isStartOfLine = !prevNode || (isTextNode(prevNode) && prevNode.textContent?.trim() === '');
 				const isEndOfLine = !nextNode || (isTextNode(nextNode) && nextNode.textContent?.trim() === '');
 
-				const leftSpace = (!isStartOfLine && prevChar && !/[\s$]/.test(prevChar)) ? ' ' : '';
-				const rightSpace = (!isEndOfLine && nextChar && !/[\s$]/.test(nextChar)) ? ' ' : '';
+				// Turndown already moves edge whitespace outside the element.
+				const text = node.textContent || '';
+				const leftSpace = (!isStartOfLine && !/^\s/.test(text) && /[\p{L}\p{N}]/u.test(prevChar)) ? ' ' : '';
+				const rightSpace = (!isEndOfLine && !/\s$/.test(text) && /[\p{L}\p{N}]/u.test(nextChar)) ? ' ' : '';
 
-				return `${leftSpace}$${latex}$${rightSpace}`;
+				return `${leftSpace}${formatMath(latex, false)}${rightSpace}`;
 			}
 		}
 	});
@@ -726,11 +809,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const isInline = node.classList?.contains('math-inline') || 
 				(mathElement && isGenericElement(mathElement) && mathElement.getAttribute('display') !== 'block');
 			
-			if (isInline) {
-				return `$${latex}$`;
-			} else {
-				return `\n$$\n${latex}\n$$\n`;
-			}
+			return formatMath(latex, !isInline);
 		}
 	});
 
@@ -746,7 +825,8 @@ export function createMarkdownContent(content: string, url: string) {
 		},
 		replacement: (content, node) => {
 			if (!isGenericElement(node)) return content;
-			const type = node.getAttribute('data-callout') || 'note';
+			const rawType = node.getAttribute('data-callout') || 'note';
+			const type = /^[a-z0-9_-]+$/i.test(rawType) ? rawType : 'note';
 
 			// Fold indicator: data-callout-fold="-" means collapsed,
 			// "+" means collapsible but open, absent means not foldable
@@ -755,7 +835,7 @@ export function createMarkdownContent(content: string, url: string) {
 
 			// Extract title from .callout-title-inner
 			const titleInner = node.querySelector('.callout-title-inner');
-			const title = titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
+			const title = escapeInlineText(titleInner?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1));
 
 			// Remove the title from the DOM so it doesn't appear in content
 			const titleDiv = node.querySelector('.callout-title');
@@ -766,8 +846,8 @@ export function createMarkdownContent(content: string, url: string) {
 			// Re-convert without the title element
 			const contentEl = node.querySelector('.callout-content');
 			const calloutContent = contentEl
-				? turndownService.turndown(contentEl.innerHTML)
-				: turndownService.turndown(node.innerHTML);
+				? turndownService.turndown(serializeHTML(contentEl))
+				: turndownService.turndown(serializeHTML(node));
 
 			const lines = calloutContent.trim().split('\n');
 			const quotedContent = lines.map(line => `> ${line}`).join('\n');
@@ -785,7 +865,7 @@ export function createMarkdownContent(content: string, url: string) {
 			const latex = annotation?.textContent?.trim() || mathElement.getAttribute('alttext')?.trim();
 			if (latex) {
 				const isInline = mathElement.closest('.ltx_eqn_inline, .mwe-math-element-inline') !== null;
-				return isInline ? `$${latex}$` : `\n$$\n${latex}\n$$`;
+				return formatMath(latex, !isInline);
 			}
 			return '';
 		}).join('\n\n');
@@ -810,14 +890,7 @@ export function createMarkdownContent(content: string, url: string) {
 		// Create a clone of the table to avoid modifying the original DOM
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
-
-		// outerHTML encodes & as &amp;, which breaks LaTeX alignment
-		// characters inside math delimiters. Decode common entities since
-		// the output goes into markdown, not back through an HTML parser.
-		return tableClone.outerHTML
-			.replace(/&amp;/g, '&')
-			.replace(/&lt;/g, '<')
-			.replace(/&gt;/g, '>');
+		return stripUnsafeElements(tableClone) ? '' : serializeInertHTML(tableClone);
 	}
 
 	function extractLatex(element: GenericElement): string {
@@ -970,20 +1043,13 @@ export function createMarkdownContent(content: string, url: string) {
 
 		// Collapse runs of empty blank blockquote lines that start with a >
 		markdown = markdown.replace(BLANK_QUOTE_LINE_RUN, '$1');
-
-		// Append footnotes at the end of the document
-		if (Object.keys(footnotes).length > 0) {
-			markdown += '\n\n---\n\n';
-			for (const [id, content] of Object.entries(footnotes)) {
-				markdown += `[^${id}]: ${content}\n\n`;
-			}
-		}
 		
 		return markdown.trim();
 	} catch (error) {
 		console.error('Error converting HTML to Markdown:', error);
 		console.log('Problematic content:', content.substring(0, 1000) + '...');
-		return `Partial conversion completed with errors. Original HTML:\n\n${content}`;
+		const fence = '`'.repeat(Math.max(3, ...[...content.matchAll(/`+/g)].map(match => match[0].length + 1)));
+		return `Partial conversion completed with errors. Original HTML:\n\n${fence}html\n${content}\n${fence}`;
 	}
 }
 

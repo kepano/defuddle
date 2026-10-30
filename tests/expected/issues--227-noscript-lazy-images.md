@@ -2,7 +2,7 @@
 {
   "title": "Test Article with Lazy Images",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

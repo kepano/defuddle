@@ -20,7 +20,7 @@ import { wrapRawLatexDelimiters, extractLatexFromImageSrc, LOOKS_LIKE_LATEX_RE }
 import { codeBlockRules } from './elements/code';
 import { headingRules, removePermalinkAnchors, isPermalinkAnchor } from './elements/headings';
 import { imageRules } from './elements/images';
-import { isElement, isTextNode, isCommentNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
+import { isElement, isTextNode, isSVGElement, getComputedStyle, logDebug, normalizeText } from './utils';
 import { transferContent, isDirectTableChild, getClassName } from './utils/dom';
 import { isExtractorClass } from './utils/comments';
 
@@ -1144,6 +1144,16 @@ function isFootnoteRef(node: Node): boolean {
 		((node as Element).getAttribute('id') || '').startsWith('fnref:');
 }
 
+// sub/sup/code sit tight against neighbours (H<sub>2</sub>O, 10<sup>n</sup>, inline code).
+// The space-insertion pass below recovers gaps lost when spans are stripped; these tags
+// never wanted that separator. Footnote <sup id="fnref:N"> is not tight: those hug the
+// preceding word via isFootnoteRef, but following prose still needs a separator.
+const TIGHT_INLINE = new Set(['sub', 'sup', 'code']);
+
+function isTightInline(node: Node): boolean {
+	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
@@ -1244,18 +1254,23 @@ function removeEmptyLines(element: Element, doc: Document): void {
 
 				// Only add space between elements or between element and text
 				if (isElement(current) || isElement(next)) {
+					// sub/sup/code never take an inserted separator
+					if (isTightInline(current) || isTightInline(next)) {
+						continue;
+					}
+
 					// Get the text content
 					const nextContent = next.textContent || '';
 					const currentContent = current.textContent || '';
 					
 					// Don't add space if:
 					// 1. Next is a footnote reference — markers hug the preceding word
-					// 2. Next content starts with punctuation or closing parenthesis
-					// 3. Current content ends with punctuation or opening parenthesis
+					// 2. Next content starts with punctuation, a closing quote or bracket, or a dash
+					// 3. Current content ends with punctuation, an opening quote or bracket, or a dash
 					// 4. There's already a space
 					const nextIsFootnoteRef = isFootnoteRef(next);
-					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]]/);
-					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[]\s*$/);
+					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’—–]/);
+					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘—–]\s*$/);
 
 					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
@@ -1368,6 +1383,22 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 
 	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
 	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
+	const hasPresentationalMathContent = (mathEl: Element): boolean => {
+		const isPresentationalNode = (node: Node): boolean => {
+			if (isTextNode(node)) return Boolean(node.textContent?.trim());
+			if (!isElement(node)) return false;
+
+			const tag = node.tagName.toLowerCase();
+			if (tag === 'annotation' || tag === 'annotation-xml') return false;
+			if (tag === 'semantics') {
+				return Array.from(node.childNodes).some(isPresentationalNode);
+			}
+
+			return true;
+		};
+
+		return Array.from(mathEl.childNodes).some(isPresentationalNode);
+	};
 	equationTables.forEach(table => {
 		const mathElements = table.querySelectorAll('math');
 		if (mathElements.length === 0) return;
@@ -1385,11 +1416,13 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 				table.classList.contains('ltx_equation') ||
 				table.classList.contains('ltx_equationgroup');
 
-			const cleanMath = doc.createElement('math');
+			const cleanMath = mathEl.cloneNode(true) as Element;
 			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
 			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
 			cleanMath.setAttribute('data-latex', latex);
-			cleanMath.textContent = latex;
+			if (!hasPresentationalMathContent(cleanMath)) {
+				cleanMath.textContent = latex;
+			}
 			fragment.appendChild(cleanMath);
 		});
 
@@ -1640,46 +1673,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return false;
 	};
 
-	const isWrapperElement = (el: Element): boolean => {
-		// If it directly contains inline content, it's NOT a wrapper
-		if (hasDirectInlineContent(el)) {
-			return false;
-		}
-
-		// Check if it's just empty space
-		if (!el.textContent?.trim()) return true;
-
-		// Check if it only contains other block elements
-		const children = Array.from(el.children);
-		if (children.length === 0) return true;
-		
-		// Check if all children are block elements
-		const allBlockElements = children.every(child => {
-			return BLOCK_LEVEL_ELEMENTS.has(child.tagName.toLowerCase());
-		});
-		if (allBlockElements) return true;
-
-		// Check for common wrapper patterns
-		const className = getClassName(el).toLowerCase();
-		const isWrapper = /(?:wrapper|container|layout|row|col|grid|flex|outer|inner|content-area)/i.test(className);
-		if (isWrapper) return true;
-
-		// Check if it has excessive whitespace or empty text nodes
-		const textNodes = Array.from(el.childNodes).filter(node => 
-			isTextNode(node) && node.textContent?.trim()
-		);
-		if (textNodes.length === 0) return true;
-
-		// Check if it only contains block elements
-		const hasOnlyBlockElements = children.length > 0 && !children.some(child => {
-			const tag = child.tagName.toLowerCase();
-			return INLINE_ELEMENTS.has(tag);
-		});
-		if (hasOnlyBlockElements) return true;
-
-		return false;
-	};
-
 	// Function to process a single element
 	const processElement = (el: Element): boolean => {
 		// Skip processing if element has been removed or should be preserved
@@ -1713,7 +1706,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		}
 
 		// Case 3: Wrapper element - merge up aggressively
-		if (isWrapperElement(el)) {
+		if (!hasDirectInlineContent(el)) {
 			const fragment = doc.createDocumentFragment();
 			while (el.firstChild) {
 				fragment.appendChild(el.firstChild);
@@ -1752,28 +1745,6 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 				processedCount++;
 				return true;
 			}
-		}
-
-		// Case 6: Deeply nested element - merge up
-		let nestingDepth = 0;
-		let parent = el.parentElement;
-		while (parent) {
-			const parentTag = parent.tagName.toLowerCase();
-			if (BLOCK_ELEMENTS_SET.has(parentTag)) {
-				nestingDepth++;
-			}
-			parent = parent.parentElement;
-		}
-
-		// Only unwrap if nested AND does not contain direct inline content
-		if (nestingDepth > 0 && !hasDirectInlineContent(el)) {
-			const fragment = doc.createDocumentFragment();
-			while (el.firstChild) {
-				fragment.appendChild(el.firstChild);
-			}
-			el.replaceWith(fragment);
-			processedCount++;
-			return true;
 		}
 
 		return false;
@@ -1833,7 +1804,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
 			
 			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper element
-			if (onlyParagraphs || (!shouldPreserveElement(el) && isWrapperElement(el))) {
+			if (onlyParagraphs || (!shouldPreserveElement(el) && !hasDirectInlineContent(el))) {
 				const fragment = doc.createDocumentFragment();
 				while (el.firstChild) {
 					fragment.appendChild(el.firstChild);

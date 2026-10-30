@@ -2,7 +2,7 @@
 {
   "title": "Model Comparison Table",
   "author": "",
-  "site": "",
+  "site": "table-with-links",
   "published": ""
 }
 ```

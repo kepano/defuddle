@@ -2,7 +2,7 @@
 {
   "title": "MathJax math/tex Script Elements",
   "author": "",
-  "site": "",
+  "site": "mathjax-tex-scripts",
   "published": ""
 }
 ```

@@ -38,7 +38,7 @@ First, get the salt used to derive your encryption key by following these steps:
 let data = await (await fetch('https://api.obsidian.md/vault/list', {method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({token: JSON.parse(localStorage.getItem('obsidian-account')).token})})).json();
 let vaults = [].concat(data.shared, data.vaults);
 let vault = vaults.find(v => v.id === app.internalPlugins.getEnabledPluginById('sync').vaultId);
-console.log(\`The salt of your vault ${vault.name} is: "${vault.salt}" with encryptionVersion ${vault.encryption_version}\`);
+console.log(`The salt of your vault ${vault.name} is: "${vault.salt}" with encryptionVersion ${vault.encryption_version}`);
 ```
 
 You should see a message containing your salt and encryption version:

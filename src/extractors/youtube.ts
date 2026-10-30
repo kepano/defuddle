@@ -1,4 +1,4 @@
-import { BaseExtractor, ExtractorOptions } from './_base';
+import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
 import { escapeHtml } from '../utils/dom';
 import { countWords, CJK_CHAR_RANGES } from '../utils';
@@ -74,15 +74,7 @@ const MOBILE_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 };
 
 export class YoutubeExtractor extends BaseExtractor {
-	private videoElement: HTMLVideoElement | null;
 	private inlineJsonCache = new Map<string, any>();
-	protected override schemaOrgData: any;
-
-	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
-		super(document, url, schemaOrgData, options);
-		this.videoElement = document.querySelector('video');
-		this.schemaOrgData = schemaOrgData;
-	}
 
 	canExtract(): boolean {
 		return true;
@@ -162,17 +154,99 @@ export class YoutubeExtractor extends BaseExtractor {
 			?? findBest(({ code }) => code.split('-')[0] === base);
 	}
 
-	private pickCaptionTrack(captionTracks: any[]): any | undefined {
+	private languageBase(code?: string): string {
+		return this.normalizeLanguageCode(code).split('-')[0];
+	}
+
+	private isEnglishTrack(track: any): boolean {
+		return this.languageBase(track?.languageCode) === 'en';
+	}
+
+	private isIndexOf(value: unknown, list: any[]): value is number {
+		return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < list.length;
+	}
+
+	private getAudioTracks(playerData?: any): any[] {
+		const audioTracks = playerData?.captions?.playerCaptionsTracklistRenderer?.audioTracks;
+		return Array.isArray(audioTracks) ? audioTracks : [];
+	}
+
+	// The audio track YouTube marks as default. The order of several audio
+	// tracks varies between requests, so without a valid index none is assumed.
+	private getDefaultAudioTrack(playerData?: any): any | undefined {
+		const audioTracks = this.getAudioTracks(playerData);
+		const index = playerData?.captions?.playerCaptionsTracklistRenderer?.defaultAudioTrackIndex;
+		if (this.isIndexOf(index, audioTracks)) return audioTracks[index];
+		return audioTracks.length === 1 ? audioTracks[0] : undefined;
+	}
+
+	// YouTube's default caption for the current audio track. Translation
+	// tracks are listed alphabetically (Afrikaans, Arabic, …), so index 0
+	// is usually a translation rather than the spoken language.
+	private getDefaultCaptionTrack(captionTracks: any[], playerData?: any): any | undefined {
+		const renderer = playerData?.captions?.playerCaptionsTracklistRenderer;
+		if (!renderer || captionTracks.length === 0) return undefined;
+
+		// An explicit default caption is still read from the first audio track
+		// when none is marked as default.
+		const audioTrack = this.getDefaultAudioTrack(playerData);
+		const explicitTrack = audioTrack ?? this.getAudioTracks(playerData)[0];
+		const index = [explicitTrack?.defaultCaptionTrackIndex, renderer.defaultCaptionTrackIndex]
+			.find((value): value is number => this.isIndexOf(value, captionTracks));
+		if (index !== undefined) return captionTracks[index];
+
+		// Auto-dubbed videos may have several ASR tracks but no default caption
+		// index. Match the default audio's language (e.g. "ja.4" or "en-US.10"),
+		// preferring a manual track in that family over the auto-generated one.
+		const audioLanguage = typeof audioTrack?.audioTrackId === 'string'
+			? audioTrack.audioTrackId.split('.')[0] : undefined;
+		const manualTracks = captionTracks.filter((track: any) => track.kind !== 'asr');
+		return this.findPreferredCaptionTrack(manualTracks, audioLanguage)
+			?? this.findPreferredCaptionTrack(captionTracks, audioLanguage);
+	}
+
+	// Without a default audio language, infer the spoken language from ASR.
+	// Prefer a manual track in that family over the auto-generated track itself.
+	private getOriginalLanguageTrack(captionTracks: any[], playerData?: any): any | undefined {
+		// A dub adds its own ASR track, which can be listed first. The default
+		// audio's captionTrackIndices only order the ASR tracks here: their
+		// first entry is often a translation, so it is not taken directly.
+		const isAsr = (track: any) => track.kind === 'asr';
+		const indices = this.getDefaultAudioTrack(playerData)?.captionTrackIndices;
+		const associatedTracks = (Array.isArray(indices) ? indices : [])
+			.filter((value): value is number => this.isIndexOf(value, captionTracks))
+			.map(index => captionTracks[index]);
+		const asrTrack = associatedTracks.find(isAsr) ?? captionTracks.find(isAsr);
+		const base = this.languageBase(asrTrack?.languageCode);
+		if (!base) return undefined;
+
+		const manualOriginal = captionTracks.find((track: any) =>
+			track.kind !== 'asr' && this.languageBase(track.languageCode) === base
+		);
+		return manualOriginal ?? asrTrack;
+	}
+
+	private pickCaptionTrack(captionTracks: any[], playerData?: any): any | undefined {
+		if (!captionTracks.length) return undefined;
+
 		const preferredLang = this.options.language;
 		if (preferredLang) {
 			const match = this.findPreferredCaptionTrack(captionTracks, preferredLang);
 			if (match) return match;
 		}
 
-		// Prefer manually uploaded tracks over auto-generated (ASR) ones
+		const defaultTrack = this.getDefaultCaptionTrack(captionTracks, playerData);
+		if (defaultTrack) return defaultTrack;
+
+		const originalTrack = this.getOriginalLanguageTrack(captionTracks, playerData);
+		if (originalTrack) return originalTrack;
+
+		// Prefer English including regional variants (en-US, en-GB). The
+		// previous exact `languageCode === 'en'` check missed those and
+		// fell through to the first translation track.
 		const nonAsr = captionTracks.filter((track: any) => track.kind !== 'asr');
 		const pool = nonAsr.length > 0 ? nonAsr : captionTracks;
-		return pool.find((track: any) => track.languageCode === 'en') || pool[0];
+		return pool.find((track: any) => this.isEnglishTrack(track)) || pool[0];
 	}
 
 	private getTrackDisplayName(track: any): string {
@@ -479,9 +553,8 @@ export class YoutubeExtractor extends BaseExtractor {
 			|| '';
 	}
 
-	/** Returns ytInitialPlayerResponse only if its video ID matches the current URL (stale after SPA navigation). */
-	private getValidatedPlayerResponse(): any | null {
-		const videoId = this.getVideoId();
+	/** Returns ytInitialPlayerResponse only if its video ID matches the expected video (stale after SPA navigation). */
+	private getValidatedPlayerResponse(videoId = this.getVideoId()): any | null {
 		if (!videoId) return null;
 		const data = this.parseInlineJson('ytInitialPlayerResponse');
 		if (!data) return null;
@@ -545,7 +618,7 @@ export class YoutubeExtractor extends BaseExtractor {
 			// API-based path: fetch player data for fresh caption tracks
 			const playerData = await this.fetchPlayerData(videoId);
 			const apiTrack = playerData
-				? this.pickCaptionTrack(this.getCaptionTracks(playerData))
+				? this.pickCaptionTrack(this.getCaptionTracks(playerData), playerData)
 				: undefined;
 
 			// If the API returned a different/better track, fetch its XML.
@@ -569,7 +642,7 @@ export class YoutubeExtractor extends BaseExtractor {
 		const data = this.getValidatedPlayerResponse();
 		const tracks = this.getCaptionTracks(data);
 		if (tracks.length === 0) return undefined;
-		const track = this.pickCaptionTrack(tracks);
+		const track = this.pickCaptionTrack(tracks, data);
 		return track?.baseUrl ? track : undefined;
 	}
 
@@ -802,12 +875,11 @@ export class YoutubeExtractor extends BaseExtractor {
 				}
 			}
 		} catch {
-			// Fall through to unvalidated inline data below.
+			// Fall through to validated inline data below.
 		}
 
-		// Last resort: unvalidated inline data (may be stale after SPA navigation,
-		// but better than nothing when all API calls fail)
-		const fallbackData = this.parseInlineJson('ytInitialPlayerResponse');
+		// Last resort: inline data matching the requested video ID.
+		const fallbackData = this.getValidatedPlayerResponse(videoId);
 		if (this.getCaptionTracks(fallbackData).length > 0) {
 			return fallbackData;
 		}

@@ -1,5 +1,5 @@
 import { MetadataExtractor } from './metadata';
-import { DefuddleOptions, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
+import { DefuddleOptions, DefuddleMetadata, DefuddleResponse, MetaTagItem, DebugRemoval } from './types';
 import { ExtractorRegistry } from './extractor-registry';
 import type { ExtractorOptions } from './extractors/_base';
 import { BaseExtractor } from './extractors/_base';
@@ -18,8 +18,8 @@ import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
-import { getComputedStyle, textPreview, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName } from './utils/dom';
+import { getComputedStyle, countWords } from './utils';
+import { parseHTML, serializeHTML, decodeHTMLEntities, getClassName, classOrIdSelector, stripUnsafeElements } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -29,16 +29,13 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
-// CSS-special characters that make class names invalid in selectors (Tailwind utilities like sm:pt-[131px])
-const UNSAFE_CSS_CLASS_RE = /[:\[\]()#>~+,]/;
-
-
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
 	// against a sanitized clone instead of the caller's live document.
 	private doc: Document;
 	private options: DefuddleOptions;
 	private debug: boolean;
+	private _parseErrors = new Set<string>();
 	private _schemaOrgData: any = undefined;
 	private _schemaOrgExtracted = false;
 	private _metaTags: MetaTagItem[] | undefined;
@@ -74,6 +71,23 @@ export class Defuddle {
 	 * Parse the document and extract its main content
 	 */
 	parse(): DefuddleResponse {
+		const startTime = Date.now();
+		return this._withDebugErrors(this._parse() ?? this._fallbackResponse(startTime));
+	}
+
+	private _parse(): DefuddleResponse | null {
+		this._parseErrors.clear();
+		try {
+			return this._parseWithRetries();
+		} catch (error) {
+			this._recordError(error);
+			return null;
+		}
+	}
+
+	private _parseWithRetries(): DefuddleResponse | null {
+		const startTime = Date.now();
+
 		// Normalize non-standard attribute casing (e.g. React SSR outputs
 		// "srcSet" instead of "srcset") before any image processing.
 		if (this.doc.body) {
@@ -85,7 +99,7 @@ export class Defuddle {
 		let result = this.parseInternal();
 
 		// If result has very little content, try again without clutter removal
-		if (result.wordCount < 200) {
+		if ((result?.wordCount ?? 0) < 200) {
 			this._log('Initial parse returned very little content, trying again');
 			const retryResult = this.parseInternal({
 				removePartialSelectors: false
@@ -95,7 +109,7 @@ export class Defuddle {
 			// A small increase likely means partial selectors correctly removed
 			// clutter (author blocks, related articles, etc.) from a short article.
 			// A large increase (2x+) suggests partial selectors were too aggressive.
-			if (retryResult.wordCount > result.wordCount * 2) {
+			if (retryResult && (!result || retryResult.wordCount > result.wordCount * 2)) {
 				this._log('Retry produced more content');
 				result = retryResult;
 			}
@@ -104,19 +118,24 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// or a page that reveals content at runtime from a hidden wrapper.
 		// Retry once with hidden-element removal disabled.
-		if (result.wordCount < 50) {
+		if ((result?.wordCount ?? 0) < 50) {
 			this._log('Still very little content, retrying without hidden-element removal');
 			const hiddenRetry = this.parseInternal({
 				removeHiddenElements: false
 			});
-			if (hiddenRetry.wordCount > result.wordCount * 2) {
+			if (hiddenRetry && (!result || hiddenRetry.wordCount > result.wordCount * 2)) {
 				this._log('Hidden-element retry produced more content');
 				result = hiddenRetry;
 			}
 
 			// Try targeting the largest hidden subtree directly to avoid body-level
 			// leftovers (e.g. FPS counters) when hidden content is the real article.
-			const hiddenSelector = this.findLargestHiddenContentSelector();
+			let hiddenSelector: string | undefined;
+			try {
+				hiddenSelector = this.findLargestHiddenContentSelector();
+			} catch (error) {
+				this._recordError(error);
+			}
 			if (hiddenSelector) {
 				this._log('Retrying with hidden content selector:', hiddenSelector);
 				const hiddenSelectorRetry = this.parseInternal({
@@ -124,13 +143,14 @@ export class Defuddle {
 					removePartialSelectors: false,
 					contentSelector: hiddenSelector
 				});
-				if (
+				if (hiddenSelectorRetry && (
+					!result ||
 					hiddenSelectorRetry.wordCount > result.wordCount ||
 					(
 						hiddenSelectorRetry.wordCount > Math.max(20, result.wordCount * 0.7) &&
 						hiddenSelectorRetry.content.length < result.content.length
 					)
-				) {
+				)) {
 					this._log('Hidden-selector retry produced better focused content');
 					result = hiddenSelectorRetry;
 				}
@@ -140,14 +160,14 @@ export class Defuddle {
 		// If still very little content, the page may be an index/listing page
 		// where card elements were scored as non-content or removed by partial
 		// selectors (e.g. "post-preview"). Retry with both disabled.
-		if (result.wordCount < 50) {
+		if ((result?.wordCount ?? 0) < 50) {
 			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
 			const indexRetry = this.parseInternal({
 				removeLowScoring: false,
 				removePartialSelectors: false,
 				removeContentPatterns: false
 			});
-			if (indexRetry.wordCount > result.wordCount) {
+			if (indexRetry && (!result || indexRetry.wordCount > result.wordCount)) {
 				this._log('Index page retry produced more content');
 				result = indexRetry;
 			}
@@ -157,18 +177,18 @@ export class Defuddle {
 		// extracted, the scorer likely picked the wrong element from a feed page.
 		// Use a 1.5x threshold to avoid triggering when the difference is small
 		// (e.g. just related-content link text removed).
-		const schemaText = this._getSchemaText(result.schemaOrgData);
-		if (schemaText && this.countHtmlWords(schemaText) > result.wordCount * 1.5) {
+		const schemaText = this._getSchemaText(result?.schemaOrgData ?? this._metadata?.schemaOrgData);
+		if (schemaText && this.countHtmlWords(schemaText) > (result?.wordCount ?? 0) * 1.5) {
 			// Re-extract from a sanitized clone so dangerous elements and URI
 			// attributes (e.g. data:text/html in an img src) in the matched
 			// element are stripped, without mutating the caller's live document.
 			// Mobile styles / small images were cached during the first parse, so
 			// the clone (which has no window) doesn't need to be re-measured.
 			const liveDoc = this.doc;
-			const safeDoc = liveDoc.cloneNode(true) as Document;
-			this._stripUnsafeElements(safeDoc.body);
-			this.doc = safeDoc;
 			try {
+				const safeDoc = liveDoc.cloneNode(true) as Document;
+				this._stripUnsafeElements(safeDoc.body);
+				this.doc = safeDoc;
 				const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
 				if (bestMatch) {
 					// Re-run the full pipeline with the schema-identified element as the
@@ -176,12 +196,21 @@ export class Defuddle {
 					const selector = this.getElementSelector(bestMatch);
 					this._log('Schema.org suggests a better content element, retrying with selector:', selector);
 					const schemaRetry = this.parseInternal({ contentSelector: selector });
-					result = schemaRetry;
+					if (schemaRetry) {
+						result = schemaRetry;
+					}
 				} else {
 					this._log('Using schema.org text as content (DOM element not found)');
-					result.content = schemaText;
-					result.wordCount = this.countHtmlWords(schemaText);
+					const safeSchemaHtml = this._sanitizeExtractorHtml(schemaText);
+					if (result) {
+						result.content = safeSchemaHtml;
+						result.wordCount = this.countHtmlWords(safeSchemaHtml);
+					} else {
+						result = this._metadataResponse(safeSchemaHtml, startTime);
+					}
 				}
+			} catch (error) {
+				this._recordError(error);
 			} finally {
 				this.doc = liveDoc;
 			}
@@ -219,6 +248,69 @@ export class Defuddle {
 		return '';
 	}
 
+	private _ensureMetadata(): void {
+		if (!this._metaTags) {
+			this._metaTags = this._collectMetaTags();
+		}
+		if (!this._metadata) {
+			this._metadata = MetadataExtractor.extract(this.doc, this.getSchemaOrgData(), this._metaTags, this.options.url);
+		}
+	}
+
+	private _emptyMetadata(): Omit<DefuddleMetadata, 'parseTime' | 'wordCount'> {
+		let domain = '';
+		try {
+			domain = this.options.url ? new URL(this.options.url).hostname : '';
+		} catch {
+			// Invalid URL: leave the domain empty.
+		}
+		return {
+			title: '',
+			description: '',
+			domain,
+			favicon: '',
+			image: '',
+			language: '',
+			published: '',
+			author: '',
+			site: '',
+			schemaOrgData: null,
+		};
+	}
+
+	private _metadataResponse(content: string, startTime: number): DefuddleResponse {
+		// Preprocessing may have failed before metadata was initialized.
+		try {
+			this._ensureMetadata();
+		} catch (error) {
+			this._recordError(error);
+		}
+		return {
+			content,
+			...(this._metadata ?? this._emptyMetadata()),
+			wordCount: this.countHtmlWords(content),
+			parseTime: Math.round(Date.now() - startTime),
+			metaTags: this._metaTags
+		};
+	}
+
+	private _recordError(error: unknown): void {
+		console.error('Defuddle', 'Error processing document:', error);
+		this._parseErrors.add(String(error));
+	}
+
+	private _withDebugErrors(result: DefuddleResponse): DefuddleResponse {
+		if (this.debug && this._parseErrors.size > 0) {
+			result.debug = { contentSelector: '', removals: [], ...result.debug, errors: [...this._parseErrors] };
+		}
+		return result;
+	}
+
+	// Defer the body fallback so it cannot outscore extracted content.
+	private _fallbackResponse(startTime: number): DefuddleResponse {
+		return this._metadataResponse(this._serializeFallbackBody(), startTime);
+	}
+
 	/**
 	 * Serialize the body for the fallback/error paths, where extraction found
 	 * no content and we return the whole body. Sanitizes a CLONE so the
@@ -234,50 +326,8 @@ export class Defuddle {
 		return this.resolveContentUrls(serializeHTML(safeBody));
 	}
 
-	/**
-	 * Remove dangerous elements and attributes from the given body element.
-	 */
-	private _stripUnsafeElements(body: HTMLElement | null): void {
-		if (!body) return;
-
-		// Remove dangerous elements. Iframes are kept — same-origin policy
-		// isolates them, and they're widely used for legitimate media embeds.
-		// Dangerous iframe attributes (srcdoc, javascript: src) are stripped
-		// in the attribute pass below. Math scripts are preserved for LaTeX
-		// content (matching the EXACT_SELECTORS approach). SVG <style> is
-		// removed too: CSS @import / url() inside it can fetch external
-		// resources from the reader's IP. applySvgFallbackStyles in
-		// standardize.ts reconstructs basic fill/stroke from class names.
-		const dangerousElements = body.querySelectorAll(
-			'script:not([type^="math/"]), style, noscript, frame, frameset, object, embed, applet, base'
-		);
-		for (const el of dangerousElements) {
-			el.remove();
-		}
-
-		// Remove event handler attributes, dangerous URIs, and srcdoc.
-		// Includes the root itself: on the main content path `body` is the
-		// content element and is serialized via outerHTML, so its own
-		// attributes end up in the output.
-		const allElements = [body, ...Array.from(body.querySelectorAll('*'))];
-		for (const el of allElements) {
-			for (const attr of Array.from(el.attributes)) {
-				const name = attr.name.toLowerCase();
-				if (name.startsWith('on')) {
-					el.removeAttribute(attr.name);
-				} else if (name === 'srcdoc') {
-					el.removeAttribute(attr.name);
-				} else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
-					// data:image/* is allowed for inline images, but an SVG document
-					// in an iframe can run script — so no data: URI is allowed as an
-					// iframe src.
-					const allowInlineImage = !(name === 'src' && el.tagName === 'IFRAME');
-					if (isDangerousUrl(attr.value, allowInlineImage)) {
-						el.removeAttribute(attr.name);
-					}
-				}
-			}
-		}
+	private _stripUnsafeElements(body: HTMLElement | null): boolean {
+		return body ? stripUnsafeElements(body) : false;
 	}
 
 	/**
@@ -609,7 +659,14 @@ export class Defuddle {
 
 
 	private findLargestHiddenContentSelector(): string | undefined {
-		const body = this.doc.body;
+		if (!this.doc.body) return undefined;
+
+		// Search the DOM a contentSelector retry queries: shadow-root hoisting and
+		// streamed-content swaps move elements and shift sibling positions.
+		const doc = this.doc.cloneNode(true) as Document;
+		this.flattenShadowRoots(this.doc, doc);
+		this.resolveStreamedContent(doc);
+		const body = doc.body;
 		if (!body) return undefined;
 
 		const candidates = Array.from(
@@ -682,18 +739,24 @@ export class Defuddle {
 			const asyncResult = await this.tryAsyncExtractor(
 				ExtractorRegistry.findPreferredAsyncExtractor.bind(ExtractorRegistry)
 			);
-			if (asyncResult) return asyncResult;
+			if (asyncResult?.content.trim()) return asyncResult;
 		}
 
-		const result = this.parse();
+		const startTime = Date.now();
+		const result = this._parse();
 
-		if (result.wordCount > 0 || this.options.useAsync === false) {
-			return result;
+		if ((result && result.wordCount > 0) || this.options.useAsync === false) {
+			return this._withDebugErrors(result ?? this._fallbackResponse(startTime));
 		}
 
-		return (await this.tryAsyncExtractor(
+		const asyncResult = await this.tryAsyncExtractor(
 			ExtractorRegistry.findAsyncExtractor.bind(ExtractorRegistry)
-		)) ?? result;
+		);
+		// Images and embeds can be valid content with no words.
+		if (asyncResult?.content.trim()) {
+			return this._withDebugErrors(asyncResult);
+		}
+		return this._withDebugErrors(result ?? this._fallbackResponse(startTime));
 	}
 
 	/**
@@ -734,7 +797,7 @@ export class Defuddle {
 				const startTime = Date.now();
 				const extracted = await extractor.extractAsync();
 				const pageMetaTags = this._collectMetaTags();
-				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
+				const metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags, url);
 				return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
 			}
 		} catch (error) {
@@ -744,10 +807,8 @@ export class Defuddle {
 		return null;
 	}
 
-	/**
-	 * Internal parse method that does the actual work
-	 */
-	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse {
+	/** Returns null when content selection or extraction fails. */
+	private parseInternal(overrideOptions: Partial<DefuddleOptions> = {}): DefuddleResponse | null {
 		const startTime = Date.now();
 		const profile: Record<string, number> = {};
 		const doProfile = this.options.profile ?? false;
@@ -761,20 +822,10 @@ export class Defuddle {
 
 		// Guard against empty/broken documents (e.g. empty HTML, bot-blocked pages)
 		if (!this.doc.documentElement) {
-			const url = this.options.url || '';
 			return {
 				content: '',
-				title: '',
-				description: '',
-				domain: url ? new URL(url).hostname : '',
-				favicon: '',
-				image: '',
-				language: '',
+				...this._emptyMetadata(),
 				parseTime: Date.now() - startTime,
-				published: '',
-				author: '',
-				site: '',
-				schemaOrgData: null,
 				wordCount: 0,
 			};
 		}
@@ -796,15 +847,8 @@ export class Defuddle {
 		// Extract schema.org data (cached — must happen before _stripUnsafeElements removes scripts)
 		const schemaOrgData = this.getSchemaOrgData();
 
-		// Cache meta tags and metadata across retries
-		if (!this._metaTags) {
-			this._metaTags = this._collectMetaTags();
-		}
-		const pageMetaTags = this._metaTags;
-
-		if (!this._metadata) {
-			this._metadata = MetadataExtractor.extract(this.doc, schemaOrgData, pageMetaTags);
-		}
+		this._ensureMetadata();
+		const pageMetaTags = this._metaTags!;
 		const metadata = this._metadata;
 
 		if (options.removeImages) {
@@ -831,6 +875,7 @@ export class Defuddle {
 								removeLowScoring: false,
 								removeHiddenElements: false,
 							});
+							if (!pipelineResult) return null;
 							const variables = this.getExtractorVariables(extracted.variables);
 							return {
 								...pipelineResult,
@@ -887,7 +932,12 @@ export class Defuddle {
 			const mainContent = profileStep('findMainContent', (): Element | null => {
 				let found: Element | null = null;
 				if (options.contentSelector) {
-					found = clone.querySelector(options.contentSelector);
+					try {
+						found = clone.querySelector(options.contentSelector);
+					} catch (e) {
+						this._log('Invalid contentSelector, falling back to auto-detection:', options.contentSelector, e);
+						this._parseErrors.add(`Invalid contentSelector "${options.contentSelector}": ${String(e)}`);
+					}
 					this._log('Using contentSelector:', options.contentSelector, found ? 'found' : 'not found');
 				}
 				if (!found) {
@@ -919,16 +969,12 @@ export class Defuddle {
 			});
 
 			if (!mainContent) {
-				const fallbackContent = this._serializeFallbackBody();
-				const endTime = Date.now();
-				return {
-					content: fallbackContent,
-					...metadata,
-					wordCount: this.countHtmlWords(fallbackContent),
-					parseTime: Math.round(endTime - startTime),
-					metaTags: pageMetaTags
-				};
+				return null;
 			}
+
+			// Generate before removals and unsafe-root neutralization, so sibling
+			// positions, id, and classes match the DOM a contentSelector retry queries.
+			const debugSelector = this.debug ? this.getElementSelector(mainContent) : '';
 
 			// Remove h1-adjacent date/author metadata blocks from the content.
 			// These are extracted as frontmatter but also appear in the body when a
@@ -1038,9 +1084,10 @@ export class Defuddle {
 			// Runs unconditionally — the pipeline steps above are all optional, so
 			// this is the only guaranteed sanitization boundary on this path.
 			// Safe to mutate: mainContent belongs to the clone, not the live document.
-			this._stripUnsafeElements(mainContent as HTMLElement);
+			const unsafeContentRoot = this._stripUnsafeElements(mainContent as HTMLElement);
 
-			const content = mainContent.outerHTML;
+			// Never serialize an unsafe root, even after neutralization.
+			const content = unsafeContentRoot ? '' : mainContent.outerHTML;
 			const endTime = Date.now();
 
 			const result: DefuddleResponse = {
@@ -1053,7 +1100,7 @@ export class Defuddle {
 
 			if (this.debug) {
 				result.debug = {
-					contentSelector: this.getElementSelector(mainContent),
+					contentSelector: debugSelector,
 					removals: debugRemovals
 				};
 			}
@@ -1064,16 +1111,8 @@ export class Defuddle {
 
 			return result;
 		} catch (error) {
-			console.error('Defuddle', 'Error processing document:', error);
-			const errorContent = this._serializeFallbackBody();
-			const endTime = Date.now();
-			return {
-				content: errorContent,
-				...metadata,
-				wordCount: this.countHtmlWords(errorContent),
-				parseTime: Math.round(endTime - startTime),
-				metaTags: pageMetaTags
-			};
+			this._recordError(error);
+			return null;
 		}
 	}
 
@@ -1337,13 +1376,18 @@ export class Defuddle {
 
 		while (current && current !== this.doc.documentElement) {
 			let selector = current.tagName.toLowerCase();
-			if (current.id) {
-				selector += '#' + current.id;
-			} else if (getClassName(current)) {
-				const safe = getClassName(current).trim().split(/\s+/)
-					.filter(cls => !UNSAFE_CSS_CLASS_RE.test(cls));
-				if (safe.length) {
-					selector += '.' + safe.join('.');
+			const idSelector = current.id ? classOrIdSelector('id', current.id) : null;
+			// Class tokens split on ASCII whitespace only, like DOMTokenList.
+			const classNames = idSelector ? [] : getClassName(current).split(/[\t\n\f\r ]+/)
+				.filter(name => classOrIdSelector('class', name) !== null);
+			selector += idSelector ?? classNames.map(name => classOrIdSelector('class', name)).join('');
+			if (!idSelector && current.parentElement) {
+				const siblings = Array.from(current.parentElement.children);
+				const tagName = current.tagName;
+				const sameTag = siblings.filter(sibling => sibling.tagName === tagName);
+				// Compare tokens directly instead of relying on each engine's matches().
+				if (sameTag.filter(sibling => classNames.every(name => sibling.classList.contains(name))).length > 1) {
+					selector += `:nth-of-type(${sameTag.indexOf(current) + 1})`;
 				}
 			}
 			parts.unshift(selector);
@@ -1462,19 +1506,56 @@ export class Defuddle {
 		});
 	}
 
+	/** Hoist server-parsed declarative shadow roots into the light DOM. */
+	private flattenDeclarativeShadowRoots(clone: Document): void {
+		if (!clone.body) return;
+
+		// Hoisting can expose nested templates; bound the traversal depth.
+		for (let depth = 0; depth < 10; depth++) {
+			const templates = Array.from(
+				clone.body.querySelectorAll('template[shadowrootmode], template[shadowroot]')
+			).filter(template => {
+				// Prefer the standard attribute when both forms are present.
+				const mode = (
+					template.getAttribute('shadowrootmode')
+					?? template.getAttribute('shadowroot')
+					?? ''
+				).toLowerCase();
+				return mode === 'open' || mode === 'closed';
+			});
+			if (templates.length === 0) return;
+
+			for (const template of templates) {
+				const host = template.parentNode;
+				if (!host) continue;
+				// linkedom does not always expose .content; fall back to childNodes.
+				const content = (template as HTMLTemplateElement).content;
+				const source: Node = content && content.firstChild ? content : template;
+				while (source.firstChild) {
+					host.insertBefore(source.firstChild, template);
+				}
+				template.remove();
+			}
+		}
+	}
+
 	/**
 	 * Flatten shadow DOM content into a cloned document.
 	 * Walks both trees in parallel so positional correspondence is exact.
 	 */
 	private flattenShadowRoots(original: Document, clone: Document): void {
 		if (!original.body || !clone.body) return;
+
+		// Capture references before hoisting shifts positional indices.
 		const origElements = Array.from(original.body.querySelectorAll('*'));
+		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
+
+		// Server DOMs leave declarative roots as inert templates; browsers do not.
+		this.flattenDeclarativeShadowRoots(clone);
 
 		// Find the first element with a shadow root (also serves as the hasShadowRoots check)
 		const firstShadow = origElements.find(el => el.shadowRoot);
 		if (!firstShadow) return;
-
-		const cloneElements = Array.from(clone.body.querySelectorAll('*'));
 
 		// Check if we can directly read shadow DOM content (main world / Node.js).
 		// In content script isolated worlds, shadowRoot exists but content is empty.

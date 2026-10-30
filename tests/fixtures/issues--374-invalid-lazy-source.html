@@ -1,0 +1,10 @@
+<!-- {"url":"https://example.com/article"} -->
+<!doctype html>
+<html><head><title>Invalid lazy sources</title></head><body><article>
+<p>Lazy-loading attributes sometimes hold empty or unsafe values instead of image URLs, and must not overwrite a working source.</p>
+<p><img src="https://images.example.com/empty.jpg" data-src="  " class="lazyload" alt="Empty"></p>
+<p><img src="https://images.example.com/script.jpg" data-src="javascript:alert(1)" class="lazyload" alt="Script"></p>
+<p><img src="https://images.example.com/inline.jpg" data-original="data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;" class="lazyload" alt="Inline"></p>
+<p><img src="https://images.example.com/fallback.jpg" data-src="  " data-lazy-src="https://images.example.com/real.jpg" class="lazyload" alt="Fallback"></p>
+<p>Each image should keep a usable source that points to an actual image rather than an empty or unsafe URL.</p>
+</article></body></html>

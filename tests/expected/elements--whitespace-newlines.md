@@ -2,7 +2,7 @@
 {
   "title": "Whitespace and newline handling",
   "author": "",
-  "site": "",
+  "site": "whitespace-newlines",
   "published": ""
 }
 ```

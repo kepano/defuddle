@@ -29,6 +29,7 @@ export interface DebugRemoval {
 export interface DebugInfo {
 	contentSelector: string;
 	removals: DebugRemoval[];
+	errors?: string[];
 }
 
 export interface DefuddleResponse extends DefuddleMetadata {
@@ -154,16 +155,3 @@ export interface DefuddleOptions {
 	 */
 	fetch?: typeof globalThis.fetch;
 }
-
-export interface ExtractorVariables {
-	[key: string]: string;
-}
-
-export interface ExtractedContent {
-	title?: string;
-	author?: string;
-	published?: string;
-	content?: string;
-	contentHtml?: string;
-	variables?: ExtractorVariables;
-} 

@@ -2,7 +2,7 @@
 {
   "title": "JavaScript Links Test",
   "author": "",
-  "site": "",
+  "site": "javascript-links",
   "published": ""
 }
 ```

@@ -2,7 +2,7 @@
 {
   "title": "Artificial Life in Practice",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

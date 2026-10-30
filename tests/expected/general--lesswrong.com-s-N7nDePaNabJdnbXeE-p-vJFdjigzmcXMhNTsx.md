@@ -67,7 +67,7 @@ But, aside from indulging that emotion, I didn’t think about what would happen
 
 Huge mistake! Perhaps I could have started thinking several years earlier about what now seems so fantastically important. But it wasn’t until GPT-3, when I saw the [qualitative correlate](https://www.gwern.net/GPT-3) of “loss going down”, that I updated.
 
-I wasn’t the only one[^2] whose imagination was naively constrained. A 2016 paper from Google Brain, “ [Exploring the Limits of Language Modeling](https://arxiv.org/abs/1602.02410) ”, describes the utility of training language models as follows:
+I wasn’t the only one[^2] whose imagination was naively constrained. A 2016 paper from Google Brain, “[Exploring the Limits of Language Modeling](https://arxiv.org/abs/1602.02410)”, describes the utility of training language models as follows:
 
 > Often (although not always), training better language models improves the underlying metrics of the downstream task (such as word error rate for speech recognition, or BLEU score for translation), which makes the task of training better LMs valuable by itself.
 
@@ -79,7 +79,7 @@ The paper does, however, mention that making the model bigger improves test perp
 
 I’m only picking on *Jozefowicz et al.* because of their ironic title. I don’t know of any explicit discussion of this limit predating GPT, except a working consensus of Wikipedia editors that [NLU](https://en.wikipedia.org/wiki/Natural-language_understanding) is [AI-complete](https://en.wikipedia.org/wiki/AI-complete#AI-complete_problems).
 
-The earliest engagement with the hypothetical of “ *what if self-supervised sequence modeling actually works* ” that I know of is a terse post from 2019, [Implications of GPT-2](https://lesswrong.com/posts/YJRb6wRHp7k39v69n/implications-of-gpt-2), by Gurkenglas. It is brief and relevant enough to quote in full:
+The earliest engagement with the hypothetical of “*what if self-supervised sequence modeling actually works*” that I know of is a terse post from 2019, [Implications of GPT-2](https://lesswrong.com/posts/YJRb6wRHp7k39v69n/implications-of-gpt-2), by Gurkenglas. It is brief and relevant enough to quote in full:
 
 > I was impressed by GPT-2, to the point where I wouldn’t be surprised if a future version of it could be used pivotally using existing protocols.
 > 
@@ -102,7 +102,7 @@ A few people did think about what would happen if *agents* actually worked. The 
 
 But since GPT-3 I’ve [noticed](https://lesswrong.com/s/zpCiuR4T343j9WkcK/p/5JDkW4MYXit2CquLs), in my own thinking and in alignment discourse, a dissonance between theory and practice/phenomena, as the behavior and nature of actual systems that seem nearest to AGI also resist *short descriptions in the dominant ontology*.
 
-I only recently discovered the question “ [Is the work on AI alignment relevant to GPT?](https://lesswrong.com/posts/dPcKrfEi87Zzr7w6H/is-the-work-on-ai-alignment-relevant-to-gpt)” which stated this observation very explicitly:
+I only recently discovered the question “[Is the work on AI alignment relevant to GPT?](https://lesswrong.com/posts/dPcKrfEi87Zzr7w6H/is-the-work-on-ai-alignment-relevant-to-gpt)” which stated this observation very explicitly:
 
 > I don’t follow \[AI alignment research\] in any depth, but I am noticing a striking disconnect between the concepts appearing in those discussions and recent advances in AI, especially GPT-3.
 > 
@@ -116,7 +116,7 @@ The purpose of this post is to capture that object (conditional on a predictive 
 
 I want to hypothesize about LLMs in the limit, because when AI is all of a sudden [writing viral blog posts](https://www.theverge.com/2020/8/16/21371049/gpt3-hacker-news-ai-blog), [coding competitively](https://www.deepmind.com/blog/competitive-programming-with-alphacode), [proving theorems](https://arxiv.org/abs/2009.03393), and [passing the Turing test so hard that the interrogator sacrifices their career at Google to advocate for its personhood](https://www.washingtonpost.com/technology/2022/06/11/google-ai-lamda-blake-lemoine/), a process is clearly underway whose limit we’d be foolish not to contemplate. I could directly extrapolate the architecture responsible for these feats and talk about “GPT-N”, a bigger autoregressive transformer. But often some implementation details aren’t as important as the more abstract archetype that GPT represents – I want to speak the [true name](https://lesswrong.com/posts/FWvzwCDRgcjb9sigb/why-agent-foundations-an-overly-abstract-explanation) of the solution which unraveled a Cambrian explosion of AI phenomena with *inessential details unconstrained*, as we’d speak of natural selection finding the solution of the “lens” without specifying the prototype’s diameter or focal length.
 
-(Only when I am able to condition on that level of abstraction can I generate metaphors like “language is a [lens that sees its flaws](https://lesswrong.com/s/5g5TkQTe9rmPS5vvM/p/46qnWRSR7L2eyNbMA) ”.)
+(Only when I am able to condition on that level of abstraction can I generate metaphors like “language is a [lens that sees its flaws](https://lesswrong.com/s/5g5TkQTe9rmPS5vvM/p/46qnWRSR7L2eyNbMA)”.)
 
 ## Inadequate ontologies
 
@@ -213,7 +213,7 @@ I do not think any simple modification of the concept of an agent captures GPT�
 
 ## Oracle GPT and supervised learning
 
-While the alignment sphere favors the agent frame for thinking about GPT, in *capabilities* research distortions tend to come from a lens inherited from *supervised learning*. Translated into alignment ontology, the effect is similar to viewing GPT as an “ [oracle AI](https://publicism.info/philosophy/superintelligence/11.html) ” – a view not altogether absent from conceptual alignment, but most influential in the way GPT is used and evaluated by machine learning engineers.
+While the alignment sphere favors the agent frame for thinking about GPT, in *capabilities* research distortions tend to come from a lens inherited from *supervised learning*. Translated into alignment ontology, the effect is similar to viewing GPT as an “[oracle AI](https://publicism.info/philosophy/superintelligence/11.html)” – a view not altogether absent from conceptual alignment, but most influential in the way GPT is used and evaluated by machine learning engineers.
 
 Evaluations for language models tend to look like evaluations for *supervised* models, consisting of close-ended question/answer pairs – often because they *are* evaluations for supervised models. Prior to the LLM paradigm, language models were trained and tested on evaluation datasets like [Winograd](https://en.wikipedia.org/wiki/Winograd_schema_challenge) and [SuperGLUE](https://super.gluebenchmark.com/) which consist of natural language question/answer pairs. The fact that large pretrained models performed well on these same NLP benchmarks without supervised fine-tuning was a novelty. The titles of the GPT-2 and GPT-3 papers, [Language Models are Unsupervised Multitask Learners](https://d4mucfpksywv.cloudfront.net/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) and [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165), respectively articulate surprise that *self-supervised* models implicitly learn supervised tasks during training, and can learn supervised tasks at runtime.
 
@@ -258,15 +258,15 @@ Not only does the supervised/oracle perspective obscure the importance and limit
 
 Recall, the second supervised assumption is that “tasks are closed-ended, defined by question/correct answer pairs”. GPT was trained on context-completion pairs. But the pairs do not represent closed, independent tasks, and the division into question and answer is merely indexical: in another training sample, a token from the question is the answer, and in yet another, the answer forms part of the question[^17].
 
-For example, the natural language sequence “ **The answer is a question** ” yields training samples like:
+For example, the natural language sequence “**The answer is a question**” yields training samples like:
 
-{context: “ **The** ”, completion: “ **answer** ”},
+{context: “**The**”, completion: “ **answer**”},
 
-{context: “ **The answer** ”, completion: “ **is** ”},
+{context: “**The answer**”, completion: “ **is**”},
 
-{context: “ **The answer is** ”, completion: “ **a** ”},
+{context: “**The answer is**”, completion: “ **a**”},
 
-{context: “ **The answer is a** ”, completion: “ **question** ”}
+{context: “**The answer is a**”, completion: “ **question**”}
 
 Since questions and answers are of compatible types, we can at runtime sample answers from the model and use them to construct new questions, and run this loop an indefinite number of times to generate arbitrarily long sequences that obey the model’s approximation of the rule that links together the training samples. **The “question” GPT answers is “what token comes next after {context}”. This can be asked interminably, because its answer always implies another question of the same type.**
 
@@ -314,7 +314,7 @@ The final category I’ll analyze is behavior cloning, a designation for predict
 
 Behavior cloning in its historical usage carries the implicit or explicit assumption that a single agent is being cloned. The natural extension of this to a model trained to predict a diverse human-written dataset might be to say that GPT models a *distribution* of agents which are selected by the prompt. But this image of “parameterized” behavior cloning still fails to capture some essential properties of GPT.
 
-The vast majority of prompts that produce coherent behavior never occur as prefixes in GPT’s training data, but depict hypothetical processes whose behavior can be predicted by virtue of being capable at predicting language in general. We might call this phenomenon “interpolation” (or “ [extrapolation](https://arxiv.org/abs/2110.09485) ”). But to hide it behind any one word and move on would be to gloss over the *entire phenomenon of GPT.*
+The vast majority of prompts that produce coherent behavior never occur as prefixes in GPT’s training data, but depict hypothetical processes whose behavior can be predicted by virtue of being capable at predicting language in general. We might call this phenomenon “interpolation” (or “[extrapolation](https://arxiv.org/abs/2110.09485)”). But to hide it behind any one word and move on would be to gloss over the *entire phenomenon of GPT.*
 
 Natural language has the property of [*systematicity*](https://evjang.com/2021/12/17/lang-generalization.html): “blocks”, such as words, can be combined to form composite meanings. The number of meanings expressible is a combinatorial function of available blocks. A system which learns natural language is incentivized to learn systematicity; if it succeeds, it gains access to the combinatorial proliferation of meanings that can be expressed in natural language. What GPT lets us do is use natural language to specify any of a functional infinity of configurations, e.g. the mental contents of a person and the physical contents of the room around them, *and animate that*. That is the terrifying vision of the limit of prediction that struck me when I first saw GPT-3’s outputs. The words “behavior cloning” do not automatically evoke this in my mind.
 

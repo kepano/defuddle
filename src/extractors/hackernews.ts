@@ -202,7 +202,6 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 		// Otherwise handle regular post content
 		const titleRow = this.mainPost.querySelector('tr.athing');
-		const subRow = titleRow?.nextElementSibling;
 		const url = titleRow?.querySelector('.titleline a')?.getAttribute('href') || '';
 
 		let content = '';

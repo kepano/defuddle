@@ -2,7 +2,7 @@
 {
   "title": "Sample Post with Sidenotes",
   "author": "",
-  "site": "",
+  "site": "sidenote-inline-with-list",
   "published": ""
 }
 ```

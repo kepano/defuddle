@@ -1,0 +1,121 @@
+.header-action {
+  display: inline-flex;
+  width: auto;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--paper);
+  padding: 6px 0;
+  font: inherit;
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+
+  @media (hover: hover) {
+    &:hover {
+      outline: 0;
+      color: #f2f0e5;
+    }
+  }
+  &:focus-visible {
+    outline: 0;
+    color: #f2f0e5;
+  }
+  svg {
+    flex: 0 0 auto;
+    color: var(--muted);
+  }
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  kbd {
+    border: 1px solid var(--line-hover);
+    border-radius: var(--radius-small);
+    color: var(--muted);
+    padding: 0 4px;
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+  }
+}
+
+
+.doc-code-copy {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  @media (hover: hover) {
+    &:hover {
+      background: var(--line);
+      color: var(--paper);
+    }
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  &[data-copied] {
+    color: var(--green);
+  }
+}
+
+.syn-punctuation {
+  color: var(--syntax-muted);
+}
+.syn-language {
+  color: var(--syntax-magenta);
+}
+.syn-keyword {
+  color: var(--syntax-green);
+}
+.syn-import {
+  color: var(--syntax-red);
+}
+.syn-constant {
+  color: var(--syntax-yellow);
+}
+.syn-variable {
+  color: var(--syntax-blue);
+}
+.syn-filter, .syn-function {
+  color: var(--syntax-orange);
+}
+.syn-string {
+  color: var(--syntax-cyan);
+}
+.syn-number {
+  color: var(--syntax-purple);
+}
+.syn-command {
+  color: var(--syntax-red);
+}
+.syn-md-heading {
+  color: var(--paper);
+}
+.syn-yaml-key {
+  color: var(--syntax-blue);
+}
+.syn-md-link {
+  color: var(--syntax-cyan);
+}
+
+.syn-comment {
+  color: var(--syntax-comment);
+}
+.syn-tag {
+  color: var(--syntax-blue);
+}
+.syn-invalid {
+  color: var(--syntax-red);
+}
