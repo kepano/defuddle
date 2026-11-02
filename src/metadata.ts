@@ -67,11 +67,12 @@ export class MetadataExtractor {
 	}
 
 	// Returns true if the string is not a usable metadata value — either an
-	// unresolved template literal (e.g. "#author.fullName}", "{{title}}") or a
-	// placeholder containing no letters/digits (e.g. ". .", "-", "_") emitted
-	// by some CMSes when a field is empty.
+	// unresolved template literal (e.g. "#author.fullName}", "#author.fullName",
+	// "{{title}}") or a placeholder containing no letters/digits (e.g. ". .",
+	// "-", "_") emitted by some CMSes when a field is empty. A leading hashtag
+	// alone is real text ("#TidyTuesday week 12").
 	private static isPlaceholderValue(s: string): boolean {
-		if (/[{}]/.test(s) || /^#[a-zA-Z]/.test(s)) return true;
+		if (/[{}]/.test(s) || /^#[a-zA-Z_$][\w$]*(\.[\w$]+)+$/.test(s)) return true;
 		if (!/[\p{L}\p{N}]/u.test(s)) return true;
 		return false;
 	}
