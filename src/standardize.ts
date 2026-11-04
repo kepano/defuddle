@@ -246,7 +246,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('flattenWrapperElements[2]', () => flattenWrapperElements(element, doc));
 		step('removeOrphanedDividers[2]', () => removeOrphanedDividers(element));
 		step('stripExtraBrElements', () => stripExtraBrElements(element));
-		step('removeEmptyLines', () => removeEmptyLines(element, doc));
+		step('removeEmptyLines', () => removeEmptyLines(element, doc, keepsSpaceBeforeHighPunctuation(metadata.language)));
 	} else {
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
@@ -1154,7 +1154,14 @@ function isTightInline(node: Node): boolean {
 	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
 }
 
-function removeEmptyLines(element: Element, doc: Document): void {
+// French typography puts a space before ? ! : ; so the
+// space must not be collapsed into the punctuation for French documents.
+function keepsSpaceBeforeHighPunctuation(language: string | undefined): boolean {
+	return /^fr(?:-|_|$)/i.test((language || '').trim());
+}
+
+function removeEmptyLines(element: Element, doc: Document, keepSpaceBeforeHighPunctuation: boolean = false): void {
+	const spaceBeforePunctuation = keepSpaceBeforeHighPunctuation ? /\s+([,.])/g : /\s+([,.!?:;])/g;
 	let removedCount = 0;
 	const startTime = Date.now();
 
@@ -1188,7 +1195,7 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					.replace(/\t+/g, ' ') // Tabs -> spaces
 					.replace(/ {2,}/g, ' ') // 2+ spaces -> 1 space
 					.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
-					.replace(/\s+([,.!?:;])/g, '$1') // Remove spaces before punctuation
+					.replace(spaceBeforePunctuation, '$1') // Remove spaces before punctuation
 					// Clean up zero-width characters (except ZWNJ \u200C used in Farsi) and multiple non-breaking spaces
 					.replace(/[\u200B\u200D\u200E\u200F\uFEFF]+/g, '')
 					.replace(/(?:\xA0){2,}/g, '\xA0'); // Multiple &nbsp; -> single &nbsp;
