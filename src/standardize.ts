@@ -256,7 +256,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 }
 
 /**
- * Wrap <code> elements that have white-space: pre (via inline style)
+ * Wrap <code> elements with preformatted whitespace or explicit line breaks
  * in a <pre> element, so they get treated as code blocks.
  */
 function wrapPreformattedCode(element: Element, doc: Document): void {
@@ -265,9 +265,9 @@ function wrapPreformattedCode(element: Element, doc: Document): void {
 		// Skip if already inside a <pre>
 		if (code.closest('pre')) continue;
 
-		// Check inline style for white-space: pre
+		// Explicit <br> elements also represent code lines, even without white-space: pre.
 		const style = code.getAttribute('style') || '';
-		if (!/white-space\s*:\s*pre/.test(style)) continue;
+		if (!/white-space\s*:\s*pre/.test(style) && !code.querySelector('br')) continue;
 
 		// Wrap in <pre>
 		const pre = doc.createElement('pre');
