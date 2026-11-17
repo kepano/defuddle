@@ -158,6 +158,13 @@ describe('Table of contents rules', () => {
 		expect(await removalReasons(toc + PROSE)).toContain('table of contents heading');
 	});
 
+	test('removes a wrapper holding only the ToC and its label text', async () => {
+		const toc = `<table><tr><td>Contents: <ul><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ul></td></tr></table>`;
+		const result = await extract(toc + PROSE);
+		expect(result.contentMarkdown).not.toContain('Contents');
+		expect(result.contentMarkdown).not.toContain('[Section one]');
+	});
+
 	test('keeps a sentence that links to several sections', async () => {
 		const sentence = `<div><p>Start with <a href="#one">Section one</a>, then read <a href="#two">Section two</a> and <a href="#three">Section three</a>.</p></div>`;
 		const result = await extract(sentence + PROSE);

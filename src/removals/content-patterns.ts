@@ -453,12 +453,20 @@ function isTocLabel(el: Element): boolean {
 	return isLabelElement && TOC_LABEL_PATTERN.test(el.textContent?.trim() || '');
 }
 
+// Text directly inside `el` (not in its child elements), unless it is just a
+// ToC label such as "Contents:".
+function hasOwnProse(el: Element): boolean {
+	const text = Array.from(el.childNodes).filter(isTextNode).map(node => node.textContent || '').join('').trim();
+	return !!text && !TOC_LABEL_PATTERN.test(text);
+}
+
 // What to remove for a ToC: the block, or the outermost wrapper that holds
-// nothing but it.
+// nothing but it and maybe its label. A wrapper with prose of its own, such as
+// an introductory sentence, stays.
 function tocRemovalTarget(block: Element, mainContent: Element): Element {
 	let target = block;
 	while (target.parentElement && target.parentElement !== mainContent &&
-		target.parentElement.children.length === 1) {
+		target.parentElement.children.length === 1 && !hasOwnProse(target.parentElement)) {
 		target = target.parentElement;
 	}
 	return target;
