@@ -212,12 +212,12 @@ export const codeBlockRules = [
 					}
 				}
 
+				if (!allowBareNames) return '';
+
 				// If all else fails, check for bare language names (e.g. highlight.js "hljs go")
-				if (allowBareNames) {
-					for (const className of classNames) {
-						if (CODE_LANGUAGES.has(className.toLowerCase())) {
-							return className.toLowerCase();
-						}
+				for (const className of classNames) {
+					if (CODE_LANGUAGES.has(className.toLowerCase())) {
+						return className.toLowerCase();
 					}
 				}
 
@@ -246,27 +246,32 @@ export const codeBlockRules = [
 				return '';
 			};
 
-			// Then check close wrappers (e.g. div.highlight-source-go). The nearest
-			// wrapper naming a language is used only if it holds no other code
-			// blocks and little other content, so unrelated page classes such as
-			// article.markdown are never used. Both counts only grow going up, so
-			// validating that one wrapper is enough (and avoids scanning large
-			// ancestors for every block).
+			// A wrapper belongs to this block alone if it holds no other <pre>
+			// and only a short label's worth of text beyond the block.
+			const isOwnWrapper = (wrapper: Element): boolean => {
+				const hasOtherPre = Array.from(wrapper.querySelectorAll('pre'))
+					.some(pre => !el.contains(pre)); // contains() is true for el itself
+				if (hasOtherPre) return false;
+
+				const extraText = (wrapper.textContent || '').length - (el.textContent || '').length;
+				return extraText <= MAX_LANGUAGE_WRAPPER_EXTRA_TEXT;
+			};
+
+			// Then check close wrappers (e.g. div.highlight-source-go). Only the
+			// nearest wrapper naming a language is considered, and only if it is
+			// the block's own wrapper, so unrelated page classes such as
+			// article.markdown are never used. Other blocks and text only grow
+			// going up, so validating that one wrapper is enough (and avoids
+			// scanning large ancestors for every block).
 			const getWrapperLanguage = (): string => {
 				let wrapper = el.parentElement;
-				let language = '';
-				for (let depth = 0; wrapper && wrapper.tagName !== 'BODY' && depth < MAX_LANGUAGE_WRAPPER_DEPTH; depth++) {
-					language = getCodeLanguage(wrapper, false);
-					if (language) break;
+				for (let depth = 0; depth < MAX_LANGUAGE_WRAPPER_DEPTH; depth++) {
+					if (!wrapper || wrapper.tagName === 'BODY') return '';
+					const language = getCodeLanguage(wrapper, false);
+					if (language) return isOwnWrapper(wrapper) ? language : '';
 					wrapper = wrapper.parentElement;
 				}
-				if (!language || !wrapper) return '';
-
-				const blockPres = (el.tagName === 'PRE' ? 1 : 0) + el.querySelectorAll('pre').length;
-				if (wrapper.querySelectorAll('pre').length > blockPres) return '';
-				const blockText = (el.textContent || '').length;
-				if ((wrapper.textContent || '').length > blockText + MAX_LANGUAGE_WRAPPER_EXTRA_TEXT) return '';
-				return language;
+				return '';
 			};
 
 			let language = getOwnLanguage() || getWrapperLanguage();
