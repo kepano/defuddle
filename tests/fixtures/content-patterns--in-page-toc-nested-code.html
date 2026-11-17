@@ -1,0 +1,62 @@
+<!-- {"url": "https://example.com/project/readme"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Example Tool README</title>
+<meta name="author" content="Jane Doe">
+</head>
+<body>
+<article class="markdown-body">
+<h1>Example Tool</h1>
+<p>Example Tool manages several installed versions of a runtime side by side, so each project can pin the version it was written for without affecting the rest of the system.</p>
+<h2>Table of Contents</h2>
+<ul>
+<li><a href="#about">About</a></li>
+<li><a href="#installing">Installing</a>
+<ul>
+<li><a href="#install-script">Install Script</a></li>
+<li><a href="#verify-installation">Verify Installation</a></li>
+</ul>
+</li>
+<li><a href="#usage">Usage</a>
+<ul>
+<li><a href="#tool-use"><code>tool use</code></a></li>
+<li><a href="#toolrc"><code>.toolrc</code></a></li>
+<li><a href="#shell-integration">Shell Integration</a>
+<ul>
+<li><a href="#bash">bash</a></li>
+<li><a href="#zsh">zsh</a></li>
+<li><a href="#fish">fish</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#license">License</a></li>
+</ul>
+<h2 id="about">About</h2>
+<p>The tool is a single script that runs in any POSIX shell. It keeps every version in its own directory and switches between them by changing the search path of the current shell session only.</p>
+<h2 id="installing">Installing</h2>
+<h3 id="install-script">Install Script</h3>
+<p>Download and run the install script. It clones the repository into a directory in your home folder and adds a few lines to your shell profile so the tool loads in every new session.</p>
+<h3 id="verify-installation">Verify Installation</h3>
+<p>Open a new terminal and run the command below. It should print the word tool, which confirms that the shell found the function.</p>
+<pre><code>command -v tool</code></pre>
+<h2 id="usage">Usage</h2>
+<h3 id="tool-use"><code>tool use</code></h3>
+<p>Switches the current shell to the requested version. The change lasts until the shell exits or another version is selected, and it does not touch other open terminals.</p>
+<h3 id="toolrc"><code>.toolrc</code></h3>
+<p>A project can commit a small file naming its version. Running the use command without an argument in that directory reads the file and selects the version it names.</p>
+<h3 id="shell-integration">Shell Integration</h3>
+<p>Each shell can switch versions automatically when you enter a directory that contains the project file.</p>
+<h4 id="bash">bash</h4>
+<p>Add a short function to your profile that checks for the project file whenever the working directory changes.</p>
+<h4 id="zsh">zsh</h4>
+<p>Register the same check as a directory change hook so it runs after every change of directory.</p>
+<h4 id="fish">fish</h4>
+<p>Define an event handler on the working directory variable that performs the same check.</p>
+<h2 id="license">License</h2>
+<p>The tool is released under a permissive open source license. See the license file in the repository for the full text.</p>
+</article>
+</body>
+</html>

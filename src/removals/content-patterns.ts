@@ -316,6 +316,144 @@ function isBreadcrumbList(list: Element): boolean {
 	return allInternal && hasBreadcrumbLink && shortLinkTexts;
 }
 
+// Footnote references and backlinks are in-page anchors too ("#fn1", "#fnref:2",
+// "#cite_note-3", "↩"), so a block holding one is a footnote list, not a ToC.
+const FOOTNOTE_HREF_PATTERN = /#(?:fn|fnref|footnote|cite[_-]?(?:note|ref)|ref|note|endnote)[-_:.]?[a-z]?\d/i;
+const FOOTNOTE_TEXT_PATTERN = /^(?:\[?\d{1,3}\]?|[↩↑^]\ufe0e?)$/;
+const TOC_LABEL_PATTERN = /^(?:(?:table of )?contents|on this page|in this (?:article|guide|post|page|section)|jump to)\s*:?$/i;
+// "Home" and "Up" also name ordinary links, so only prev/next make a pager.
+const PAGER_WORD = '(?:prev|previous|next)';
+const PAGER_WORD_PATTERN = new RegExp(`\\b${PAGER_WORD}\\b`, 'i');
+const PAGER_LABEL = `${PAGER_WORD}(?:\\s+(?:post|page|article|chapter|lesson|part|entry|story))?`;
+const PAGER_LINK_PATTERN = new RegExp(`^(?:[«‹←<]\\s*)?${PAGER_LABEL}(?:\\s*[»›→>])?$`, 'i');
+const PAGER_TEXT_PATTERN = new RegExp(`\\b${PAGER_LABEL}\\b\\s*:?`, 'gi');
+const PAGER_INDEX_LINK_PATTERN = /^(?:up|home|index|(?:table of )?contents)$/i;
+const NAV_SEPARATOR_PATTERN = /[\s«‹←»›→<>|·•/,;:()[\]–—-]+/g;
+const MIN_TOC_LINKS = 3;
+// Share of ToC links whose text must repeat a heading in the content
+const TOC_HEADING_MATCH_RATIO = 0.8;
+const MAX_TOC_RESIDUAL_CHARS = 40;
+const MAX_PAGER_CHARS = 200;
+const MAX_PAGER_WORDS = 25;
+const MAX_PAGER_LINKS = 4;
+
+// Compares ToC entries with headings regardless of case, punctuation,
+// permalink symbols and leading section numbers ("2.1 Setup" → "setup").
+function headingKey(text: string): string {
+	return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^(?:\d+ )+/, '');
+}
+
+function isSameSiteLink(href: string, page: URL | null): boolean {
+	if (!page) return !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href);
+	try {
+		const resolved = new URL(href, page);
+		return resolved.hostname.replace(/^www\./, '') === page.hostname.replace(/^www\./, '');
+	} catch {
+		return false;
+	}
+}
+
+function isSamePageFragment(href: string, page: URL | null): boolean {
+	const hashIndex = href.indexOf('#');
+	// A bare "#" or "#!/route" is a script hook or client-side route, not an anchor
+	if (hashIndex < 0 || hashIndex === href.length - 1 || href[hashIndex + 1] === '!') return false;
+	if (hashIndex === 0) return true;
+	if (!page) return false;
+	try {
+		const resolved = new URL(href, page);
+		return resolved.hostname === page.hostname && resolved.pathname === page.pathname;
+	} catch {
+		return false;
+	}
+}
+
+function isFootnoteLink(link: Element): boolean {
+	return FOOTNOTE_HREF_PATTERN.test(link.getAttribute('href') || '') ||
+		FOOTNOTE_TEXT_PATTERN.test(link.textContent?.trim() || '');
+}
+
+// Text of `node` outside its links.
+function nonLinkText(node: Node): string {
+	let text = '';
+	for (const child of Array.from(node.childNodes)) {
+		if (child.nodeType === 3) {
+			text += (child.textContent || '') + ' ';
+		} else if (child.nodeType === 1) {
+			const el = child as Element;
+			if (el.tagName === 'A' && el.hasAttribute('href')) continue;
+			text += nonLinkText(el) + ' ';
+		}
+	}
+	return text;
+}
+
+// A block of in-page links that is navigation rather than prose: almost all of
+// its text is link text, apart from a short label and list numbering.
+function isLinkListNavigation(block: Element, links: Element[], blockText: string, contentText: string): boolean {
+	// Never treat most of the content as navigation
+	if (blockText.length > contentText.trim().length * 0.5) return false;
+	// A single label heading is allowed; more headings mean article sections
+	const headings = block.querySelectorAll(HEADING_SELECTOR);
+	if (headings.length > 1 || (headings.length === 1 && headings[0].querySelector('a[href]'))) return false;
+
+	let linkLength = 0;
+	for (const link of links) linkLength += (link.textContent || '').replace(/\s+/g, '').length;
+	const residual = nonLinkText(block)
+		.replace(/\b\d+(?:\.\d+)*\.?/g, '')
+		.replace(NAV_SEPARATOR_PATTERN, '');
+	if (/[.!?]/.test(residual)) return false;
+	return residual.length <= MAX_TOC_RESIDUAL_CHARS && residual.length <= linkLength;
+}
+
+// Images, tables, math, code blocks and similar content, except inline code
+// that is part of a link's text (`<a href="#use"><code>use</code></a>` is a
+// normal ToC entry).
+function hasNonLinkContentElement(block: Element): boolean {
+	for (const el of block.querySelectorAll(CONTENT_ELEMENT_SELECTOR)) {
+		if (el.tagName === 'CODE' && !el.closest('pre') && el.closest('a[href]')) continue;
+		return true;
+	}
+	return false;
+}
+
+function isTocLabel(el: Element): boolean {
+	const isHeading = HEADING_TAG_PATTERN.test(el.tagName);
+	if (!isHeading && !['P', 'DIV', 'SPAN', 'STRONG', 'B'].includes(el.tagName)) return false;
+	if (!isHeading && el.querySelector('a, img, ul, ol')) return false;
+	return TOC_LABEL_PATTERN.test(el.textContent?.trim() || '');
+}
+
+// A small prev/next pager: every link stays on the site and is labelled
+// previous/next (or contents/up), or is a page title introduced by a
+// "Previous:"/"Next:" label, and there is no other text.
+function isPagerBlock(block: Element, page: URL | null): boolean {
+	const text = block.textContent?.trim() || '';
+	if (!text || text.length > MAX_PAGER_CHARS || countWords(text) > MAX_PAGER_WORDS) return false;
+	if (!PAGER_WORD_PATTERN.test(text)) return false;
+	if (block.closest('pre, code, #footnotes')) return false;
+	if (block.querySelector(CONTENT_ELEMENT_SELECTOR) || block.querySelector(HEADING_SELECTOR)) return false;
+
+	const links = Array.from(block.querySelectorAll('a[href]'));
+	if (links.length === 0 || links.length > MAX_PAGER_LINKS) return false;
+	if (!links.every(link => isSameSiteLink(link.getAttribute('href') || '', page))) return false;
+
+	const outside = nonLinkText(block);
+	const outsideLabels = (outside.match(PAGER_TEXT_PATTERN) || []).length;
+	if (outside.replace(PAGER_TEXT_PATTERN, '').replace(NAV_SEPARATOR_PATTERN, '')) return false;
+
+	let pagerLinks = 0;
+	let titleLinks = 0;
+	for (const link of links) {
+		const linkText = (link.textContent || '').replace(/\s+/g, ' ').trim();
+		if (PAGER_LINK_PATTERN.test(linkText)) pagerLinks++;
+		else if (!PAGER_INDEX_LINK_PATTERN.test(linkText)) titleLinks++;
+	}
+	if (pagerLinks + outsideLabels === 0) return false;
+	// Each title link needs its own "Previous:"/"Next:" label, and a lone
+	// "Next: <title>" is a call to action unless a second pager entry joins it
+	return titleLinks <= outsideLabels && (titleLinks === 0 || pagerLinks + outsideLabels >= 2);
+}
+
 // Remove "eyebrow" elements — short category/taxonomy labels immediately preceding
 // the first <h1> (e.g. "Blog post", "Off-nominal", "Announcements"). These are
 // presentational and don't belong in extracted content. Runs before selector removal
@@ -433,57 +571,76 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	let parsedPageUrl: URL | null = null;
 	try { parsedPageUrl = new URL(url); } catch {}
 
-	// Remove table of contents — lists of same-page anchor links near the top of content.
-	// These are navigation aids that duplicate heading text and add noise to extracted content.
-	for (const list of mainContent.querySelectorAll('ul, ol')) {
-		if (!list.parentNode) continue;
-		if (list.closest('#footnotes')) continue;
+	// Remove tables of contents — blocks of same-page anchor links. These are
+	// navigation aids that duplicate heading text and add noise to extracted content.
+	// The block must be almost entirely link text, so lists that describe each
+	// linked section stay, and most link texts must repeat a heading, so tab bars
+	// and step lists linking to differently titled targets stay. A list near the
+	// top may hold a few other links (e.g. "Edit this page"); anywhere else, every
+	// link must be an in-page anchor.
+	const isSamePageAnchor = (link: Element): boolean => isSamePageFragment(link.getAttribute('href') || '', parsedPageUrl);
+	// Only ancestors of enough in-page anchors can be a ToC; counting them up
+	// front avoids scanning the subtree of every div in large documents.
+	const anchorCounts = new Map<Element, number>();
+	for (const link of mainContent.querySelectorAll('a[href]')) {
+		if (!isSamePageAnchor(link)) continue;
+		for (let el = link.parentElement; el && el !== mainContent; el = el.parentElement) {
+			anchorCounts.set(el, (anchorCounts.get(el) || 0) + 1);
+		}
+	}
+	// A ToC entry repeats a heading, or its start when the entry is shortened
+	// or the heading carries permalink text
+	let headingKeys: string[] | null = null;
+	const repeatsHeading = (link: Element): boolean => {
+		if (!headingKeys) {
+			headingKeys = Array.from(mainContent.querySelectorAll(HEADING_SELECTOR), h => headingKey(h.textContent || ''));
+		}
+		const key = headingKey(link.textContent || '');
+		return !!key && headingKeys.some(heading => heading === key || heading.startsWith(key + ' '));
+	};
+	const isToc = (block: Element, isList: boolean): boolean => {
+		const links = Array.from(block.querySelectorAll('a[href]'));
+		const anchorLinks = links.filter(isSamePageAnchor);
+		if (anchorLinks.length < MIN_TOC_LINKS) return false;
 
-		// Must be near the top of content — check before enumerating links
-		const listText = list.textContent?.trim() || '';
-		const listPos = contentText.indexOf(listText.substring(0, 60));
-		if (listPos < 0 || listPos > contentText.length * 0.3) continue;
+		const blockText = block.textContent?.trim() || '';
+		const blockPos = isList ? contentText.indexOf(blockText.substring(0, 60)) : -1;
+		const nearTop = blockPos >= 0 && blockPos <= contentText.length * 0.3;
 
-		const links = Array.from(list.querySelectorAll('a[href]'));
-		if (links.length < 3) continue;
+		if (anchorLinks.length / links.length < (nearTop ? 0.8 : 1)) return false;
+		if (anchorLinks.some(isFootnoteLink)) return false;
+		if (!isLinkListNavigation(block, links, blockText, contentText)) return false;
+		if (anchorLinks.filter(repeatsHeading).length < anchorLinks.length * TOC_HEADING_MATCH_RATIO) return false;
+		if (block.closest('#footnotes, pre, code') || block.querySelector('#footnotes')) return false;
+		return !hasNonLinkContentElement(block);
+	};
+	// A ToC is removed whole or kept whole: once a list of in-page anchors is
+	// kept, its nested lists are part of it and are not judged on their own.
+	const keptAnchorLists: Element[] = [];
+	for (const block of mainContent.querySelectorAll('ul, ol, nav, div')) {
+		if ((anchorCounts.get(block) || 0) < MIN_TOC_LINKS) continue;
+		if (!mainContent.contains(block)) continue;
+		if (keptAnchorLists.some(list => list.contains(block))) continue;
 
-		if (list.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
-
-		// Count same-page anchor links (fragment-only or same-page URL with fragment)
-		let anchorCount = 0;
-		for (const link of links) {
-			const href = link.getAttribute('href') || '';
-			if (href.startsWith('#')) {
-				anchorCount++;
-			} else if (parsedPageUrl && href.includes('#')) {
-				try {
-					const resolved = new URL(href, url);
-					if (resolved.pathname === parsedPageUrl.pathname &&
-						resolved.hostname === parsedPageUrl.hostname) {
-						anchorCount++;
-					}
-				} catch {}
-			}
+		const isList = block.tagName === 'UL' || block.tagName === 'OL';
+		if (!isToc(block, isList)) {
+			if (isList) keptAnchorLists.push(block);
+			continue;
 		}
 
-		if (anchorCount < 3 || anchorCount / links.length < 0.8) continue;
-
-		let target: Element = list;
+		let target: Element = block;
 		while (target.parentElement && target.parentElement !== mainContent &&
 			target.parentElement.children.length === 1) {
 			target = target.parentElement;
 		}
 
-		// Remove an adjacent preceding heading if it's a ToC label
+		// Remove an adjacent preceding ToC label ("Contents", "On this page")
 		const prevEl = target.previousElementSibling;
-		if (prevEl && HEADING_TAG_PATTERN.test(prevEl.tagName)) {
-			const hText = prevEl.textContent?.trim() || '';
-			if (/^(?:table of )?contents$|^on this page$|^in this (?:article|guide|post)$/i.test(hText)) {
-				if (debug && debugRemovals) {
-					debugRemovals.push({ step: 'removeByContentPattern', reason: 'table of contents heading', text: textPreview(prevEl) });
-				}
-				prevEl.remove();
+		if (prevEl && isTocLabel(prevEl)) {
+			if (debug && debugRemovals) {
+				debugRemovals.push({ step: 'removeByContentPattern', reason: 'table of contents heading', text: textPreview(prevEl) });
 			}
+			prevEl.remove();
 		}
 
 		// Remove surrounding HR separators that framed the ToC
@@ -497,7 +654,30 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		if (prevSib?.tagName === 'HR') prevSib.remove();
 		if (nextSib?.tagName === 'HR') nextSib.remove();
-		break;
+	}
+
+	// Remove prev/next pagination bars ("« Previous | Next »",
+	// "Previous: <title> Next: <title>").
+	// Every link must be a pager or contents label, or a title introduced by one.
+	// Candidates are the short ancestors of links; once an ancestor is too long,
+	// so are all of its ancestors.
+	const pagerCandidates = new Set<Element>();
+	const visited = new Set<Element>();
+	for (const link of mainContent.querySelectorAll('a[href]')) {
+		for (let el = link.parentElement; el && el !== mainContent && !visited.has(el); el = el.parentElement) {
+			visited.add(el);
+			if ((el.textContent?.trim().length || 0) > MAX_PAGER_CHARS) break;
+			pagerCandidates.add(el);
+		}
+	}
+	for (const block of mainContent.querySelectorAll('nav, div, p, ul, ol')) {
+		if (!pagerCandidates.has(block) || !mainContent.contains(block)) continue;
+		if (!isPagerBlock(block, parsedPageUrl)) continue;
+		const target = walkUpToWrapper(block, block.textContent?.trim() || '', mainContent);
+		if (debug && debugRemovals) {
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'prev/next navigation', text: textPreview(target) });
+		}
+		target.remove();
 	}
 
 	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
