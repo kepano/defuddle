@@ -318,10 +318,6 @@ function isBreadcrumbList(list: Element): boolean {
 
 // Tables of contents
 
-// Footnote references and backlinks are in-page anchors too ("#fn1", "#fnref:2",
-// "#cite_note-3", "↩"), so a block holding one is a footnote list, not a ToC.
-const FOOTNOTE_HREF_PATTERN = /#(?:fn|fnref|footnote|cite[_-]?(?:note|ref)|ref|note|endnote)[-_:.]?[a-z]?\d/i;
-const FOOTNOTE_TEXT_PATTERN = /^(?:\[?\d{1,3}\]?|[↩↑^]\ufe0e?)$/;
 const TOC_LABEL_PATTERN = /^(?:(?:table of )?contents|on this page|in this (?:article|guide|post|page|section)|jump to)\s*:?$/i;
 const TOC_LABEL_TAGS = new Set(['P', 'DIV', 'SPAN', 'STRONG', 'B']);
 // Section numbering left outside the links ("2.", "2.1")
@@ -398,11 +394,6 @@ function isLink(el: Element): boolean {
 	return el.tagName === 'A' && el.hasAttribute('href');
 }
 
-function isFootnoteLink(link: Element): boolean {
-	return FOOTNOTE_HREF_PATTERN.test(link.getAttribute('href') || '') ||
-		FOOTNOTE_TEXT_PATTERN.test(link.textContent?.trim() || '');
-}
-
 // Text of `node` outside its links.
 function nonLinkText(node: Node): string {
 	let text = '';
@@ -476,7 +467,9 @@ function tocRemovalTarget(block: Element, mainContent: Element): Element {
 // navigation aids that duplicate heading text and add noise to extracted content.
 // The block must be almost entirely link text, so lists that describe each
 // linked section stay, and most link texts must repeat a heading, so tab bars
-// and step lists linking to differently titled targets stay.
+// and step lists linking to differently titled targets stay. Footnote lists
+// stay for both reasons: backlinks ("↩", "^", "[1]") repeat no heading, and
+// the note text is far longer than a label.
 function removeTablesOfContents(mainContent: Element, contentText: string, page: URL | null, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	const isSamePageAnchor = (link: Element): boolean => isSamePageFragment(link.getAttribute('href') || '', page);
 
@@ -510,7 +503,6 @@ function removeTablesOfContents(mainContent: Element, contentText: string, page:
 		const links = Array.from(block.querySelectorAll('a[href]'));
 		const anchors = links.filter(isSamePageAnchor);
 		if (anchors.length < MIN_TOC_LINKS) return false;
-		if (anchors.some(isFootnoteLink)) return false;
 
 		const blockText = block.textContent?.trim() || '';
 		if (blockText.length > contentLength * MAX_TOC_CONTENT_SHARE) return false;
