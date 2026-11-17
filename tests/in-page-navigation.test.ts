@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { Defuddle } from '../src/node';
 import { parseDocument } from './helpers';
 
-const URL = 'https://example.com/docs/page';
+const PAGE_URL = 'https://example.com/docs/page';
 
 const PROSE = `
 <p>The first section explains the background in enough detail that a reader new to the subject can follow the rest of the page without looking anything up elsewhere.</p>
@@ -17,13 +17,13 @@ function page(body: string): string {
 	return `<!DOCTYPE html><html><head><title>Test Page</title></head><body><article><h1>Test Page</h1>${body}</article></body></html>`;
 }
 
-async function extract(body: string, options: Record<string, unknown> = {}) {
-	return Defuddle(parseDocument(page(body), URL), URL, { separateMarkdown: true, ...options });
-}
-
 const INTRO = '<p>This page is a short guide for readers who are new to the tool and want a quick tour of the main ideas before they start using it on a real project.</p>';
 // PROSE without heading ids, to add length without adding link targets
 const FILLER = PROSE.replace(/id="\w+"/g, '');
+
+async function extract(body: string, options: Record<string, unknown> = {}) {
+	return Defuddle(parseDocument(page(body), PAGE_URL), PAGE_URL, { separateMarkdown: true, ...options });
+}
 
 // One section per title, with ids s1, s2, …
 function sections(...titles: string[]): string {
@@ -35,12 +35,12 @@ async function removalReasons(body: string): Promise<string[]> {
 	return result.debug?.removals?.map(r => r.reason || '') || [];
 }
 
-const TOC = `<div class="c1"><div>On this page</div><div><a href="#one">Section one</a></div><div><a href="#two">Section two</a></div><div><a href="#three">Section three</a></div></div>`;
-const PAGER = `<div class="c2"><div>Previous: <a href="/docs/intro">Introduction</a></div><div>Next: <a href="/docs/advanced">Advanced topics</a></div></div>`;
+const TOC = `<div><div>On this page</div><div><a href="#one">Section one</a></div><div><a href="#two">Section two</a></div><div><a href="#three">Section three</a></div></div>`;
+const PAGER = `<div><div>Previous: <a href="/docs/intro">Introduction</a></div><div>Next: <a href="/docs/advanced">Advanced topics</a></div></div>`;
 
 describe('In-page navigation removal', () => {
 	test('records ToC and prev/next removals in debug output', async () => {
-		const result = await extract(PROSE + TOC + PROSE.replace(/id="\w+"/g, '') + PAGER, { debug: true });
+		const result = await extract(PROSE + TOC + FILLER + PAGER, { debug: true });
 		const reasons = result.debug?.removals?.map(r => r.reason) || [];
 		expect(reasons).toContain('table of contents');
 		expect(reasons).toContain('prev/next navigation');
@@ -49,7 +49,7 @@ describe('In-page navigation removal', () => {
 	});
 
 	test('keeps navigation when content pattern removal is disabled', async () => {
-		const result = await extract(PROSE + TOC + PROSE.replace(/id="\w+"/g, '') + PAGER, { removeContentPatterns: false });
+		const result = await extract(PROSE + TOC + FILLER + PAGER, { removeContentPatterns: false });
 		expect(result.contentMarkdown).toContain('On this page');
 		expect(result.contentMarkdown).toContain('Advanced topics');
 	});
@@ -60,15 +60,14 @@ describe('In-page navigation removal', () => {
 <li id="cite_note-2"><a href="#cite_ref-2">^</a> Second reference source</li>
 <li id="cite_note-3"><a href="#cite_ref-3">^</a> Third reference source</li>
 </ol>`;
-		const result = await extract(PROSE + refs + PROSE.replace(/id="\w+"/g, ''));
+		const result = await extract(PROSE + refs + FILLER);
 		expect(result.contentMarkdown).toContain('First reference source');
 		expect(result.contentMarkdown).toContain('Third reference source');
 	});
 
 	test('does not treat link rows to other pages as prev/next bars', async () => {
-		const links = `<div class="c3"><a href="/docs/install">Install</a> · <a href="/docs/configure">Configure</a> · <a href="/docs/deploy">Deploy</a></div>`;
-		const result = await extract(PROSE + links + PROSE.replace(/id="\w+"/g, ''), { debug: true });
-		const reasons = result.debug?.removals?.map(r => r.reason) || [];
+		const links = `<div><a href="/docs/install">Install</a> · <a href="/docs/configure">Configure</a> · <a href="/docs/deploy">Deploy</a></div>`;
+		const reasons = await removalReasons(PROSE + links + FILLER);
 		expect(reasons).not.toContain('prev/next navigation');
 		expect(reasons).not.toContain('table of contents');
 	});
@@ -79,50 +78,50 @@ describe('In-page navigation removal', () => {
 <li><a href="#two">Section two</a> explains how to check the result.</li>
 <li><a href="#three">Section three</a> suggests ways to practice.</li>
 </ul>`;
-		const result = await extract(PROSE + PROSE.replace(/id="\w+"/g, '') + list + PROSE.replace(/id="\w+"/g, ''));
+		const result = await extract(PROSE + FILLER + list + FILLER);
 		expect(result.contentMarkdown).toContain('explains which tools to gather first');
 	});
 
 	test('matches ToC entries to numbered, permalinked and longer headings', async () => {
 		// Every heading differs from its ToC entry, so no entry matches exactly
-		const sections = PROSE
+		const body = PROSE
 			.replace('>Section one<', '>1. Section one <a href="#one">Permalink</a><')
 			.replace('>Section two<', '>2. Section two <a href="#two">Permalink</a><')
 			.replace('>Section three<', '>Section three: wrapping up<');
-		const toc = `<ol class="c4"><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ol>`;
-		const result = await extract(INTRO + toc + sections, { debug: true });
-		const reasons = result.debug?.removals?.map(r => r.reason) || [];
-		expect(reasons).toContain('table of contents');
+		const toc = `<ol><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ol>`;
+		expect(await removalReasons(INTRO + toc + body)).toContain('table of contents');
 	});
 
 	test('keeps an in-page link list with an image whole, including its nested lists', async () => {
-		const toc = `<ul class="c5">
+		const toc = `<ul>
 <li><a href="#one"><img src="https://example.com/icon.png" alt="">Section one</a></li>
 <li><a href="#two">Section two</a><ul><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ul></li>
 <li><a href="#three">Section three</a></li>
 </ul>`;
-		const result = await extract(PROSE.replace(/id="\w+"/g, '') + toc + PROSE, { debug: true });
+		const result = await extract(FILLER + toc + PROSE, { debug: true });
 		const reasons = result.debug?.removals?.map(r => r.reason) || [];
 		expect(reasons).not.toContain('table of contents');
 		expect(result.content).toContain('icon.png');
 		expect((result.content.match(/href="#three"/g) || []).length).toBe(2);
 	});
 
-	test('removes DocBook DSSSL navigation tables and summary-only navigation tables', async () => {
+	test('removes upper-case NAVHEADER class values and summary-only navigation tables', async () => {
 		const header = `<div class="NAVHEADER"><table summary="Header navigation table" width="100%"><tr><th colspan="3" align="center">Example Guide</th></tr><tr><td align="left"><a href="/guide/part-1.html">Prev</a></td><td align="center">Part 2</td><td align="right"><a href="/guide/part-3.html">Next</a></td></tr></table></div>`;
 		const footer = `<table width="100%" summary="Navigation footer"><tr><td><a href="/guide/part-1.html">Prev</a></td><td><a href="/guide/index.html">Home</a></td><td><a href="/guide/part-3.html">Next</a></td></tr><tr><td>Part 1</td><td></td><td>Part 3</td></tr></table>`;
 		const data = `<table><tr><th>Step</th><th>Next step</th></tr><tr><td>Prepare</td><td>Install</td></tr></table>`;
-		const result = await extract(header + PROSE + data + PROSE.replace(/id="\w+"/g, '') + footer);
+		const result = await extract(header + PROSE + data + FILLER + footer);
 		expect(result.content).not.toContain('Example Guide');
 		expect(result.content).not.toContain('part-3.html');
 		expect(result.content).toContain('Next step');
 	});
 
 	test('does not touch links inside code blocks', async () => {
-		const code = `<pre><code>&lt;a href="#one"&gt;One&lt;/a&gt;
-Next: <a href="/docs/advanced">Advanced</a></code></pre>`;
-		const result = await extract(PROSE + code + PROSE.replace(/id="\w+"/g, ''));
-		expect(result.contentMarkdown).toContain('Next: ');
+		// Some highlighters link identifiers and wrap each line in a <div>
+		const code = `<pre><code><div><div><a href="#one">Section one</a></div><div><a href="#two">Section two</a></div><div><a href="#three">Section three</a></div></div><div><a href="/docs/intro">« Previous</a> <a href="/docs/advanced">Next »</a></div></code></pre>`;
+		const result = await extract(PROSE + code + FILLER);
+		const codeBlock = result.contentMarkdown?.match(/```[\s\S]*?```/)?.[0] || '';
+		expect(codeBlock).toContain('Section three');
+		expect(codeBlock).toContain('« Previous Next »');
 	});
 });
 
