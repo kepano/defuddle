@@ -20,6 +20,7 @@ import { removeByContentPattern, removeEyebrowLabel } from './removals/content-p
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, getClassName, classOrIdSelector, stripUnsafeElements } from './utils/dom';
+import { lowercaseAttributeNames } from './utils/attribute-case';
 
 interface StyleChange {
 	selector: string;
@@ -30,6 +31,7 @@ interface StyleChange {
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
 export class Defuddle {
+	// The caller's document, or a copy with lowercased attribute names.
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
 	// against a sanitized clone instead of the caller's live document.
 	private doc: Document;
@@ -50,9 +52,23 @@ export class Defuddle {
 	 * @param options - Options for parsing
 	 */
 	constructor(doc: Document, options: DefuddleOptions = {}) {
-		this.doc = doc;
+		this.doc = Defuddle._withLowercaseAttributeNames(doc);
 		this.options = options;
 		this.debug = options.debug || false;
+	}
+
+	/**
+	 * Metadata, extractor detection and every selector below read attributes
+	 * by their lower-case names, so lowercase linkedom's `<A HREF>` first.
+	 * Returns a copy only when something changes; never mutates `doc`.
+	 */
+	private static _withLowercaseAttributeNames(doc: Document): Document {
+		try {
+			return lowercaseAttributeNames(doc);
+		} catch (error) {
+			console.error('Defuddle', 'Error lowercasing attribute names:', error);
+			return doc;
+		}
 	}
 
 	/**
