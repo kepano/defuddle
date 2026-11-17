@@ -613,11 +613,12 @@ function removePagerBars(mainContent: Element, page: URL | null, debug: boolean,
 	for (const block of mainContent.querySelectorAll('nav, div, p, ul, ol')) {
 		if (!pagerCandidates.has(block) || !mainContent.contains(block)) continue;
 		if (!isPagerBlock(block, page)) continue;
-		const target = walkUpToWrapper(block, block.textContent?.trim() || '', mainContent);
+		// Remove only the bar: its wrapper may also hold the image or video it
+		// pages through. A wrapper left empty is dropped during standardization.
 		if (debug && debugRemovals) {
-			debugRemovals.push({ step: 'removeByContentPattern', reason: 'prev/next navigation', text: textPreview(target) });
+			debugRemovals.push({ step: 'removeByContentPattern', reason: 'prev/next navigation', text: textPreview(block) });
 		}
-		target.remove();
+		block.remove();
 	}
 }
 
