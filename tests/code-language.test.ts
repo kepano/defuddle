@@ -47,4 +47,9 @@ describe('code block language', () => {
 		const snippet = '<div><pre><code class="language-python">print(1)</code></pre><pre><code>make</code></pre></div>';
 		expect(await languages(snippet)).toEqual(['python', '']);
 	});
+
+	test('ignores a language wrapper shared by several blocks', async () => {
+		const snippet = '<div class="highlight-go"><pre><code>make</code></pre><pre><code>make test</code></pre></div>';
+		expect(await languages(snippet)).toEqual(['', '']);
+	});
 });
