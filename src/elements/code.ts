@@ -11,6 +11,8 @@ const HIGHLIGHTER_PATTERNS = [
 	/^highlight-(\w+)$/,         // highlight-javascript
 	/^highlight-source-(\w+)$/,  // highlight-source-javascript (GitHub)
 	/^(\w+)-snippet$/,           // javascript-snippet
+	/^mw-highlight-lang-([\w+#]+)$/, // mw-highlight-lang-go, mw-highlight-lang-c# (MediaWiki)
+	/^sp-(?!console$)(\w+)$/,    // sp-javascript (Sandpack; sp-console is its log panel)
 
 	// fallback
 	/(?:^|\s)(?:language|lang|brush|syntax)-(\w+)(?:\s|$)/i
@@ -37,9 +39,10 @@ const CODE_LANGUAGES = new Set([
 	'cmake',
 	'cobol',
 	'coffeescript',
+	'console',
 	'cpp', 'c++',
 	'crystal',
-	'csharp', 'cs',
+	'csharp', 'cs', 'c#',
 	'css',
 	'dart',
 	'diff',
@@ -95,7 +98,8 @@ const CODE_LANGUAGES = new Set([
 	'powershell',
 	'prolog',
 	'puppet',
-	'python', 'py',
+	'pycon',
+	'python', 'py', 'python3',
 	'regex',
 	'rss',
 	'ruby', 'rb',

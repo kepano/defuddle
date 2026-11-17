@@ -28,6 +28,13 @@ describe('code block language', () => {
 		['highlight- wrapper', '<div class="highlight-go"><div class="highlight"><pre>x := 1</pre></div></div>', 'go'],
 		['data-lang on a close wrapper', '<div data-lang="rust"><pre><code>let x = 1;</code></pre></div>', 'rust'],
 		['bare highlight.js name', '<pre><code class="hljs go">x := 1</code></pre>', 'go'],
+		['Sphinx python3 wrapper', '<div class="highlight-python3"><div class="highlight"><pre>x = 1</pre></div></div>', 'python3'],
+		['Sphinx pycon wrapper', '<div class="highlight-pycon"><div class="highlight"><pre>&gt;&gt;&gt; x = 1</pre></div></div>', 'pycon'],
+		['console on code', '<pre><code class="language-console">$ make</code></pre>', 'console'],
+		['MediaWiki wrapper', '<div class="mw-highlight mw-highlight-lang-go"><pre>x := 1</pre></div>', 'go'],
+		['MediaWiki c#', '<div class="mw-highlight mw-highlight-lang-c#"><pre>var x = 1;</pre></div>', 'c#'],
+		['Sandpack class on pre', '<div class="sp-wrapper sp-stack"><pre class="sp-cm sp-javascript"><code class="sp-pre-placeholder">let x = 1;</code></pre></div>', 'javascript'],
+		['Sandpack class on a wrapper', '<div class="sp-javascript sp-cm"><pre class="sp-pre-placeholder">let x = 1;</pre></div>', 'javascript'],
 	])('detects %s', async (_name, snippet, expected) => {
 		expect(await languages(snippet)).toEqual([expected]);
 	});
@@ -37,6 +44,8 @@ describe('code block language', () => {
 		['a bare name on a tight wrapper', '<div class="go"><pre><code>make</code></pre></div>'],
 		['a layout class starting with highlight', '<div class="highlight-wrap"><pre><code>make</code></pre></div>'],
 		['an unknown bare class', '<pre><code class="hljs nohighlight">make</code></pre>'],
+		['Sandpack layout classes', '<div class="sp-layout sp-stack"><pre class="sp-cm sp-pristine"><code class="sp-pre-placeholder">make</code></pre></div>'],
+		['the Sandpack console panel', '<div class="sp-console sp-stack"><pre>Hello from the log</pre></div>'],
 		['a wrapper with surrounding prose', '<div class="highlight-go"><p>Here is a longer explanation of what the following snippet does.</p><pre><code>make</code></pre></div>'],
 		['a wrapper beyond the depth limit', '<div data-lang="go"><div><div><div><pre><code>make</code></pre></div></div></div></div>'],
 	])('ignores %s', async (_name, snippet) => {
