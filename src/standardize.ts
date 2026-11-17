@@ -1193,7 +1193,7 @@ function removeEmptyLines(element: Element, doc: Document): void {
 	// First pass: remove empty text nodes
 	const removeEmptyTextNodes = (node: Node) => {
 		// Skip if inside pre, code or a math annotation
-		if (isElement(node) && VERBATIM_TEXT.has((node as Element).tagName.toLowerCase())) {
+		if (isElement(node) && VERBATIM_TEXT.has(node.tagName.toLowerCase())) {
 			return;
 		}
 
