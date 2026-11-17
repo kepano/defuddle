@@ -21,6 +21,20 @@ async function extract(body: string, options: Record<string, unknown> = {}) {
 	return Defuddle(parseDocument(page(body), URL), URL, { separateMarkdown: true, ...options });
 }
 
+const INTRO = '<p>This page is a short guide for readers who are new to the tool and want a quick tour of the main ideas before they start using it on a real project.</p>';
+// PROSE without heading ids, to add length without adding link targets
+const FILLER = PROSE.replace(/id="\w+"/g, '');
+
+// One section per title, with ids s1, s2, …
+function sections(...titles: string[]): string {
+	return titles.map((title, i) => `<h2 id="s${i + 1}">${title}</h2><p>This part explains ${title.toLowerCase()} step by step, with the commands to run, the output to expect, and what to do when the result looks different.</p>`).join('');
+}
+
+async function removalReasons(body: string): Promise<string[]> {
+	const result = await extract(body, { debug: true });
+	return result.debug?.removals?.map(r => r.reason || '') || [];
+}
+
 const TOC = `<div class="c1"><div>On this page</div><div><a href="#one">Section one</a></div><div><a href="#two">Section two</a></div><div><a href="#three">Section three</a></div></div>`;
 const PAGER = `<div class="c2"><div>Previous: <a href="/docs/intro">Introduction</a></div><div>Next: <a href="/docs/advanced">Advanced topics</a></div></div>`;
 
@@ -69,12 +83,14 @@ describe('In-page navigation removal', () => {
 		expect(result.contentMarkdown).toContain('explains which tools to gather first');
 	});
 
-	test('matches ToC entries to numbered headings with permalink text', async () => {
+	test('matches ToC entries to numbered, permalinked and longer headings', async () => {
+		// Every heading differs from its ToC entry, so no entry matches exactly
 		const sections = PROSE
 			.replace('>Section one<', '>1. Section one <a href="#one">Permalink</a><')
-			.replace('>Section two<', '>2. Section two <a href="#two">Permalink</a><');
+			.replace('>Section two<', '>2. Section two <a href="#two">Permalink</a><')
+			.replace('>Section three<', '>Section three: wrapping up<');
 		const toc = `<ol class="c4"><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ol>`;
-		const result = await extract(PROSE.replace(/id="\w+"/g, '') + toc + sections, { debug: true });
+		const result = await extract(INTRO + toc + sections, { debug: true });
 		const reasons = result.debug?.removals?.map(r => r.reason) || [];
 		expect(reasons).toContain('table of contents');
 	});
@@ -107,5 +123,107 @@ describe('In-page navigation removal', () => {
 Next: <a href="/docs/advanced">Advanced</a></code></pre>`;
 		const result = await extract(PROSE + code + PROSE.replace(/id="\w+"/g, ''));
 		expect(result.contentMarkdown).toContain('Next: ');
+	});
+});
+
+describe('Table of contents rules', () => {
+	const FOUR_SECTIONS = sections('Installing', 'Configuring', 'Deploying', 'Upgrading');
+	const TOC_WITH_EDIT_LINK = `<ul>
+<li><a href="#s1">Installing</a></li><li><a href="#s2">Configuring</a></li>
+<li><a href="#s3">Deploying</a></li><li><a href="#s4">Upgrading</a></li>
+<li><a href="https://github.com/example/docs/edit/main/page.md">Edit this page</a></li>
+</ul>`;
+
+	test('removes a list near the top that also links to an edit page', async () => {
+		expect(await removalReasons(INTRO + TOC_WITH_EDIT_LINK + FOUR_SECTIONS)).toContain('table of contents');
+	});
+
+	test('keeps a list further down that also links to another site', async () => {
+		const reasons = await removalReasons(INTRO + FILLER + FILLER + TOC_WITH_EDIT_LINK + FOUR_SECTIONS);
+		expect(reasons).not.toContain('table of contents');
+	});
+
+	test('removes a ToC with section numbers outside the links', async () => {
+		const toc = `<div><div>1. <a href="#one">Section one</a></div><div>2. <a href="#two">Section two</a></div><div>3. <a href="#three">Section three</a></div></div>`;
+		expect(await removalReasons(toc + PROSE)).toContain('table of contents');
+	});
+
+	test('removes a paragraph label before a ToC', async () => {
+		const toc = `<p>Contents</p><ul><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ul>`;
+		expect(await removalReasons(toc + PROSE)).toContain('table of contents heading');
+	});
+
+	test('removes the label before a ToC wrapped in a layout table', async () => {
+		const toc = `<h2>On this page</h2><table><tr><td><ul><li><a href="#one">Section one</a></li><li><a href="#two">Section two</a></li><li><a href="#three">Section three</a></li></ul></td></tr></table>`;
+		expect(await removalReasons(toc + PROSE)).toContain('table of contents heading');
+	});
+
+	test('keeps a sentence that links to several sections', async () => {
+		const sentence = `<div><p>Start with <a href="#one">Section one</a>, then read <a href="#two">Section two</a> and <a href="#three">Section three</a>.</p></div>`;
+		const result = await extract(sentence + PROSE);
+		expect(result.contentMarkdown).toContain('then read');
+	});
+
+	test('keeps a list whose descriptions are longer than a label', async () => {
+		const titles = ['Installing the command line tool', 'Configuring the project settings', 'Deploying the finished site'];
+		const list = `<ul><li><a href="#s1">${titles[0]}</a> on macOS and Linux</li><li><a href="#s2">${titles[1]}</a> for each environment</li><li><a href="#s3">${titles[2]}</a> with a single command</li></ul>`;
+		const result = await extract(INTRO + list + sections(...titles));
+		expect(result.contentMarkdown).toContain('for each environment');
+	});
+
+	test('keeps a list whose descriptions outweigh the link text', async () => {
+		// The lead-in ending in ":" keeps the blog metadata list rule out of the way
+		const list = `<p>The guide has three parts:</p><ul><li><a href="#s1">Setup</a> first steps</li><li><a href="#s2">Usage</a> daily commands</li><li><a href="#s3">Help</a> getting support</li></ul>`;
+		const result = await extract(INTRO + list + sections('Setup', 'Usage', 'Help'));
+		expect(result.contentMarkdown).toContain('daily commands');
+	});
+
+	test('keeps in-page links split by several headings', async () => {
+		const block = `<div><h3>Getting started</h3><a href="#one">Section one</a> <a href="#two">Section two</a><h3>Going further</h3><a href="#three">Section three</a></div>`;
+		const result = await extract(PROSE + block + FILLER);
+		expect(result.contentMarkdown).toContain('Going further');
+	});
+
+	test('keeps lists of hash-bang routes', async () => {
+		const nav = `<ul><li><a href="#!/one">Section one</a></li><li><a href="#!/two">Section two</a></li><li><a href="#!/three">Section three</a></li></ul>`;
+		expect(await removalReasons(nav + PROSE)).not.toContain('table of contents');
+	});
+});
+
+// Link-dense <div> bars are already removed by content scoring; bars in a <p>
+// are left to the prev/next rule.
+describe('Prev/next bar rules', () => {
+	test('removes a bar with a contents link in the middle of the page', async () => {
+		const bar = `<p><a href="/docs/intro">« Previous</a> · <a href="/docs/">Contents</a> · <a href="/docs/advanced">Next »</a></p>`;
+		expect(await removalReasons(PROSE + bar + FILLER)).toContain('prev/next navigation');
+	});
+
+	test('treats www and bare hosts as the same site', async () => {
+		const bar = `<div>Previous: <a href="https://www.example.com/docs/intro">Introduction</a> Next: <a href="https://www.example.com/docs/advanced">Advanced topics</a></div>`;
+		expect(await removalReasons(PROSE + bar + FILLER)).toContain('prev/next navigation');
+	});
+
+	test('keeps prose that links to the previous and next pages', async () => {
+		const paragraph = `<p>Go back to the <a href="/docs/intro">previous page</a> or continue to the <a href="/docs/advanced">next page</a> when you are ready.</p>`;
+		const result = await extract(PROSE + paragraph + FILLER);
+		expect(result.contentMarkdown).toContain('when you are ready');
+	});
+
+	test('keeps a bar with images', async () => {
+		const bar = `<p><a href="/docs/intro"><img src="https://example.com/intro.png" alt="Introduction">« Previous</a> <a href="/docs/advanced">Next »<img src="https://example.com/advanced.png" alt="Advanced topics"></a></p>`;
+		const result = await extract(PROSE + bar + FILLER);
+		expect(result.content).toContain('intro.png');
+	});
+
+	test('removes DocBook navfooter divs and navigation header tables on their own', async () => {
+		const header = `<table summary="Navigation header" width="100%"><tr><td><a href="/guide/part-1.html">Prev</a></td><td><a href="/guide/part-3.html">Next</a></td></tr><tr><td>Header label</td><td></td></tr></table>`;
+		// The row of neighbouring chapter titles keeps the link density low enough
+		// that content scoring leaves the footer to the navfooter selector
+		const footer = `<div class="navfooter"><hr><table width="100%"><tr><td><a href="/guide/part-1.html">Prev</a></td><td><a href="/guide/index.html">Up</a></td><td><a href="/guide/part-3.html">Next</a></td></tr><tr><td>Part 1. Getting the sources</td><td><a href="/guide/index.html">Home</a></td><td>Part 3. Building the release</td></tr></table></div>`;
+		// The partial "footer" selector also catches navfooter; retries run
+		// without partial selectors, so the exact selectors must hold on their own
+		const result = await extract(header + PROSE + FILLER + footer, { removePartialSelectors: false });
+		expect(result.content).not.toContain('Header label');
+		expect(result.content).not.toContain('Building the release');
 	});
 });
