@@ -104,10 +104,7 @@ export class Defuddle {
 	private _parseWithRetries(): DefuddleResponse | null {
 		const startTime = Date.now();
 
-		// Normalize non-standard attribute casing (e.g. React SSR outputs
-		// "srcSet" instead of "srcset") before any image processing.
 		if (this.doc.body) {
-			this._normalizeAttributes(this.doc.body);
 			this._resolveNoscriptImages(this.doc.body);
 		}
 
@@ -532,25 +529,6 @@ export class Defuddle {
 		const src = img.getAttribute('src') || '';
 		const m = src.match(Defuddle._urlWidthPattern);
 		return m ? parseInt(m[1], 10) : 0;
-	}
-
-	/**
-	 * Rename non-standard HTML attributes to their canonical lowercase forms.
-	 * React SSR outputs camelCase attributes like "srcSet" that some DOM
-	 * parsers (e.g. linkedom) preserve verbatim instead of lowercasing.
-	 */
-	private _normalizeAttributes(body: Element): void {
-		const renames: [string, string][] = [['srcSet', 'srcset']];
-		const elements = body.querySelectorAll('img, source');
-		for (const el of elements) {
-			for (const [from, to] of renames) {
-				const value = el.getAttribute(from);
-				if (value !== null) {
-					el.removeAttribute(from);
-					el.setAttribute(to, value);
-				}
-			}
-		}
 	}
 
 	private _resolveNoscriptImages(body: Element): void {
