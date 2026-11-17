@@ -35,7 +35,7 @@ const sheets = Array.from(doc.styleSheets).filter(sheet => {
 
 This could be silenced by falling back to `[]` if `doc.styleSheets` isn't present, however that may not be the desired behavior.
 
-```
+```ts
 const sheets = Array.from(doc.styleSheets ?? [])
 ```
 
