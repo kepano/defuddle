@@ -91,13 +91,15 @@ const UNSAFE_ELEMENT_TAGS = new Set([
 const UNSAFE_ELEMENT_SELECTOR =
 	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
 	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
-	'animateMotion, animateTransform, animateColor';
+	'animateMotion, animateTransform, animateColor, math title';
 
 const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
 
 function isUnsafeElement(el: Element): boolean {
 	const tag = el.tagName.toUpperCase();
 	if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
+	// linkedom writes title text unescaped, but browsers parse it as markup inside math.
+	if (tag === 'TITLE') return !!el.closest('math');
 	return UNSAFE_ELEMENT_TAGS.has(tag);
 }
 
