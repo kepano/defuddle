@@ -1,5 +1,6 @@
 ## Unreleased
 
+- Sped up selector-based removal in Safari and other WebKit browsers: a lookbehind in the partial-selector regex kept JavaScriptCore from compiling it, making `parse()` several times slower on long pages (#439).
 - Kept extractor class names in the browser bundles, so `extractorType` reports the site (`github`, `youtube`, ...) instead of a minified name like `a` (#414).
 
 ## 0.19.6

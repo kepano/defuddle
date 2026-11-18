@@ -1,0 +1,30 @@
+<!-- {"url":"https://example.org/guide/reading-results"} -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Reading results</title>
+</head>
+<body>
+  <article>
+    <h1>Reading results</h1>
+    <p>
+      This guide shows how to read the object the parser returns. The parser takes a document, finds the
+      main content, removes clutter such as navigation and sidebars, and returns the cleaned content.
+    </p>
+    <pre><span class="pl-c">// Parse the current document and read the metadata the parser found on the page</span>
+<span class="pl-k">const</span> <span class="pl-s1">result</span> <span class="pl-c1">=</span> <span class="pl-s1">parser</span>.<span class="pl-en">parse</span>();
+<span class="pl-smi">console</span>.<span class="pl-en">log</span>(<span class="pl-s1">result</span>.<span class="pl-c1">author</span>);
+<span class="pl-s1">menu</span>.<span class="pl-en">share</span>(<span class="pl-s1">result</span>.<span class="pl-c1">url</span>);</pre>
+    <p>
+      The result carries the title, the author, the publication date and the content. Each property is a
+      plain string, so it can be logged or stored without further conversion.
+    </p>
+    <pre><code><span class="line">Written by</span>
+<span class="line">Share</span>
+<span class="line">12 Likes</span></code></pre>
+    <p><code>3 Comments</code></p>
+    <p>That is the whole result.</p>
+  </article>
+</body>
+</html>
