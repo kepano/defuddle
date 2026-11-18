@@ -141,6 +141,17 @@ export class SubstackExtractor extends BaseExtractor {
 	}
 
 	private extractPreloadData(): SubstackPostData | null {
+		const preloadsJsonScript = this.document.querySelector('script#preloads-json');
+		if (preloadsJsonScript?.textContent) {
+			try {
+				const data = JSON.parse(preloadsJsonScript.textContent);
+				const post: SubstackPostData | undefined = data?.post ?? data?.feedData?.initialPost?.post;
+				if (post?.body_html) return post;
+			} catch {
+				// ignore parse errors
+			}
+		}
+
 		const scripts = Array.from(this.document.querySelectorAll('script'));
 		for (const script of scripts) {
 			const text = script.textContent || '';
