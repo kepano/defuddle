@@ -11,6 +11,10 @@ This article describes an experiment designed to compare two measurements under 
 
 The measured relationship needs a qualification[^1].
 
+Both samples were measured twice[^2] and compared[^2].
+
 This final observation remains part of the article after the inline reference.
 
 [^1]: Unique explanatory note: **the square** $x^2$ is evaluated using [the documented method](https://example.org/method), not an unstructured text approximation.
+
+[^2]: Repeated note shared by several references.
