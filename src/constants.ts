@@ -963,8 +963,25 @@ export const PARTIAL_SELECTORS = [
 	'w-form-fail',
 ];
 
+/**
+ * Pre-compiles an alternation of patterns (case-insensitive) as a tester.
+ * Patterns with a lookbehind get a regex of their own: JavaScriptCore
+ * (Safari, WKWebView) can't JIT-compile a regex that contains a lookbehind
+ * and interprets the whole pattern instead, which made the combined
+ * PARTIAL_SELECTORS regex about 25x slower there (330 ms vs 13 ms per parse
+ * on a large Wikipedia page). A string matches the alternation exactly when
+ * it matches one of the parts.
+ */
+function compileAlternation(patterns: string[], wrap: (source: string) => string = source => source): { test(value: string): boolean } {
+	const hasLookbehind = (pattern: string) => /\(\?<[=!]/.test(pattern);
+	const regexes = [patterns.filter(p => !hasLookbehind(p)), patterns.filter(hasLookbehind)]
+		.filter(group => group.length > 0)
+		.map(group => new RegExp(wrap(group.join('|')), 'i'));
+	return { test: (value: string) => regexes.some(regex => regex.test(value)) };
+}
+
 // Pre-compiled combined regex for PARTIAL_SELECTORS — avoids rebuilding on every parse
-export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), 'i');
+export const PARTIAL_SELECTORS_REGEX = compileAlternation(PARTIAL_SELECTORS);
 
 // Anchored variant: the whole string must equal a selector token. Used only for
 // delimiter-less ids, which are usually content anchors a publishing system
@@ -972,7 +989,7 @@ export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), '
 // Substring matching those wrongly strips real sections — "theroleofthings"
 // contains "herol" (matches 'hero[_\\-a-z]') and "loopsandfeedback" contains
 // 'feedback'. Delimited ids keep substring matching.
-export const PARTIAL_SELECTORS_ANCHORED_REGEX = new RegExp('^(?:' + PARTIAL_SELECTORS.join('|') + ')$', 'i');
+export const PARTIAL_SELECTORS_ANCHORED_REGEX = compileAlternation(PARTIAL_SELECTORS, source => '^(?:' + source + ')$');
 
 // Attribute selector for elements we test partial matches against
 export const TEST_ATTRIBUTES_SELECTOR = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');

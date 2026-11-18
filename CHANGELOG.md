@@ -1,3 +1,7 @@
+## Unreleased
+
+- Sped up selector-based removal in Safari and other WebKit browsers: a lookbehind in the partial-selector regex kept JavaScriptCore from compiling it, making `parse()` several times slower on long pages (#439).
+
 ## 0.19.6
 
 - Fixed HTML kept in Markdown output (embeds, SVG, superscripts, and complex tables) carrying unsafe links and event handlers, or Markdown that renders as links, including when calling `createMarkdownContent` directly (GHSA-6frv-jcwm-xqcj).
