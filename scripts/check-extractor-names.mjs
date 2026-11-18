@@ -15,7 +15,7 @@ for (const file of BUNDLES) {
 	const ok = missing.length === 0;
 	failed ||= !ok;
 	console.log(
-		`${ok ? '✓' : '✗'} ${file}  ${ok ? 'keeps the extractor class names' : `is missing ${missing.join(', ')}`}  [${ok ? 'ok' : 'OVER'}]`
+		`${ok ? '✓' : '✗'} ${file}  ${ok ? 'keeps the extractor class names' : `is missing ${missing.join(', ')}`}  [${ok ? 'ok' : 'missing'}]`
 	);
 }
 
