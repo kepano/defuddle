@@ -1,5 +1,9 @@
 import { ALLOWED_ATTRIBUTES } from "../constants";
 
+// Footnote references produced by standardizeFootnotes
+const FOOTNOTE_REF_MARKER = 'sup[id^="fnref:"]';
+const FOOTNOTE_REF = `${FOOTNOTE_REF_MARKER} > a[href^="#fn:"]`;
+
 /**
  * Remove permalink anchors from headings and definition terms.
  * Handles symbols (#, ¶, §, 🔗), empty links, and class-based anchors.
@@ -16,6 +20,7 @@ export function removePermalinkAnchors(element: Element): void {
 
 export function isPermalinkAnchor(node: Element): boolean {
 	if (node.tagName.toLowerCase() !== 'a') return false;
+	if (node.matches(FOOTNOTE_REF)) return false;
 	const href = node.getAttribute('href') || '';
 	const title = (node.getAttribute('title') || '').toLowerCase();
 	const className = (node.getAttribute('class') || '').toLowerCase();
@@ -28,6 +33,22 @@ export function isPermalinkAnchor(node: Element): boolean {
 	if (/^[#¶§🔗\uFEFF]$/.test(text)) return true;
 
 	return false;
+}
+
+// Headings are flattened to text, except for math and footnote references
+function appendHeadingContent(source: Node, target: Element): void {
+	Array.from(source.childNodes).forEach(node => {
+		if (node.nodeType === 3) {
+			target.appendChild(node);
+		} else if (node.nodeType === 1) {
+			const el = node as Element;
+			if (el.matches('math') || el.matches(FOOTNOTE_REF_MARKER)) {
+				target.appendChild(el);
+			} else {
+				appendHeadingContent(el, target);
+			}
+		}
+	});
 }
 
 function isHeadingNavElement(node: Element): boolean {
@@ -73,39 +94,22 @@ export const headingRules = [
 			// Clone the element so we can modify it without affecting the original
 			const clone = el.cloneNode(true) as Element;
 
-			// Single pass: collect navigation text and build removal list
-			const navigationText = new Map<Element, string>();
-			const toRemove: Element[] = [];
-
-			Array.from(clone.querySelectorAll('*')).forEach(child => {
-				if (!isHeadingNavElement(child)) return;
-
-				navigationText.set(child, child.textContent?.trim() || '');
-
-				// If this element contains the only text content of its parent,
-				// store its text to be used for the parent
-				const parent = child.parentElement;
-				if (parent && parent !== clone &&
-					parent.textContent?.trim() === child.textContent?.trim()) {
-					navigationText.set(parent, child.textContent?.trim() || '');
-				}
-
-				toRemove.push(child);
-			});
-
-			// Remove navigation elements
+			const toRemove = Array.from(clone.querySelectorAll('*')).filter(isHeadingNavElement);
+			// Keep the first navigation element in case it holds the whole title
+			const fallback = toRemove[0]?.cloneNode(true) as Element | undefined;
+			// A wrapper holding the whole title can also hold its permalink
+			if (fallback) {
+				const stripped = fallback.cloneNode(true) as Element;
+				stripped.querySelectorAll('a').forEach(a => { if (isPermalinkAnchor(a)) a.remove(); });
+				if (stripped.textContent?.trim()) fallback.replaceChildren(...Array.from(stripped.childNodes));
+			}
 			toRemove.forEach(element => element.remove());
 
-			// Get the text content after removing navigation elements
-			let textContent = clone.textContent?.trim() || '';
-
-			// If we lost all text content but had navigation text, use that instead
-			if (!textContent && navigationText.size > 0) {
-				textContent = Array.from(navigationText.values())[0];
-			}
-
-			// Set the clean text content
-			newHeading.textContent = textContent;
+			const source = !clone.textContent?.trim() && fallback ? fallback : clone;
+			appendHeadingContent(source, newHeading);
+			const { firstChild, lastChild } = newHeading;
+			if (firstChild?.nodeType === 3) firstChild.textContent = firstChild.textContent!.trimStart();
+			if (lastChild?.nodeType === 3) lastChild.textContent = lastChild.textContent!.trimEnd();
 
 			return newHeading;
 		}

@@ -58,6 +58,10 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 			if (hasResponsiveShowClass(className)) continue;
 
 			for (const token of tokens) {
+				// empty:hidden only hides elements matching :empty.
+				if (token.endsWith(':hidden') && token.split(':').includes('empty') &&
+					!element.matches(':empty')) continue;
+
 				// Match exact "hidden"/"invisible" and variant prefixes like
 				// "sm:hidden", "lg:invisible". Skip Tailwind arbitrary variants
 				// containing "[" (e.g. "[&_.class]:hidden", "group-[.state]:hidden")

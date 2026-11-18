@@ -110,7 +110,7 @@ export const EXACT_SELECTORS = [
 	// ads
 	'.ad:not([class*="gradient"])',
 	'[class^="ad-" i]',
-	'[class$="-ad" i]',
+	'[class$="-ad" i]:not([class~="with-ad" i])', // mixed article/ad wrappers (Puck)
 	'[data-ad-wrapper]',
 	'[id^="ad-" i]',
 	'[id$="-ad" i]',
@@ -171,7 +171,6 @@ export const EXACT_SELECTORS = [
 	'.contributor',
 	'.date',
 	'#date',
-	'[data-date]',
 	'.entry-meta',
 	'.meta',
 	'.tags',
@@ -274,6 +273,7 @@ export const EXACT_SELECTORS = [
 	'[data-component-name="DigestPostEmbed"]',
 	'[data-component-name="SubscribeWidgetToDOM"]',
 	'[class*="digestPostEmbed"]', // class has hash suffix in browser-rendered DOM
+	'[aria-label="Voiceover player"]', // sits outside the post body on custom domains
 
 	// hidden for print
 	'.noprint',
@@ -284,7 +284,7 @@ export const EXACT_SELECTORS = [
 	'[class*="clickable-icon" i]',
 	'li span[class*="ltx_tag" i][class*="ltx_tag_item" i]',
 	'a[href^="#"][class*="anchor" i]',
-	'a[href^="#"][class*="ref" i]:not(.ltx_ref):not(.footnote-backref)',
+	'a[href^="#"][class*="ref" i]:not(.ltx_ref):not(.footnote-backref):not(.reference)',
 
 	// link lists
 	'[data-container*="most-viewed" i]',
@@ -618,7 +618,7 @@ export const PARTIAL_SELECTORS = [
 	'jswarning',
 	'js-warning',
 	'jumplink',
-	'jumpto',
+	'(?<![a-z0-9])jumpto(?![a-z0-9])', // avoid APA PsycNet's ftJumpToAnchor article sections
 	'jump-to-',
 	'js-skip-to-content',
 

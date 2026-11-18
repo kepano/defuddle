@@ -79,6 +79,67 @@ export function isDangerousUrl(url: string, allowInlineImage: boolean = true): b
 	return false;
 }
 
+// Keep this list in sync with UNSAFE_ELEMENT_SELECTOR.
+const UNSAFE_ELEMENT_TAGS = new Set([
+	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
+	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
+]);
+
+// Keep iframes for embeds and math scripts for LaTeX.
+// Styles can load remote resources; SMIL can change sanitized URLs.
+// Templates hide content from descendant traversal.
+const UNSAFE_ELEMENT_SELECTOR =
+	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
+	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
+	'animateMotion, animateTransform, animateColor';
+
+const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
+
+function isUnsafeElement(el: Element): boolean {
+	const tag = el.tagName.toUpperCase();
+	if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
+	return UNSAFE_ELEMENT_TAGS.has(tag);
+}
+
+function neutralizeUnsafeElement(el: Element): void {
+	for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+	while (el.firstChild) el.removeChild(el.firstChild);
+	const content = (el as HTMLTemplateElement).content;
+	if (content) {
+		while (content.firstChild) content.removeChild(content.firstChild);
+	}
+}
+
+/** Returns true if the root is unsafe and must not be serialized. */
+export function stripUnsafeElements(root: Element): boolean {
+	// querySelectorAll excludes the root.
+	const unsafeRoot = isUnsafeElement(root);
+	if (unsafeRoot) {
+		neutralizeUnsafeElement(root);
+	}
+
+	for (const el of Array.from(root.querySelectorAll(UNSAFE_ELEMENT_SELECTOR))) {
+		el.parentNode?.removeChild(el);
+	}
+
+	for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
+		for (const attr of Array.from(el.attributes)) {
+			const name = attr.name.toLowerCase();
+			if (name.startsWith('on') || name === 'srcdoc') {
+				el.removeAttribute(attr.name);
+			} else if (URL_ATTRIBUTES.has(name)) {
+				// SVG data URLs can run scripts in iframes.
+				const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
+				if (isDangerousUrl(attr.value, allowInlineImage)) {
+					el.removeAttribute(attr.name);
+				}
+			}
+		}
+	}
+
+	return unsafeRoot;
+}
+
 /**
  * Check if an element belongs directly to an ancestor table,
  * not to an intervening nested TABLE.

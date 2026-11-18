@@ -19,7 +19,7 @@ import { removeBySelector } from './removals/selectors';
 import { removeByContentPattern, removeEyebrowLabel } from './removals/content-patterns';
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, countWords } from './utils';
-import { parseHTML, serializeHTML, decodeHTMLEntities, isDangerousUrl, getClassName, classOrIdSelector } from './utils/dom';
+import { parseHTML, serializeHTML, decodeHTMLEntities, getClassName, classOrIdSelector, stripUnsafeElements } from './utils/dom';
 
 interface StyleChange {
 	selector: string;
@@ -28,12 +28,6 @@ interface StyleChange {
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
-
-// Mirrors the descendant removal list for unsafe-root checks.
-const UNSAFE_ELEMENT_TAGS = new Set([
-	'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'FRAME', 'FRAMESET', 'OBJECT', 'EMBED', 'APPLET', 'BASE',
-	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
-]);
 
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
@@ -332,81 +326,8 @@ export class Defuddle {
 		return this.resolveContentUrls(serializeHTML(safeBody));
 	}
 
-	/**
-	 * Remove dangerous elements and attributes from the given body element.
-	 * Returns true when the supplied root is itself unsafe and must not be
-	 * serialized by the caller.
-	 */
 	private _stripUnsafeElements(body: HTMLElement | null): boolean {
-		if (!body) return false;
-
-		// querySelectorAll omits the root; neutralize it and let the caller omit it.
-		const unsafeRoot = this._isUnsafeElement(body);
-		if (unsafeRoot) {
-			this._neutralizeUnsafeElement(body);
-		}
-
-		// Remove dangerous elements. Iframes are kept — same-origin policy
-		// isolates them, and they're widely used for legitimate media embeds.
-		// Dangerous iframe attributes (srcdoc, javascript: src) are stripped
-		// in the attribute pass below. Math scripts are preserved for LaTeX
-		// content (matching the EXACT_SELECTORS approach). SVG <style> is
-		// removed too: CSS @import / url() inside it can fetch external
-		// resources from the reader's IP. applySvgFallbackStyles in
-		// standardize.ts reconstructs basic fill/stroke from class names.
-		// Remove SVG SMIL elements that can mutate sanitized URL attributes.
-		// Template fragments evade descendant traversal and can cause mutation XSS.
-		const dangerousElements = body.querySelectorAll(
-			'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
-			'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
-			'animateMotion, animateTransform, animateColor'
-		);
-		for (const el of dangerousElements) {
-			el.remove();
-		}
-
-		// Remove event handler attributes, dangerous URIs, and srcdoc.
-		// Includes the root itself: on the main content path `body` is the
-		// content element and is serialized via outerHTML, so its own
-		// attributes end up in the output.
-		const allElements = [body, ...Array.from(body.querySelectorAll('*'))];
-		for (const el of allElements) {
-			for (const attr of Array.from(el.attributes)) {
-				const name = attr.name.toLowerCase();
-				if (name.startsWith('on')) {
-					el.removeAttribute(attr.name);
-				} else if (name === 'srcdoc') {
-					el.removeAttribute(attr.name);
-				} else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
-					// data:image/* is allowed for inline images, but an SVG document
-					// in an iframe can run script — so no data: URI is allowed as an
-					// iframe src.
-					const allowInlineImage = !(name === 'src' && el.tagName === 'IFRAME');
-					if (isDangerousUrl(attr.value, allowInlineImage)) {
-						el.removeAttribute(attr.name);
-					}
-				}
-			}
-		}
-
-		return unsafeRoot;
-	}
-
-	private _isUnsafeElement(el: Element): boolean {
-		const tag = el.tagName.toUpperCase();
-		// Math scripts are preserved for LaTeX content, matching the sweep.
-		if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
-		return UNSAFE_ELEMENT_TAGS.has(tag);
-	}
-
-	/** Remove attributes, children, and inert template content from an unsafe root. */
-	private _neutralizeUnsafeElement(el: Element): void {
-		for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
-		while (el.firstChild) el.removeChild(el.firstChild);
-		const content = (el as HTMLTemplateElement).content;
-		if (content) {
-			while (content.firstChild) content.removeChild(content.firstChild);
-		}
+		return body ? stripUnsafeElements(body) : false;
 	}
 
 	/**

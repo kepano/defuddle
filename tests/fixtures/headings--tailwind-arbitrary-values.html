@@ -1,0 +1,19 @@
+<!-- {"url":"https://example.com/blog/storage"} -->
+<!doctype html>
+<html lang="en">
+<head><title>Storage design</title></head>
+<body>
+<article>
+<p>This article describes a storage system with separate paths for document updates and query requests. Each path has different requirements for latency, capacity, and recovery.</p>
+<h2 class="scroll-mt-[calc(var(--marketing-header-height)+var(--article-breadcrumb-height)+var(--spacing-4))] text-pretty font-serif">Storage requirements</h2>
+<p>Document updates arrive continuously and must be recorded durably before they are published. Query requests read prepared records in batches and need a predictable response time.</p>
+<h3 class="md:scroll-mt-[var(--article-breadcrumb-height)] [&amp;+p]:mt-0">Separate workflows</h3>
+<p>Keeping the workflows separate allows updates to be retried without competing with active reads. The serving layer can then organize its caches around the records that readers request.</p>
+<div class="[&amp;_.sidebar]:hidden">
+<p>Prepared records are grouped into batches before delivery. Readers continue to use the available records while the next batch is processed in the background.</p>
+</div>
+<div class="breadcrumb scroll-mt-[var(--article-breadcrumb-height)]">Navigation trail that should be removed.</div>
+<div class="[&amp;_p]:mt-0" data-testid="article-breadcrumb">Navigation metadata that should be removed.</div>
+</article>
+</body>
+</html>

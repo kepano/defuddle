@@ -63,6 +63,20 @@ describe('Extractor output XSS sanitization (GHSA-jg4p-g6xj-4qmf)', () => {
 
 		assertNoExecutableAttributes(response.content);
 	});
+
+	test('strips handlers and javascript: URLs from Substack preloads-json body_html', async () => {
+		const url = 'https://example.substack.com/p/poisoned';
+		const preload = { post: {
+			title: 'Poisoned',
+			body_html: '<p>Body text that is long enough to keep.</p><img src="https://example.com/a.jpg" onerror="alert(1)"><a href="javascript:alert(1)">link</a>',
+		} };
+		const html = `<html><body><script id="preloads-json" type="application/json">${JSON.stringify(preload)}</script></body></html>`;
+		const response = await Defuddle(parseLinkedomHTML(html, url), url);
+
+		expect(response.extractorType).toBe('substack');
+		expect(response.content).toContain('Body text');
+		assertNoExecutableAttributes(response.content);
+	});
 });
 
 // ConversationExtractor.createContentHtml builds its markup from template

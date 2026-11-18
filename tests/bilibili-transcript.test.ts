@@ -295,6 +295,58 @@ describe('BilibiliExtractor — extractAsync', () => {
 		expect(result.variables!.transcript).toBeUndefined();
 	});
 
+	test('does not cache a failed transcript lookup', async () => {
+		(BilibiliExtractor as any).transcriptCache.clear();
+		const url = 'https://www.bilibili.com/video/BV1RETRY';
+		const view = {
+			bvid: 'BV1RETRY', aid: 321, title: 'Retry', owner: { name: 'Auth' },
+			pages: [{ cid: 654, page: 1 }],
+		};
+
+		const first = createExtractor(undefined, url);
+		(first as any).fetchViewData = vi.fn().mockResolvedValue(view);
+		(first as any).fetchTranscript = vi.fn().mockResolvedValue(undefined);
+		expect((await first.extractAsync()).variables!.transcript).toBeUndefined();
+
+		const second = createExtractor(undefined, url);
+		const fetchTranscript = vi.fn().mockResolvedValue({
+			html: '<div class="bilibili transcript"><p>你好</p></div>',
+			text: '**0:00** · 你好',
+			languageCode: 'zh-cn',
+		});
+		(second as any).fetchViewData = vi.fn().mockResolvedValue(view);
+		(second as any).fetchTranscript = fetchTranscript;
+		const result = await second.extractAsync();
+		expect(fetchTranscript).toHaveBeenCalledTimes(1);
+		expect(result.variables!.transcript).toContain('你好');
+	});
+
+	test('does not send a User-Agent header', async () => {
+		(BilibiliExtractor as any).transcriptCache.clear();
+		const headers: Record<string, string>[] = [];
+		const fetchMock = vi.fn(async (input: string, init?: RequestInit) => {
+			headers.push({ ...(init?.headers as Record<string, string>) });
+			const target = String(input);
+			let body: any = {};
+			if (target.includes('/x/web-interface/view')) {
+				body = { code: 0, data: { bvid: 'BV1NOUA', aid: 1, title: 'T', pages: [{ cid: 2, page: 1 }] } };
+			} else if (target.includes('/x/player/')) {
+				body = { code: 0, data: { subtitle: { subtitles: [{ lan: 'zh-CN', subtitle_url: '//aisubtitle.hdslb.com/bfs/ai_subtitle/test.json' }] } } };
+			} else if (target.includes('aisubtitle.hdslb.com')) {
+				body = { body: [{ from: 0, to: 1, content: '你好' }] };
+			}
+			return { ok: true, status: 200, json: async () => body };
+		}) as unknown as typeof fetch;
+
+		const e = createExtractor(undefined, 'https://www.bilibili.com/video/BV1NOUA', { fetch: fetchMock });
+		const result = await e.extractAsync();
+		expect(result.variables!.transcript).toContain('你好');
+		expect(headers.length).toBe(3);
+		for (const h of headers) {
+			expect(Object.keys(h).map(k => k.toLowerCase())).not.toContain('user-agent');
+		}
+	});
+
 	test('prefersAsync returns true', () => {
 		expect(createExtractor().prefersAsync()).toBe(true);
 	});

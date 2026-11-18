@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { marked } from 'marked';
+import TurndownService from 'turndown';
 import { Defuddle } from '../src/node';
 import { createMarkdownContent } from '../src/markdown';
 import { escapeHtml, isDangerousUrl, parseHTML } from '../src/utils/dom';
@@ -9,6 +10,8 @@ const url = 'https://example.com/article';
 const payload = '<img src=x onerror=alert(1)>';
 const filler = '<p>This example article contains enough ordinary text to keep its contents during extraction. It explains a generic subject with several useful details for readers.</p>';
 
+const complexTable = (cell: string) => `<table><tr><td colspan="2">${cell}</td></tr><tr><td>A</td><td>B</td></tr></table>`;
+
 const breakout = escapeHtml('x)\n\n' + payload + '\n\n![y](z');
 
 function expectSafe(markdown: string): DocumentFragment {
@@ -17,12 +20,13 @@ function expectSafe(markdown: string): DocumentFragment {
 	for (const el of rendered.querySelectorAll('*')) {
 		for (const attr of Array.from(el.attributes)) {
 			expect(attr.name, el.outerHTML).not.toMatch(/^on/i);
-			if (attr.name === 'href' || attr.name === 'src') {
-				expect(isDangerousUrl(attr.value), el.outerHTML).toBe(false);
+			if (['href', 'src', 'xlink:href', 'action', 'formaction'].includes(attr.name)) {
+				const allowInlineImage = !(attr.name === 'src' && el.tagName === 'IFRAME');
+				expect(isDangerousUrl(attr.value, allowInlineImage), el.outerHTML).toBe(false);
 			}
 		}
 	}
-	expect(rendered.querySelector('script, iframe[srcdoc]')).toBeNull();
+	expect(rendered.querySelector('script, style, iframe[srcdoc], animate, set')).toBeNull();
 	return rendered;
 }
 
@@ -37,6 +41,10 @@ const cases = [
 	['math annotation', `<math display="block"><annotation encoding="application/x-tex">${escapeHtml('x\n$$\n\n' + payload + '\n\n$$')}</annotation></math>`],
 	['math attribute', `<math display="block" data-latex="${escapeHtml(payload)}"><mi>x</mi></math>`],
 	['katex attribute', `<span class="katex" data-latex="${escapeHtml(payload)}">x</span>`],
+	['link syntax in kept text', '<p>Text<sup>[click](javascript:alert(1))</sup></p>'],
+	['blank line in kept attribute', `<p>Text<sup title="${escapeHtml('a\n\n[click](javascript:alert(1))')}">1</sup></p>`],
+	['blank line in complex table', complexTable(`<pre>${escapeHtml('a\n\n[click](javascript:alert(1))')}</pre>`)],
+	['code span in kept text', `<p>Text<sup>\`<span title="\`${escapeHtml(payload)}">x</span></sup></p>`],
 	['footnote reference', `<p>Reference <sup id="${escapeHtml('fnref:x]\n\n' + payload + '\n\n[^y')}">1</sup></p>`],
 ] as const;
 
@@ -68,6 +76,16 @@ describe('Markdown output security', () => {
 		['tag split after its bracket', '<p>&lt;<span>img src=x onerror=alert(1)&gt;</span></p>'],
 		['literal math in a table cell', `<table><tr><th>H</th></tr><tr><td><math data-latex="${escapeHtml('\\text{a} <b> ``` ' + payload + ' ```')}">x</math></td></tr></table>`],
 		['code block in a table cell', `<table><tr><th>H</th></tr><tr><td><pre><code>${escapeHtml('a ``` ' + payload + ' ```')}</code></pre></td></tr></table>`],
+		['complex table link', complexTable('<a href="javascript:alert(1)">x</a>')],
+		['complex table image', complexTable('<img src="data:text/html,&lt;script&gt;alert(1)&lt;/script&gt;">')],
+		['complex table iframe', complexTable('<iframe src="javascript:alert(1)"></iframe><iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe>')],
+		['complex table script', complexTable('<script>alert(1)</script>x')],
+		['kept svg', '<p>Text</p><svg onload="alert(1)"><a href="javascript:alert(1)"><text>x</text></a><a xlink:href="javascript:alert(1)"><text>y</text></a><animate attributeName="href" to="javascript:alert(1)"></animate></svg>'],
+		['kept iframe', '<p>Text</p><iframe src="javascript:alert(1)"></iframe><iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe><iframe src="data:image/svg+xml,&lt;svg onload=alert(1)&gt;"></iframe>'],
+		['kept video', '<p>Text</p><video src="x" onerror="alert(1)"></video>'],
+		['kept sup', '<p>Text<sup onclick="alert(1)">1</sup></p>'],
+		['URL spliced by empty link removal', '<p>Text</p><iframe src="java[](x)script:alert(1)"></iframe>'],
+		['invalid attribute name', `<p>Text<sup x[y]="${escapeHtml('[click](javascript:alert(1))')}">1</sup></p>`],
 	])('keeps %s inert in direct conversion', (_name, html) => {
 		expectSafe(createMarkdownContent(html, url));
 	});
@@ -103,6 +121,46 @@ describe('Markdown output security', () => {
 		expect(Array.from(rendered.querySelectorAll('a'), a => a.getAttribute('href'))).toEqual([
 			'https://example.com', 'mailto:reader@example.com'
 		]);
+	});
+
+	test('keeps safe attributes on raw HTML', () => {
+		const html = '<p>Text</p><iframe src="https://example.com/embed"></iframe>' +
+			complexTable('<a href="https://example.com/a">Link</a><img src="data:image/png;base64,AAAA">');
+		const rendered = expectSafe(createMarkdownContent(html, url));
+		expect(rendered.querySelector('iframe')?.getAttribute('src')).toBe('https://example.com/embed');
+		expect(rendered.querySelector('td a')?.getAttribute('href')).toBe('https://example.com/a');
+		expect(rendered.querySelector('td img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA');
+	});
+
+	test('shows raw-text element content as text', () => {
+		const rendered = expectSafe(createMarkdownContent(complexTable('<xmp>A & B <b>literal</b></xmp><noembed>hidden</noembed>'), url));
+		expect(rendered.querySelector('td pre')?.textContent).toBe('A & B <b>literal</b>');
+		expect(rendered.querySelector('td')?.textContent).not.toContain('hidden');
+	});
+
+	test('preserves literal text in kept elements', () => {
+		const text = 'a [b](c) `d` \\ <e> & "f"';
+		const rendered = expectSafe(createMarkdownContent(`<p>Text<sup title="${escapeHtml(text)}">${escapeHtml(text)}</sup></p>`, url));
+		expect(rendered.querySelector('sup')?.textContent).toBe(text);
+		expect(rendered.querySelector('sup')?.getAttribute('title')).toBe(text);
+	});
+
+	test('keeps input inert when conversion fails', () => {
+		const html = '<p>Text ``` </p><img src=x onerror=alert(1)>';
+		const spy = vi.spyOn(TurndownService.prototype, 'turndown').mockImplementationOnce(() => {
+			throw new Error('test');
+		});
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+		try {
+			const rendered = expectSafe(createMarkdownContent(html, url));
+			expect(rendered.querySelector('img')).toBeNull();
+			expect(rendered.querySelector('pre > code')?.textContent).toBe(html + '\n');
+		} finally {
+			spy.mockRestore();
+			error.mockRestore();
+			log.mockRestore();
+		}
 	});
 
 	test('preserves literal text and entities in complex tables', () => {

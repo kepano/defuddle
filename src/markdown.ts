@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
-import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl } from './utils/dom';
+import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -174,6 +174,45 @@ function getBestImageSrc(node: GenericElement): string {
 // the survivor byte-for-byte so the quote depth is not rewritten.
 const BLANK_QUOTE_LINE_RUN = /^([ \t]*>[ \t>]*)(?:\n[ \t]*>[ \t>]*)+$/gm;
 
+const VOID_ELEMENTS = new Set([
+	'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+]);
+// Invalid CommonMark names expose the tag as Markdown text.
+const HTML_TAG_NAME = /^[A-Za-z][A-Za-z0-9-]*$/;
+const HTML_ATTRIBUTE_NAME = /^[A-Za-z_:][A-Za-z0-9_.:-]*$/;
+// Replace raw-text elements so character references are decoded.
+const RAW_TEXT_REPLACEMENTS = new Map([['xmp', 'pre'], ['plaintext', 'pre']]);
+const HIDDEN_RAW_TEXT_ELEMENTS = new Set(['noembed', 'noframes']);
+// Inline HTML still parses Markdown; blank lines end HTML blocks.
+const MARKDOWN_UNSAFE_CHARS = /[\n\r&<>"'`\\[\]]/g;
+
+function encodeMarkdownUnsafe(value: string): string {
+	return value.replace(MARKDOWN_UNSAFE_CHARS, char => `&#${char.charCodeAt(0)};`);
+}
+
+function serializeInertHTML(node: Node): string {
+	if (isTextNode(node)) return encodeMarkdownUnsafe(node.textContent || '');
+	if (!isElement(node)) return '';
+	const localName = node.localName || node.nodeName.toLowerCase();
+	if (HIDDEN_RAW_TEXT_ELEMENTS.has(localName.toLowerCase())) return '';
+	const children = Array.from(node.childNodes, serializeInertHTML).join('');
+	const name = RAW_TEXT_REPLACEMENTS.get(localName.toLowerCase()) ?? localName;
+	if (!HTML_TAG_NAME.test(name)) return children;
+	const attributes = Array.from(node.attributes)
+		.filter(attr => HTML_ATTRIBUTE_NAME.test(attr.name))
+		.map(attr => ` ${attr.name}="${encodeMarkdownUnsafe(attr.value)}"`)
+		.join('');
+	return VOID_ELEMENTS.has(name.toLowerCase())
+		? `<${name}${attributes}>`
+		: `<${name}${attributes}>${children}</${name}>`;
+}
+
+// Direct conversion can receive unsanitized HTML.
+function sanitizedOuterHTML(element: Element): string {
+	const clone = element.cloneNode(true) as Element;
+	return stripUnsafeElements(clone) ? '' : serializeInertHTML(clone);
+}
+
 export function createMarkdownContent(content: string, url: string) {
 	const turndownService = new TurndownService({
 		headingStyle: 'atx',
@@ -182,6 +221,10 @@ export function createMarkdownContent(content: string, url: string) {
 		codeBlockStyle: 'fenced',
 		emDelimiter: '*',
 		preformattedCode: true,
+		keepReplacement: (_content, node) => {
+			const html = sanitizedOuterHTML(node as unknown as Element);
+			return (node as any).isBlock ? '\n\n' + html + '\n\n' : html;
+		},
 	});
 
 	// Escape tag-like sequences (e.g. a post titled "Monte<video>") in text nodes so
@@ -847,9 +890,7 @@ export function createMarkdownContent(content: string, url: string) {
 		// Create a clone of the table to avoid modifying the original DOM
 		const tableClone = element.cloneNode(true) as HTMLTableElement;
 		cleanElement(tableClone);
-
-		// Entity decoding here would turn literal text into HTML.
-		return tableClone.outerHTML;
+		return stripUnsafeElements(tableClone) ? '' : serializeInertHTML(tableClone);
 	}
 
 	function extractLatex(element: GenericElement): string {
@@ -1007,7 +1048,8 @@ export function createMarkdownContent(content: string, url: string) {
 	} catch (error) {
 		console.error('Error converting HTML to Markdown:', error);
 		console.log('Problematic content:', content.substring(0, 1000) + '...');
-		return `Partial conversion completed with errors. Original HTML:\n\n${content}`;
+		const fence = '`'.repeat(Math.max(3, ...[...content.matchAll(/`+/g)].map(match => match[0].length + 1)));
+		return `Partial conversion completed with errors. Original HTML:\n\n${fence}html\n${content}\n${fence}`;
 	}
 }
 
