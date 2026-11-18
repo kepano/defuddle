@@ -18,6 +18,9 @@
 			],
 			"node": [
 				"dist/node.d.ts"
+			],
+			"extractor": [
+				"dist/extractor.d.ts"
 			]
 		}
 	},
@@ -35,6 +38,11 @@
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"import": "./dist/node.js"
+		},
+		"./extractor": {
+			"types": "./dist/extractor.d.ts",
+			"import": "./dist/extractor.js",
+			"require": "./dist/extractor.js"
 		}
 	},
 	"scripts": {
