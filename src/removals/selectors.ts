@@ -16,9 +16,14 @@ const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-
 	.map(name => `a [class*="${name}"]`).join(', ');
 const LINK_ANNOTATION_REGEX = /^[\s,(–-]*(?:(?:link )?opens in (?:a )?new (?:window|tab)|new (?:window|tab)|external(?: link| site| website)?)[\s).]*$/i;
 
+// Layout tables (email newsletters, old sites) put clutter in cells too, so only
+// protect cells of tables with header structure
 function isTableCellOrRow(el: Element): boolean {
 	const tag = el.tagName;
-	return tag === 'TR' || tag === 'TD' || tag === 'TH';
+	if (tag !== 'TR' && tag !== 'TD' && tag !== 'TH') return false;
+	return Boolean(el.closest('table')?.querySelector(
+		':scope > caption, :scope > thead, :scope > tr > th, :scope > tbody > tr > th'
+	));
 }
 
 function isInsideCodeTable(el: Element): boolean {

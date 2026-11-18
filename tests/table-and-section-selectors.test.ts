@@ -34,6 +34,23 @@ describe.each(['linkedom', 'jsdom'])('Table and section selector preservation (%
 		expect(result.content).toContain('12:00');
 	});
 
+	test('still removes clutter cells in layout tables', async () => {
+		const html = `<!doctype html><html><head><title>Newsletter</title></head><body>
+			<table>
+				<tr><td class="content"><h1>Notes from the garden</h1><p>This week the tomatoes finally ripened after a long cool summer, so I made a simple sauce with garlic and basil.</p></td></tr>
+				<tr><td class="content"><p>The beans are still producing more than we can eat, so I have started blanching and freezing them for winter soups.</p></td></tr>
+				<tr><td class="content"><p>Next week I will write about saving seeds, which is easier than most people think and saves a surprising amount of money each spring.</p></td></tr>
+				<tr><td class="social-share">Share on Facebook</td></tr>
+				<tr><td class="footer">Unsubscribe from this list</td></tr>
+			</table>
+		</body></html>`;
+
+		const result = await Defuddle(parse(html), URL_, { markdown: true });
+		expect(result.content).toContain('blanching and freezing');
+		expect(result.content).not.toContain('Share on Facebook');
+		expect(result.content).not.toContain('Unsubscribe');
+	});
+
 	test('still removes td.gutter inside code block tables', async () => {
 		const html = `<!doctype html><html><head><title>Code</title></head><body><article>
 			<h1>Code example</h1>
