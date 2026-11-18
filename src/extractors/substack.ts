@@ -141,7 +141,7 @@ export class SubstackExtractor extends BaseExtractor {
 	}
 
 	private extractPreloadData(): SubstackPostData | null {
-		const preloadsJsonScript = this.document.querySelector('script#preloads-json[type="application/json"], script#preloads-json');
+		const preloadsJsonScript = this.document.querySelector('script#preloads-json');
 		if (preloadsJsonScript?.textContent) {
 			try {
 				const data = JSON.parse(preloadsJsonScript.textContent);
