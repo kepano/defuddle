@@ -1253,6 +1253,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (!el.parentNode) continue;
 		const elText = el.textContent?.trim() || '';
 		if (!SHARE_AUTHOR_LABEL.test(elText)) continue;
+		if (el.closest('pre, code') || el.querySelector('pre, code')) continue;
 
 		let container = el;
 		while (container.parentElement && container.parentElement !== mainContent) {
@@ -1275,6 +1276,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (!el.parentNode) continue;
 		const text = el.textContent?.trim() || '';
 		if (!SOCIAL_COUNTER_PATTERN.test(text)) continue;
+		if (el.closest('pre, code') || el.querySelector('pre, code')) continue;
 		if (el.tagName === 'A' && el.getAttribute('href')) continue;
 		if (el.tagName !== 'A') {
 			const pos = contentText.indexOf(text);
