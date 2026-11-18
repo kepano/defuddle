@@ -13,7 +13,7 @@ New layout options include:
 
 - for the scrolling layout:
 	- option\_one
-		- option\_two
+	- option\_two
 - for the stacked layout:
 	- option\_three
 
