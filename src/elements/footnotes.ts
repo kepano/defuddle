@@ -1216,6 +1216,40 @@ class FootnoteHandler {
 		return footnotes;
 	}
 
+	// LaTeXML (arXiv) keeps each footnote body in a hidden span.ltx_note_outer
+	// next to its marker. Replace each note with a reference to its body.
+	private collectLatexmlFootnotes(element: any, footnotes: FootnoteCollection): void {
+		let footnoteCount = Math.max(0, ...Object.keys(footnotes).map(Number)) + 1;
+		// LaTeXML gives each repeated \footnotemark its own id, so match repeats by mark and text
+		const seen = new Map<string, number>();
+		element.querySelectorAll('span.ltx_note.ltx_role_footnote').forEach((note: any) => {
+			const content = note.querySelector('.ltx_note_content')?.cloneNode(true);
+			if (!content) return;
+			content.querySelectorAll('.ltx_note_mark, .ltx_tag_note').forEach((label: any) => label.remove());
+			this.trimLeadingWhitespace(content);
+
+			const mark = note.querySelector('.ltx_note_mark')?.textContent?.trim() || '';
+			const key = `${mark}\n${content.textContent?.trim()}`;
+			const existing = seen.get(key);
+			if (existing !== undefined) {
+				const refId = this.makeRefId(String(existing), footnotes[existing].refs.length);
+				footnotes[existing].refs.push(refId);
+				note.replaceWith(this.createFootnoteReference(String(existing), refId));
+				return;
+			}
+			seen.set(key, footnoteCount);
+
+			footnotes[footnoteCount] = {
+				content,
+				originalId: note.id,
+				refs: [`fnref:${footnoteCount}`]
+			};
+
+			note.replaceWith(this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`));
+			footnoteCount++;
+		});
+	}
+
 	standardizeFootnotes(element: any) {
 		const sidenotes = this.collectInlineSidenotes(element);
 		const footnotes = this.collectHiddenAsideFootnotes(element);
@@ -1367,6 +1401,7 @@ class FootnoteHandler {
 		newList.id = 'footnotes';
 		const orderedList = this.doc.createElement('ol');
 		const allFootnotes = { ...sidenotes, ...footnotes };
+		this.collectLatexmlFootnotes(element, allFootnotes);
 
 		Object.entries(allFootnotes).forEach(([number, data]) => {
 			orderedList.appendChild(this.createFootnoteItem(parseInt(number), data.content, data.refs));

@@ -246,7 +246,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('flattenWrapperElements[2]', () => flattenWrapperElements(element, doc));
 		step('removeOrphanedDividers[2]', () => removeOrphanedDividers(element));
 		step('stripExtraBrElements', () => stripExtraBrElements(element));
-		step('removeEmptyLines', () => removeEmptyLines(element, doc));
+		step('removeEmptyLines', () => removeEmptyLines(element, doc, keepsSpaceBeforeHighPunctuation(metadata.language)));
 	} else {
 		step('stripUnwantedAttributes', () => stripUnwantedAttributes(element, debug));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
@@ -256,7 +256,7 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 }
 
 /**
- * Wrap <code> elements that have white-space: pre (via inline style)
+ * Wrap <code> elements with preformatted whitespace or explicit line breaks
  * in a <pre> element, so they get treated as code blocks.
  */
 function wrapPreformattedCode(element: Element, doc: Document): void {
@@ -265,15 +265,21 @@ function wrapPreformattedCode(element: Element, doc: Document): void {
 		// Skip if already inside a <pre>
 		if (code.closest('pre')) continue;
 
-		// Check inline style for white-space: pre
 		const style = code.getAttribute('style') || '';
-		if (!/white-space\s*:\s*pre/.test(style)) continue;
+		if (!/white-space\s*:\s*pre/.test(style) && !isLineBrokenCodeBlock(code)) continue;
 
 		// Wrap in <pre>
 		const pre = doc.createElement('pre');
 		code.parentNode?.insertBefore(pre, code);
 		pre.appendChild(code);
 	}
+}
+
+// <br> marks code lines only when the code stands alone in its block, not inline in prose or a table cell.
+function isLineBrokenCodeBlock(code: Element): boolean {
+	if (!code.querySelector('br') || code.closest('td, th')) return false;
+	const parent = code.parentElement;
+	return !!parent && (parent.textContent || '').trim() === (code.textContent || '').trim();
 }
 
 function standardizeSpaces(element: Element): void {
@@ -959,6 +965,9 @@ function removeEmptyElements(element: Element): void {
 
 	const isEmptyElement = (el: Element): boolean => {
 		if (ALLOWED_EMPTY_ELEMENTS.has(el.tagName.toLowerCase())) return false;
+		// Empty MathML nodes can be argument slots, spacing or matrix cells
+		if (el.parentElement?.closest('math')) return false;
+		if (el.tagName.toLowerCase() === 'math' && el.getAttribute('data-latex')?.trim()) return false;
 
 		// Special case: divs that only contain spans with commas
 		if (el.tagName === 'DIV') {
@@ -1154,7 +1163,14 @@ function isTightInline(node: Node): boolean {
 	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
 }
 
-function removeEmptyLines(element: Element, doc: Document): void {
+// French typography puts a space before ? ! : ; so the
+// space must not be collapsed into the punctuation for French documents.
+function keepsSpaceBeforeHighPunctuation(language: string | undefined): boolean {
+	return /^fr(?:-|_|$)/i.test((language || '').trim());
+}
+
+function removeEmptyLines(element: Element, doc: Document, keepSpaceBeforeHighPunctuation: boolean = false): void {
+	const spaceBeforePunctuation = keepSpaceBeforeHighPunctuation ? /\s+([,.])/g : /\s+([,.!?:;])/g;
 	let removedCount = 0;
 	const startTime = Date.now();
 
@@ -1188,7 +1204,7 @@ function removeEmptyLines(element: Element, doc: Document): void {
 					.replace(/\t+/g, ' ') // Tabs -> spaces
 					.replace(/ {2,}/g, ' ') // 2+ spaces -> 1 space
 					.replace(/^[ ]+$/, ' ') // Multiple spaces between elements -> single space
-					.replace(/\s+([,.!?:;])/g, '$1') // Remove spaces before punctuation
+					.replace(spaceBeforePunctuation, '$1') // Remove spaces before punctuation
 					// Clean up zero-width characters (except ZWNJ \u200C used in Farsi) and multiple non-breaking spaces
 					.replace(/[\u200B\u200D\u200E\u200F\uFEFF]+/g, '')
 					.replace(/(?:\xA0){2,}/g, '\xA0'); // Multiple &nbsp; -> single &nbsp;

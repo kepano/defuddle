@@ -364,15 +364,24 @@ export class ContentScorer {
 		// Check for headings that signal non-content sections (e.g. "Related articles")
 		// even if the element has enough text/paragraphs to otherwise look like content.
 		// Skip very large elements (1000+ words) as they are likely page-level wrappers.
+		// Also skip elements that contain a non-navigation <h1>: the page title
+		// marks an article wrapper, and a "Comments" or "Related" subsection inside
+		// it is scored as its own block. Otherwise a short article body is removed
+		// together with its trailing comments section (#460).
 		if (words < 1000) {
 			const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
 			let hasNavigationHeading = false;
+			let hasTitleHeading = false;
 			for (let i = 0; i < headings.length; i++) {
 				const headingText = (headings[i].textContent || '').toLowerCase().trim();
 				if (navigationHeadingPattern.test(headingText)) {
 					hasNavigationHeading = true;
-					break;
+				} else if (headingText && headings[i].tagName.toLowerCase() === 'h1') {
+					hasTitleHeading = true;
 				}
+			}
+			if (hasTitleHeading) {
+				hasNavigationHeading = false;
 			}
 
 			if (hasNavigationHeading) {
