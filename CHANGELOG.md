@@ -1,7 +1,24 @@
-## Unreleased
+## 0.19.7
 
-- Sped up selector-based removal in Safari and other WebKit browsers: a lookbehind in the partial-selector regex kept JavaScriptCore from compiling it, making `parse()` several times slower on long pages (#439).
-- Kept extractor class names in the browser bundles, so `extractorType` reports the site (`github`, `youtube`, ...) instead of a minified name like `a` (#414).
+- Security: remove `<title>` elements inside MathML, which linkedom writes unescaped and browsers parse as markup (GHSA-w8hh-2cpq-9whp)
+- Hacker News: fix comment authors showing as `[deleted]` and an empty post author (#481)
+- Substack: read post data from the new `preloads-json` script (#482), remove the voiceover player on custom domains (#477)
+- Bilibili: don't send a User-Agent the API rejects, don't cache failed transcripts (#413)
+- Metadata: keep titles that start with a hashtag (#466)
+- Sites: keep PsycNet full-text sections (#362) and Sphinx cross-reference links (#489)
+- Clutter: keep article containers with `data-date` (#461), nonempty elements with `empty:hidden` (#476), `with-ad` wrappers (#453), inline terms with anchor IDs (#449), headings with Tailwind arbitrary values (#394), and table rows, cells and section heading IDs (#480)
+- Fix: don't cut articles at a singular "Comment" label (#448) or remove short articles with a "Comments" heading (#462)
+- Breadcrumbs: match parents only on the same host and whole path segments (#373)
+- Math: keep empty MathML descendants (#416), and math and footnote references in headings (#437)
+- Footnotes: keep LaTeXML footnote bodies, merging repeated notes into one definition (#435)
+- Code: keep line breaks in code without a `pre` wrapper (#474), and author, share and counter tokens inside code blocks (#475)
+- Markdown: fix nested list indentation (#357), keep nested lists after a paragraph ending in a colon (#412)
+- French: keep the space before `? ! : ;` (#467)
+- Images: use the largest `srcset` candidate in `<picture>` (#409)
+- Performance: speed up selector removal in Safari and other WebKit browsers several times over on long pages (#439), and large code blocks from 10.7 s to 0.6 s on a 5,000-row gist (#451)
+- Build: keep extractor class names in the browser bundles, so `extractorType` reports `github` instead of a minified name (#414)
+- Tests: make `npm test` work on Windows (#450)
+- Website: update development dependencies with security fixes
 
 ## 0.19.6
 
