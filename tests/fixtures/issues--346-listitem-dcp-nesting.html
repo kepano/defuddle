@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+    <title>data-component-part nesting depth test</title>
+</head>
+<body>
+    <p>Standard paragraph at the start.</p>
+
+    <!-- Test 1: Direct child of body -->
+    <div data-component-part="test-1">
+        <p>Test 1: Direct child of body</p>
+    </div>
+
+    <!-- Test 2: One level of wrapper div -->
+    <div class="wrapper">
+        <div data-component-part="test-2">
+            <p>Test 2: One wrapper div deep</p>
+        </div>
+    </div>
+
+    <!-- Test 3: Two levels of wrapper divs -->
+    <div class="a">
+        <div class="b">
+            <div data-component-part="test-3">
+                <p>Test 3: Two wrapper divs deep</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 4: role="listitem" wrapper -->
+    <div role="listitem" class="step-container">
+        <div data-component-part="test-4">
+            <p>Test 4: Inside role="listitem"</p>
+        </div>
+    </div>
+
+    <!-- Test 5: role="listitem" with inner wrapper -->
+    <div role="listitem" class="step-container">
+        <div class="wrapper">
+            <div data-component-part="test-5">
+                <p>Test 5: nested deeper in listitem</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 6: role="list" > listitem > dcp -->
+    <div role="list" class="steps">
+        <div role="listitem" class="step-container">
+            <div data-component-part="test-6">
+                <p>Test 6: in list/listitem</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 7: role="list" > listitem > div > dcp (Mintlify Steps-like structure) -->
+    <div role="list" class="steps">
+        <div role="listitem" class="step-container">
+            <div class="wrapper">
+                <div data-component-part="test-7">
+                    <p>Test 7: Exact Steps pattern</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 8: role="list" without listitem -->
+    <div role="list" class="steps">
+        <div class="wrapper">
+            <div data-component-part="test-8">
+                <p>Test 8: role=list > div > dcp</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 9: role="listitem" only, no data-component-part on child -->
+    <div role="listitem" class="step-container">
+        <p>Test 9: listitem only, no data-component-part</p>
+    </div>
+
+    <!-- Test 10: role="listitem" with inline <span> before block content -->
+    <div role="listitem" class="step-container">
+        <span class="step-number">Step 1</span>
+        <div data-component-part="test-10">
+            <p>Test 10: inline noise skipped</p>
+        </div>
+    </div>
+
+    <!-- Test 11: role="listitem" with multiple block-level children -->
+    <div role="listitem" class="step-container">
+        <div data-component-part="test-11">
+            <p>Test 11: first block child only</p>
+        </div>
+        <div data-component-part="test-11-lost">
+            <p>only first block child is selected</p>
+        </div>
+    </div>
+
+    <!-- Test 12: role="listitem" with <pre> as content container -->
+    <div role="listitem" class="step-container">
+        <pre data-component-part="test-12">Test 12: pre inside listitem</pre>
+    </div>
+
+    <!-- Test 13: role="listitem" with <blockquote> as content container -->
+    <div role="listitem" class="step-container">
+        <blockquote data-component-part="test-13">
+            <p>Test 13: blockquote inside listitem</p>
+        </blockquote>
+    </div>
+
+    <!-- Test 14: role="listitem" with <ul> as content container -->
+    <div role="listitem" class="step-container">
+        <ul data-component-part="test-14">
+            <li>Test 14: nested ul as container</li>
+        </ul>
+    </div>
+
+    <!-- Test 15: role="listitem" with <table> as content container -->
+    <div role="listitem" class="step-container">
+        <table data-component-part="test-15">
+            <tr><td>Test 15: table cell content</td></tr>
+        </table>
+    </div>
+
+    <!-- Test 16: role="list" with nested list + fallback in nested listitem -->
+    <div role="list" class="steps">
+        <div role="listitem" class="step-container">
+            <div data-component-part="test-16">
+                <p>Test 16: Outer item</p>
+            </div>
+            <div role="list" class="sub-steps">
+                <div role="listitem" class="sub-step">
+                    <div data-component-part="test-16-sub">
+                        <p>Test 16: Nested item fallback</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test 17: role="list" with nested native <ul> + fallback in listitem -->
+    <div role="list" class="steps">
+        <div role="listitem" class="step-container">
+            <div data-component-part="test-17">
+                <p>Test 17: Outer with nested list</p>
+            </div>
+            <ul class="sub-steps">
+                <li>Test 17: Native nested item</li>
+            </ul>
+        </div>
+    </div>
+
+    <p>Standard paragraph at the end.</p>
+</body>
+</html>
