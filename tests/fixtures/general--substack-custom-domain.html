@@ -16,6 +16,19 @@
 	<div id="main" class="main">
 		<div class="post">
 			<article>
+				<div class="pencraft pc-display-flex pc-gap-8 pc-reset">
+					<div aria-label="Voiceover player" role="region" class="pencraft pc-display-flex pc-alignItems-center pc-gap-12 pc-padding-12 pc-reset">
+						<button class="pencraft pc-reset" tabindex="0" type="button" aria-label="Play" aria-pressed="false"></button>
+						<div class="pencraft pc-display-flex pc-flexDirection-column pc-reset">
+							<div class="pencraft pc-reset">Article voiceover</div>
+							<div class="pencraft pc-display-flex pc-gap-8 pc-reset">
+								<div class="pencraft pc-reset">0:00</div>
+								<div class="pencraft pc-reset">-12:34</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<audio data-testid="audio-element" src="/api/v1/audio/upload/00000000-0000-0000-0000-000000000000/src" preload="none"></audio>
 				<div class="body markup">
 					<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
 

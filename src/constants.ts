@@ -274,6 +274,7 @@ export const EXACT_SELECTORS = [
 	'[data-component-name="DigestPostEmbed"]',
 	'[data-component-name="SubscribeWidgetToDOM"]',
 	'[class*="digestPostEmbed"]', // class has hash suffix in browser-rendered DOM
+	'[aria-label="Voiceover player"]', // sits outside the post body on custom domains
 
 	// hidden for print
 	'.noprint',
