@@ -40,6 +40,32 @@ function isOrContainsHeading(el: Element): boolean {
 	return HEADING_TAG_PATTERN.test(el.tagName) || !!el.querySelector(HEADING_SELECTOR);
 }
 
+interface TextMemo<T> {
+	get(el: Element): T;
+	clear(): void;
+}
+
+// Caches a value derived from an element's trimmed text, for loops that consult
+// the same parent or ancestor once per child. With very many children (a
+// line-number gutter, a long dated list, a media gallery), rebuilding that text
+// for each child is quadratic. Removing an element changes the text of its
+// ancestors, so a loop must clear the cache after every removal.
+function textMemo<T>(derive: (text: string) => T): TextMemo<T> {
+	const cache = new Map<Element, T>();
+	return {
+		get(el) {
+			const cached = cache.get(el);
+			if (cached !== undefined) return cached;
+			const value = derive(el.textContent?.trim() || '');
+			cache.set(el, value);
+			return value;
+		},
+		clear() {
+			cache.clear();
+		},
+	};
+}
+
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
 	const words = countWords(text);
@@ -119,13 +145,18 @@ function walkUpToWrapper(el: Element, text: string, mainContent: Element): Eleme
 	return target;
 }
 
+interface LabelRow {
+	words: number;
+	labeled: boolean;
+}
+
 // A date inside a labeled row belongs to that row, even when only the label's
 // sibling span contains the date. Do not strip individual values from it.
-function isLabeledMetadata(el: Element, mainContent: Element): boolean {
+function isLabeledMetadata(el: Element, mainContent: Element, rows: TextMemo<LabelRow>): boolean {
 	for (let current: Element | null = el; current && current !== mainContent; current = current.parentElement) {
-		const text = current.textContent?.trim() || '';
-		if (countWords(text) > 15) break;
-		if (METADATA_LABEL_PATTERN.test(text)) return true;
+		const { words, labeled } = rows.get(current);
+		if (words > 15) break;
+		if (labeled) return true;
 	}
 	return false;
 }
@@ -357,6 +388,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// pre-content use this as the authoritative above/below check — replacing
 	// ad-hoc `contentText.indexOf(text) < N` byte-offset thresholds.
 	const contentStart = findContentStart(mainContent, title);
+	// May walk every sibling that follows el's branch, so test cheaper conditions first.
 	const isPreContent = (el: Element): boolean => isAboveContentStart(el, contentStart);
 	const normalizedTitle = normalizeText(title);
 	const normalizedDesc = normalizeText(description);
@@ -403,28 +435,31 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove "Listen to this article" audio player widgets.
 	// TTS services inject audio/video players with "Listen to this article/story" text.
 	// Also remove pre-content audio/video in short containers (player UI without prose).
+	const mediaContainers = textMemo(text => ({
+		words: countWords(text),
+		isListenWidget: /\blisten\s+to\s+(?:this\s+)?(?:article|story|post|episode|podcast)\b/i.test(text),
+	}));
 	for (const media of mainContent.querySelectorAll('audio, video')) {
 		if (!media.parentNode) continue;
 		if (!media.getAttribute('src') && !media.querySelector('source')) continue;
 
 		let container = media as Element;
 		while (container.parentElement && container.parentElement !== mainContent) {
-			if (countWords(container.parentElement.textContent?.trim() || '') > 25) break;
+			if (mediaContainers.get(container.parentElement).words > 25) break;
 			container = container.parentElement;
 		}
 
-		const containerText = container.textContent?.trim() || '';
-		const isListenWidget = /\blisten\s+to\s+(?:this\s+)?(?:article|story|post|episode|podcast)\b/i.test(containerText);
+		const { words, isListenWidget } = mediaContainers.get(container);
 		// Pre-content audio/video in a short container is almost always a TTS
 		// widget — real podcast/media embeds appear within the article body.
-		const isPreContentPlayer = !isListenWidget && isPreContent(container) &&
-			countWords(containerText) <= 25;
+		const isPreContentPlayer = !isListenWidget && words <= 25 && isPreContent(container);
 
 		if (isListenWidget || isPreContentPlayer) {
 			if (debug && debugRemovals) {
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'audio player widget', text: textPreview(container) });
 			}
 			container.remove();
+			mediaContainers.clear();
 		}
 	}
 
@@ -507,6 +542,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// once per element instead of once per loop per element.
 	let bylineFound = false;
 	let authorDateFound = false;
+	const labelRows = textMemo(text => ({ words: countWords(text), labeled: METADATA_LABEL_PATTERN.test(text) }));
 
 	for (const el of candidates) {
 		if (!el.parentNode) continue;
@@ -521,7 +557,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 		const tag = el.tagName;
 		const hasDate = CONTENT_DATE_PATTERN.test(text);
-		if (hasDate && isLabeledMetadata(el, mainContent)) continue;
+		if (hasDate && isLabeledMetadata(el, mainContent, labelRows)) continue;
 		// Defer indexOf — only compute when a check needs it
 		let pos = -2; // sentinel: not yet computed
 		const getPos = () => { if (pos === -2) pos = contentText.indexOf(text); return pos; };
@@ -537,6 +573,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'timezone widget', text: textPreview(target) });
 			}
 			target.remove();
+			labelRows.clear();
 			continue;
 		}
 
@@ -546,6 +583,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'pinned label', text: textPreview(el) });
 			}
 			el.remove();
+			labelRows.clear();
 			continue;
 		}
 
@@ -556,12 +594,13 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			[normalizedTitle, 'duplicate title'],
 			[normalizedDesc, 'duplicate description'],
 		] as const) {
-			if (normalized && words >= 3 && isPreContent(el) &&
-				normalizeText(text) === normalized) {
+			if (normalized && words >= 3 && normalizeText(text) === normalized &&
+				isPreContent(el)) {
 				if (debug && debugRemovals) {
 					debugRemovals.push({ step: 'removeByContentPattern', reason, text: textPreview(el) });
 				}
 				el.remove();
+				labelRows.clear();
 				break;
 			}
 		}
@@ -576,13 +615,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'article metadata header block', text: textPreview(el) });
 				}
 				el.remove();
+				labelRows.clear();
 				continue;
 			}
 		}
 
 		// Remove category/topic badge blocks near the start of content.
 		// These are small containers holding only an image link and a category name link.
-		if (tag === 'DIV' && words >= 1 && words <= 5 && !/[.!?]/.test(text) && isPreContent(el) && el.querySelector('img')) {
+		if (tag === 'DIV' && words >= 1 && words <= 5 && !/[.!?]/.test(text) && el.querySelector('img') && isPreContent(el)) {
 			const links = el.querySelectorAll('a[href]');
 			if (links.length > 0) {
 				let linkTextLen = 0;
@@ -592,6 +632,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 						debugRemovals.push({ step: 'removeByContentPattern', reason: 'category badge', text: textPreview(el) });
 					}
 					el.remove();
+					labelRows.clear();
 					continue;
 				}
 			}
@@ -604,6 +645,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 				debugRemovals.push({ step: 'removeByContentPattern', reason: 'author byline', text: textPreview(target) });
 			}
 			target.remove();
+			labelRows.clear();
 			bylineFound = true;
 			continue;
 		}
@@ -623,6 +665,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'read time metadata', text: textPreview(target) });
 				}
 				target.remove();
+				labelRows.clear();
 				continue;
 			}
 		}
@@ -642,6 +685,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 						debugRemovals.push({ step: 'removeByContentPattern', reason: 'author date metadata', text: textPreview(target) });
 					}
 					target.remove();
+					labelRows.clear();
 					authorDateFound = true;
 					continue;
 				}
@@ -661,6 +705,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 					debugRemovals.push({ step: 'removeByContentPattern', reason: 'standalone date metadata', text: textPreview(target) });
 				}
 				target.remove();
+				labelRows.clear();
 				continue;
 			}
 		}
@@ -670,6 +715,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// A <time> in its own paragraph at the boundary is metadata (publish date),
 	// but <time> inline within prose should be preserved (see issue #136).
 	const timeElements = Array.from(mainContent.querySelectorAll('time'));
+	const timeParentTexts = textMemo(text => text);
 	for (const time of timeElements) {
 		if (!time.parentNode) continue;
 		// Walk up through inline/formatting wrappers only (i, em, span, b, strong)
@@ -678,7 +724,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		let targetText = target.textContent?.trim() || '';
 		while (target.parentElement && target.parentElement !== mainContent) {
 			const parentTag = target.parentElement.tagName.toLowerCase();
-			const parentText = target.parentElement.textContent?.trim() || '';
+			const parentText = timeParentTexts.get(target.parentElement);
 			// If parent is a <p> that only wraps this time, include it
 			if (parentTag === 'p' && parentText === targetText) {
 				target = target.parentElement;
@@ -708,6 +754,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			});
 		}
 		target.remove();
+		timeParentTexts.clear();
 	}
 
 	// Remove blog post metadata lists near content boundaries.
@@ -788,6 +835,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	if (urlPath) {
 		const shortElements = mainContent.querySelectorAll('div, span, p, a[href]');
 		const firstHeading = mainContent.querySelector('h1, h2, h3');
+		const parentTexts = textMemo(text => text);
 		for (const el of shortElements) {
 			if (!el.parentNode) continue;
 			const text = el.textContent?.trim() || '';
@@ -799,7 +847,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			// Exception: allow embedded <a> elements that appear before the first heading —
 			// these are back-navigation links in page headers, not inline prose links.
 			if (el.matches('a[href]') && el.parentElement && el.parentElement !== mainContent) {
-				const parentText = el.parentElement.textContent?.trim() || '';
+				const parentText = parentTexts.get(el.parentElement);
 				if (parentText !== text) {
 					// Skip links inside paragraphs — these are inline prose links, not breadcrumbs
 					if (el.closest('p')) continue;
@@ -823,6 +871,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 						});
 					}
 					el.remove();
+					parentTexts.clear();
 				}
 			} catch {}
 		}

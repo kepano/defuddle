@@ -402,6 +402,10 @@ export class Defuddle {
 		// Remove lightbox duplicate images: a standalone <img> whose src matches
 		// the href of a sibling <a> that already contains its own <img>.
 		// Pattern: <a href="full.jpg"><img src="thumb.jpg"></a><img src="full.jpg">
+		// The hrefs are collected once per parent; rescanning the parent for each
+		// image is quadratic in a large gallery. Removing an image that is not
+		// inside a link cannot change any parent's image links.
+		const linkedSrcs = new Map<Element, Set<string>>();
 		for (const img of Array.from(body.querySelectorAll('img'))) {
 			if (!img.parentElement) continue;
 			if (img.closest('a, figure, noscript')) continue;
@@ -410,14 +414,16 @@ export class Defuddle {
 			if (!src || src.startsWith('data:')) continue;
 
 			const parent = img.parentElement;
-			const normalizedSrc = this._normalizeSrc(src);
-			for (const link of parent.querySelectorAll(':scope > a[href]')) {
-				if (!link.querySelector('img')) continue;
-				const href = link.getAttribute('href') || '';
-				if (normalizedSrc === this._normalizeSrc(href)) {
-					img.remove();
-					break;
+			let hrefs = linkedSrcs.get(parent);
+			if (!hrefs) {
+				hrefs = new Set();
+				for (const link of parent.querySelectorAll(':scope > a[href]')) {
+					if (link.querySelector('img')) hrefs.add(this._normalizeSrc(link.getAttribute('href') || ''));
 				}
+				linkedSrcs.set(parent, hrefs);
+			}
+			if (hrefs.has(this._normalizeSrc(src))) {
+				img.remove();
 			}
 		}
 	}
