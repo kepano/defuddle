@@ -110,7 +110,7 @@ export const EXACT_SELECTORS = [
 	// ads
 	'.ad:not([class*="gradient"])',
 	'[class^="ad-" i]',
-	'[class$="-ad" i]',
+	'[class$="-ad" i]:not([class~="with-ad" i])', // mixed article/ad wrappers (Puck)
 	'[data-ad-wrapper]',
 	'[id^="ad-" i]',
 	'[id$="-ad" i]',
