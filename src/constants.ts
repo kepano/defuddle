@@ -171,7 +171,6 @@ export const EXACT_SELECTORS = [
 	'.contributor',
 	'.date',
 	'#date',
-	'[data-date]',
 	'.entry-meta',
 	'.meta',
 	'.tags',
