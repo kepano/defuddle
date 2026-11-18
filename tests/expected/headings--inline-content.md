@@ -14,3 +14,7 @@ The measurement was repeated with several samples to check that the pattern rema
 ## THE dependence on $x^2$ and $x^2$: method ordinary detail
 
 The comparison above includes two separate occurrences of the expression, and both occurrences belong to the author's explanation.
+
+## Limitations
+
+The comparison does not account for differences between instruments.

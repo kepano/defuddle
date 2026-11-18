@@ -56,6 +56,9 @@ function isHeadingNavElement(node: Element): boolean {
 	if (tag === 'button') return true;
 	if (tag === 'a' && isPermalinkAnchor(node)) return true;
 	if (node.classList.contains('anchor') || node.classList.contains('permalink-widget')) return true;
+	if ((tag === 'span' || tag === 'div') && Array.from(node.querySelectorAll('a')).some(a => isPermalinkAnchor(a))) {
+		return true;
+	}
 	return false;
 }
 
@@ -93,7 +96,13 @@ export const headingRules = [
 
 			const toRemove = Array.from(clone.querySelectorAll('*')).filter(isHeadingNavElement);
 			// Keep the first navigation element in case it holds the whole title
-			const fallback = toRemove[0]?.cloneNode(true);
+			const fallback = toRemove[0]?.cloneNode(true) as Element | undefined;
+			// A wrapper holding the whole title can also hold its permalink
+			if (fallback) {
+				const stripped = fallback.cloneNode(true) as Element;
+				stripped.querySelectorAll('a').forEach(a => { if (isPermalinkAnchor(a)) a.remove(); });
+				if (stripped.textContent?.trim()) fallback.replaceChildren(...Array.from(stripped.childNodes));
+			}
 			toRemove.forEach(element => element.remove());
 
 			const source = !clone.textContent?.trim() && fallback ? fallback : clone;
