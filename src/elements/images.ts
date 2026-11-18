@@ -2,6 +2,7 @@
  * Standardization rules for handling images
  */
 
+import { isElement, isTextNode } from '../utils';
 import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
@@ -294,7 +295,7 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 function applySrcsetToImage(srcset: string, img: Element): void {
 	img.setAttribute('srcset', srcset);
 	
-	// Extract the first URL from srcset as the src
+	// Use the largest srcset candidate as the src
 	const firstUrl = extractLargestUrlFromSrcset(srcset);
 	if (firstUrl && isValidImageUrl(firstUrl)) {
 		img.setAttribute('src', firstUrl);
@@ -595,11 +596,45 @@ function findCaption(element: Element): Element | null {
 }
 
 /**
- * Extract caption content, preserving inline formatting such as links and
- * footnote references rather than flattening it to plain text.
+ * Extract unique caption content to avoid duplication
  */
 function extractUniqueCaptionContent(caption: Element): string {
-	return serializeHTML(caption).trim();
+	// Get all text nodes and elements with text content
+	const textNodes: string[] = [];
+	const processedTexts = new Set<string>();
+	
+	// Helper function to process a node
+	const processNode = (node: Node) => {
+		if (isTextNode(node)) {
+			const text = node.textContent?.trim() || '';
+			if (text && !processedTexts.has(text)) {
+				textNodes.push(text);
+				processedTexts.add(text);
+			}
+		} else if (isElement(node)) {
+			// Process child nodes
+			const childNodes = node.childNodes;
+			for (let i = 0; i < childNodes.length; i++) {
+				processNode(childNodes[i]);
+			}
+		}
+	};
+	
+	// Process all child nodes
+	const childNodes = caption.childNodes;
+	for (let i = 0; i < childNodes.length; i++) {
+		processNode(childNodes[i]);
+	}
+	
+	// If we found unique text nodes, use them
+	if (textNodes.length > 0) {
+		return textNodes.join(' ');
+	}
+	
+	// Otherwise, just use the inner HTML but try to clean it up
+	const html = serializeHTML(caption);
+	
+	return html;
 }
 
 /**

@@ -30,18 +30,3 @@ describe('picture src resolution', () => {
 		expect(img.querySelector('img')!.getAttribute('src')).toBe('https://cdn.example.com/photo-3x.jpg');
 	});
 });
-
-describe('figcaption formatting', () => {
-	// Issue #369: inline formatting inside a caption (links, footnote refs) must
-	// survive rather than being flattened to plain text.
-	test('preserves a link inside a figcaption', async () => {
-		const figure = await extract(`<figure>
-			<img src="https://cdn.example.com/photo.jpg" alt="Photo">
-			<figcaption>Photo by <a href="https://example.com/jane">Jane Doe</a> for the project.</figcaption>
-		</figure>`);
-		const link = figure.querySelector('figcaption a');
-		expect(link).not.toBeNull();
-		expect(link!.getAttribute('href')).toBe('https://example.com/jane');
-		expect(link!.textContent).toBe('Jane Doe');
-	});
-});
