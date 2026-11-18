@@ -1154,18 +1154,47 @@ function isTightInline(node: Node): boolean {
 	return isElement(node) && TIGHT_INLINE.has(node.tagName.toLowerCase()) && !isFootnoteRef(node);
 }
 
+// Text in these elements is source, not prose: whitespace in code and in a
+// formula's annotation (TeX `\ ` control spaces, `%` comments ending at a newline)
+// carries meaning, so whitespace cleanup leaves it byte-exact.
+const VERBATIM_TEXT = new Set(['pre', 'code', 'annotation', 'annotation-xml']);
+
+function isLineBreak(node: Node | null): boolean {
+	return !!node && isElement(node) && node.tagName.toLowerCase() === 'br';
+}
+
+// A forced line break swallows collapsible whitespace at the end of the line before
+// it and at the start of the line after it (CSS white-space: normal), so that
+// whitespace is dropped instead of leaving lines that begin or end with a space.
+// Non-breaking spaces are not collapsible and stay.
+function trimWhitespaceAroundLineBreaks(node: Element): number {
+	let removed = 0;
+	for (const child of Array.from(node.childNodes)) {
+		if (!isTextNode(child)) continue;
+		const text = child.textContent || '';
+		let trimmed = text;
+		if (isLineBreak(child.previousSibling)) trimmed = trimmed.replace(/^[ \t\n\r\f]+/, '');
+		if (isLineBreak(child.nextSibling)) trimmed = trimmed.replace(/[ \t\n\r\f]+$/, '');
+		if (trimmed === text) continue;
+		removed += text.length - trimmed.length;
+		if (trimmed) {
+			child.textContent = trimmed;
+		} else {
+			node.removeChild(child);
+		}
+	}
+	return removed;
+}
+
 function removeEmptyLines(element: Element, doc: Document): void {
 	let removedCount = 0;
 	const startTime = Date.now();
 
 	// First pass: remove empty text nodes
 	const removeEmptyTextNodes = (node: Node) => {
-		// Skip if inside pre or code
-		if (isElement(node)) {
-			const tag = (node as Element).tagName.toLowerCase();
-			if (tag === 'pre' || tag === 'code') {
-				return;
-			}
+		// Skip if inside pre, code or a math annotation
+		if (isElement(node) && VERBATIM_TEXT.has(node.tagName.toLowerCase())) {
+			return;
 		}
 
 		// Process children first (depth-first)
@@ -1205,9 +1234,9 @@ function removeEmptyLines(element: Element, doc: Document): void {
 	const cleanupEmptyElements = (node: Node) => {
 		if (!isElement(node)) return;
 
-		// Skip pre and code elements
+		// Skip pre, code and math annotation elements
 		const tag = node.tagName.toLowerCase();
-		if (tag === 'pre' || tag === 'code') {
+		if (VERBATIM_TEXT.has(tag)) {
 			return;
 		}
 
@@ -1245,6 +1274,9 @@ function removeEmptyLines(element: Element, doc: Document): void {
 			removedCount += moveWhitespaceOutside(node, doc, 'trailing');
 		}
 
+		// Runs after children moved their edge spaces out next to a <br>
+		removedCount += trimWhitespaceAroundLineBreaks(node);
+
 		// Ensure there's a space between inline elements if needed
 		if (!isBlockElement) {
 			const children = Array.from(node.childNodes);
@@ -1254,8 +1286,10 @@ function removeEmptyLines(element: Element, doc: Document): void {
 
 				// Only add space between elements or between element and text
 				if (isElement(current) || isElement(next)) {
-					// sub/sup/code never take an inserted separator
-					if (isTightInline(current) || isTightInline(next)) {
+					// sub/sup/code never take an inserted separator, and a <br>
+					// already separates the words on either side
+					if (isTightInline(current) || isTightInline(next) ||
+						isLineBreak(current) || isLineBreak(next)) {
 						continue;
 					}
 
