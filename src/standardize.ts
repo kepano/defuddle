@@ -265,15 +265,21 @@ function wrapPreformattedCode(element: Element, doc: Document): void {
 		// Skip if already inside a <pre>
 		if (code.closest('pre')) continue;
 
-		// Explicit <br> elements also represent code lines, even without white-space: pre.
 		const style = code.getAttribute('style') || '';
-		if (!/white-space\s*:\s*pre/.test(style) && !code.querySelector('br')) continue;
+		if (!/white-space\s*:\s*pre/.test(style) && !isLineBrokenCodeBlock(code)) continue;
 
 		// Wrap in <pre>
 		const pre = doc.createElement('pre');
 		code.parentNode?.insertBefore(pre, code);
 		pre.appendChild(code);
 	}
+}
+
+// <br> marks code lines only when the code stands alone in its block, not inline in prose or a table cell.
+function isLineBrokenCodeBlock(code: Element): boolean {
+	if (!code.querySelector('br') || code.closest('td, th')) return false;
+	const parent = code.parentElement;
+	return !!parent && (parent.textContent || '').trim() === (code.textContent || '').trim();
 }
 
 function standardizeSpaces(element: Element): void {
