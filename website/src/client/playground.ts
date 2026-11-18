@@ -92,7 +92,9 @@ formatButtons.forEach(button => button.addEventListener('click', () => {
 	if (state === 'error' || state === 'loading') setStatus(outputStatus, message, state);
 }));
 formatButtons.forEach((button, index) => button.addEventListener('keydown', event => {
-	const next = event.key === 'ArrowRight' ? (index + 1) % formatButtons.length : event.key === 'ArrowLeft' ? (index + formatButtons.length - 1) % formatButtons.length : event.key === 'Home' ? 0 : event.key === 'End' ? formatButtons.length - 1 : -1;
+	const forward = getComputedStyle(button).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+	const backward = forward === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
+	const next = event.key === forward ? (index + 1) % formatButtons.length : event.key === backward ? (index + formatButtons.length - 1) % formatButtons.length : event.key === 'Home' ? 0 : event.key === 'End' ? formatButtons.length - 1 : -1;
 	if (next < 0) return;
 	event.preventDefault();
 	formatButtons[next].click();

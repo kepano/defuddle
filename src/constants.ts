@@ -110,7 +110,7 @@ export const EXACT_SELECTORS = [
 	// ads
 	'.ad:not([class*="gradient"])',
 	'[class^="ad-" i]',
-	'[class$="-ad" i]',
+	'[class$="-ad" i]:not([class~="with-ad" i])', // mixed article/ad wrappers (Puck)
 	'[data-ad-wrapper]',
 	'[id^="ad-" i]',
 	'[id$="-ad" i]',
@@ -171,7 +171,6 @@ export const EXACT_SELECTORS = [
 	'.contributor',
 	'.date',
 	'#date',
-	'[data-date]',
 	'.entry-meta',
 	'.meta',
 	'.tags',
@@ -274,6 +273,7 @@ export const EXACT_SELECTORS = [
 	'[data-component-name="DigestPostEmbed"]',
 	'[data-component-name="SubscribeWidgetToDOM"]',
 	'[class*="digestPostEmbed"]', // class has hash suffix in browser-rendered DOM
+	'[aria-label="Voiceover player"]', // sits outside the post body on custom domains
 
 	// hidden for print
 	'.noprint',
@@ -284,7 +284,7 @@ export const EXACT_SELECTORS = [
 	'[class*="clickable-icon" i]',
 	'li span[class*="ltx_tag" i][class*="ltx_tag_item" i]',
 	'a[href^="#"][class*="anchor" i]',
-	'a[href^="#"][class*="ref" i]:not(.ltx_ref):not(.footnote-backref)',
+	'a[href^="#"][class*="ref" i]:not(.ltx_ref):not(.footnote-backref):not(.reference)',
 
 	// link lists
 	'[data-container*="most-viewed" i]',
@@ -618,7 +618,7 @@ export const PARTIAL_SELECTORS = [
 	'jswarning',
 	'js-warning',
 	'jumplink',
-	'jumpto',
+	'(?<![a-z0-9])jumpto(?![a-z0-9])', // avoid APA PsycNet's ftJumpToAnchor article sections
 	'jump-to-',
 	'js-skip-to-content',
 
@@ -963,8 +963,25 @@ export const PARTIAL_SELECTORS = [
 	'w-form-fail',
 ];
 
+/**
+ * Pre-compiles an alternation of patterns (case-insensitive) as a tester.
+ * Patterns with a lookbehind get a regex of their own: JavaScriptCore
+ * (Safari, WKWebView) can't JIT-compile a regex that contains a lookbehind
+ * and interprets the whole pattern instead, which made the combined
+ * PARTIAL_SELECTORS regex about 25x slower there (330 ms vs 13 ms per parse
+ * on a large Wikipedia page). A string matches the alternation exactly when
+ * it matches one of the parts.
+ */
+function compileAlternation(patterns: string[], wrap: (source: string) => string = source => source): { test(value: string): boolean } {
+	const hasLookbehind = (pattern: string) => /\(\?<[=!]/.test(pattern);
+	const regexes = [patterns.filter(p => !hasLookbehind(p)), patterns.filter(hasLookbehind)]
+		.filter(group => group.length > 0)
+		.map(group => new RegExp(wrap(group.join('|')), 'i'));
+	return { test: (value: string) => regexes.some(regex => regex.test(value)) };
+}
+
 // Pre-compiled combined regex for PARTIAL_SELECTORS — avoids rebuilding on every parse
-export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), 'i');
+export const PARTIAL_SELECTORS_REGEX = compileAlternation(PARTIAL_SELECTORS);
 
 // Anchored variant: the whole string must equal a selector token. Used only for
 // delimiter-less ids, which are usually content anchors a publishing system
@@ -972,7 +989,7 @@ export const PARTIAL_SELECTORS_REGEX = new RegExp(PARTIAL_SELECTORS.join('|'), '
 // Substring matching those wrongly strips real sections — "theroleofthings"
 // contains "herol" (matches 'hero[_\\-a-z]') and "loopsandfeedback" contains
 // 'feedback'. Delimited ids keep substring matching.
-export const PARTIAL_SELECTORS_ANCHORED_REGEX = new RegExp('^(?:' + PARTIAL_SELECTORS.join('|') + ')$', 'i');
+export const PARTIAL_SELECTORS_ANCHORED_REGEX = compileAlternation(PARTIAL_SELECTORS, source => '^(?:' + source + ')$');
 
 // Attribute selector for elements we test partial matches against
 export const TEST_ATTRIBUTES_SELECTOR = TEST_ATTRIBUTES.map(attr => `[${attr}]`).join(',');

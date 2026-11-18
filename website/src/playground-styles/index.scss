@@ -11,7 +11,7 @@ html, body { height: 100%; overflow: hidden; }
 .doc-code-copy { padding: 1px 6px; }
 .playground-header .playground-actions { gap: 20px; }
 .playground-editor .cm-editor { background: transparent; }
-.playground-output-formats { margin-right: auto; }
+.playground-output-formats { margin-inline-end: auto; }
 .playground-panel-header:has(.playground-output-formats) { gap: 8px; }
 .playground-status[data-state='error'] { color: var(--syntax-red); }
 #input-status:empty { display: none; }

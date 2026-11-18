@@ -9,8 +9,8 @@
 
 :where(a) { color: inherit; text-decoration: none; }
 .docs-navigation {
-  .docs-toc-outline .docs-toc-children { border-left: 0; }
-  .docs-toc-children a[data-depth="3"] { padding-left: 0; }
+  .docs-toc-outline .docs-toc-children { border-inline-start: 0; }
+  .docs-toc-children a[data-depth="3"] { padding-inline-start: 0; }
 }
 .wordmark {
   font-size: var(--font-size-heading);

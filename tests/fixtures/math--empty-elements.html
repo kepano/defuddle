@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- {"url":"https://example.com/mathml"} -->
+<html><head><title>Math structure</title></head><body><article>
+<p>Empty nodes can represent required argument slots, spacing, and matrix cells. These examples retain the structure of the expressions even when a node has no text.</p>
+<p>Subscript: <math data-latex="{}_k"><msub><mrow></mrow><mi>k</mi></msub></math>.</p>
+<p>Spacing: <math data-latex="a\quad b"><mrow><mi>a</mi><mspace width="1em"></mspace><mi>b</mi></mrow></math>.</p>
+<p>Scripts: <math data-latex="{}_i X^j"><mmultiscripts><mi>X</mi><none></none><mi>j</mi><mprescripts></mprescripts><mi>i</mi><none></none></mmultiscripts></math></p>
+<p>Matrix: <math data-latex="\begin{matrix}&amp;a\\b&amp;\end{matrix}"><mtable><mtr><mtd></mtd><mtd><mi>a</mi></mtd></mtr><mtr><mtd><mi>b</mi></mtd><mtd></mtd></mtr></mtable></math></p>
+<p>Spacer only: <math><mspace width="1em"></mspace></math>.</p>
+<p>Empty root: <math> </math>.</p>
+<p>Ordinary empty HTML: <em></em><span> </span>.</p>
+<p>Each expression is written with its own structure, and the surrounding text describes it.</p>
+</article></body></html>

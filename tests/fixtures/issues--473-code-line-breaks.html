@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<!-- {"url":"https://example.com/articles/code-blocks"} -->
+<html>
+<head><title>Code examples</title></head>
+<body>
+<article>
+	<h1>Code examples</h1>
+	<p>A code example can use explicit line breaks without a preformatted wrapper.</p>
+	<p><code>agent = Agent(<br>    model="example",<br>    tools=[search_tool]<br>)<br>result = agent.run(query)<br></code></p>
+	<p>Highlighted code should keep its language, indentation, and empty lines.</p>
+	<p><code class="language-python"><span>if ready:</span><br><span>    run()</span><br><br><span>finish()</span></code></p>
+	<p>Existing preformatted code still works.</p>
+	<pre><code>first()<br>second()</code></pre>
+	<p>Ordinary inline code such as <code>agent.run(query)</code> stays in its sentence.</p>
+</article>
+</body>
+</html>

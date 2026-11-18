@@ -7,6 +7,8 @@ export function setupPlaygroundColumns() {
   const handles = [...columns.querySelectorAll<HTMLElement>('.playground-resizer')];
   const desktop = window.matchMedia('(min-width: 761px)');
   const widths = () => panels.map((panel) => panel.getBoundingClientRect().width);
+  // In right-to-left pages the first column is on the right, so moving the divider right shrinks it.
+  const sign = () => getComputedStyle(columns).direction === 'rtl' ? -1 : 1;
 
   function apply(values: number[]) {
     const total = values.reduce((sum, value) => sum + value, 0);
@@ -38,10 +40,10 @@ export function setupPlaygroundColumns() {
 
   function resize(index: number, values: number[], delta: number) {
     const pairWidth = values[index] + values[index + 1];
-    const leftWidth = Math.min(pairWidth - minimumWidth, Math.max(minimumWidth, values[index] + delta));
+    const firstWidth = Math.min(pairWidth - minimumWidth, Math.max(minimumWidth, values[index] + delta));
     const next = [...values];
-    next[index] = leftWidth;
-    next[index + 1] = pairWidth - leftWidth;
+    next[index] = firstWidth;
+    next[index + 1] = pairWidth - firstWidth;
     apply(next);
   }
 
@@ -67,7 +69,7 @@ export function setupPlaygroundColumns() {
     });
     handle.addEventListener('pointermove', (event) => {
       if (!drag || event.pointerId !== drag.pointerId) return;
-      resize(index, drag.widths, event.clientX - drag.x);
+      resize(index, drag.widths, (event.clientX - drag.x) * sign());
     });
     handle.addEventListener('pointerup', finish);
     handle.addEventListener('pointercancel', finish);
@@ -79,8 +81,8 @@ export function setupPlaygroundColumns() {
       const values = widths();
       const step = event.shiftKey ? 40 : 16;
       let delta: number;
-      if (event.key === 'ArrowLeft') delta = -step;
-      else if (event.key === 'ArrowRight') delta = step;
+      if (event.key === 'ArrowLeft') delta = -step * sign();
+      else if (event.key === 'ArrowRight') delta = step * sign();
       else if (event.key === 'Home') delta = -values[index];
       else if (event.key === 'End') delta = values[index + 1];
       else return;

@@ -16,7 +16,7 @@ export function getSiteCSS(): string {
 			--radius-pill: 999px;
 			--header-height: 64px;
 			--page-width: 88vw;
-			--desktop-navigation-left: max(24px, calc((100vw - var(--reading)) / 2 - 180px - clamp(40px, 3.5vw, 56px)));
+			--desktop-navigation-start: max(24px, calc((100vw - var(--reading)) / 2 - 180px - clamp(40px, 3.5vw, 56px)));
 			--desktop-wordmark-top: calc((var(--header-height) - var(--font-size-heading)) / 2);
 			--content: 960px;
 			--reading: calc(var(--font-size-body) * 42);
@@ -71,10 +71,15 @@ export function getSiteCSS(): string {
 		button, input, textarea { font: inherit; }
 		:is(button, a, input, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 		h1 { color: var(--paper); font-size: var(--font-size-title); font-weight: 600; line-height: 1.2; letter-spacing: -0.025em; }
+		/* Arabic script joins its letters, so negative tracking pulls them apart. */
+		:is(h1, .wordmark):dir(rtl) { letter-spacing: normal; }
 		h2 { color: var(--paper); font-size: var(--font-size-heading); font-weight: 500; line-height: 1.4; }
 		h3 { color: var(--paper); font-size: var(--font-size-body); font-weight: 600; }
 		pre, code { font-family: var(--font-mono); font-size: var(--font-size-small); }
 		pre { line-height: var(--code-line-height); }
+		/* Code reads left to right in every language. */
+		pre, .doc-code, .code-window, .playground-editor { direction: ltr; }
+		:not(pre) > code, kbd { direction: ltr; unicode-bidi: isolate; }
 		.button {
 			display: inline-flex;
 			min-height: 42px;
@@ -103,6 +108,7 @@ export function getSiteCSS(): string {
 			--selected-index: 0;
 			--pill-scale: 1;
 			--pill-shift: 0%;
+			--pill-direction: 1;
 			position: relative;
 			isolation: isolate;
 			display: inline-grid;
@@ -118,15 +124,18 @@ export function getSiteCSS(): string {
 			position: absolute;
 			z-index: -1;
 			inset-block: 0;
-			left: 0;
+			inset-inline-start: 0;
 			width: calc(100% / var(--segment-count));
 			border-radius: var(--radius-pill);
 			background: var(--line);
 			pointer-events: none;
-			transform: translateX(calc(var(--selected-index) * 100% + var(--pill-shift))) scaleX(var(--pill-scale));
+			transform: translateX(calc((var(--selected-index) * 100% + var(--pill-shift)) * var(--pill-direction))) scaleX(var(--pill-scale));
 			transform-origin: left center;
 			transition: transform 200ms ease;
 		}
+		/* In right-to-left pages the options run from the right, so the pill moves the other way. */
+		.segmented-control:dir(rtl) { --pill-direction: -1; }
+		.segmented-control:dir(rtl)::before { transform-origin: right center; }
 		.segmented-control:has(> button:nth-child(2)[aria-pressed="true"]) { --selected-index: 1; }
 		.segmented-control:has(> button:nth-child(3)[aria-pressed="true"]) { --selected-index: 2; }
 		.segmented-control:has(> button[aria-pressed="true"] ~ button:active) { --pill-scale: 1.1; }
@@ -148,7 +157,7 @@ export function getSiteCSS(): string {
 		@media (prefers-reduced-motion: reduce) {
 			html { scroll-behavior: auto; }
 			*, *::before, *::after { transition-duration: 0.01ms !important; }
-			.segmented-control::before { transform: translateX(calc(var(--selected-index) * 100%)); }
+			.segmented-control::before { transform: translateX(calc(var(--selected-index) * 100% * var(--pill-direction))); }
 		}
 	`;
 }

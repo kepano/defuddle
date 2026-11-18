@@ -21,8 +21,8 @@
   }
 
   .docs-toc-children, .docs-toc-outline {
-    border-left: 1px solid var(--line);
-    padding-left: 12px;
+    border-inline-start: 1px solid var(--line);
+    padding-inline-start: 12px;
   }
 
   a {
@@ -60,7 +60,7 @@
       }
     }
     &[data-depth="3"] {
-      padding-left: 12px;
+      padding-inline-start: 12px;
     }
   }
 
@@ -72,7 +72,7 @@
 .docs-toc {
   position: fixed;
   top: var(--docs-sidebar-nav-top);
-  left: var(--desktop-navigation-left);
+  inset-inline-start: var(--desktop-navigation-start);
   width: min(180px, calc((100vw - var(--reading)) / 2 - 56px));
   max-height: calc(100dvh - var(--docs-sidebar-nav-top) - 20px);
   overflow-y: auto;
@@ -108,7 +108,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-left: -8px;
+  margin-inline-start: -8px;
   margin-top: 6px;
 }
 .doc-section {
@@ -227,7 +227,7 @@
   }
   > ul, > ol {
     margin: 20px 0 26px;
-    padding-left: 1.25rem;
+    padding-inline-start: 1.25rem;
   }
   li {
     margin-block: 4px;
@@ -279,10 +279,9 @@
 
 @media (min-width: 761px) {
   .docs-layout {
-    // Keep room for the sidebar while letting the right gutter shrink first.
+    // Keep room for the sidebar while letting the end gutter shrink first.
     width: min(var(--reading), calc(100vw - 268px));
-    margin-left: max(244px, calc((100vw - var(--reading)) / 2));
-    margin-right: 24px;
+    margin-inline: max(244px, calc((100vw - var(--reading)) / 2)) 24px;
   }
 
   .docs-page > .site-header-slot {
@@ -293,7 +292,7 @@
     position: fixed;
     z-index: 20;
     top: var(--desktop-wordmark-top);
-    left: var(--desktop-navigation-left);
+    inset-inline-start: var(--desktop-navigation-start);
     width: var(--docs-sidebar-width);
     min-height: 0;
     display: grid;

@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-left: auto;
+  margin-inline-start: auto;
   font-weight: 400;
 }
 .header-action.sidebar-playground {
@@ -79,8 +79,7 @@
     position: fixed;
     z-index: 90;
     top: 0;
-    right: 0;
-    left: 0;
+    inset-inline: 0;
     opacity: 0;
     pointer-events: none;
     will-change: opacity;
@@ -93,7 +92,7 @@
     display: none;
   }
   .filter-search-trigger {
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   .header-action {
     min-height: 32px;
