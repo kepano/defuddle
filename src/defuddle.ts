@@ -20,6 +20,7 @@ import { removeByContentPattern, removeEyebrowLabel } from './removals/content-p
 import { removeMetadataBlock } from './removals/metadata-block';
 import { getComputedStyle, countWords } from './utils';
 import { parseHTML, serializeHTML, decodeHTMLEntities, getClassName, classOrIdSelector, stripUnsafeElements } from './utils/dom';
+import { lowercaseAttributeNames } from './utils/attribute-case';
 
 interface StyleChange {
 	selector: string;
@@ -30,6 +31,7 @@ interface StyleChange {
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
 export class Defuddle {
+	// The caller's document, or a copy with lowercased attribute names.
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
 	// against a sanitized clone instead of the caller's live document.
 	private doc: Document;
@@ -50,9 +52,23 @@ export class Defuddle {
 	 * @param options - Options for parsing
 	 */
 	constructor(doc: Document, options: DefuddleOptions = {}) {
-		this.doc = doc;
+		this.doc = Defuddle._withLowercaseAttributeNames(doc);
 		this.options = options;
 		this.debug = options.debug || false;
+	}
+
+	/**
+	 * Metadata, extractor detection and every selector below read attributes
+	 * by their lower-case names, so lowercase linkedom's `<A HREF>` first.
+	 * Returns a copy only when something changes; never mutates `doc`.
+	 */
+	private static _withLowercaseAttributeNames(doc: Document): Document {
+		try {
+			return lowercaseAttributeNames(doc);
+		} catch (error) {
+			console.error('Defuddle', 'Error lowercasing attribute names:', error);
+			return doc;
+		}
 	}
 
 	/**
@@ -88,10 +104,7 @@ export class Defuddle {
 	private _parseWithRetries(): DefuddleResponse | null {
 		const startTime = Date.now();
 
-		// Normalize non-standard attribute casing (e.g. React SSR outputs
-		// "srcSet" instead of "srcset") before any image processing.
 		if (this.doc.body) {
-			this._normalizeAttributes(this.doc.body);
 			this._resolveNoscriptImages(this.doc.body);
 		}
 
@@ -516,25 +529,6 @@ export class Defuddle {
 		const src = img.getAttribute('src') || '';
 		const m = src.match(Defuddle._urlWidthPattern);
 		return m ? parseInt(m[1], 10) : 0;
-	}
-
-	/**
-	 * Rename non-standard HTML attributes to their canonical lowercase forms.
-	 * React SSR outputs camelCase attributes like "srcSet" that some DOM
-	 * parsers (e.g. linkedom) preserve verbatim instead of lowercasing.
-	 */
-	private _normalizeAttributes(body: Element): void {
-		const renames: [string, string][] = [['srcSet', 'srcset']];
-		const elements = body.querySelectorAll('img, source');
-		for (const el of elements) {
-			for (const [from, to] of renames) {
-				const value = el.getAttribute(from);
-				if (value !== null) {
-					el.removeAttribute(from);
-					el.setAttribute(to, value);
-				}
-			}
-		}
 	}
 
 	private _resolveNoscriptImages(body: Element): void {

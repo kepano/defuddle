@@ -110,6 +110,24 @@ describe('generic extraction path sanitization', () => {
 			const content = await parse('<a href="/relative/ok">link</a>', options);
 			expect(content).toContain('/relative/ok');
 		});
+
+		// linkedom keeps the source case of attribute names.
+		test.each([
+			['javascript: HREF', '<A HREF="javascript:alert(6)">click</A>', 'javascript:'],
+			['data: HREF', '<A HREF="data:text/html,<script>alert(7)</script>">click</A>', 'data:text/html'],
+			['data: iframe SRC', '<IFRAME SRC="data:text/html,<script>alert(8)</script>"></IFRAME>', 'data:text/html'],
+			['ONCLICK', '<P ONCLICK="alert(9)">text</P>', 'onclick'],
+			['ONERROR', '<IMG SRC="/a.png" ONERROR="alert(10)" ALT="a">', 'onerror'],
+			['SRCDOC', '<IFRAME SRCDOC="<script>alert(11)</script>"></IFRAME>', 'srcdoc'],
+			['javascript: HREF before a safe href', '<A HREF="javascript:alert(12)" href="/ok">click</A>', 'javascript:'],
+			['SVG XLINK:HREF and ONLOAD', '<svg ONLOAD="alert(13)"><a XLINK:HREF="javascript:alert(14)"><text>t</text></a></svg>', 'javascript:'],
+			['MathML HREF', '<math><mi HREF="javascript:alert(15)">x</mi></math>', 'javascript:'],
+		])(`strips upper-case %s ${label}`, async (_name, html, unsafe) => {
+			const content = (await parse(html, options)).toLowerCase();
+			expect(content).not.toContain(unsafe);
+			expect(content).not.toMatch(/\son[a-z]+\s*=/);
+			expect(content).not.toContain('alert(');
+		});
 	}
 
 	test('preserves an iframe sandbox attribute set by the page', async () => {

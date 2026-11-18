@@ -189,7 +189,7 @@ describe('degraded whole-<body> fallback', () => {
 
 	test('returns the body fallback when preprocessing throws', async () => {
 		const { default: Defuddle } = await import('../src/index');
-		vi.spyOn(Defuddle.prototype as any, '_normalizeAttributes').mockImplementation(() => {
+		vi.spyOn(Defuddle.prototype as any, '_resolveNoscriptImages').mockImplementation(() => {
 			throw new Error('simulated preprocessing failure');
 		});
 		vi.spyOn(console, 'error').mockImplementation(() => {});
