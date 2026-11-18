@@ -17,6 +17,41 @@ const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-
 	.map(name => `a [class*="${name}"]`).join(', ');
 const LINK_ANNOTATION_REGEX = /^[\s,(–-]*(?:(?:link )?opens in (?:a )?new (?:window|tab)|new (?:window|tab)|external(?: link| site| website)?)[\s).]*$/i;
 
+// Layout tables (email newsletters, old sites) put clutter in cells too, so only
+// protect cells of tables with header structure
+function isTableCellOrRow(el: Element): boolean {
+	const tag = el.tagName;
+	if (tag !== 'TR' && tag !== 'TD' && tag !== 'TH') return false;
+	return Boolean(el.closest('table')?.querySelector(
+		':scope > caption, :scope > thead, :scope > tr > th, :scope > tbody > tr > th'
+	));
+}
+
+function isInsideCodeTable(el: Element): boolean {
+	return Boolean(el.closest('table')?.querySelector('pre'));
+}
+
+function isLevelSectionHeadingId(el: Element, id: string): boolean {
+	if (el.tagName !== 'SECTION' || !id) {
+		return false;
+	}
+	if (!/\blevel\d+\b/i.test(getClassName(el))) {
+		return false;
+	}
+	if (id.startsWith('sec-')) {
+		return true;
+	}
+	const heading = el.querySelector('h1, h2, h3, h4, h5, h6');
+	if (!heading) {
+		return false;
+	}
+	const slug = (heading.textContent || '')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, '-')
+		.replace(/^-+|-+$/g, '');
+	return Boolean(slug) && (id === slug || slug.endsWith('-' + id));
+}
+
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
@@ -42,6 +77,10 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements inside code blocks (e.g. syntax highlighting spans)
 				if (el.closest('pre, code')) {
+					return;
+				}
+				// Preserve table rows and cells unless hidden or inside a code block table (e.g. Hexo td.gutter)
+				if (isTableCellOrRow(el) && !el.matches(HIDDEN_EXACT_SELECTOR) && !isInsideCodeTable(el)) {
 					return;
 				}
 				// Skip elements with responsive show classes (e.g. "hidden sm:flex")
@@ -84,6 +123,10 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			if (tag === 'CODE' || tag === 'PRE' || el.querySelector('pre') || el.closest('code, pre')) {
 				return;
 			}
+			// Preserve table rows and cells except in tables holding code (e.g. Hexo td.gutter)
+			if (isTableCellOrRow(el) && !isInsideCodeTable(el)) {
+				return;
+			}
 
 			// Get all relevant attributes and combine into a single string
 			// (Hardcoded to match TEST_ATTRIBUTES in constants.ts — avoids array allocation per element)
@@ -113,7 +156,8 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// outright. Headings skip id entirely (they carry auto-generated slugs), as do
 			// inline elements inside paragraphs, which may anchor terms like "term-related-claim".
 			const skipId = isHeading || (INLINE_ELEMENTS.has(tag.toLowerCase()) && !!el.closest('p'));
-			const id = skipId ? '' : (el.id || '').toLowerCase();
+			const rawId = skipId ? '' : (el.id || '').toLowerCase();
+			const id = isLevelSectionHeadingId(el, rawId) ? '' : rawId;
 
 			// Skip if nothing to check
 			const hasAttrs = attrs.trim() !== '';
