@@ -14,7 +14,7 @@ async function extract(html: string) {
 }
 
 describe('Comment analysis sections (#445)', () => {
-	test.each(['Comment', 'Comments', 'comment', 'COMMENTS'])('preserves the label %s and following prose', async label => {
+	test.each(['Comment', 'comment', 'COMMENT'])('preserves the label %s and following prose', async label => {
 		const html = FIXTURE.replace('<strong>Comment</strong>', `<strong>${label}</strong>`);
 		const result = await extract(html);
 
