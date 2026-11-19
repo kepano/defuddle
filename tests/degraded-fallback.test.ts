@@ -210,4 +210,15 @@ describe('degraded whole-<body> fallback', () => {
 		expect(noMetadata).toMatchObject({ title: '', domain: 'example.com', description: '', favicon: '', image: '', language: '', published: '', author: '', site: '', schemaOrgData: null });
 		expect(noMetadata.debug?.errors).toEqual(['Error: simulated preprocessing failure', 'Error: simulated metadata failure']);
 	});
+
+	test('removes images from the whole-<body> fallback without touching the live document', async () => {
+		const { Defuddle } = await import('../src/node');
+		const doc = parseDocument(HTML.replace('<h1>', '<img src="https://example.com/photo.jpg" alt="Photo"><h1>'), 'https://example.com/');
+		throwAlways.value = true;
+		const res = await Defuddle(doc, 'https://example.com/', { removeImages: true });
+
+		expect(res.content).toContain('substantial paragraph');
+		expect(res.content).not.toContain('<img');
+		expect(doc.querySelectorAll('img').length).toBe(1);
+	});
 });

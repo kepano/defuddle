@@ -338,6 +338,9 @@ export class Defuddle {
 	private _serializeFallbackBody(): string {
 		if (!this.doc.body) return '';
 		const safeBody = this.doc.body.cloneNode(true) as HTMLElement;
+		if (this.options.removeImages) {
+			this.removeImages(safeBody);
+		}
 		this._stripUnsafeElements(safeBody);
 		return this.resolveContentUrls(serializeHTML(safeBody));
 	}
