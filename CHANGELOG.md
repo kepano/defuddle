@@ -1,3 +1,7 @@
+## 0.19.8
+
+- X: support the redesigned web app, which clipped as a list of links and counts instead of the post and its replies (#496)
+
 ## 0.19.7
 
 - Security: remove `<title>` elements inside MathML, which linkedom writes unescaped and browsers parse as markup (GHSA-w8hh-2cpq-9whp)
