@@ -576,10 +576,19 @@ export class YoutubeExtractor extends BaseExtractor {
 			const startIndex = text.indexOf('{', text.indexOf(globalName));
 			if (startIndex === -1) continue;
 
+			// Braces inside strings, such as in a video title, don't count.
 			let depth = 0;
+			let scan: 'code' | 'string' | 'escape' = 'code';
 			for (let i = startIndex; i < text.length; i++) {
 				const char = text[i];
-				if (char === '{') {
+				if (scan === 'escape') {
+					scan = 'string';
+				} else if (scan === 'string') {
+					if (char === '\\') scan = 'escape';
+					else if (char === '"') scan = 'code';
+				} else if (char === '"') {
+					scan = 'string';
+				} else if (char === '{') {
 					depth += 1;
 				} else if (char === '}') {
 					depth -= 1;

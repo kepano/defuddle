@@ -1134,3 +1134,19 @@ describe('YouTube default audio language (#410)', () => {
 		expect(fetch).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('YouTube inline JSON', () => {
+	test('reads the player response when a string holds an unbalanced brace', () => {
+		const data = { videoDetails: { videoId: 'test123', title: 'Closing } early', author: 'Channel name' } };
+		const extractor = createExtractor(`<html><body><script>var ytInitialPlayerResponse = ${JSON.stringify(data)};</script></body></html>`);
+
+		expect((extractor as any).parseInlineJson('ytInitialPlayerResponse')).toEqual(data);
+	});
+
+	test('reads the player response when a string holds an escaped quote and a brace', () => {
+		const data = { videoDetails: { videoId: 'test123', title: 'Say "{" twice' } };
+		const extractor = createExtractor(`<html><body><script>var ytInitialPlayerResponse = ${JSON.stringify(data)};</script></body></html>`);
+
+		expect((extractor as any).parseInlineJson('ytInitialPlayerResponse')).toEqual(data);
+	});
+});
