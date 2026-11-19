@@ -438,7 +438,12 @@ export class MetadataExtractor {
 		if (strongResult) return strongResult;
 
 		// Dash separators (-, –, —) — commonly used within titles, so we
-		// only strip suffix position with stricter guards
+		// only strip suffix position with stricter guards. When the site name
+		// is known and the dash suffix shares no word with it, the suffix is
+		// part of the title (e.g. "Case.2 - First Guardian" on MyAnimeList.net).
+		if (siteName && !this.dashSuffixMayBeSiteName(title, siteName)) {
+			return { title: title.trim(), detectedSiteName: '' };
+		}
 		const dashResult = this.trySeparatorSplit(title, /\s+[-–—]\s+/g, {
 			suffixOnly: true,
 			guard: (tW, sW) => sW <= 2 && tW >= 2 && tW > sW,
@@ -446,6 +451,14 @@ export class MetadataExtractor {
 		if (dashResult) return dashResult;
 
 		return { title: title.trim(), detectedSiteName: '' };
+	}
+
+	private static dashSuffixMayBeSiteName(title: string, siteName: string): boolean {
+		const parts = title.split(/\s+[-–—]\s+/);
+		if (parts.length < 2) return true;
+		const words = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 1);
+		const siteWords = new Set(words(siteName));
+		return words(parts[parts.length - 1]).some(w => siteWords.has(w));
 	}
 
 	private static trySeparatorSplit(
