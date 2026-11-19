@@ -42,10 +42,11 @@ export function transformOutsideCodeFences(markdown: string, transform: (text: s
 		blocks.push(lines.slice(start, i + 1).join('\n'));
 	}
 
+	const placeholder = new RegExp(`^${marker}(\\d+)${marker}$`);
 	return transform(outside.join('\n'))
 		.split('\n')
 		.map(line => {
-			const match = line.match(new RegExp(`^${marker}(\\d+)${marker}$`));
+			const match = line.match(placeholder);
 			return match ? blocks[Number(match[1])] : line;
 		})
 		.join('\n');

@@ -118,7 +118,7 @@ class FootnoteHandler {
 
 	// Each collector numbers from 1, so a footnote whose number is taken moves to the end.
 	// One already collected under the same id is a duplicate.
-	private mergeFootnotes(target: FootnoteCollection, source: FootnoteCollection, reserved: FootnoteCollection = {}): void {
+	private mergeFootnotes(target: FootnoteCollection, source: FootnoteCollection, reserved: FootnoteCollection): void {
 		const ids = new Set(Object.values(target).map(data => data.originalId.toLowerCase()));
 		for (const [num, data] of Object.entries(source)) {
 			const id = data.originalId.toLowerCase();
