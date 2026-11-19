@@ -1,3 +1,4 @@
+import { transformOutsideCodeFences } from './utils/code-fences';
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 export const FETCH_TIMEOUT = 10_000; // 10s
@@ -349,7 +350,7 @@ export function cleanMarkdownContent(content: string): string {
 		markdown = markdown.slice(titleMatch[0].length);
 	}
 
-	markdown = markdown.replace(/\n{3,}/g, '\n\n');
+	markdown = transformOutsideCodeFences(markdown, text => text.replace(/\n{3,}/g, '\n\n'));
 
 	return markdown.trim();
 }

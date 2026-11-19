@@ -419,5 +419,62 @@ describe('Markdown conversion', () => {
 
 			expect(markdown).toContain('```python\nprint("hi")\n```');
 		});
+
+		test('should leave code untouched by the Markdown cleanup', () => {
+			const code = 'a = 1\n\n\n\nb = y[](z)\nprint("wow!![a](b)")\n&gt;\n&gt;\n&gt;';
+			const markdown = createMarkdownContent(
+				'<article><p>Intro</p><pre><code>' + code + '</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('Intro\n\n```\na = 1\n\n\n\nb = y[](z)\nprint("wow!![a](b)")\n>\n>\n>\n```');
+		});
+
+		test('should keep blank lines in code inside a list item', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>Item<pre><code>a\n\nb</code></pre></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('- Item\n\t```\n\ta\n\t\n\tb\n\t```');
+		});
+
+		test('should keep blank lines in code inside a blockquote', () => {
+			const markdown = createMarkdownContent(
+				'<article><blockquote><pre><code>a\n\n\nb</code></pre></blockquote></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('> ```\n> a\n> \n> \n> b\n> ```');
+		});
+	});
+
+	describe('empty links', () => {
+		test('should keep paragraphs apart when removing an empty link between them', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>First</p><a href="https://example.com/x"></a><p>Second</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('First\n\nSecond');
+		});
+
+		test('should keep a code fence on its own line after an empty link', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>First</p><a href="https://example.com/x"></a><pre><code>x</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('First\n\n```\nx\n```');
+		});
+
+		test('should remove an empty heading anchor', () => {
+			const markdown = createMarkdownContent(
+				'<article><h2><a href="#title"></a>Title</h2><p>Text</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('## Title\n\nText');
+		});
 	});
 });

@@ -1,6 +1,7 @@
 import TurndownService from 'turndown';
 import { isElement, isTextNode } from './utils';
 import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
+import { fencedLines, transformOutsideCodeFences } from './utils/code-fences';
 import type { DefuddleResponse, DefuddleOptions } from './types';
 
 // Define a type that works for both JSDOM and browser environments
@@ -406,13 +407,11 @@ export function createMarkdownContent(content: string, url: string) {
 				taskListMarker = checkbox.getAttribute('checked') ? '[x] ' : '[ ] ';
 			}
 
-			content = content
-				// Remove trailing newlines
-				.replace(/\n+$/, '')
-				// Split into lines
-				.split('\n')
-				// Remove empty lines
-				.filter(line => line.length > 0)
+			const lines = content.replace(/\n+$/, '').split('\n');
+			const inFence = fencedLines(lines);
+			content = lines
+				// Remove empty lines, except inside code blocks
+				.filter((line, i) => line.length > 0 || inFence[i])
 				// Add indentation to continued lines
 				.join('\n\t');
 
@@ -1020,22 +1019,21 @@ export function createMarkdownContent(content: string, url: string) {
 			markdown = markdown.slice(titleMatch[0].length);
 		}
 
-		// Remove any empty links e.g. [](example.com) that remain, along with surrounding newlines
-		// But don't affect image links like ![](image.jpg)
-		markdown = markdown.replace(/\n*(?<!!)\[]\([^)]+\)\n*/g, '');
+		markdown = transformOutsideCodeFences(markdown, text => text
+			// Remove any empty links e.g. [](example.com) that remain, and lines left empty by them
+			// But don't affect image links like ![](image.jpg)
+			.replace(/^[ \t]*(?<!!)\[]\([^)]+\)[ \t]*\n/gm, '')
+			.replace(/(?<!!)\[]\([^)]+\)/g, '')
+			// Add a space between exclamation marks and image syntax ![
+			// e.g. "Yey!![IMG](url)" becomes "Yey! ![IMG](url)" to prevent
+			// the parser from misinterpreting the ! as part of the image markup.
+			// Also handles linked images: "Yey![![IMG](src)](href)"
+			.replace(/!(?=!\[|\[!\[)/g, '! ')
+			// Remove any consecutive newlines more than two
+			.replace(/\n{3,}/g, '\n\n')
+			// Collapse runs of empty blank blockquote lines that start with a >
+			.replace(BLANK_QUOTE_LINE_RUN, '$1'));
 
-		// Add a space between exclamation marks and image syntax ![
-		// e.g. "Yey!![IMG](url)" becomes "Yey! ![IMG](url)" to prevent
-		// the parser from misinterpreting the ! as part of the image markup.
-		// Also handles linked images: "Yey![![IMG](src)](href)"
-		markdown = markdown.replace(/!(?=!\[|\[!\[)/g, '! ');
-
-		// Remove any consecutive newlines more than two
-		markdown = markdown.replace(/\n{3,}/g, '\n\n');
-
-		// Collapse runs of empty blank blockquote lines that start with a >
-		markdown = markdown.replace(BLANK_QUOTE_LINE_RUN, '$1');
-		
 		return markdown.trim();
 	} catch (error) {
 		console.error('Error converting HTML to Markdown:', error);

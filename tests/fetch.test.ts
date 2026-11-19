@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest';
-import { fetchPage, DEFAULT_UA } from '../src/fetch';
+import { fetchPage, DEFAULT_UA, cleanMarkdownContent } from '../src/fetch';
 
 const HTML = '<html><head></head><body>hello</body></html>';
 
@@ -36,5 +36,11 @@ describe('fetchPage charset handling', () => {
 	test('handles quoted charset (charset="utf-8")', async () => {
 		mockFetch('text/html; charset="utf-8"');
 		await expect(fetchPage('https://example.com', DEFAULT_UA)).resolves.toContain('hello');
+	});
+});
+
+describe('cleanMarkdownContent', () => {
+	test('collapses blank lines outside code fences only', () => {
+		expect(cleanMarkdownContent('Intro\n\n\n\n```\na\n\n\n\nb\n```')).toBe('Intro\n\n```\na\n\n\n\nb\n```');
 	});
 });
