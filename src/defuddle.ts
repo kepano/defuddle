@@ -29,6 +29,18 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
+interface RetryAttempt {
+	/** Option overrides, or null to skip the attempt */
+	options: () => Partial<DefuddleOptions> | null;
+	isBetter: (candidate: DefuddleResponse, best: DefuddleResponse) => boolean;
+}
+
+interface RetryStep {
+	below: number;
+	reason: string;
+	attempts: RetryAttempt[];
+}
+
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
 	// against a sanitized clone instead of the caller's live document.
@@ -98,81 +110,85 @@ export class Defuddle {
 		// Try first with default settings
 		let result = this.parseInternal();
 
-		// If result has very little content, try again without clutter removal
-		if ((result?.wordCount ?? 0) < 200) {
-			this._log('Initial parse returned very little content, trying again');
-			const retryResult = this.parseInternal({
-				removePartialSelectors: false
-			});
-
-			// Only use the retry if it produces significantly more content.
-			// A small increase likely means partial selectors correctly removed
-			// clutter (author blocks, related articles, etc.) from a short article.
-			// A large increase (2x+) suggests partial selectors were too aggressive.
-			if (retryResult && (!result || retryResult.wordCount > result.wordCount * 2)) {
-				this._log('Retry produced more content');
-				result = retryResult;
-			}
-		}
-
-		// If still very little content, the page may be an index/listing page
-		// or a page that reveals content at runtime from a hidden wrapper.
-		// Retry once with hidden-element removal disabled.
-		if ((result?.wordCount ?? 0) < 50) {
-			this._log('Still very little content, retrying without hidden-element removal');
-			const hiddenRetry = this.parseInternal({
-				removeHiddenElements: false
-			});
-			if (hiddenRetry && (!result || hiddenRetry.wordCount > result.wordCount * 2)) {
-				this._log('Hidden-element retry produced more content');
-				result = hiddenRetry;
-			}
-
-			// Try targeting the largest hidden subtree directly to avoid body-level
-			// leftovers (e.g. FPS counters) when hidden content is the real article.
-			let hiddenSelector: string | undefined;
-			try {
-				hiddenSelector = this.findLargestHiddenContentSelector();
-			} catch (error) {
-				this._recordError(error);
-			}
-			if (hiddenSelector) {
-				this._log('Retrying with hidden content selector:', hiddenSelector);
-				const hiddenSelectorRetry = this.parseInternal({
-					removeHiddenElements: false,
-					removePartialSelectors: false,
-					contentSelector: hiddenSelector
-				});
-				if (hiddenSelectorRetry && (
-					!result ||
-					hiddenSelectorRetry.wordCount > result.wordCount ||
-					(
-						hiddenSelectorRetry.wordCount > Math.max(20, result.wordCount * 0.7) &&
-						hiddenSelectorRetry.content.length < result.content.length
-					)
-				)) {
-					this._log('Hidden-selector retry produced better focused content');
-					result = hiddenSelectorRetry;
+		// Retry options don't reach site extractors, so their output can't change.
+		if (!result?.extractorType) {
+			for (const retry of this._retrySteps()) {
+				if ((result?.wordCount ?? 0) >= retry.below) continue;
+				this._log(retry.reason);
+				for (const attempt of retry.attempts) {
+					const options = attempt.options();
+					if (!options) continue;
+					const candidate = this.parseInternal(options);
+					if (candidate && (!result || attempt.isBetter(candidate, result))) {
+						this._log('Retry produced better content:', options);
+						result = candidate;
+					}
 				}
 			}
 		}
 
-		// If still very little content, the page may be an index/listing page
-		// where card elements were scored as non-content or removed by partial
-		// selectors (e.g. "post-preview"). Retry with both disabled.
-		if ((result?.wordCount ?? 0) < 50) {
-			this._log('Still very little content, retrying without scoring/partial selectors (possible index page)');
-			const indexRetry = this.parseInternal({
-				removeLowScoring: false,
-				removePartialSelectors: false,
-				removeContentPatterns: false
-			});
-			if (indexRetry && (!result || indexRetry.wordCount > result.wordCount)) {
-				this._log('Index page retry produced more content');
-				result = indexRetry;
-			}
-		}
+		return this._retryWithSchemaText(result, startTime);
+	}
 
+	/**
+	 * Option overrides to retry with when a parse finds little content, in order.
+	 * A step runs while the best result has fewer words than `below`.
+	 */
+	private _retrySteps(): RetryStep[] {
+		const twiceAsLong = (candidate: DefuddleResponse, best: DefuddleResponse) => candidate.wordCount > best.wordCount * 2;
+		return [
+			{
+				// A small increase likely means partial selectors correctly removed
+				// clutter (author blocks, related articles, etc.) from a short article.
+				// A large increase (2x+) suggests partial selectors were too aggressive.
+				below: 200,
+				reason: 'Initial parse returned very little content, trying again',
+				attempts: [{ options: () => ({ removePartialSelectors: false }), isBetter: twiceAsLong }],
+			},
+			{
+				// The page may be an index/listing page or a page that reveals content
+				// at runtime from a hidden wrapper.
+				below: 50,
+				reason: 'Still very little content, retrying without hidden-element removal',
+				attempts: [
+					{ options: () => ({ removeHiddenElements: false }), isBetter: twiceAsLong },
+					{
+						// Target the largest hidden subtree directly to avoid body-level
+						// leftovers (e.g. FPS counters) when hidden content is the real article.
+						options: () => {
+							let contentSelector: string | undefined;
+							try {
+								contentSelector = this.findLargestHiddenContentSelector();
+							} catch (error) {
+								this._recordError(error);
+							}
+							return contentSelector
+								? { removeHiddenElements: false, removePartialSelectors: false, contentSelector }
+								: null;
+						},
+						isBetter: (candidate, best) =>
+							candidate.wordCount > best.wordCount ||
+							(
+								candidate.wordCount > Math.max(20, best.wordCount * 0.7) &&
+								candidate.content.length < best.content.length
+							),
+					},
+				],
+			},
+			{
+				// The page may be an index/listing page where card elements were scored
+				// as non-content or removed by partial selectors (e.g. "post-preview").
+				below: 50,
+				reason: 'Still very little content, retrying without scoring/partial selectors (possible index page)',
+				attempts: [{
+					options: () => ({ removeLowScoring: false, removePartialSelectors: false, removeContentPatterns: false }),
+					isBetter: (candidate, best) => candidate.wordCount > best.wordCount,
+				}],
+			},
+		];
+	}
+
+	private _retryWithSchemaText(result: DefuddleResponse | null, startTime: number): DefuddleResponse | null {
 		// If schema.org has text content that is significantly longer than what we
 		// extracted, the scorer likely picked the wrong element from a feed page.
 		// Use a 1.5x threshold to avoid triggering when the difference is small
@@ -196,7 +212,7 @@ export class Defuddle {
 					const selector = this.getElementSelector(bestMatch);
 					this._log('Schema.org suggests a better content element, retrying with selector:', selector);
 					const schemaRetry = this.parseInternal({ contentSelector: selector });
-					if (schemaRetry) {
+					if (schemaRetry && (!result || schemaRetry.wordCount > result.wordCount)) {
 						result = schemaRetry;
 					}
 				} else {

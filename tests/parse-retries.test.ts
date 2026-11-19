@@ -1,6 +1,13 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Defuddle } from '../src/defuddle';
+import { ExtractorRegistry } from '../src/extractor-registry';
 import { parseDocument } from './helpers';
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 describe('Parse retries', () => {
 	test('removes the cover image on every parse of the same document', () => {
@@ -17,5 +24,17 @@ describe('Parse retries', () => {
 			expect(result.image).toBe('https://cdn.example.com/w_1600/cover.jpg');
 			expect(result.content).not.toContain('cover.jpg');
 		}
+	});
+
+	test('runs a site extractor once for a short post', () => {
+		const html = readFileSync(join(__dirname, 'fixtures', 'comments--mastodon.social-@user-12345678.html'), 'utf8');
+		const doc = parseDocument(html, 'https://mastodon.social/@user/12345678');
+		const findExtractor = vi.spyOn(ExtractorRegistry, 'findExtractor');
+
+		const result = new Defuddle(doc, { url: 'https://mastodon.social/@user/12345678' }).parse();
+
+		expect(result.extractorType).toBe('mastodon');
+		expect(result.wordCount).toBeLessThan(200);
+		expect(findExtractor).toHaveBeenCalledTimes(1);
 	});
 });
