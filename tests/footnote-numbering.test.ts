@@ -29,4 +29,13 @@ describe('Footnote numbering across styles', () => {
 
 		expect(markdown).toBe('A[^1] B[^2] C[^3].\n\n[^1]: Aside text\n\n[^2]: Note B\n\n[^3]: Note C');
 	});
+
+	test('collects a footnote once when two collectors find it', () => {
+		const markdown = footnoteMarkdown(`
+			<p>Text<sup id="fnref:1"><a href="#fn:1">1</a></sup>.</p>
+			<div class="footnotes"><aside><ol start="1"><li id="fn:1">Only note</li></ol></aside></div>
+		`);
+
+		expect(markdown).toBe('Text[^1].\n\n[^1]: Only note');
+	});
 });

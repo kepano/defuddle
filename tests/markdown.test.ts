@@ -430,6 +430,24 @@ describe('Markdown conversion', () => {
 			expect(markdown).toBe('Intro\n\n```\na = 1\n\n\n\nb = y[](z)\nprint("wow!![a](b)")\n>\n>\n>\n```');
 		});
 
+		test('should not end a code block at a shorter fence inside it', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code>a\n```\n\n\n\nb</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('````\na\n```\n\n\n\nb\n````');
+		});
+
+		test('should not start a code block at inline code that opens a line', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><code>a`b``c</code> starts the line</p><p>First</p><a href="https://example.com/x"></a><p>Second</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('```a`b``c``` starts the line\n\nFirst\n\nSecond');
+		});
+
 		test('should keep blank lines in code inside a list item', () => {
 			const markdown = createMarkdownContent(
 				'<article><ul><li>Item<pre><code>a\n\nb</code></pre></li></ul></article>',
