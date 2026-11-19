@@ -177,3 +177,73 @@ describe('TwitterExtractor markup resilience', () => {
 		expect(result.author).toBe('@examplename');
 	});
 });
+
+// The X web app released in late 2026: no data-testid attributes, no <time>,
+// and one list item per conversation entry. Snowflake IDs carry the date.
+const post = (handle: string, name: string, text: string, id: string, inner = '') => `
+	<article>
+		<div data-post-avatar="true"><a href="/${handle}"><img alt="@${handle}" src="https://pbs.twimg.com/profile_images/1/a_normal.jpg"></a></div>
+		<div>
+			<span><a href="/${handle}"><div dir="auto">${name}</div></a></span>
+			<span><a href="/${handle}"><span>@${handle}</span></a></span>
+			<span><a href="/${handle}/status/${id}">Nov 11</a></span>
+		</div>
+		<div dir="auto" lang="en"><span>${text}</span></div>
+		${inner}
+		<div role="group" aria-label="1 reply, 2 likes, 1000 views">
+			<div data-engagement-action="reply"><a href="/compose/post?in_reply_to=${id}"><span>1</span></a></div>
+		</div>
+	</article>`;
+
+const quoted = (handle: string, name: string, text: string, id: string) => `
+	<div role="link" data-href="/${handle}/status/${id}" data-slot="embedded-tweet-frame">
+		<a href="/${handle}/status/${id}" tabindex="-1"></a>
+		${post(handle, name, text, id)}
+	</div>`;
+
+const redesignUrl = 'https://x.com/examplename/status/2120597035028255136';
+
+async function parseRedesign(items: string[]) {
+	const doc = parseLinkedomHTML(page(`
+		<main>
+			<section aria-labelledby="conversation">
+				<h2 id="conversation">Conversation</h2>
+				<div><ul>${items.map(item => `<li>${item}</li>`).join('')}</ul></div>
+			</section>
+		</main>`), redesignUrl);
+	return Defuddle(doc, redesignUrl, { markdown: true, fetch: offlineFetch });
+}
+
+describe('TwitterExtractor on the redesigned X', () => {
+	test('main post, quoted post, thread and nested replies', async () => {
+		const result = await parseRedesign([
+			`<div tabindex="-1">${post('examplename', 'Example Name', 'Durable formats outlast the apps that read them.', '2120597035028255136',
+				quoted('olderaccount', 'Older Account', 'The original quoted post.', '1688610782509211648'))}</div>`,
+			`<div><div role="link">${post('examplename', 'Example Name', 'A follow-up in the same thread.', '2120597400000000000')}</div></div>`,
+			`<div><div role="link">${post('otherperson', 'Other Person', 'A reply from someone else.', '2120605895327367229')}</div>
+			<div><div role="link">${post('examplename', 'Example Name', 'An answer to that reply.', '2120607651264647225')}</div></div>`,
+			`<div><div role="link">${post('thirdperson', 'Third Person', 'A separate reply.', '2120612584806302007')}</div></div>`,
+		]);
+
+		const md = String(result.content);
+		expect(result.author).toBe('@examplename');
+		expect(md).toContain('> **Older Account @olderaccount** · 2023-08-07');
+		expect(md.indexOf('A follow-up in the same thread.')).toBeLessThan(md.indexOf('## Comments'));
+		expect(md).toContain('> **Other Person @otherperson** · [2026-11-11](https://x.com/otherperson/status/2120605895327367229)');
+		expect(md).toContain('> > **Example Name @examplename** · [2026-11-11](https://x.com/examplename/status/2120607651264647225)');
+		expect(md).toContain('> **Third Person @thirdperson**');
+		// Engagement counts and the reply composer link stay out.
+		expect(md).not.toContain('in_reply_to');
+		expect(md).not.toContain('Nov 11');
+	});
+
+	test('mentions in the text are not read as the author', async () => {
+		const result = await parseRedesign([
+			post('examplename', 'Example Name', 'Durable formats.', '2120597035028255136'),
+			post('otherperson', 'Other Person', '<span>Thanks </span><span><a href="/examplename">@examplename</a></span>', '2120605895327367229'),
+		]);
+
+		expect(String(result.content)).toContain('**Other Person @otherperson**');
+		expect(String(result.content)).toContain('Thanks @examplename');
+	});
+});
