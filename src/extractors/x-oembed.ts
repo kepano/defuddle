@@ -3,6 +3,8 @@ import { ExtractorResult } from '../types/extractors';
 import { parseHTML, serializeHTML, escapeHtml } from '../utils/dom';
 import { buildContentHtml } from '../utils/comments';
 
+const FETCH_TIMEOUT_MS = 4000;
+
 interface OembedResponse {
 	html: string;
 	author_name: string;
@@ -160,7 +162,7 @@ export class XOembedExtractor extends BaseExtractor {
 
 	private async extractOembed(): Promise<ExtractorResult> {
 		const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(this.url)}&omit_script=true`;
-		const response = await this.fetch(oembedUrl);
+		const response = await this.fetch(oembedUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
 
 		if (!response.ok) {
 			throw new Error(`oEmbed request failed: ${response.status}`);
@@ -227,6 +229,7 @@ export class XOembedExtractor extends BaseExtractor {
 			headers: {
 				'User-Agent': 'Mozilla/5.0 (compatible; Defuddle/1.0; +https://defuddle.md)',
 			},
+			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
 		});
 
 		if (!response.ok) {
