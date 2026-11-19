@@ -200,4 +200,22 @@ describe('parse() does not mutate the live document', () => {
 		expect(result.content).toContain('slow line past the breakwater');
 		expect(doc.documentElement.outerHTML).toBe(before);
 	});
+
+	test('reads stamped shadow content without removing it from the live document', () => {
+		const doc = parseDocument(`<html><head><title>Harbor</title></head><body><article>
+			<h1>Harbor at dawn</h1>${prose}<div id="tide-table"></div>${prose}
+		</article></body></html>`, 'https://example.com/harbor');
+		// A content script sees an empty shadow root; a main-world script stamps its HTML.
+		const host = doc.getElementById('tide-table')!;
+		host.attachShadow({ mode: 'open' });
+		host.setAttribute('data-defuddle-shadow', '<p>High tide at 6:42 in the morning.</p>');
+		const before = doc.documentElement.outerHTML;
+
+		const first = new Defuddle(doc, { url: 'https://example.com/harbor' }).parse();
+		const second = new Defuddle(doc, { url: 'https://example.com/harbor' }).parse();
+
+		expect(first.content).toContain('High tide at 6:42');
+		expect(second.content).toContain('High tide at 6:42');
+		expect(doc.documentElement.outerHTML).toBe(before);
+	});
 });

@@ -1606,8 +1606,7 @@ export class Defuddle {
 				if (!cloneEl) continue;
 
 				shadowData.push({cloneEl, html: shadowHtml});
-				// Clean up temporary attributes from both original and clone
-				origEl.removeAttribute('data-defuddle-shadow');
+				// Keep the live page's copy so retries and later parses can read it.
 				cloneEl.removeAttribute('data-defuddle-shadow');
 			}
 			for (const {cloneEl, html} of shadowData) {
