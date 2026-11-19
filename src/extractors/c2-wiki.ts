@@ -90,8 +90,10 @@ export class C2WikiExtractor extends BaseExtractor {
 				prefix += `</${newOpenTags.pop()}>`;
 			}
 			if (tag && newOpenTags.length < depth) {
-				prefix += `<${tag}>`;
-				newOpenTags.push(tag);
+				while (newOpenTags.length < depth) {
+					prefix += `<${tag}>`;
+					newOpenTags.push(tag);
+				}
 			} else if (tag && newOpenTags.length === depth && newOpenTags[depth - 1] !== tag) {
 				prefix += `</${newOpenTags.pop()}><${tag}>`;
 				newOpenTags.push(tag);
