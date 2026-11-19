@@ -849,7 +849,8 @@ export class Defuddle {
 
 		this._ensureMetadata();
 		const pageMetaTags = this._metaTags!;
-		const metadata = this._metadata;
+		// Copied so an attempt's cover image upgrade doesn't leak into later attempts.
+		const metadata = { ...this._metadata };
 
 		if (options.removeImages) {
 			this.removeImages(this.doc);
