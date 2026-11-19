@@ -495,4 +495,48 @@ describe('Markdown conversion', () => {
 			expect(markdown).toBe('## Title\n\nText');
 		});
 	});
+
+	// The attribute strip removes the task-list-item class before conversion,
+	// so the leading checkbox has to be enough.
+	describe('task lists', () => {
+		const html = `<html><head><title>Release checklist</title></head><body><article>
+			<h1>Release checklist</h1>
+			<p>Before we ship the next version of the app, we go through every step below and tick them off one at a time so nothing gets missed.</p>
+			<ul class="contains-task-list">
+				<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" checked disabled> Bump the version in the manifest and the package file, then tag the commit</li>
+				<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled> Write the changelog entries for every fix that went in since the last release</li>
+			</ul>
+			<p>After the checklist is done, the release goes out to the store and we watch the crash reports for a day before announcing it anywhere.</p>
+		</article></body></html>`;
+
+		test('keeps checkboxes after the attribute strip', async () => {
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+			expect(result.contentMarkdown).toContain('- [x] Bump the version');
+			expect(result.contentMarkdown).toContain('- [ ] Write the changelog');
+		});
+
+		test('converts task list markup directly', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li class="task-list-item"><input type="checkbox" checked> Ship it</li><li><input type="checkbox"> Announce it</li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).toBe('- [x] Ship it\n- [ ] Announce it');
+		});
+
+		test('finds the checkbox in a loose item paragraph', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li><p><input type="checkbox" checked> Ship it</p></li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).toBe('- [x] Ship it');
+		});
+
+		test('leaves a checkbox later in the item alone', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li>Remember me <input type="checkbox"></li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).not.toContain('[ ]');
+		});
+	});
 });

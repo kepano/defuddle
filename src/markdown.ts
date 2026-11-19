@@ -41,6 +41,26 @@ export function asGenericElement(node: any): GenericElement {
 	return node as unknown as GenericElement;
 }
 
+// A task list item starts with its checkbox, directly or inside a loose
+// item's first paragraph. The task-list-item class doesn't survive the
+// attribute strip, so the position is what marks it.
+function getLeadingCheckbox(li: GenericElement): GenericElement | null {
+	let parent: GenericElement = li;
+	for (let depth = 0; depth < 2; depth++) {
+		const first = Array.from(parent.childNodes || []).find(
+			child => !(isTextNode(child) && !(child.textContent || '').trim())
+		);
+		if (!first || !isElement(first)) return null;
+		const el = asGenericElement(first);
+		if (el.nodeName === 'INPUT') {
+			return (el.getAttribute('type') || '').toLowerCase() === 'checkbox' ? el : null;
+		}
+		if (el.nodeName !== 'P') return null;
+		parent = el;
+	}
+	return null;
+}
+
 
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
@@ -397,14 +417,13 @@ export function createMarkdownContent(content: string, url: string) {
 			if (!isGenericElement(node)) return content;
 
 			// Handle task list items
-			const isTaskListItem = node.classList?.contains('task-list-item');
-			const checkbox = node.querySelector('input[type="checkbox"]');
+			const checkbox = getLeadingCheckbox(node);
 			let taskListMarker = '';
-			
-			if (isTaskListItem && checkbox && isGenericElement(checkbox)) {
+
+			if (checkbox) {
 				// Remove the checkbox from content since we'll add markdown checkbox
 				content = content.replace(/<input[^>]*>/, '');
-				taskListMarker = checkbox.getAttribute('checked') ? '[x] ' : '[ ] ';
+				taskListMarker = checkbox.hasAttribute('checked') ? '[x] ' : '[ ] ';
 			}
 
 			const lines = content.replace(/\n+$/, '').split('\n');
