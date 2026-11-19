@@ -1,6 +1,6 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML, escapeHtml } from '../utils/dom';
+import { escapeHtml } from '../utils/dom';
 
 const INJECTED_ATTR = 'data-defuddle-substack-post';
 
@@ -18,6 +18,7 @@ export class SubstackExtractor extends BaseExtractor {
 	private noteImage: Element | null = null;
 	private postData: SubstackPostData | null = null;
 	private postContentSelector: string | null = null;
+	private injectedHtml = '';
 
 	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
 		super(document, url, schemaOrgData, options);
@@ -32,14 +33,7 @@ export class SubstackExtractor extends BaseExtractor {
 		// Fall back to window._preloads script (SSR/curl/worker context)
 		this.postData = this.extractPreloadData();
 		if (this.postData?.body_html) {
-			// Inject body_html into the document so the pipeline can process it
-			const existing = document.querySelector(`[${INJECTED_ATTR}]`);
-			if (!existing) {
-				const wrapper = document.createElement('div');
-				wrapper.setAttribute(INJECTED_ATTR, '');
-				wrapper.appendChild(parseHTML(document, this.postData.body_html));
-				document.body.appendChild(wrapper);
-			}
+			this.injectedHtml = this.postData.body_html;
 			this.postContentSelector = `[${INJECTED_ATTR}]`;
 			return;
 		}
@@ -66,6 +60,10 @@ export class SubstackExtractor extends BaseExtractor {
 
 	canExtract(): boolean {
 		return this.postContentSelector !== null || this.noteText !== null;
+	}
+
+	prepareDocument(doc: Document): void {
+		this.appendWrapper(doc, INJECTED_ATTR, this.injectedHtml);
 	}
 
 	extract(): ExtractorResult {

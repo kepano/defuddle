@@ -24,9 +24,6 @@ export class MediumExtractor extends BaseExtractor {
 		const subtitle = this.getSubtitle();
 		const author = this.getAuthor();
 		const publication = this.getPublication();
-
-		// Clean before getDescription so it doesn't pick up UI text
-		this.cleanArticle();
 		const description = subtitle || this.getDescription();
 
 		return {
@@ -46,29 +43,29 @@ export class MediumExtractor extends BaseExtractor {
 		};
 	}
 
-	/**
-	 * Remove Medium UI elements from the article before the standard
-	 * pipeline processes it. This runs on the live DOM.
-	 */
-	private cleanArticle(): void {
-		if (!this.article) return;
+	prepareDocument(doc: Document): void {
+		const article = doc.querySelector('article.meteredContent') || doc.querySelector('article');
+		if (article) this.cleanArticle(article);
+	}
 
+	/** Remove Medium UI elements before the standard pipeline reads the article. */
+	private cleanArticle(article: Element): void {
 		// Unwrap role="button" containers around images — the pipeline
 		// removes [role="button"] elements which would kill the images
-		this.article.querySelectorAll('figure [role="button"]').forEach(btn => {
+		article.querySelectorAll('figure [role="button"]').forEach(btn => {
 			btn.replaceWith(...Array.from(btn.childNodes));
 		});
 
 		// Also remove role="button" on tooltip containers around author info
-		this.article.querySelectorAll('[role="tooltip"]').forEach(el => {
+		article.querySelectorAll('[role="tooltip"]').forEach(el => {
 			el.removeAttribute('role');
 		});
 
 		// Remove subscription promo banners (links to medium.com/plans)
-		this.article.querySelectorAll('a[href*="medium.com/plans"]').forEach(link => {
+		article.querySelectorAll('a[href*="medium.com/plans"]').forEach(link => {
 			// Remove the closest block-level ancestor that wraps only the promo
 			const wrapper = link.closest('div');
-			if (wrapper && wrapper !== this.article) {
+			if (wrapper && wrapper !== article) {
 				wrapper.remove();
 			} else {
 				link.remove();
@@ -76,20 +73,20 @@ export class MediumExtractor extends BaseExtractor {
 		});
 
 		// Remove related article previews
-		this.article.querySelectorAll('[data-testid="post-preview"]').forEach(el => el.remove());
+		article.querySelectorAll('[data-testid="post-preview"]').forEach(el => el.remove());
 
 		// Remove engagement buttons
-		this.article.querySelectorAll('[data-testid*="Clap"], [data-testid*="Bookmark"], [data-testid*="Share"], [data-testid*="Response"]').forEach(el => el.remove());
+		article.querySelectorAll('[data-testid*="Clap"], [data-testid*="Bookmark"], [data-testid*="Share"], [data-testid*="Response"]').forEach(el => el.remove());
 
 		// Remove author photo, name, and read time
-		this.article.querySelectorAll('[data-testid="authorPhoto"], [data-testid="authorName"], [data-testid="storyReadTime"]').forEach(el => el.remove());
+		article.querySelectorAll('[data-testid="authorPhoto"], [data-testid="authorName"], [data-testid="storyReadTime"]').forEach(el => el.remove());
 
 		// Remove UI text, dates, read-time, and standalone noise
 		const UI_TEXT = new Set([
 			'Member-only story', 'Listen', 'Share', 'Top highlight', '·',
 			'Press enter or click to view image in full size',
 		]);
-		this.article.querySelectorAll('p, span, div').forEach(el => {
+		article.querySelectorAll('p, span, div').forEach(el => {
 			const text = el.textContent?.trim() || '';
 			if (!text) return;
 			if (UI_TEXT.has(text)) { el.remove(); return; }
@@ -128,7 +125,10 @@ export class MediumExtractor extends BaseExtractor {
 
 	private getDescription(): string {
 		if (!this.article) return '';
-		const paragraphs = this.article.querySelectorAll('p');
+		// Clean a copy so the description skips UI text without changing the page.
+		const article = this.article.cloneNode(true) as Element;
+		this.cleanArticle(article);
+		const paragraphs = article.querySelectorAll('p');
 		for (const p of Array.from(paragraphs)) {
 			const text = p.textContent?.trim() || '';
 			// Skip empty, short punctuation-only, or numeric paragraphs

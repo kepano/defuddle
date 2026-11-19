@@ -208,7 +208,7 @@ describe('degraded whole-<body> fallback', () => {
 		const noMetadata = defuddle().parse();
 		expect(noMetadata.content).toContain('Copyright 2026');
 		expect(noMetadata).toMatchObject({ title: '', domain: 'example.com', description: '', favicon: '', image: '', language: '', published: '', author: '', site: '', schemaOrgData: null });
-		expect(noMetadata.debug?.errors).toEqual(['Error: simulated preprocessing failure', 'Error: simulated metadata failure']);
+		expect(noMetadata.debug?.errors).toEqual(['Error: simulated metadata failure', 'Error: simulated preprocessing failure']);
 	});
 
 	test('removes images from the whole-<body> fallback without touching the live document', async () => {

@@ -1,6 +1,5 @@
 import { BaseExtractor } from './_base';
 import { ExtractorResult } from '../types/extractors';
-import { parseHTML } from '../utils/dom';
 
 const INJECTED_ATTR = 'data-defuddle-nyt';
 
@@ -88,6 +87,7 @@ interface NytGenericBlock {
 export class NytimesExtractor extends BaseExtractor {
 	private preloadedData: NytArticle | null = null;
 	private contentSelector: string | null = null;
+	private renderedHtml = '';
 
 	constructor(document: Document, url: string, schemaOrgData?: any, options?: any) {
 		super(document, url, schemaOrgData, options);
@@ -96,14 +96,7 @@ export class NytimesExtractor extends BaseExtractor {
 		if (this.preloadedData) {
 			const body = this.preloadedData.sprinkledBody || this.preloadedData.body;
 			if (body?.content?.length) {
-				// Inject rendered content into the document for the pipeline
-				const existing = document.querySelector(`[${INJECTED_ATTR}]`);
-				if (!existing) {
-					const wrapper = document.createElement('div');
-					wrapper.setAttribute(INJECTED_ATTR, '');
-					wrapper.appendChild(parseHTML(document, this.renderBlocks(body.content)));
-					document.body.appendChild(wrapper);
-				}
+				this.renderedHtml = this.renderBlocks(body.content);
 				this.contentSelector = `[${INJECTED_ATTR}]`;
 			}
 		}
@@ -111,6 +104,10 @@ export class NytimesExtractor extends BaseExtractor {
 
 	canExtract(): boolean {
 		return this.contentSelector !== null;
+	}
+
+	prepareDocument(doc: Document): void {
+		this.appendWrapper(doc, INJECTED_ATTR, this.renderedHtml);
 	}
 
 	extract(): ExtractorResult {

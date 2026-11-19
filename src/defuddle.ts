@@ -42,7 +42,7 @@ export class Defuddle {
 	private _metadata: any | undefined;
 	private _mobileStyles: StyleChange[] | undefined;
 	private _smallImages: Set<string> | undefined;
-	private _inExtractorPipelineRun = false;
+	private _pipelineExtractor: BaseExtractor | null = null;
 
 	/**
 	 * Create a new Defuddle instance
@@ -87,13 +87,6 @@ export class Defuddle {
 
 	private _parseWithRetries(): DefuddleResponse | null {
 		const startTime = Date.now();
-
-		// Normalize non-standard attribute casing (e.g. React SSR outputs
-		// "srcSet" instead of "srcset") before any image processing.
-		if (this.doc.body) {
-			this._normalizeAttributes(this.doc.body);
-			this._resolveNoscriptImages(this.doc.body);
-		}
 
 		// Try first with default settings
 		let result = this.parseInternal();
@@ -190,6 +183,8 @@ export class Defuddle {
 			try {
 				const safeDoc = liveDoc.cloneNode(true) as Document;
 				this._stripUnsafeElements(safeDoc.body);
+				// So the selector below matches the DOM parseInternal prepares.
+				this._prepareImages(safeDoc.body);
 				this.doc = safeDoc;
 				const bestMatch = this._findElementBySchemaText(this.doc.body, schemaText);
 				if (bestMatch) {
@@ -326,6 +321,12 @@ export class Defuddle {
 		const safeBody = this.doc.body.cloneNode(true) as HTMLElement;
 		if (this.options.removeImages) {
 			this.removeImages(safeBody);
+		} else {
+			try {
+				this._prepareImages(safeBody);
+			} catch (error) {
+				this._recordError(error);
+			}
 		}
 		this._stripUnsafeElements(safeBody);
 		return this.resolveContentUrls(serializeHTML(safeBody));
@@ -523,6 +524,13 @@ export class Defuddle {
 		return m ? parseInt(m[1], 10) : 0;
 	}
 
+	/** Runs on a copy: these fixes would reload images on the caller's live page. */
+	private _prepareImages(body: Element | null): void {
+		if (!body) return;
+		this._normalizeAttributes(body);
+		this._resolveNoscriptImages(body);
+	}
+
 	/**
 	 * Rename non-standard HTML attributes to their canonical lowercase forms.
 	 * React SSR outputs camelCase attributes like "srcSet" that some DOM
@@ -555,7 +563,7 @@ export class Defuddle {
 					html = noscript.textContent || '';
 				}
 				if (!html.includes('<img')) continue;
-				const fragment = parseHTML(this.doc, html);
+				const fragment = parseHTML(body.ownerDocument, html);
 				noscriptImg = fragment.querySelector('img');
 			}
 			if (!noscriptImg) continue;
@@ -670,6 +678,7 @@ export class Defuddle {
 		// streamed-content swaps move elements and shift sibling positions.
 		const doc = this.doc.cloneNode(true) as Document;
 		this.flattenShadowRoots(this.doc, doc);
+		this._prepareImages(doc.body);
 		this.resolveStreamedContent(doc);
 		const body = doc.body;
 		if (!body) return undefined;
@@ -865,12 +874,12 @@ export class Defuddle {
 				language: options.language,
 				fetch: options.fetch,
 			};
-			if (!this._inExtractorPipelineRun) {
+			if (!this._pipelineExtractor) {
 				const extractor = ExtractorRegistry.findExtractor(this.doc, url, schemaOrgData, extractorOpts);
 				if (extractor && extractor.canExtract()) {
 					const extracted = extractor.extract();
 					if (extracted.contentSelector) {
-						this._inExtractorPipelineRun = true;
+						this._pipelineExtractor = extractor;
 						try {
 							const pipelineResult = this.parseInternal({
 								contentSelector: extracted.contentSelector,
@@ -891,7 +900,7 @@ export class Defuddle {
 								...(variables ? { variables } : {}),
 							};
 						} finally {
-							this._inExtractorPipelineRun = false;
+							this._pipelineExtractor = null;
 						}
 					}
 					return this.buildExtractorResponse(extracted, metadata, startTime, extractor, pageMetaTags);
@@ -923,6 +932,12 @@ export class Defuddle {
 
 			// Flatten shadow DOM content into the clone
 			profileStep('flattenShadowRoots', () => this.flattenShadowRoots(this.doc, clone));
+
+			this._pipelineExtractor?.prepareDocument(clone);
+
+			// Normalize attribute casing (e.g. React SSR "srcSet") and promote
+			// <noscript> images before any image processing.
+			profileStep('prepareImages', () => this._prepareImages(clone.body));
 
 			// Resolve React streaming SSR suspense boundaries
 			profileStep('resolveStreamedContent', () => this.resolveStreamedContent(clone));
