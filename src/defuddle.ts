@@ -868,10 +868,6 @@ export class Defuddle {
 		// Copied so an attempt's cover image upgrade doesn't leak into later attempts.
 		const metadata = { ...this._metadata };
 
-		if (options.removeImages) {
-			this.removeImages(this.doc);
-		}
-
 		try {
 			// Use site-specific extractor first, if there is one
 			const url = options.url || this.doc.URL;
@@ -941,6 +937,10 @@ export class Defuddle {
 
 			// Resolve React streaming SSR suspense boundaries
 			profileStep('resolveStreamedContent', () => this.resolveStreamedContent(clone));
+
+			if (options.removeImages) {
+				this.removeImages(clone);
+			}
 
 			// Apply mobile styles to clone
 			profileStep('applyMobileStyles', () => this.applyMobileStyles(clone, mobileStyles));
@@ -1249,11 +1249,8 @@ export class Defuddle {
 
 	}
 
-	private removeImages(doc: Document) {
-		const images = doc.getElementsByTagName('img');
-		Array.from(images).forEach(image => {
-			image.remove();
-		});
+	private removeImages(root: ParentNode) {
+		root.querySelectorAll('img').forEach(image => image.remove());
 	}
 
 	private findMainContent(doc: Document): Element | null {
@@ -1838,6 +1835,9 @@ export class Defuddle {
 		if (!html) return html;
 		const container = this.doc.createElement('div');
 		container.appendChild(parseHTML(this.doc, html));
+		if (this.options.removeImages) {
+			this.removeImages(container);
+		}
 		this._stripUnsafeElements(container);
 		this.resolveRelativeUrls(container);
 		standardizeExtractorOutput(container, this.debug);

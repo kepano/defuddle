@@ -1,4 +1,6 @@
 import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import Defuddle from '../src/index';
 import { parseDocument } from './helpers';
 
@@ -71,5 +73,36 @@ describe('parse() does not mutate the live document', () => {
 		expect(result.content).toContain('full post body');
 		expect(doc.querySelectorAll('style').length).toBe(1);
 		expect(doc.getElementById('page-style')).not.toBeNull();
+	});
+
+	test('keeps images in the live document with removeImages', () => {
+		const doc = parseDocument(`<html><head><title>Photo post</title></head><body><article>
+			<h1>Photo post</h1>
+			<p>This article has enough words for the content scorer to extract it as the main content.
+			It keeps going with several sentences so the word count is comfortably high.</p>
+			<img src="https://example.com/photo.jpg" alt="Photo">
+			<p>A second paragraph adds more text so extraction succeeds on the first try.</p>
+		</article></body></html>`, 'https://example.com/post');
+
+		const result = new Defuddle(doc, { url: 'https://example.com/post', removeImages: true }).parse();
+
+		expect(result.content).toContain('second paragraph');
+		expect(result.content).not.toContain('<img');
+		expect(doc.querySelectorAll('img').length).toBe(1);
+	});
+
+	test('removes images from site extractor output without touching the live document', () => {
+		const url = 'https://mastodon.social/@user/12345678';
+		const html = readFileSync(join(__dirname, 'fixtures', 'comments--mastodon.social-@user-12345678.html'), 'utf8');
+		const doc = parseDocument(html, url);
+		const liveImages = doc.querySelectorAll('img').length;
+
+		const withImages = new Defuddle(parseDocument(html, url), { url }).parse();
+		const result = new Defuddle(doc, { url, removeImages: true }).parse();
+
+		expect(withImages.content).toContain('<img');
+		expect(result.extractorType).toBe('mastodon');
+		expect(result.content).not.toContain('<img');
+		expect(doc.querySelectorAll('img').length).toBe(liveImages);
 	});
 });
