@@ -12,13 +12,51 @@ export class TwitterExtractor extends BaseExtractor {
 	constructor(document: Document, url: string, schemaOrgData?: any, options?: ExtractorOptions) {
 		super(document, url, schemaOrgData, options);
 
-		this.classifyCells(this.conversationCells());
+		const legacy = !!document.querySelector('article[data-testid="tweet"]');
+		this.classifyEntries(legacy ? this.legacyEntries() : this.conversationEntries());
 
 		// A markup change must never yield nothing: a bare post beats falling
 		// through to the generic extractor, which produces unusable output.
 		if (!this.mainTweet) {
-			this.mainTweet = document.querySelector('article[data-testid="tweet"]');
+			this.mainTweet = legacy
+				? document.querySelector('article[data-testid="tweet"]')
+				: this.topLevelPosts()[0] || null;
 		}
+	}
+
+	/** Tweets in timeline order, with null where a cell holds no tweet. */
+	private legacyEntries(): (Element | null)[] {
+		return this.conversationCells().map(cell => cell.querySelector('article[data-testid="tweet"]'));
+	}
+
+	/**
+	 * Posts that aren't quoted inside another post, in the X redesign from
+	 * November 2026, which has no data-testid attributes.
+	 */
+	private topLevelPosts(): Element[] {
+		return Array.from(this.document.querySelectorAll('article'))
+			.filter(article => !article.parentElement?.closest('article') && this.statusLink(article));
+	}
+
+	/**
+	 * Posts in the redesigned X, with null between list items.
+	 *
+	 * The conversation is one list with an item per entry, and a reply chain
+	 * shares an item. Server-rendered pages hold the list in a hidden element
+	 * until it hydrates, so the list is found through its posts.
+	 */
+	private conversationEntries(): (Element | null)[] {
+		const posts = this.topLevelPosts();
+		const list = posts.map(post => post.closest('li')?.parentElement).find(Boolean);
+		if (!list) return posts.slice(0, 1);
+
+		const entries: (Element | null)[] = [];
+		for (const item of Array.from(list.children)) {
+			const itemPosts = posts.filter(post => item.contains(post));
+			if (!itemPosts.length && entries.length && item.querySelector('h2')) break;
+			entries.push(...itemPosts, null);
+		}
+		return entries;
 	}
 
 	/**
@@ -51,20 +89,19 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	/**
-	 * Walk cells to classify tweets:
+	 * Walk entries to classify tweets:
 	 * 1. Main tweet (first article)
 	 * 2. Thread tweets: consecutive self-replies by the main author at the top of
 	 *    the timeline, before any reply by a different person
 	 * 3. Reply tweets: everything after the thread ends
 	 */
-	private classifyCells(cells: Element[]): void {
+	private classifyEntries(entries: (Element | null)[]): void {
 		let mainHandle = '';
 		let threadEnded = false;
 		let lastWasTweet = false;
 		let currentDepth = 0;
 
-		for (const cell of cells) {
-			const article = cell.querySelector('article[data-testid="tweet"]');
+		for (const article of entries) {
 			if (!article) {
 				lastWasTweet = false;
 				continue;
@@ -163,6 +200,40 @@ export class TwitterExtractor extends BaseExtractor {
 		'settings', 'compose', 'hashtag', 'intent',
 	]);
 
+	private static readonly STATUS_PATH = /^(?:https?:\/\/(?:www\.)?(?:x|twitter)\.com)?\/(\w{1,15})\/status\/(\d+)\/?(?:[?#]|$)/;
+	private static readonly EMBEDDED_POST = '[data-slot="embedded-tweet-frame"]';
+
+	/** Matches of `selector` in `root` that aren't inside a quoted post. */
+	private own(root: Element, selector: string): Element[] {
+		return Array.from(root.querySelectorAll(selector)).filter(el => {
+			const scope = el.parentElement?.closest(`article, ${TwitterExtractor.EMBEDDED_POST}`);
+			return !scope || scope === root || !root.contains(scope);
+		});
+	}
+
+	/** The post's own permalink, which also gives its author and ID. */
+	private statusLink(tweet: Element): { href: string; handle: string; id: string } | null {
+		for (const link of this.own(tweet, 'a[href]')) {
+			const href = link.getAttribute('href') || '';
+			const match = href.match(TwitterExtractor.STATUS_PATH);
+			if (match) return { href, handle: match[1], id: match[2] };
+		}
+		return null;
+	}
+
+	private tweetTextElement(tweet: Element): Element | null {
+		return tweet.querySelector('[data-testid="tweetText"]')
+			|| this.own(tweet, 'div[dir="auto"][lang]')[0]
+			|| null;
+	}
+
+	/** Post IDs since November 2010 encode the time they were created. */
+	private snowflakeDate(id: string): string {
+		if (id.length < 15) return '';
+		const time = Math.floor(Number(id) / 4194304) + 1288834974657;
+		return new Date(time).toISOString().split('T')[0];
+	}
+
 	/**
 	 * The @handle for a tweet.
 	 *
@@ -173,7 +244,10 @@ export class TwitterExtractor extends BaseExtractor {
 	 */
 	private getHandle(tweet: Element): string {
 		const nameElement = tweet.querySelector('[data-testid="User-Name"]');
-		if (!nameElement) return '';
+		if (!nameElement) {
+			const status = this.statusLink(tweet);
+			return status ? `@${status.handle}` : '';
+		}
 
 		const links = Array.from(nameElement.querySelectorAll('a'));
 
@@ -232,6 +306,9 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	private findQuotedTweet(tweet: Element): Element | null {
+		const embedded = this.own(tweet, TwitterExtractor.EMBEDDED_POST)[0];
+		if (embedded) return embedded;
+
 		return tweet.querySelector('[aria-labelledby*="id__"]')
 			?.querySelector('[data-testid="User-Name"]')
 			?.closest('[aria-labelledby*="id__"]') || null;
@@ -243,7 +320,7 @@ export class TwitterExtractor extends BaseExtractor {
 		const tweetClone = tweet.cloneNode(true) as Element;
 		this.replaceEmojiImages(tweetClone);
 
-		const tweetTextEl = tweetClone.querySelector('[data-testid="tweetText"]');
+		const tweetTextEl = this.tweetTextElement(tweetClone);
 		const tweetText = tweetTextEl ? serializeHTML(tweetTextEl) : '';
 		const formattedText = this.formatTweetText(tweetText);
 
@@ -262,10 +339,14 @@ export class TwitterExtractor extends BaseExtractor {
 	}
 
 	private extractQuotedTweet(quotedTweet: Element): string {
+		quotedTweet = quotedTweet.matches(TwitterExtractor.EMBEDDED_POST)
+			? quotedTweet.querySelector('article') || quotedTweet
+			: quotedTweet;
+
 		const tweetClone = quotedTweet.cloneNode(true) as Element;
 		this.replaceEmojiImages(tweetClone);
 
-		const tweetTextEl = tweetClone.querySelector('[data-testid="tweetText"]');
+		const tweetTextEl = this.tweetTextElement(tweetClone);
 		const tweetText = tweetTextEl ? serializeHTML(tweetTextEl) : '';
 		const formattedText = this.formatTweetText(tweetText);
 		const userInfo = this.extractUserInfo(quotedTweet);
@@ -288,7 +369,7 @@ export class TwitterExtractor extends BaseExtractor {
 
 	private extractUserInfo(tweet: Element) {
 		const nameElement = tweet.querySelector('[data-testid="User-Name"]');
-		if (!nameElement) return { fullName: '', handle: '', date: '', permalink: '' };
+		if (!nameElement) return this.extractRedesignUserInfo(tweet);
 
 		const handle = this.getHandle(tweet);
 
@@ -310,6 +391,25 @@ export class TwitterExtractor extends BaseExtractor {
 		const permalink = timestamp?.closest('a')?.href || '';
 
 		return { fullName, handle, date, permalink };
+	}
+
+	/** The display name is the profile link that isn't the avatar or the @handle. */
+	private extractRedesignUserInfo(tweet: Element) {
+		const status = this.statusLink(tweet);
+		if (!status) return { fullName: '', handle: '', date: '', permalink: '' };
+
+		const profilePath = `/${status.handle}`.toLowerCase();
+		const fullName = this.own(tweet, 'a[href]')
+			.filter(link => (link.getAttribute('href') || '').toLowerCase() === profilePath)
+			.map(link => link.textContent?.trim() || '')
+			.find(text => text && !text.startsWith('@')) || '';
+
+		return {
+			fullName,
+			handle: `@${status.handle}`,
+			date: this.snowflakeDate(status.id),
+			permalink: new URL(status.href, this.url).href,
+		};
 	}
 
 	private extractImages(tweet: Element, quotedTweet: Element | null): string[] {
@@ -367,7 +467,7 @@ export class TwitterExtractor extends BaseExtractor {
 	private createDescription(tweet: Element | null): string {
 		if (!tweet) return '';
 
-		const tweetText = tweet.querySelector('[data-testid="tweetText"]')?.textContent || '';
+		const tweetText = this.tweetTextElement(tweet)?.textContent || '';
 		return tweetText.trim().slice(0, 140).replace(/\s+/g, ' ');
 	}
 }
