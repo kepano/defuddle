@@ -1,3 +1,16 @@
+## 0.19.9
+
+- YouTube: keep transcript segment classes and timestamps, so Obsidian Web Clipper's reader can follow the video, scroll and seek again
+- YouTube: ignore braces inside strings when reading inline JSON
+- Mastodon: don't merge replies into the post when handles are missing
+- Footnotes: keep every footnote when a page mixes styles
+- Markdown: keep task list checkboxes, and don't rewrite code blocks during cleanup
+- C2 wiki: open every missing list level at once
+- C2 wiki, X: time out stalled fetches after 4 seconds, so `parseAsync()` can't hang
+- Parse: remove images from the output instead of the live page, skip retries for site extractors, and keep the cover image upgrade out of cached metadata
+- Parse: don't change the page being parsed. `<noscript>` images, `srcSet` attributes, and Medium, NYT and Substack content are now prepared on Defuddle's copy
+- Parse: leave Web Clipper's stamped shadow DOM on the page, so later parses can still read it
+
 ## 0.19.8
 
 - X: support the redesigned web app, which clipped as a list of links and counts instead of the post and its replies (#496)
