@@ -66,6 +66,15 @@ function escapeEntityLike(value: string): string {
 	return value.replace(/&(?=#\d+;|#x[\da-f]+;|[a-z][\da-z]*;)/gi, '&amp;');
 }
 
+// Same for escaped text, but autolinks don't decode character references, so
+// they are left as is. Backslash escapes stay whole so "\<" is not an autolink.
+function escapeEntityLikeText(value: string): string {
+	return value
+		.split(/(\\[\s\S]|<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\u0000-\u0020]*>)/)
+		.map((part, i) => i % 2 ? part : escapeEntityLike(part))
+		.join('');
+}
+
 function formatMarkdownLinkDestination(href: string): string {
 	if (isDangerousUrl(href)) return '';
 	href = escapeEntityLike(href)
@@ -236,13 +245,14 @@ export function createMarkdownContent(content: string, url: string) {
 	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
 	turndownService.escape = (s: string) => {
 		const escaped = baseEscape(s);
-		if (!escaped.includes('<')) return escaped;
-		return escaped
+		// Keep literal text such as "&copy;" from turning into a character reference.
+		if (!escaped.includes('<')) return escapeEntityLike(escaped);
+		return escapeEntityLikeText(escaped
 			.replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<')
 			// A tag or autolink can span adjacent text nodes.
 			.replace(/<(?=[^<>\s]*$)/, '\\<')
 			.replace(/<([^<>\s]+)>/g, (match, destination) =>
-				isDangerousUrl(destination, false) ? `\\${match}` : match);
+				isDangerousUrl(destination, false) ? `\\${match}` : match));
 	};
 	const escapeInlineText = (value: string): string =>
 		escapeEntityLike(baseEscape(value.replace(/[\r\n]+/g, ' ')).replace(/</g, '\\<'));

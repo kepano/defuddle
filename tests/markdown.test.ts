@@ -420,4 +420,36 @@ describe('Markdown conversion', () => {
 			expect(markdown).toContain('```python\nprint("hi")\n```');
 		});
 	});
+
+	describe('entity-like text', () => {
+		test('should keep literal character references in text as text', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>Write <strong>&amp;nbsp;</strong> or &amp;#169; or &amp;#xA9; for a space and a sign.</p><table><tr><th>Name</th></tr><tr><td>&amp;lt;</td></tr></table></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('**&amp;nbsp;**');
+			expect(markdown).toContain('&amp;#169;');
+			expect(markdown).toContain('&amp;#xA9;');
+			expect(markdown).toContain('| &amp;lt; |');
+		});
+
+		test('should not change an ampersand that does not start a character reference', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>AT&amp;T and R&amp;D and a=1&amp;b=2 and &amp; alone</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('AT&T and R&D and a=1&b=2 and & alone');
+		});
+
+		test('should leave autolinks alone, since they do not decode references', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>See &lt;https://example.com/?a=1&amp;copy;&gt; and \\&lt;https://example.com/?a=1&amp;copy;&gt;</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('See <https://example.com/?a=1&copy;> and \\\\<https://example.com/?a=1&copy;>');
+		});
+	});
 });
