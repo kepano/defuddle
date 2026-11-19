@@ -24,6 +24,11 @@ function getHrefFragment(anchor: any): string {
 
 type FootnoteData = { content: any; originalId: string; refs: string[] };
 type FootnoteCollection = Record<number, FootnoteData>;
+
+function nextFootnoteNumber(...collections: FootnoteCollection[]): number {
+	return Math.max(0, ...collections.flatMap(collection => Object.keys(collection).map(Number))) + 1;
+}
+
 type CollectState = {
 	footnotes: FootnoteCollection;
 	processedIds: Set<string>;
@@ -100,6 +105,8 @@ const INLINE_REF_EXTRACTORS: Array<{ selector: string; extract: (el: any) => str
 class FootnoteHandler {
 	private doc: any;
 	private pendingRemovals: any[] = [];
+	// References already pointing at a collected footnote, so matching must skip them.
+	private createdRefs = new Set<any>();
 
 	constructor(doc: any) {
 		this.doc = doc;
@@ -109,10 +116,17 @@ class FootnoteHandler {
 		return refsLength > 0 ? `fnref:${footnoteNumber}-${refsLength + 1}` : `fnref:${footnoteNumber}`;
 	}
 
-	private mergeFootnotes(target: FootnoteCollection, source: FootnoteCollection): void {
+	// Each collector numbers from 1, so a footnote whose number is taken moves to the end.
+	// One already collected under the same id is a duplicate.
+	private mergeFootnotes(target: FootnoteCollection, source: FootnoteCollection, reserved: FootnoteCollection = {}): void {
+		const ids = new Set(Object.values(target).map(data => data.originalId.toLowerCase()));
 		for (const [num, data] of Object.entries(source)) {
-			const n = parseInt(num);
-			if (!target[n]) target[n] = data;
+			const id = data.originalId.toLowerCase();
+			if (ids.has(id)) continue;
+			let n = parseInt(num);
+			if (target[n] || reserved[n]) n = nextFootnoteNumber(target, reserved);
+			target[n] = data;
+			ids.add(id);
 		}
 	}
 
@@ -994,6 +1008,7 @@ class FootnoteHandler {
 
 	createFootnoteReference(footnoteNumber: string, refId: string): any {
 		const sup = this.doc.createElement('sup');
+		this.createdRefs.add(sup);
 		sup.id = refId;
 		const link = this.doc.createElement('a');
 		link.href = `#fn:${footnoteNumber}`;
@@ -1177,7 +1192,7 @@ class FootnoteHandler {
 	// Hidden aside footnotes linked by data-definition attribute
 	// Pattern: <span data-definition="id"><a href="#">*</a></span>
 	//          <aside style="display:none" id="id">content</aside>
-	collectHiddenAsideFootnotes(element: any): FootnoteCollection {
+	collectHiddenAsideFootnotes(element: any, firstNumber: number): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 
 		const refs = Array.from(element.querySelectorAll('span[data-definition]')) as any[];
@@ -1188,7 +1203,7 @@ class FootnoteHandler {
 			asideMap.set(aside.id, aside);
 		});
 
-		let footnoteCount = 1;
+		let footnoteCount = firstNumber;
 
 		refs.forEach((ref: any) => {
 			const defId = ref.getAttribute('data-definition');
@@ -1219,7 +1234,7 @@ class FootnoteHandler {
 	// LaTeXML (arXiv) keeps each footnote body in a hidden span.ltx_note_outer
 	// next to its marker. Replace each note with a reference to its body.
 	private collectLatexmlFootnotes(element: any, footnotes: FootnoteCollection): void {
-		let footnoteCount = Math.max(0, ...Object.keys(footnotes).map(Number)) + 1;
+		let footnoteCount = nextFootnoteNumber(footnotes);
 		// LaTeXML gives each repeated \footnotemark its own id, so match repeats by mark and text
 		const seen = new Map<string, number>();
 		element.querySelectorAll('span.ltx_note.ltx_role_footnote').forEach((note: any) => {
@@ -1252,10 +1267,10 @@ class FootnoteHandler {
 
 	standardizeFootnotes(element: any) {
 		const sidenotes = this.collectInlineSidenotes(element);
-		const footnotes = this.collectHiddenAsideFootnotes(element);
-		this.mergeFootnotes(footnotes, this.collectFootnotes(element));
-		this.mergeFootnotes(footnotes, this.collectSidenotesColumn(element));
-		this.mergeFootnotes(footnotes, this.collectAsideFootnotes(element));
+		const footnotes = this.collectHiddenAsideFootnotes(element, nextFootnoteNumber(sidenotes));
+		this.mergeFootnotes(footnotes, this.collectFootnotes(element), sidenotes);
+		this.mergeFootnotes(footnotes, this.collectSidenotesColumn(element), sidenotes);
+		this.mergeFootnotes(footnotes, this.collectAsideFootnotes(element), sidenotes);
 
 		const footnoteInlineReferences = element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES);
 		const supGroups = new Map();
@@ -1267,6 +1282,7 @@ class FootnoteHandler {
 
 		footnoteInlineReferences.forEach((el: any) => {
 			if (!el || !el.parentNode) return;
+			if (this.createdRefs.has(el.closest('sup'))) return;
 
 			if (!el.textContent?.trim()) return;
 
