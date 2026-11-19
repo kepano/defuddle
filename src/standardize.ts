@@ -510,7 +510,9 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 					/^callout(?:-|$)/.test(attrValue)
 				)) ||
 				// Marks the extractor output wrapper (emitted by buildContentHtml).
-				(extractorOutput && attrName === 'data-defuddle')
+				(extractorOutput && attrName === 'data-defuddle') ||
+				// Transcript start times (emitted by buildTranscript).
+				(extractorOutput && attrName === 'data-timestamp' && el.classList.contains('timestamp'))
 			) {
 				return;
 			}

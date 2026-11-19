@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import Defuddle from '../src/index';
 import { parseDocument } from './helpers';
 import { isExtractorClass, SITE_TOKENS } from '../src/utils/comments';
+import { TRANSCRIPT_SITES } from '../src/utils/transcript';
 
 // Covers standardizeExtractorOutput: page-authored styling has to go, but the
 // markup the extractors emit themselves is a downstream contract that survives.
@@ -147,7 +148,8 @@ describe('isExtractorClass', () => {
 			'comment', 'comments', 'comment-author', 'comment-content', 'comment-date',
 			'comment-link', 'comment-metadata', 'comment-points',
 			'post', 'post-content', 'post-text', 'quoted-post', 'x-article',
-			...SITE_TOKENS,
+			'transcript', 'transcript-segment', 'timestamp', 'speaker-0', 'speaker-1',
+			...SITE_TOKENS, ...TRANSCRIPT_SITES,
 		]) {
 			expect(isExtractorClass(token), token).toBe(true);
 		}
@@ -156,9 +158,50 @@ describe('isExtractorClass', () => {
 	test('rejects page markup, including the CMS words the markers share', () => {
 		for (const token of [
 			'entry', 'sponsored', 'md', 'richtext', 'im', 'adM', 'CToWUd',
-			'highlight', 'postscript', 'commentary', 'x-articles',
+			'highlight', 'postscript', 'commentary', 'x-articles', 'transcripts', 'speaker',
 		]) {
 			expect(isExtractorClass(token), token).toBe(false);
 		}
+	});
+});
+
+const YOUTUBE_URL = 'https://www.youtube.com/watch?v=test123';
+
+const YOUTUBE_HTML = `
+<html>
+<head><title>Test video - YouTube</title></head>
+<body>
+<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+	<div id="segments-container">
+		<ytd-transcript-segment-renderer>
+			<div class="segment-timestamp">0:00</div>
+			<div class="segment-text">Hello world.</div>
+		</ytd-transcript-segment-renderer>
+		<ytd-transcript-segment-renderer>
+			<div class="segment-timestamp">0:05</div>
+			<div class="segment-text">Second line.</div>
+		</ytd-transcript-segment-renderer>
+	</div>
+</ytd-engagement-panel-section-list-renderer>
+</body>
+</html>
+`;
+
+// obsidian-clipper's reader syncs the transcript to the player through these
+// classes and data-timestamp.
+describe('transcript markup', () => {
+	const doc = parseDocument(YOUTUBE_HTML, YOUTUBE_URL);
+	const content = new Defuddle(doc, { url: YOUTUBE_URL }).parse().content;
+
+	test('keeps the transcript wrapper, segment and timestamp markup', () => {
+		expect(content).toContain('class="youtube transcript"');
+		expect(content).toContain('class="transcript-segment"');
+		expect(content).toContain('<span class="timestamp" data-timestamp="5">0:05</span>');
+	});
+
+	test('still strips page-authored data attributes', () => {
+		const pageDoc = parseDocument(GMAIL_HTML.replace('data-legacy-id', 'data-timestamp'), GMAIL_URL);
+		const pageContent = new Defuddle(pageDoc, { url: GMAIL_URL }).parse().content;
+		expect(pageContent).not.toContain('data-timestamp');
 	});
 });

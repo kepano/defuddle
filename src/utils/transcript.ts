@@ -29,6 +29,23 @@ export interface TranscriptResult {
 	text: string;
 }
 
+export const TRANSCRIPT_SITES = ['bilibili', 'youtube'] as const;
+
+export type TranscriptSite = typeof TRANSCRIPT_SITES[number];
+
+const TRANSCRIPT_SITE_SET: Set<string> = new Set(TRANSCRIPT_SITES);
+
+const TRANSCRIPT_CLASS_TOKEN = /^(?:transcript|transcript-segment|timestamp|speaker-\d+)$/;
+
+/**
+ * Is this class token part of the markup buildTranscript emits? obsidian-clipper's
+ * reader syncs the transcript to the player through .youtube.transcript,
+ * .transcript-segment and .timestamp[data-timestamp].
+ */
+export function isTranscriptClass(token: string): boolean {
+	return TRANSCRIPT_SITE_SET.has(token) || TRANSCRIPT_CLASS_TOKEN.test(token);
+}
+
 /**
  * Format seconds as a human-readable timestamp (M:SS or H:MM:SS).
  */
@@ -51,7 +68,7 @@ export function formatTimestamp(seconds: number): string {
  * @param chapters - Optional chapter headings with start times
  */
 export function buildTranscript(
-	site: string,
+	site: TranscriptSite,
 	segments: TranscriptSegment[],
 	chapters: TranscriptChapter[] = [],
 ): TranscriptResult {

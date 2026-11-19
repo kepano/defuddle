@@ -10,6 +10,7 @@
  */
 
 import { escapeHtml, isDangerousUrl } from './dom';
+import { isTranscriptClass } from './transcript';
 
 export interface CommentData {
 	/** Comment author name */
@@ -66,6 +67,7 @@ const SITE_TOKEN_SET: Set<string> = new Set(SITE_TOKENS);
 // The rest of the class vocabulary the extractors emit: the comment tree above,
 // the post wrappers in buildContentHtml, plus `post-text` (hackernews.ts),
 // `quoted-post` (buildQuotedPost) and `x-article` (x-article.ts, x-oembed.ts).
+// Transcript classes live with buildTranscript (see isTranscriptClass).
 //
 // Conversation extractors' `message-*` classes are deliberately absent: those run
 // their own nested Defuddle pass (see _conversation.ts), so the main pipeline has
@@ -81,7 +83,7 @@ const EXTRACTOR_CLASS_TOKEN = /^(?:comments?|posts?|quoted-post|x-article)(?:-[\
  * Lives here, next to the code that emits these classes, so the two cannot drift.
  */
 export function isExtractorClass(token: string): boolean {
-	return SITE_TOKEN_SET.has(token) || EXTRACTOR_CLASS_TOKEN.test(token);
+	return SITE_TOKEN_SET.has(token) || EXTRACTOR_CLASS_TOKEN.test(token) || isTranscriptClass(token);
 }
 
 /**
