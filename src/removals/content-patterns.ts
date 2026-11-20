@@ -725,6 +725,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Skip sub-lists — they belong to the parent list item, and are
 		// typically introduced by its text (e.g. "for scrolling:")
 		if (list.parentElement?.closest('li')) continue;
+		// A list in a table cell is the cell's content
+		if (list.closest('td, th')) continue;
 		const isDl = list.tagName === 'DL';
 		const items = Array.from(list.children).filter(el =>
 			isDl ? el.tagName === 'DD' : el.tagName === 'LI'

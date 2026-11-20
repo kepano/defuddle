@@ -77,7 +77,7 @@ Intracellular signaling pathways consist of series of molecular interactions tha
 
 Cross-talk between signaling pathways allows cells to integrate multiple signals and produce coordinated responses. A single ligand may activate multiple pathways simultaneously, while different ligands may converge on common downstream targets. This network-like organization provides cells with a sophisticated capacity for information processing and decision-making that is only beginning to be fully understood.
 
-| ![Diagram of cell cycle phases](https://example.com/cell-cycle.png) | Phase G1: cell growth  Phase S: DNA replication  Phase G2: preparation for division  Phase M: mitosis |
+| ![Diagram of cell cycle phases](https://example.com/cell-cycle.png) | Phase G1: cell growth<br>Phase S: DNA replication<br>Phase G2: preparation for division<br>Phase M: mitosis |
 | --- | --- |
 
 ## Summary

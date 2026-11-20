@@ -62,6 +62,7 @@ function getLeadingCheckbox(li: GenericElement): GenericElement | null {
 }
 
 
+const CELL_ONE_LINE_RE = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$[^$]+\$/g;
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
 
@@ -346,10 +347,14 @@ export function createMarkdownContent(content: string, url: string) {
 						(cell: any) => cell.parentNode === row
 					);
 				return cellElements.map((cell: any) => {
-					// Remove newlines and trim the content
+					// A Markdown table row is one line, so a cell's lines join with <br>,
+					// except inside math and code, which stay on one line as before
 					let cellContent = turndownService.turndown(serializeHTML(cell))
-						.replace(/\n/g, ' ')
-						.trim();
+						.replace(CELL_ONE_LINE_RE, segment => segment.replace(/\s*\n\s*/g, ' '))
+						.split(/\n+/)
+						.map(line => line.trim())
+						.filter(Boolean)
+						.join('<br>');
 					// Escape pipe characters
 					cellContent = cellContent.replace(/\|/g, '\\|');
 					return cellContent;
