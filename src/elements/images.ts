@@ -198,7 +198,7 @@ export const imageRules = [
 				const processedImg = processImageElement(imgElement, doc);
 
 				if (caption && hasMeaningfulCaption(caption)) {
-					const figure = createFigureWithCaption(processedImg, caption, doc);
+					const figure = createFigureWithCaption([processedImg], caption, doc);
 
 					// Remove the original caption element from its parent
 					// to prevent duplication, as the span itself might remain.
@@ -225,60 +225,36 @@ export const imageRules = [
 		element: 'figure',
 		transform: (el: Element, doc: Document): Element => {
 			try {
-				const hasImage = containsImage(el);
-				if (!hasImage) {
-					return el; 
-				}
-				
-				const imgElement = findMainImage(el); // Initial find (might be picture)
-				if (!imgElement) {
-					return el; 
-				}
-
-				// Note: Previous rules might have processed the image inside 'el'.
-				
-				const caption = findCaption(el);
-				
-				if (caption && hasMeaningfulCaption(caption)) {
-					// Find the *current* image element inside 'el' again.
-					// It might have been modified (e.g., picture rule -> img)
-					const currentImg = findMainImage(el); 
-					let imageToAdd: Element;
-
-					if (currentImg) {
-						// We'll clone this inside the helper function
-						imageToAdd = currentImg; 
-					} else {
-						// Fallback: process the initially found element.
-						// Fallback: process the initially found element
-						// processImageElement will clone if needed
-						imageToAdd = processImageElement(imgElement, doc); 
-					}
-
-					// Use the helper function to create the figure
-					// The helper clones the imageToAdd before appending.
-					return createFigureWithCaption(imageToAdd, caption, doc);
-				} else {
-					// No meaningful caption found. Return the original element 'el'.
-					// Preceding rules should have processed the image content *within* 'el'.
+				// A gallery's own figures are standardized one by one.
+				if (!containsImage(el) || el.querySelector('figure')) {
 					return el;
 				}
+
+				const images = findMainImages(el);
+				const caption = findCaption(el);
+				if (images.length === 0 || !caption || !hasMeaningfulCaption(caption)) {
+					return el;
+				}
+
+				return createFigureWithCaption(images, caption, doc);
 			} catch (error) {
 				// Failed to process complex image element, return as-is
-				return el; 
+				return el;
 			}
 		}
 	},
 ];
 
 /**
- * Creates a standard <figure> element containing an image and a caption.
+ * Creates a standard <figure> element containing images and a caption.
  */
-function createFigureWithCaption(imageElement: Element, captionElement: Element, doc: Document): Element {
+function createFigureWithCaption(images: Element[], captionElement: Element, doc: Document): Element {
 	const figure = doc.createElement('figure');
-	
-	// Append a clone of the image element to prevent side effects
-	figure.appendChild(imageElement.cloneNode(true)); 
+
+	// Append clones of the images to prevent side effects
+	for (const image of images) {
+		figure.appendChild(image.cloneNode(true));
+	}
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
@@ -389,75 +365,43 @@ function isImageElement(element: Element): boolean {
 }
 
 /**
- * Find the main image element in a container
+ * Find the content images in a container, in document order. A <picture>
+ * counts as one image. Placeholders are skipped, and so are images with an
+ * empty alt when others have one, since those are usually decorative.
+ */
+function findMainImages(element: Element): Element[] {
+	if (isImageElement(element)) {
+		return [element];
+	}
+
+	const candidates = Array.from(element.querySelectorAll('picture, img')).filter(node =>
+		node.tagName.toLowerCase() === 'picture' ||
+		(!node.closest('picture') && !isPlaceholderImage(node))
+	);
+	const hasAlt = (node: Element) =>
+		node.tagName.toLowerCase() === 'picture' || !!node.getAttribute('alt')?.trim();
+	const images = candidates.some(hasAlt) ? candidates.filter(hasAlt) : candidates;
+	if (images.length > 0) {
+		return images;
+	}
+
+	const fallback = element.querySelector('video') || element.querySelector('source') ||
+		element.querySelector('img, picture, source, video');
+	return fallback ? [fallback] : [];
+}
+
+/**
+ * Find the main image in a container, preferring a <picture> since it often
+ * has the highest quality sources.
  */
 function findMainImage(element: Element): Element | null {
-	// If element itself is an image, return it
-	if (isImageElement(element)) {
-		return element;
-	}
-	
-	// Look for picture elements first - they often contain the highest quality images
-	const pictureElements = element.querySelectorAll('picture');
-	if (pictureElements.length > 0) {
-		// For picture elements, we want to return the picture itself
-		// so we can process all its sources
-		return pictureElements[0];
-	}
-	
-	// Look for img elements next, but skip placeholder images
-	const imgElements = element.querySelectorAll('img');
-	const filteredImgElements = [];
-	
-	for (let i = 0; i < imgElements.length; i++) {
-		const img = imgElements[i];
-		// Skip placeholder images (SVG data URLs, empty alt, etc.)
-		const src = img.getAttribute('src') || '';
-		const alt = img.getAttribute('alt') || '';
-		
-		// Skip SVG data URLs (placeholders)
-		if (isSvgDataUrl(src)) {
-			continue;
-		}
-		
-		// Skip base64 placeholder images
-		if (isBase64Placeholder(src)) {
-			continue;
-		}
-		
-		// Skip empty alt text (often indicates decorative images)
-		// But only if we have other images with alt text
-		if (!alt.trim() && imgElements.length > 1) {
-			continue;
-		}
-		
-		filteredImgElements.push(img);
-	}
-	
-	if (filteredImgElements.length > 0) {
-		return filteredImgElements[0];
-	}
-	
-	// Look for video elements next
-	const videoElements = element.querySelectorAll('video');
-	if (videoElements.length > 0) {
-		return videoElements[0];
-	}
-	
-	// Look for any source elements as a last resort
-	const anySourceElements = element.querySelectorAll('source');
-	if (anySourceElements.length > 0) {
-		return anySourceElements[0];
-	}
-	
-	// If we still haven't found an image, try a more aggressive search
-	// This helps with deeply nested structures like Medium articles
-	const allImages = element.querySelectorAll('img, picture, source, video');
-	if (allImages.length > 0) {
-		return allImages[0];
-	}
-	
-	return null;
+	const images = findMainImages(element);
+	return images.find(image => image.tagName.toLowerCase() === 'picture') || images[0] || null;
+}
+
+function isPlaceholderImage(img: Element): boolean {
+	const src = img.getAttribute('src') || '';
+	return isSvgDataUrl(src) || isBase64Placeholder(src);
 }
 
 /**

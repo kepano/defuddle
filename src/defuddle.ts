@@ -29,6 +29,18 @@ interface StyleChange {
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
 
+const IMAGE_SIZE_WORD = /^(?:large|medium|small|thumb|thumbnail|full|original|scaled|\d+x\d+|\d+x|[wh]\d+|\d+[wh])$/;
+
+/** The image's file name without its extension and size words: `portrait-large.webp` → `portrait`. */
+function imageStem(src: string): string {
+	let path = src;
+	try {
+		path = new URL(src, 'https://example.invalid').pathname;
+	} catch {}
+	const name = (path.split('/').pop() || '').toLowerCase().replace(/\.[a-z0-9]+$/, '');
+	return name.split(/[-_.@]+/).filter(word => word && !IMAGE_SIZE_WORD.test(word)).join('-');
+}
+
 export class Defuddle {
 	// Reassigned briefly during the schema.org fallback so re-extraction runs
 	// against a sanitized clone instead of the caller's live document.
@@ -354,12 +366,14 @@ export class Defuddle {
 				.filter(img => !img.closest('noscript') && img.parentElement);
 			if (figImgs.length < 2) continue;
 
-			// Group by alt text; empty-alt images share one group
-			const groups = new Map<string | null, Element[]>();
+			// Group by alt text. Without alt, a copy shares the file name apart
+			// from size words, so a gallery's different images stay apart.
+			const groups = new Map<string, Element[]>();
 			for (const img of figImgs) {
 				const src = img.getAttribute('src') || '';
 				if (!src || src.startsWith('data:')) continue;
-				const key = (img.getAttribute('alt') || '').trim() || null;
+				const alt = (img.getAttribute('alt') || '').trim();
+				const key = alt ? `alt:${alt}` : `src:${imageStem(src)}`;
 				const group = groups.get(key) || [];
 				group.push(img);
 				groups.set(key, group);
@@ -368,7 +382,7 @@ export class Defuddle {
 			for (const [key, group] of groups) {
 				if (group.length < 2) continue;
 				// Same-src images with alt text are legitimate repeats, not dupes
-				if (key !== null && group.every(img => img.getAttribute('src') === group[0].getAttribute('src'))) continue;
+				if (key.startsWith('alt:') && group.every(img => img.getAttribute('src') === group[0].getAttribute('src'))) continue;
 				this._keepBestImage(group);
 			}
 		}

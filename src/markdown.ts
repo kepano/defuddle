@@ -459,10 +459,13 @@ export function createMarkdownContent(content: string, url: string) {
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
 
-			const img = node.querySelector('img');
+			// A gallery's own figures convert one by one.
+			if (node.querySelector('figure')) return content;
+
+			const images = Array.from(node.querySelectorAll('img')).map(asGenericElement);
 			const figcaption = node.querySelector('figcaption');
 
-			if (!img || !isGenericElement(img)) return content;
+			if (images.length === 0) return content;
 
 			// If the figure contains <p> elements outside of <figcaption>, it's a
 			// content wrapper (e.g. Medium's layout), not an image figure. Let
@@ -478,8 +481,11 @@ export function createMarkdownContent(content: string, url: string) {
 			});
 			if (hasParagraphsOutsideFigcaption) return content;
 
-			const alt = escapeInlineText(img.getAttribute('alt') || '');
-			const src = formatMarkdownLinkDestination(getBestImageSrc(img));
+			const imageMarkdown = images.map(img => {
+				const alt = escapeInlineText(img.getAttribute('alt') || '');
+				const src = formatMarkdownLinkDestination(getBestImageSrc(img));
+				return src ? `![${alt}](${src})` : alt;
+			}).filter(Boolean).join('\n\n');
 			let caption = '';
 
 			if (figcaption && isGenericElement(figcaption)) {
@@ -492,7 +498,7 @@ export function createMarkdownContent(content: string, url: string) {
 				caption = `${escapeInlineText(tagText || '')} ${captionMarkdown}`.trim();
 			}
 
-			return `${src ? `![${alt}](${src})` : alt}\n\n${caption}\n\n`;
+			return `${imageMarkdown}\n\n${caption}\n\n`;
 		}
 	});
 
