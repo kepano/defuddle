@@ -3,7 +3,7 @@ import { Defuddle } from '../../src/defuddle';
 import { toMarkdown } from '../../src/markdown';
 import { countWords } from '../../src/utils';
 import { buildFrontmatter } from '../../src/frontmatter';
-import { getInitialUA, fetchPage, extractRawMarkdown, cleanMarkdownContent, BOT_UA, DEFAULT_UA, FETCH_TIMEOUT } from '../../src/fetch';
+import { getInitialUA, fetchPage, fetchPageWithRetry, extractRawMarkdown, cleanMarkdownContent, BOT_UA, DEFAULT_UA, FETCH_TIMEOUT } from '../../src/fetch';
 import type { DefuddleOptions, DefuddleResponse } from '../../src/types';
 
 function createDefuddle(html: string, targetUrl: string, opts?: Partial<DefuddleOptions>) {
@@ -135,7 +135,7 @@ export async function convertToHtml(targetUrl: string, language?: string): Promi
 	}
 
 	const initialUA = getInitialUA(targetUrl);
-	const html = await fetchPage(targetUrl, initialUA, language);
+	const html = await fetchPageWithRetry(targetUrl, initialUA, language);
 	let result = await defuddleHtmlAsync(html, targetUrl, language);
 
 	if (result.wordCount === 0 && initialUA !== BOT_UA) {
@@ -167,7 +167,7 @@ export async function convertToMarkdown(targetUrl: string, language?: string): P
 	}
 
 	const initialUA = getInitialUA(targetUrl);
-	const html = await fetchPage(targetUrl, initialUA, language);
+	const html = await fetchPageWithRetry(targetUrl, initialUA, language);
 	let result = await defuddleHtmlAsync(html, targetUrl, language);
 
 	// If no content was extracted, the page may be JS-rendered.
