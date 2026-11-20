@@ -9,6 +9,8 @@
 
 Most large cities have more than one airport. This table lists the main airports for a few European capitals, so you can pick the one closest to where you're staying.
 
+Main airports, from [the 2026 airports report](https://www.example.com/airports-report)
+
 | City | Airports | Code |
 | --- | --- | --- |
 | London | Heathrow<br>Gatwick | `LHR`<br>`LGW` |

@@ -296,6 +296,10 @@ export function createMarkdownContent(content: string, url: string) {
 				(el: any) => isDirectTableChild(el, node)
 			);
 
+			const captionElement = Array.from(node.childNodes || []).find(child => child.nodeName === 'CAPTION');
+			const caption = captionElement ? turndownService.turndown(serializeHTML(asGenericElement(captionElement))).trim() : '';
+			const captionPrefix = caption ? `${caption}\n\n` : '';
+
 			if (hasNestedTables || directCells.length <= 1) {
 				const directRows = Array.from(node.querySelectorAll('tr')).filter(
 					(el: any) => isDirectTableChild(el, node)
@@ -313,7 +317,7 @@ export function createMarkdownContent(content: string, url: string) {
 				// rendered as its own markdown table — instead of emitting a broken,
 				// pipe-escaped row (#300). Multi-column layout cells read left-to-right.
 				if (isSingleColumn || hasNestedTables) {
-					return '\n\n' + turndownService.turndown(
+					return '\n\n' + captionPrefix + turndownService.turndown(
 						directCells.map((cell: any) => serializeHTML(cell)).join('')
 					) + '\n\n';
 				}
@@ -388,7 +392,7 @@ export function createMarkdownContent(content: string, url: string) {
 				...rows.slice(1).map(formatRow)
 			].join('\n');
 
-			return `\n\n${tableContent}\n\n`;
+			return `\n\n${captionPrefix}${tableContent}\n\n`;
 		}
 	});
 
