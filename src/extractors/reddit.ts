@@ -86,11 +86,13 @@ export class RedditExtractor extends BaseExtractor {
 	}
 
 	canExtract(): boolean {
-		return !!this.shredditPost || this.isOldReddit;
+		// Listing pages can contain many posts. Let the generic pipeline
+		// extract the listing instead of silently returning only its first post.
+		return (this.isCommentsPage() || this.isSharePage()) && (!!this.shredditPost || this.isOldReddit);
 	}
 
 	canExtractAsync(): boolean {
-		return this.isCommentsPage() && !this.isOldReddit;
+		return this.isSubredditCommentsPage() && !this.isOldReddit;
 	}
 
 	prefersAsync(): boolean {
@@ -99,11 +101,32 @@ export class RedditExtractor extends BaseExtractor {
 		// window), use the rendered DOM directly since both are CORS-blocked
 		// from www.reddit.com.
 		const isBrowser = typeof window !== 'undefined' && this.document.defaultView === window;
-		return this.isCommentsPage() && !this.isOldReddit && !isBrowser;
+		return this.isSubredditCommentsPage() && !this.isOldReddit && !isBrowser;
 	}
 
 	private isCommentsPage(): boolean {
-		return /\/r\/.+\/comments\//.test(this.url);
+		try {
+			return /^\/(?:(?:r|user|u)\/[^/]+\/)?comments\/[^/]+(?:\/|$)/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
+	}
+
+	// Feed fetching is only verified for subreddit post URLs.
+	private isSubredditCommentsPage(): boolean {
+		try {
+			return /^\/r\/[^/]+\/comments\/[^/]+(?:\/|$)/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
+	}
+
+	private isSharePage(): boolean {
+		try {
+			return /^\/(?:r|u|user)\/[^/]+\/s\/[^/]+\/?$/.test(new URL(this.url).pathname);
+		} catch {
+			return false;
+		}
 	}
 
 	async extractAsync(): Promise<ExtractorResult> {
@@ -323,7 +346,7 @@ export class RedditExtractor extends BaseExtractor {
 			variables: {
 				title: meta.title,
 				author: meta.author,
-				site: `r/${meta.subreddit}`,
+				site: meta.subreddit ? `r/${meta.subreddit}` : 'Reddit',
 				description,
 			}
 		};
@@ -447,4 +470,4 @@ export class RedditExtractor extends BaseExtractor {
 
 		return buildCommentTree(commentData);
 	}
-} 
+}
