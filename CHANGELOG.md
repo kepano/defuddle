@@ -1,3 +1,8 @@
+## 0.19.12
+
+- Tables: keep a table's caption in Markdown, links included, before the table (obsidianmd/obsidian#2516)
+- Tables: don't read prices in a cell as math, so `Adults $10<br>Children $5` keeps its line break
+
 ## 0.19.11
 
 - Images: keep images without alt text in a captioned figure that also has images with alt text (obsidianmd/obsidian#2516)
