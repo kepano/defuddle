@@ -45,7 +45,7 @@ export function buildFrontmatter(result: DefuddleResponse, sourceUrl?: string): 
 	const lines: string[] = ['---'];
 
 	// Escape a string for use as a YAML double-quoted value
-	const esc = (s: string) => s.replace(/"/g, '\\"').replace(/\n/g, ' ');
+	const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ');
 
 	if (result.title) lines.push(`title: "${esc(result.title)}"`);
 	if (result.author) lines.push(`author: "${esc(result.author)}"`);
