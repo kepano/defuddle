@@ -545,13 +545,16 @@ function extractUniqueCaptionContent(caption: Element): string {
 	// Get all text nodes and elements with text content
 	const textNodes: string[] = [];
 	const processedTexts = new Set<string>();
+	let repeatsText = false;
 	
 	// Helper function to process a node
 	const processNode = (node: Node) => {
 		if (isTextNode(node)) {
 			const text = node.textContent?.trim() || '';
 			// Separators like ", " repeat in ordinary captions; only longer text counts as a copy.
-			if (text && !processedTexts.has(text)) {
+			if (processedTexts.has(text)) {
+				repeatsText = true;
+			} else if (text) {
 				textNodes.push(text);
 				if (text.length >= MIN_REPEATED_CAPTION_TEXT) processedTexts.add(text);
 			}
@@ -572,7 +575,6 @@ function extractUniqueCaptionContent(caption: Element): string {
 	
 	// Keep the caption's markup (links, emphasis, citations) unless it repeats
 	// text or holds images, which the text-only version leaves out.
-	const repeatsText = textNodes.length < countTextNodes(caption);
 	if (!repeatsText && !caption.querySelector('img, picture, video, figure')) {
 		return serializeHTML(caption).trim();
 	}
@@ -586,13 +588,6 @@ function extractUniqueCaptionContent(caption: Element): string {
 	const html = serializeHTML(caption);
 	
 	return html;
-}
-
-function countTextNodes(node: Node): number {
-	if (isTextNode(node)) return node.textContent?.trim() ? 1 : 0;
-	let count = 0;
-	for (const child of Array.from(node.childNodes)) count += countTextNodes(child);
-	return count;
 }
 
 /**
