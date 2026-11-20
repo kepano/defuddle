@@ -1,3 +1,8 @@
+## 0.19.10
+
+- Images: keep every image in WordPress block galleries and in figures, captioned paragraphs and spans with several images, instead of only the first (obsidianmd/obsidian#2516)
+- Images: keep a figure's different images when they share alt text or have none, and keep the alt text when merging two copies of one image
+
 ## 0.19.9
 
 - YouTube: keep transcript segment classes and timestamps, so Obsidian Web Clipper's reader can follow the video, scroll and seek again
