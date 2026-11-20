@@ -1,3 +1,9 @@
+## 0.19.13
+
+- Images: keep links, emphasis and citation markers in figure captions, and keep repeated separators like ", " (obsidianmd/obsidian#2516)
+- Markdown: keep a blank line between blocks in a list item, so a paragraph, quote, table or code block after the first line stays its own block
+- Standardize: don't add a space before an apostrophe or after an opening quote next to an element, so `[Louis](…)'s` stays together
+
 ## 0.19.12
 
 - Tables: keep a table's caption in Markdown, links included, before the table (obsidianmd/obsidian#2516)
