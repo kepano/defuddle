@@ -1044,15 +1044,20 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private decodeEntities(text: string): string {
-		return text
-			.replace(/&amp;/g, '&')
-			.replace(/&lt;/g, '<')
-			.replace(/&gt;/g, '>')
-			.replace(/&quot;/g, '"')
-			.replace(/&#39;/g, "'")
-			.replace(/&apos;/g, "'")
-			.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-			.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+		for (let i = 0; i < 2; i++) {
+			const decoded = text
+				.replace(/&lt;/g, '<')
+				.replace(/&gt;/g, '>')
+				.replace(/&quot;/g, '"')
+				.replace(/&#39;/g, "'")
+				.replace(/&apos;/g, "'")
+				.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+				.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+				.replace(/&amp;/g, '&');
+			if (decoded === text) break;
+			text = decoded;
+		}
+		return text;
 	}
 
 	private _videoId: string | undefined;
