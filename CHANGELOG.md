@@ -1,3 +1,9 @@
+## 0.19.11
+
+- Images: keep images without alt text in a captioned figure that also has images with alt text (obsidianmd/obsidian#2516)
+- Images: keep the link around an image in a figure, so Wikipedia diagrams link to their file page again
+- Tables: keep line breaks, paragraphs and lists in table cells as `<br>`, and stop removing a short list in a cell as blog metadata
+
 ## 0.19.10
 
 - Images: keep every image in WordPress block galleries and in figures, captioned paragraphs and spans with several images, instead of only the first (obsidianmd/obsidian#2516)
