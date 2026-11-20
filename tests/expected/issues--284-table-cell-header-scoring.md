@@ -7,7 +7,7 @@
 }
 ```
 
-## example::size\_t
+## example::size_t
 
 | Defined in header `<cstddef>` |  |  |
 | --- | --- | --- |
