@@ -19,7 +19,11 @@ module.exports = (env, argv) => {
 					{
 					loader: 'ts-loader',
 					options: {
-						configFile: 'tsconfig.json'
+						configFile: 'tsconfig.json',
+						// ES modules let webpack drop unused exports and hoist modules into one scope
+						compilerOptions: {
+							module: 'esnext'
+						}
 					}
 					}
 				],

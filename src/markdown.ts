@@ -1,4 +1,5 @@
 import TurndownService from 'turndown';
+import { MathMLToLaTeX } from 'mathml-to-latex';
 import { isElement, isTextNode } from './utils';
 import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import { fencedLines, transformOutsideCodeFences } from './utils/code-fences';
@@ -988,7 +989,6 @@ export function createMarkdownContent(content: string, url: string) {
 
 	function convertMathMLToLatex(element: GenericElement): string {
 		try {
-			const { MathMLToLaTeX } = require('mathml-to-latex');
 			const mathML = (element.outerHTML || `<math>${element.innerHTML}</math>`)
 				.replace(/&amp;nbsp;/g, '&#xA0;')
 				.replace(/&nbsp;/g, '&#xA0;');
