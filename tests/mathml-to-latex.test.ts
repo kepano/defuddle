@@ -17,6 +17,12 @@ function parseMathRoot(html: string, domImpl: 'linkedom' | 'jsdom'): Element {
 	return el;
 }
 
+// What Defuddle passed to mathml-to-latex before: the parsed element, serialized.
+function convertWithReference(el: Element): string {
+	const mathML = el.outerHTML.replace(/&amp;nbsp;/g, '&#xA0;').replace(/&nbsp;/g, '&#xA0;');
+	return RefMathMLToLaTeX.convert(mathML);
+}
+
 describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)', (domImpl) => {
 	test('corpus covers all fixture <math> elements plus generated cases', () => {
 		const fixtureCount = corpus.filter(c => c.category === 'fixture').length;
@@ -33,7 +39,7 @@ describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
 			const ours = convertMathMLToLatex(el);
-			const theirs = RefMathMLToLaTeX.convert(c.html);
+			const theirs = convertWithReference(el);
 			expect(ours).toBe(theirs);
 		}
 	);
@@ -43,7 +49,7 @@ describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
 			const ours = convertMathMLToLatex(el);
-			const theirs = RefMathMLToLaTeX.convert(c.html);
+			const theirs = convertWithReference(el);
 			expect(ours).toBe(c.expectedDiff!.ours);
 			expect(theirs).toBe(c.expectedDiff!.theirs);
 		}
@@ -54,7 +60,7 @@ describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
 			expect(() => convertMathMLToLatex(el)).toThrow();
-			expect(() => RefMathMLToLaTeX.convert(c.html)).toThrow();
+			expect(() => convertWithReference(el)).toThrow();
 		}
 	);
 });

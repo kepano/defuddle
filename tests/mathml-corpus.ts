@@ -256,32 +256,14 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 	add('msword:valueless-close-eq', 'msword', '<math><mfenced open="{" close= ><mi>x</mi></mfenced></math>');
 	add('msword:valueless-close', 'msword', '<math><mfenced open="{" close ><mi>x</mi></mfenced></math>');
 	add('msword:valueless-matrix', 'msword', `<math><mfenced open="[" close= >${table2x2}</mfenced></math>`);
-	add('msword:unquoted-bevelled', 'msword', '<math><mfrac bevelled=true><mi>a</mi><mi>b</mi></mfrac></math>', {
-		expectedDiff: {
-			ours: 'a/b',
-			theirs: '\\frac{a}{b}',
-			reason: 'HTML5 DOM preserves unquoted bevelled=true; xmldom ErrorHandler strips unquoted attributes as missing-value errors.',
-		},
-	});
-	add('msword:unquoted-linethickness', 'msword', '<math><mfrac linethickness=0><mi>n</mi><mi>k</mi></mfrac></math>', {
-		expectedDiff: {
-			ours: '\\genfrac{}{}{0pt}{}{n}{k}',
-			theirs: '',
-			reason: 'HTML5 DOM preserves unquoted linethickness=0; xmldom ErrorHandler strips only "linethickness=" leaving a stray "0" token so parsing fails completely and returns "".',
-		},
-	});
+	add('msword:unquoted-bevelled', 'msword', '<math><mfrac bevelled=true><mi>a</mi><mi>b</mi></mfrac></math>');
+	add('msword:unquoted-linethickness', 'msword', '<math><mfrac linethickness=0><mi>n</mi><mi>k</mi></mfrac></math>');
 	add('msword:line-breaks', 'msword', '<math>\r\n  <mi>a</mi>\n  <mo>+</mo>\r\n  <mtext>hello\nworld</mtext>\n</math>');
 
 	// --- Entities & Unicode symbols/operators/accents/special fonts ---
 	add('entities:xml-basic', 'entities', '<math><mo>&amp;</mo><mo>&lt;</mo><mo>&gt;</mo><mo>&lt;=</mo><mo>&gt;=</mo><mo>&amp;&amp;</mo></math>');
 	add('entities:numeric-hex', 'entities', '<math><mo>&#x2211;</mo><mi>&#x03B1;</mi><mo>&#x2061;</mo><mo>&#x222B;</mo><mi>&#x221E;</mi></math>');
-	add('entities:html-named', 'entities', '<math><mi>&alpha;</mi><mo>&plusmn;</mo><mi>&infin;</mi><mo>&le;</mo><mo>&ge;</mo></math>', {
-		expectedDiff: {
-			ours: '\\alpha \\pm \\infty \\leq \\geq',
-			theirs: '&alpha; &plusmn; &infin; &le; &ge;',
-			reason: 'HTML5 DOM decodes HTML named entities (&alpha;, &plusmn;, &infin;, &le;, &ge;); xmldom is XML-only and leaves them literal.',
-		},
-	});
+	add('entities:html-named', 'entities', '<math><mi>&alpha;</mi><mo>&plusmn;</mo><mi>&infin;</mi><mo>&le;</mo><mo>&ge;</mo></math>');
 	add('symbols:greek-lower', 'symbols', '<math><mi>α</mi><mi>β</mi><mi>γ</mi><mi>δ</mi><mi>ε</mi><mi>ζ</mi><mi>η</mi><mi>θ</mi><mi>ι</mi><mi>κ</mi><mi>λ</mi><mi>μ</mi><mi>ν</mi><mi>ξ</mi><mi>ο</mi><mi>π</mi><mi>ρ</mi><mi>σ</mi><mi>τ</mi><mi>υ</mi><mi>φ</mi><mi>χ</mi><mi>ψ</mi><mi>ω</mi></math>');
 	add('symbols:greek-upper-standard', 'symbols', '<math><mi>Γ</mi><mi>Δ</mi><mi>Θ</mi><mi>Λ</mi><mi>Ξ</mi><mi>Π</mi><mi>Σ</mi><mi>Φ</mi><mi>Ψ</mi><mi>Ω</mi><mi>Ζ</mi><mi>Η</mi><mi>Μ</mi><mi>Ν</mi><mi>Ο</mi><mi>Ρ</mi><mi>Τ</mi><mi>Υ</mi></math>');
 	add('symbols:greek-upper-homoglyphs', 'symbols', '<math><mi>Α</mi><mi>Β</mi><mi>Ε</mi><mi>Ι</mi><mi>Κ</mi><mi>Χ</mi></math>', {
