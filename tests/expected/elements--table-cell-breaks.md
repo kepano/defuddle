@@ -17,4 +17,9 @@ Main airports, from [the 2026 airports report](https://www.example.com/airports-
 | Paris | - Orly<br>- Charles de Gaulle | `ORY` and `CDG` |
 | Rome | Fiumicino<br>Ciampino | ``` FCO CIA ``` |
 
+| Train | Fares |
+| --- | --- |
+| Heathrow Express | Adults $10<br>Children $5 |
+| Orlyval | Adults $14<br>Children $7 |
+
 Trains run from each airport to the city center, and most take less than an hour. Check the timetable before you fly, since late flights can miss the last train.

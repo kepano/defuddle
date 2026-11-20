@@ -62,7 +62,8 @@ function getLeadingCheckbox(li: GenericElement): GenericElement | null {
 }
 
 
-const CELL_ONE_LINE_RE = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$[^$]+\$/g;
+// Inline math opens with $ before a non-space and closes with $ after one, not before a digit, so `$10<br>Children $5` isn't math.
+const CELL_ONE_LINE_RE = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$(?=\S)(?:[^$]*?\S)?\$(?!\d)/g;
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
 
