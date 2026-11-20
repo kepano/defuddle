@@ -148,19 +148,20 @@ function matchesCompiled(matcher: SelectorMatcher, el: Element): boolean {
 	return false;
 }
 
-// Same elements, in the same order, as doc.querySelectorAll(selectors.join(','))
-export function querySelectorList(doc: Document, matcher: SelectorMatcher): Element[] {
+// Same elements, in the same order, as root.querySelectorAll(selectors.join(','))
+export function querySelectorList(root: Document | Element, matcher: SelectorMatcher): Element[] {
 	// Quirks-mode pages match classes and ids case-insensitively in some DOMs
-	if (doc.compatMode === 'BackCompat') {
-		return Array.from(doc.querySelectorAll(matcher.selector));
+	if ((root.ownerDocument ?? root as Document).compatMode === 'BackCompat') {
+		return Array.from(root.querySelectorAll(matcher.selector));
 	}
-	const fallback = matcher.fallback ? new Set(doc.querySelectorAll(matcher.fallback)) : null;
+	const fallback = matcher.fallback ? new Set(root.querySelectorAll(matcher.fallback)) : null;
 	const result: Element[] = [];
 	const visit = (el: Element) => {
 		if (fallback?.has(el) || matchesCompiled(matcher, el)) result.push(el);
 		if (el.tagName.toUpperCase() === 'TEMPLATE') return;
 		for (let child = el.firstElementChild; child; child = child.nextElementSibling) visit(child);
 	};
-	if (doc.documentElement) visit(doc.documentElement);
+	const first = 'documentElement' in root ? root.documentElement : root.firstElementChild;
+	for (let el = first; el; el = el.nextElementSibling) visit(el);
 	return result;
 }

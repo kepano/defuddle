@@ -1054,17 +1054,21 @@ export class Defuddle {
 				}
 			});
 
+			// Outside debug mode nothing inspects clone outside mainContent after
+			// adoptExternalFootnotes, so scope the removal passes to mainContent.
+			const removalRoot: Document | Element = this.debug ? clone : mainContent!;
+
 			// Remove small images
 			profileStep('removeSmallImages', () => {
 				if (options.removeSmallImages) {
-					removeSmallImages(clone, smallImages, this.debug);
+					removeSmallImages(removalRoot, smallImages, this.debug);
 				}
 			});
 
 			// Remove hidden elements using computed styles
 			profileStep('removeHiddenElements', () => {
 				if (options.removeHiddenElements) {
-					removeHiddenElements(clone, this.debug, debugRemovals);
+					removeHiddenElements(removalRoot, this.debug, debugRemovals);
 				}
 			});
 
@@ -1083,7 +1087,7 @@ export class Defuddle {
 			profileStep('removeBySelector', () => {
 				if (options.removeExactSelectors || options.removePartialSelectors) {
 					removeBySelector(
-						clone,
+						removalRoot,
 						this.debug,
 						options.removeExactSelectors,
 						options.removePartialSelectors,
@@ -1098,7 +1102,7 @@ export class Defuddle {
 			// on link density, text ratios, and navigation indicators.
 			profileStep('removeLowScoring', () => {
 				if (options.removeLowScoring) {
-					ContentScorer.scoreAndRemove(clone, this.debug, debugRemovals, mainContent!);
+					ContentScorer.scoreAndRemove(removalRoot, this.debug, debugRemovals, mainContent!);
 				}
 			});
 
