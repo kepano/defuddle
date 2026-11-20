@@ -61,4 +61,6 @@ Both ends of the pier
 
 The ferry home
 
+![The ferry leaving the harbor](https://www.example.com/media/b41e9c/1920.jpg?width=620)
+
 We left on the evening ferry, with the lights of the harbor fading behind us.

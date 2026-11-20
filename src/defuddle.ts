@@ -12,6 +12,7 @@ import {
 import { standardizeContent, standardizeExtractorOutput } from './standardize';
 import { standardizeFootnotes, FOOTNOTE_SECTION_RE } from './elements/footnotes';
 import { standardizeCallouts } from './elements/callouts';
+import { extractLargestUrlFromSrcset } from './elements/images';
 import { ContentScorer, ContentScore } from './removals/scoring';
 import { findSmallImages, removeSmallImages } from './removals/small-images';
 import { removeHiddenElements } from './removals/hidden';
@@ -369,17 +370,23 @@ export class Defuddle {
 				.filter(img => !img.closest('noscript') && img.parentElement);
 			if (figImgs.length < 2) continue;
 
-			// A copy has the same alt and the same file name apart from size
-			// words, so a gallery's different images stay apart.
+			// A copy has the same file name apart from size words, and the same
+			// alt or none, so a gallery's different images stay apart.
 			const groups = new Map<string, Element[]>();
+			const unlabeled = new Map<string, Element[]>();
 			for (const img of figImgs) {
-				const src = img.getAttribute('src') || '';
+				const src = img.getAttribute('src') || extractLargestUrlFromSrcset(img.getAttribute('srcset') || '') || '';
 				if (!src || src.startsWith('data:')) continue;
 				const alt = (img.getAttribute('alt') || '').trim();
-				const key = `${alt}\n${imageStem(src)}`;
-				const group = groups.get(key) || [];
-				group.push(img);
-				groups.set(key, group);
+				const stem = imageStem(src);
+				const target = alt ? groups : unlabeled;
+				const key = alt ? `${alt}\n${stem}` : stem;
+				target.set(key, [...(target.get(key) || []), img]);
+			}
+			for (const [stem, imgs] of unlabeled) {
+				const labeled = Array.from(groups.keys()).find(key => key.endsWith(`\n${stem}`));
+				if (labeled) groups.get(labeled)!.push(...imgs);
+				else groups.set(stem, imgs);
 			}
 
 			for (const group of groups.values()) {
@@ -449,7 +456,13 @@ export class Defuddle {
 		let best = group[0];
 		for (let i = 1; i < group.length; i++) {
 			const winner = this._pickBestImage(best, group[i]);
-			(winner === best ? group[i] : best).remove();
+			const loser = winner === best ? group[i] : best;
+			// Keep the alt text and fallback src a copy had and the winner lacks.
+			for (const attr of ['alt', 'src']) {
+				const value = loser.getAttribute(attr)?.trim();
+				if (value && !winner.getAttribute(attr)?.trim()) winner.setAttribute(attr, value);
+			}
+			loser.remove();
 			best = winner;
 		}
 	}

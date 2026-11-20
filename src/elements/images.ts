@@ -727,7 +727,7 @@ function processSourceElement(element: Element, doc: Document): Element {
  * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
  * by parsing based on width/density descriptors rather than splitting on commas.
  */
-function extractLargestUrlFromSrcset(srcset: string): string | null {
+export function extractLargestUrlFromSrcset(srcset: string): string | null {
 	if (!srcset || !srcset.trim()) return null;
 
 	const trimmed = srcset.trim();
