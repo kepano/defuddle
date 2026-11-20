@@ -14,6 +14,7 @@ const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const MIN_REPEATED_CAPTION_TEXT = 10;
 // Explicit lazy-loading conventions, in precedence order. Other attributes are metadata.
 const LAZY_IMAGE_ATTRIBUTES = [
 	['src', ['data-src', 'data-original', 'data-lazy-src']],
@@ -549,9 +550,10 @@ function extractUniqueCaptionContent(caption: Element): string {
 	const processNode = (node: Node) => {
 		if (isTextNode(node)) {
 			const text = node.textContent?.trim() || '';
+			// Separators like ", " repeat in ordinary captions; only longer text counts as a copy.
 			if (text && !processedTexts.has(text)) {
 				textNodes.push(text);
-				processedTexts.add(text);
+				if (text.length >= MIN_REPEATED_CAPTION_TEXT) processedTexts.add(text);
 			}
 		} else if (isElement(node)) {
 			// Process child nodes
@@ -568,6 +570,13 @@ function extractUniqueCaptionContent(caption: Element): string {
 		processNode(childNodes[i]);
 	}
 	
+	// Keep the caption's markup (links, emphasis, citations) unless it repeats
+	// text or holds images, which the text-only version leaves out.
+	const repeatsText = textNodes.length < countTextNodes(caption);
+	if (!repeatsText && !caption.querySelector('img, picture, video, figure')) {
+		return serializeHTML(caption).trim();
+	}
+
 	// If we found unique text nodes, use them
 	if (textNodes.length > 0) {
 		return textNodes.join(' ');
@@ -577,6 +586,13 @@ function extractUniqueCaptionContent(caption: Element): string {
 	const html = serializeHTML(caption);
 	
 	return html;
+}
+
+function countTextNodes(node: Node): number {
+	if (isTextNode(node)) return node.textContent?.trim() ? 1 : 0;
+	let count = 0;
+	for (const child of Array.from(node.childNodes)) count += countTextNodes(child);
+	return count;
 }
 
 /**
