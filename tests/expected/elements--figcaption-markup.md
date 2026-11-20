@@ -21,6 +21,8 @@ Boats leaving the harbor at six
 
 [The painter](https://www.example.com/painter)'s view of the pier, with [Sam Rivera](https://www.example.com/sam), [Ana Lopez](https://www.example.com/ana), [Lee Park](https://www.example.com/lee), and the harbor master
 
+The harbor master calls the pier '*the long arm*' because it reaches so far into the bay.
+
 Each morning brought a different sky, from heavy fog to clear gold, and the boats came back with the tide before noon.
 
 [^1]: Harbor authority, annual report.

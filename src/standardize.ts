@@ -1288,7 +1288,7 @@ function removeEmptyLines(element: Element, doc: Document, keepSpaceBeforeHighPu
 					// 4. There's already a space
 					const nextIsFootnoteRef = isFootnoteRef(next);
 					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’'—–]/);
-					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘—–]\s*$/);
+					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘'—–]\s*$/);
 
 					const hasSpace = (isTextNode(current) &&
 									(current.textContent || '').endsWith(' ')) ||
