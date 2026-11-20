@@ -123,8 +123,13 @@ export interface ContentScore {
 	element: Element;
 }
 
+export interface ScoreFootnoteContext {
+	footnoteRefAncestors: Set<Element>;
+	footnoteListAncestors: Set<Element>;
+}
+
 export class ContentScorer {
-	static scoreElement(element: Element): number {
+	static scoreElement(element: Element, footnoteContext?: ScoreFootnoteContext): number {
 		let score = 0;
 
 		// Text density
@@ -171,10 +176,14 @@ export class ContentScorer {
 		}
 
 		// Check for footnotes/references
-		const hasFootnotes = element.querySelector(FOOTNOTE_INLINE_REFERENCES);
+		const hasFootnotes = footnoteContext
+			? footnoteContext.footnoteRefAncestors.has(element)
+			: Boolean(element.querySelector(FOOTNOTE_INLINE_REFERENCES));
 		if (hasFootnotes) score += 10;
 
-		const hasFootnotesList = element.querySelector(FOOTNOTE_LIST_SELECTORS);
+		const hasFootnotesList = footnoteContext
+			? footnoteContext.footnoteListAncestors.has(element)
+			: Boolean(element.querySelector(FOOTNOTE_LIST_SELECTORS));
 		if (hasFootnotesList) score += 10;
 
 		// Check for nested tables (penalize)
