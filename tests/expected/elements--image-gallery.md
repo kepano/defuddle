@@ -41,4 +41,24 @@ On the last day the fog lifted early, and the fishing boats were back at the pie
 
 The tide over one afternoon
 
+The cafe on the corner kept a wall of photos from every season.
+
+![Summer](https://www.example.com/uploads/cafe-summer.jpg)
+
+![Winter](https://www.example.com/uploads/cafe-winter.jpg)
+
+The cafe in summer and winter
+
+![Harbor Mornings](https://www.example.com/uploads/pier-north.jpg)
+
+![Harbor Mornings](https://www.example.com/uploads/pier-south.jpg)
+
+Both ends of the pier
+
+![](https://www.example.com/_next/image?url=%2Fuploads%2Fferry-deck.jpg&w=640&q=75)
+
+![](https://www.example.com/_next/image?url=%2Fuploads%2Fferry-wake.jpg&w=640&q=75)
+
+The ferry home
+
 We left on the evening ferry, with the lights of the harbor fading behind us.

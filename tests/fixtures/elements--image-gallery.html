@@ -32,6 +32,24 @@
 		<!-- Images separated by line breaks in a paragraph with a caption -->
 		<p><img src="https://www.example.com/uploads/tide-low.jpg" alt="Low tide"><br><img src="https://www.example.com/uploads/tide-high.jpg" alt="High tide"><br><span class="caption">The tide over one afternoon</span></p>
 
+		<!-- Images in a span with a caption -->
+		<p>The cafe on the corner kept a wall of photos from every season.</p>
+		<span><img src="https://www.example.com/uploads/cafe-summer.jpg" alt="Summer"><img src="https://www.example.com/uploads/cafe-winter.jpg" alt="Winter"><span class="caption">The cafe in summer and winter</span></span>
+
+		<!-- Different images that share the post title as alt text -->
+		<figure>
+			<img src="https://www.example.com/uploads/pier-north.jpg" alt="Harbor Mornings">
+			<img src="https://www.example.com/uploads/pier-south.jpg" alt="Harbor Mornings">
+			<figcaption>Both ends of the pier</figcaption>
+		</figure>
+
+		<!-- Next.js image URLs without alt text -->
+		<figure>
+			<img src="https://www.example.com/_next/image?url=%2Fuploads%2Fferry-deck.jpg&w=640&q=75">
+			<img src="https://www.example.com/_next/image?url=%2Fuploads%2Fferry-wake.jpg&w=640&q=75">
+			<figcaption>The ferry home</figcaption>
+		</figure>
+
 		<p>We left on the evening ferry, with the lights of the harbor fading behind us.</p>
 	</article>
 </body>

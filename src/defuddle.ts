@@ -35,7 +35,10 @@ const IMAGE_SIZE_WORD = /^(?:large|medium|small|thumb|thumbnail|full|original|sc
 function imageStem(src: string): string {
 	let path = src;
 	try {
-		path = new URL(src, 'https://example.invalid').pathname;
+		const url = new URL(src, 'https://example.invalid');
+		// Image proxies such as Next.js /_next/image name the file in ?url=
+		const proxied = url.searchParams.get('url');
+		path = proxied ? new URL(proxied, url).pathname : url.pathname;
 	} catch {}
 	const name = (path.split('/').pop() || '').toLowerCase().replace(/\.[a-z0-9]+$/, '');
 	return name.split(/[-_.@]+/).filter(word => word && !IMAGE_SIZE_WORD.test(word)).join('-');
@@ -366,23 +369,23 @@ export class Defuddle {
 				.filter(img => !img.closest('noscript') && img.parentElement);
 			if (figImgs.length < 2) continue;
 
-			// Group by alt text. Without alt, a copy shares the file name apart
-			// from size words, so a gallery's different images stay apart.
+			// A copy has the same alt and the same file name apart from size
+			// words, so a gallery's different images stay apart.
 			const groups = new Map<string, Element[]>();
 			for (const img of figImgs) {
 				const src = img.getAttribute('src') || '';
 				if (!src || src.startsWith('data:')) continue;
 				const alt = (img.getAttribute('alt') || '').trim();
-				const key = alt ? `alt:${alt}` : `src:${imageStem(src)}`;
+				const key = `${alt}\n${imageStem(src)}`;
 				const group = groups.get(key) || [];
 				group.push(img);
 				groups.set(key, group);
 			}
 
-			for (const [key, group] of groups) {
+			for (const group of groups.values()) {
 				if (group.length < 2) continue;
 				// Same-src images with alt text are legitimate repeats, not dupes
-				if (key.startsWith('alt:') && group.every(img => img.getAttribute('src') === group[0].getAttribute('src'))) continue;
+				if (group[0].getAttribute('alt')?.trim() && group.every(img => img.getAttribute('src') === group[0].getAttribute('src'))) continue;
 				this._keepBestImage(group);
 			}
 		}

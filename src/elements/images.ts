@@ -187,18 +187,18 @@ export const imageRules = [
 					}
 				}
 
-				const imgElement = findMainImage(el);
-				if (!imgElement) {
+				const images = findMainImages(el);
+				if (images.length === 0) {
 					return el;
 				}
 
 				const caption = findCaption(el);
 
-				// Process the image element (might return the img itself or handle picture/source)
-				const processedImg = processImageElement(imgElement, doc);
+				// Process the images (might return the img itself or handle picture/source)
+				const processedImages = images.map(image => processImageElement(image, doc));
 
 				if (caption && hasMeaningfulCaption(caption)) {
-					const figure = createFigureWithCaption([processedImg], caption, doc);
+					const figure = createFigureWithCaption(processedImages, caption, doc);
 
 					// Remove the original caption element from its parent
 					// to prevent duplication, as the span itself might remain.
@@ -207,11 +207,10 @@ export const imageRules = [
 					}
 
 					return figure; // Replace the span (or its content) with the figure
-				} else {
-					// No meaningful caption, return just the processed image.
-					// This might replace the span content or the span itself depending on framework.
-					return processedImg;
 				}
+
+				// No meaningful caption: a single image replaces the span, several stay in it.
+				return processedImages.length === 1 ? processedImages[0] : el;
 			} catch (error) {
 				// Failed to process span with image, return as-is
 				return el;
@@ -388,15 +387,6 @@ function findMainImages(element: Element): Element[] {
 	const fallback = element.querySelector('video') || element.querySelector('source') ||
 		element.querySelector('img, picture, source, video');
 	return fallback ? [fallback] : [];
-}
-
-/**
- * Find the main image in a container, preferring a <picture> since it often
- * has the highest quality sources.
- */
-function findMainImage(element: Element): Element | null {
-	const images = findMainImages(element);
-	return images.find(image => image.tagName.toLowerCase() === 'picture') || images[0] || null;
 }
 
 function isPlaceholderImage(img: Element): boolean {
