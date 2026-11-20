@@ -1149,4 +1149,13 @@ describe('YouTube inline JSON', () => {
 
 		expect((extractor as any).parseInlineJson('ytInitialPlayerResponse')).toEqual(data);
 	});
+
+	test('decodes double-encoded HTML entities in timedtext XML', () => {
+		const extractor = createExtractor();
+		const xml = `<?xml version="1.0" encoding="utf-8"?><timedtext><body><p t="0" d="5000"><s>D&amp;amp;D &amp;#39;test&amp;#39;</s></p></body></timedtext>`;
+		const parsed = (extractor as any).parseTranscriptXml(xml, 'en');
+		expect(parsed?.text).toContain("D&D 'test'");
+		expect(parsed?.html).toContain("D&amp;D 'test'");
+		expect(parsed?.html).not.toContain('D&amp;amp;D');
+	});
 });
