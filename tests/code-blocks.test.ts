@@ -66,4 +66,16 @@ describe('code block structured text', () => {
 		expect(result.textContent).toBe('first\n\n  second');
 		expect(lineScanCount(scans)).toBeLessThanOrEqual(1);
 	});
+
+	test('skips whitespace separators between token-line divs without adding blank lines', () => {
+		const doc = parseDocument(`<html><body><pre><code>
+<div class="token-line">const a = 1;</div>
+<div class="token-line"></div>
+<div class="token-line">const b = 2;</div>
+</code></pre></body></html>`);
+		const pre = doc.querySelector('pre')!;
+		const result = codeBlockRules[0].transform(pre, doc);
+
+		expect(result.textContent).toBe('const a = 1;\n\nconst b = 2;');
+	});
 });

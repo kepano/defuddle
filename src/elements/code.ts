@@ -122,6 +122,9 @@ const CODE_LANGUAGES = new Set([
 
 // Convert code blocks with different syntax highlighters and line numbers
 // to a standard <pre> and <code> element with a language attribute
+const LINE_ELEMENT_SELECTOR =
+	'div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]';
+
 export const codeBlockRules = [
 	{
 		selector: [
@@ -301,7 +304,7 @@ export const codeBlockRules = [
 					if (!text.trim() && parent) {
 						let hasLines = parentHasLines.get(parent);
 						if (hasLines === undefined) {
-							hasLines = !!parent.querySelector('[data-line], .line');
+							hasLines = !!parent.querySelector(LINE_ELEMENT_SELECTOR);
 							parentHasLines.set(parent, hasLines);
 						}
 						if (hasLines) return '';
@@ -328,7 +331,7 @@ export const codeBlockRules = [
 					// `<span class="line">CODE</span><br>`) — the line span already appended '\n'.
 					if (element.tagName === 'BR') {
 						const prev = element.previousElementSibling;
-						if (prev && prev.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
+						if (prev && prev.matches(LINE_ELEMENT_SELECTOR)) {
 							return '';
 						}
 						return '\n';
@@ -373,7 +376,7 @@ export const codeBlockRules = [
 					// Handle common line-based code formats
 					// This covers various syntax highlighter implementations that use
 					// divs or spans to represent individual lines
-					if (element.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
+					if (element.matches(LINE_ELEMENT_SELECTOR)) {
 						// Try to find the actual code content in common structures:
 						// 1. A dedicated code container
 						const codeContainer = element.querySelector('.code:not(.token), .content:not(.token), [class*="code-"], [class*="content-"]');
