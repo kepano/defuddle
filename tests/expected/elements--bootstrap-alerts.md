@@ -2,7 +2,7 @@
 {
   "title": "Bootstrap alerts test",
   "author": "",
-  "site": "",
+  "site": "bootstrap-alerts",
   "published": ""
 }
 ```

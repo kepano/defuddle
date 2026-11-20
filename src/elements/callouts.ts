@@ -35,7 +35,7 @@ export function standardizeCallouts(element: Element): void {
 	const doc = element.ownerDocument;
 	if (!doc) return;
 
-	// Obsidian Publish callouts — already use data-callout and
+	// Obsidian callouts — already use data-callout and
 	// .callout-content, but collapsed ones need to be expanded so
 	// removeHiddenElements doesn't strip their content.
 	// Preserve fold state via data-callout-fold (already set by Obsidian)

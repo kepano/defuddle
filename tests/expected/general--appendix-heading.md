@@ -2,7 +2,7 @@
 {
   "title": "Article with Appendix",
   "author": "",
-  "site": "",
+  "site": "appendix-heading",
   "published": ""
 }
 ```

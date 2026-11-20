@@ -2,7 +2,7 @@
 {
   "title": "Dependent Type Theory",
   "author": "",
-  "site": "",
+  "site": "lean-lang.org",
   "published": ""
 }
 ```

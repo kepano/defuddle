@@ -2,7 +2,7 @@
 {
   "title": "Footnotes in Wrapper Spans",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

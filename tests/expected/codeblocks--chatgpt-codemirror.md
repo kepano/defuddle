@@ -1,13 +1,11 @@
 ```json
 {
-  "title": "ChatGPT",
+  "title": "Fibonacci in Python",
   "author": "",
-  "site": "",
+  "site": "chatgpt.com",
   "published": ""
 }
 ```
-
-## Fibonacci in Python
 
 Here is a generator-based implementation:
 

@@ -2,7 +2,7 @@
 {
   "title": "Weekly Roundup",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

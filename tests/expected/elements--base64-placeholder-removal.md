@@ -2,7 +2,7 @@
 {
   "title": "Base64 Placeholder Image Handling",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

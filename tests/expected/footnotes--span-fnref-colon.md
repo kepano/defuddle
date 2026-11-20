@@ -2,7 +2,7 @@
 {
   "title": "Footnotes with span fnref:id pattern",
   "author": "",
-  "site": "",
+  "site": "span-fnref-colon",
   "published": ""
 }
 ```

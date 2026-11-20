@@ -1,13 +1,13 @@
 import { MathMLToLaTeX } from 'mathml-to-latex';
 import {
 	MathData,
+	LatexToMathML,
 	getMathMLFromElement,
 	getBasicLatexFromElement,
-	isBlockDisplay,
-	mathSelectors,
-	mathFastCheck
+	createMathElement,
+	createMathRules
 } from './math.base';
-import { parseHTML, transferContent } from '../utils/dom';
+import { parseHTML } from '../utils/dom';
 
 export const getLatexFromElement = (el: Element): string | null => {
 	// First try basic LaTeX extraction
@@ -29,73 +29,21 @@ export const getLatexFromElement = (el: Element): string | null => {
 	return null;
 };
 
-export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean, doc: Document): Element => {
-	const cleanMathEl = doc.createElement('math');
-
-	cleanMathEl.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
-	cleanMathEl.setAttribute('display', isBlock ? 'block' : 'inline');
-	cleanMathEl.setAttribute('data-latex', latex || '');
-
-	// First try to use existing MathML content
-	if (mathData?.mathml) {
-		const fragment = parseHTML(doc, mathData.mathml);
-		const mathContent = fragment.querySelector('math');
-		if (mathContent) {
-			transferContent(mathContent, cleanMathEl);
-		}
+const latexToMathML: LatexToMathML = (latex, isBlock, doc) => {
+	try {
+		const temml = require('temml');
+		const mathml = temml.renderToString(latex, {
+			displayMode: isBlock,
+			throwOnError: false
+		});
+		return parseHTML(doc, mathml).querySelector('math');
+	} catch (e) {
+		console.warn('Failed to convert LaTeX to MathML:', e);
+		return null;
 	}
-	// If no MathML but we have LaTeX, convert it
-	else if (latex) {
-		try {
-			const temml = require('temml');
-			const mathml = temml.renderToString(latex, {
-				displayMode: isBlock,
-				throwOnError: false
-			});
-			const fragment = parseHTML(doc, mathml);
-			const mathContent = fragment.querySelector('math');
-			if (mathContent) {
-				while (mathContent.firstChild) {
-					cleanMathEl.appendChild(mathContent.firstChild);
-				}
-			} else {
-				cleanMathEl.textContent = latex; // Fallback to LaTeX as text
-			}
-		} catch (e) {
-			console.warn('Failed to convert LaTeX to MathML:', e);
-			cleanMathEl.textContent = latex; // Fallback to LaTeX as text
-		}
-	}
-
-	return cleanMathEl;
 };
 
-export const mathRules = [
-	{
-		selector: mathSelectors,
-		element: 'math',
-		fastCheck: mathFastCheck,
-		transform: (el: Element): Element => {
-			if (!('classList' in el) || !('getAttribute' in el) || !('querySelector' in el)) {
-				return el;
-			}
+export const createCleanMathEl = (mathData: MathData | null, latex: string | null, isBlock: boolean, doc: Document): Element =>
+	createMathElement(mathData, latex, isBlock, doc, latexToMathML);
 
-			const mathData = getMathMLFromElement(el);
-			const latex = getLatexFromElement(el);
-			const isBlock = isBlockDisplay(el);
-			const cleanMathEl = createCleanMathEl(mathData, latex, isBlock, el.ownerDocument);
-
-			// Clean up any associated math scripts after we've extracted their content.
-			// Skip when el itself is a math script — it will be replaced by the
-			// caller, and removing siblings here would destroy unprocessed scripts.
-			if (el.parentElement && !el.matches('script[type^="math/"]')) {
-				const mathElements = el.parentElement.querySelectorAll(
-					'script[type^="math/"], .MathJax_Preview, script[type="text/javascript"][src*="mathjax"], script[type="text/javascript"][src*="katex"]'
-				);
-				mathElements.forEach(el => el.remove());
-			}
-
-			return cleanMathEl;
-		}
-	}
-]; 
+export const mathRules = createMathRules(getLatexFromElement, latexToMathML);

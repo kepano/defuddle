@@ -2,7 +2,7 @@
 {
   "title": "Cloud Sessions",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

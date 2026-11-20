@@ -2,7 +2,7 @@
 {
   "title": "An Article About Sorting",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": "2025-01-01T00:00:00+00:00"
 }
 ```

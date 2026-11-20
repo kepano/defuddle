@@ -1,0 +1,220 @@
+.code-window {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+  color: var(--paper);
+
+  &-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 16px;
+    color: var(--body);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+  }
+
+  &-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  pre {
+    margin: 0;
+    overflow-x: auto;
+    padding: 24px 0;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+    line-height: var(--code-line-height);
+  }
+}
+.code-line {
+  display: grid;
+  min-height: calc(var(--code-line-height) * 1em);
+  grid-template-columns: var(--code-gutter-width) 1fr;
+  padding-inline: 14px 24px;
+}
+.line-number {
+  -webkit-user-select: none;
+  color: var(--faint);
+  user-select: none;
+}
+.tok-punctuation {
+  color: var(--syntax-muted);
+}
+.tok-language {
+  color: var(--syntax-magenta);
+}
+.tok-keyword {
+  color: var(--syntax-green);
+}
+.tok-variable {
+  color: var(--syntax-blue);
+}
+.tok-filter {
+  color: var(--syntax-orange);
+}
+.tok-string {
+  color: var(--syntax-cyan);
+}
+.tok-plain {
+  color: var(--paper);
+}
+
+.doc-code {
+  position: relative;
+  margin: 28px 0;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+
+  figcaption {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 45px;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 10px 8px 14px;
+    color: var(--muted);
+    font-size: var(--font-size-small);
+  }
+
+  pre {
+    margin: 0;
+    overflow-x: auto;
+    padding-block: 18px;
+    color: var(--paper);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+    line-height: var(--code-line-height);
+  }
+
+  &-unlabeled {
+    pre {
+      padding-block: 14px;
+    }
+    > .doc-code-copy, > .doc-code-actions {
+      position: absolute;
+      z-index: 1;
+      top: 8px;
+      right: 10px;
+    }
+    .doc-code-line {
+      padding-right: 52px;
+    }
+    &:has(.doc-code-actions > a) .doc-code-line {
+      padding-right: 90px;
+    }
+  }
+
+  &-numbered .doc-code-line {
+    grid-template-columns: var(--code-gutter-width) minmax(0, 1fr);
+    padding-left: 10px;
+  }
+}
+.doc-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.doc-code-copy {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+
+  @media (hover: hover) {
+    &:hover {
+      background: var(--line);
+      color: var(--paper);
+    }
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  &[data-copied] {
+    color: var(--green);
+  }
+}
+.doc-code pre, .code-window pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color-scheme: light;
+}
+.doc-code pre > code, .code-window pre > code {
+  font: inherit;
+}
+.doc-code-line {
+  display: grid;
+  min-height: calc(var(--code-line-height) * 1em);
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline: 20px;
+}
+.doc-code-source {
+  min-width: 0;
+}
+.doc-line-number {
+  -webkit-user-select: none;
+  color: var(--faint);
+  user-select: none;
+}
+
+.syn-punctuation {
+  color: var(--syntax-muted);
+}
+.syn-language {
+  color: var(--syntax-magenta);
+}
+.syn-keyword {
+  color: var(--syntax-green);
+}
+.syn-import {
+  color: var(--syntax-red);
+}
+.syn-constant {
+  color: var(--syntax-yellow);
+}
+.syn-variable {
+  color: var(--syntax-blue);
+}
+.syn-filter, .syn-function {
+  color: var(--syntax-orange);
+}
+.syn-string {
+  color: var(--syntax-cyan);
+}
+.syn-number {
+  color: var(--syntax-purple);
+}
+.syn-command {
+  color: var(--syntax-red);
+}
+.syn-md-heading {
+  color: var(--paper);
+}
+.syn-yaml-key {
+  color: var(--syntax-blue);
+}
+.syn-md-link {
+  color: var(--syntax-cyan);
+}
+
+.syn-comment {
+  color: var(--syntax-comment);
+}
+.syn-tag {
+  color: var(--syntax-blue);
+}
+.syn-invalid {
+  color: var(--syntax-red);
+}

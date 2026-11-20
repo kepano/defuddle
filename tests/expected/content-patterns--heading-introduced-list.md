@@ -2,7 +2,7 @@
 {
   "title": "Sample Plugin",
   "author": "",
-  "site": "",
+  "site": "content-patterns--heading-introduced-list",
   "published": ""
 }
 ```

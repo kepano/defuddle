@@ -294,4 +294,249 @@ describe('Markdown conversion', () => {
 			expect(markdown).not.toContain('\\begin{aligned}');
 		});
 	});
+
+	describe('nested lists', () => {
+		test('should give sibling items at the same depth the same indentation', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>A<ul><li>B1</li><li>B2</li><li>B3</li></ul></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- A\n\t- B1\n\t- B2\n\t- B3');
+		});
+
+		test('should indent by exactly one tab per level of nesting', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul>' +
+					'<li>A1</li>' +
+					'<li>A2<ul>' +
+						'<li>B1</li>' +
+						'<li>B2<ul><li>C1</li><li>C2</li></ul></li>' +
+						'<li>B3</li>' +
+					'</ul></li>' +
+					'<li>A3</li>' +
+				'</ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain(
+				'- A1\n- A2\n\t- B1\n\t- B2\n\t\t- C1\n\t\t- C2\n\t- B3\n- A3'
+			);
+		});
+
+		test('should indent nested ordered lists without breaking numbering', () => {
+			const markdown = createMarkdownContent(
+				'<article><ol start="3"><li>one<ol><li>a</li><li>b</li></ol></li><li>two</li></ol></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('3. one\n\t1. a\n\t2. b\n4. two');
+		});
+
+		test('should indent an ordered list nested inside an unordered list', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>bullet<ol><li>first</li><li>second</li></ol></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- bullet\n\t1. first\n\t2. second');
+		});
+
+		test('should keep indenting continuation lines inside a list item', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li><p>para one</p><p>para two</p></li><li>next</li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- para one\n\tpara two\n- next');
+		});
+
+		// Malformed but common markup
+		test('should indent a list that is a direct child of another list', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>A1</li><ul><li>B1</li><li>B2</li></ul><li>A2</li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('- A1\n\t- B1\n\t- B2\n- A2');
+		});
+	});
+
+	describe('fenced code blocks', () => {
+		test('should not escape backticks inside a code block', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-javascript">res.write(`data: ${payload}`);</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('res.write(`data: ${payload}`);');
+			expect(markdown).not.toContain('\\`');
+		});
+
+		test('should lengthen the fence when the code contains a fence line', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-markdown">```js\nconst a = 1;\n```</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('````markdown\n```js\nconst a = 1;\n```\n````');
+		});
+
+		test('should size the fence past the longest fence line in the code', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code>a\n`````\nb</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('``````\na\n`````\nb\n``````');
+		});
+
+		test.each([1, 2, 3])('should lengthen the fence for a closing fence indented by %i spaces', (indent) => {
+			const code = 'before\n' + ' '.repeat(indent) + '```\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre><p>Following paragraph</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('````\n' + code + '\n````\n\nFollowing paragraph');
+		});
+
+		test('should size the fence past the longest indented backtick run', () => {
+			const code = 'before\n```\n  `````\nafter';
+			const markdown = createMarkdownContent(
+				'<article><pre><code>' + code + '</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('``````\n' + code + '\n``````');
+		});
+
+		test('should keep the standard fence for code without backticks', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code class="language-python">print("hi")</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('```python\nprint("hi")\n```');
+		});
+
+		test('should leave code untouched by the Markdown cleanup', () => {
+			const code = 'a = 1\n\n\n\nb = y[](z)\nprint("wow!![a](b)")\n&gt;\n&gt;\n&gt;';
+			const markdown = createMarkdownContent(
+				'<article><p>Intro</p><pre><code>' + code + '</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('Intro\n\n```\na = 1\n\n\n\nb = y[](z)\nprint("wow!![a](b)")\n>\n>\n>\n```');
+		});
+
+		test('should not end a code block at a shorter fence inside it', () => {
+			const markdown = createMarkdownContent(
+				'<article><pre><code>a\n```\n\n\n\nb</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('````\na\n```\n\n\n\nb\n````');
+		});
+
+		test('should not start a code block at inline code that opens a line', () => {
+			const markdown = createMarkdownContent(
+				'<article><p><code>a`b``c</code> starts the line</p><p>First</p><a href="https://example.com/x"></a><p>Second</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('```a`b``c``` starts the line\n\nFirst\n\nSecond');
+		});
+
+		test('should keep blank lines in code inside a list item', () => {
+			const markdown = createMarkdownContent(
+				'<article><ul><li>Item<pre><code>a\n\nb</code></pre></li></ul></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('- Item\n\t```\n\ta\n\t\n\tb\n\t```');
+		});
+
+		test('should keep blank lines in code inside a blockquote', () => {
+			const markdown = createMarkdownContent(
+				'<article><blockquote><pre><code>a\n\n\nb</code></pre></blockquote></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('> ```\n> a\n> \n> \n> b\n> ```');
+		});
+	});
+
+	describe('empty links', () => {
+		test('should keep paragraphs apart when removing an empty link between them', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>First</p><a href="https://example.com/x"></a><p>Second</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('First\n\nSecond');
+		});
+
+		test('should keep a code fence on its own line after an empty link', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>First</p><a href="https://example.com/x"></a><pre><code>x</code></pre></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('First\n\n```\nx\n```');
+		});
+
+		test('should remove an empty heading anchor', () => {
+			const markdown = createMarkdownContent(
+				'<article><h2><a href="#title"></a>Title</h2><p>Text</p></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toBe('## Title\n\nText');
+		});
+	});
+
+	// The attribute strip removes the task-list-item class before conversion,
+	// so the leading checkbox has to be enough.
+	describe('task lists', () => {
+		const html = `<html><head><title>Release checklist</title></head><body><article>
+			<h1>Release checklist</h1>
+			<p>Before we ship the next version of the app, we go through every step below and tick them off one at a time so nothing gets missed.</p>
+			<ul class="contains-task-list">
+				<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" checked disabled> Bump the version in the manifest and the package file, then tag the commit</li>
+				<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled> Write the changelog entries for every fix that went in since the last release</li>
+			</ul>
+			<p>After the checklist is done, the release goes out to the store and we watch the crash reports for a day before announcing it anywhere.</p>
+		</article></body></html>`;
+
+		test('keeps checkboxes after the attribute strip', async () => {
+			const result = await Defuddle(parseDocument(html, 'https://example.com'), 'https://example.com', { separateMarkdown: true });
+			expect(result.contentMarkdown).toContain('- [x] Bump the version');
+			expect(result.contentMarkdown).toContain('- [ ] Write the changelog');
+		});
+
+		test('converts task list markup directly', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li class="task-list-item"><input type="checkbox" checked> Ship it</li><li><input type="checkbox"> Announce it</li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).toBe('- [x] Ship it\n- [ ] Announce it');
+		});
+
+		test('finds the checkbox in a loose item paragraph', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li><p><input type="checkbox" checked> Ship it</p></li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).toBe('- [x] Ship it');
+		});
+
+		test('leaves a checkbox later in the item alone', () => {
+			const markdown = createMarkdownContent(
+				'<ul><li>Remember me <input type="checkbox"></li></ul>',
+				'https://example.com'
+			);
+			expect(markdown).not.toContain('[ ]');
+		});
+	});
 });

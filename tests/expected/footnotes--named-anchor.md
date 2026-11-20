@@ -2,7 +2,7 @@
 {
   "title": "Essay on Architecture",
   "author": "",
-  "site": "",
+  "site": "named-anchor",
   "published": ""
 }
 ```

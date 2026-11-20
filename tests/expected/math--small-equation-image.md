@@ -2,7 +2,7 @@
 {
   "title": "Small equation images",
   "author": "",
-  "site": "",
+  "site": "small-equation-image",
   "published": ""
 }
 ```

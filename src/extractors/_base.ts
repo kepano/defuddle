@@ -1,4 +1,5 @@
-import { ExtractorResult, ExtractorVariables, ExtractedContent } from '../types/extractors';
+import { ExtractorResult } from '../types/extractors';
+import { parseHTML } from '../utils/dom';
 
 export interface ExtractorOptions {
 	includeReplies?: boolean | 'extractors';
@@ -26,6 +27,22 @@ export abstract class BaseExtractor {
 
 	abstract canExtract(): boolean;
 	abstract extract(): ExtractorResult;
+
+	/**
+	 * Change Defuddle's copy of the page before the standard pipeline reads a
+	 * returned contentSelector. Do DOM changes here, never on this.document,
+	 * which can be the live page the user sees.
+	 */
+	prepareDocument(doc: Document): void {}
+
+	/** Append rendered HTML to the copy, inside a wrapper a contentSelector can find. */
+	protected appendWrapper(doc: Document, attr: string, html: string): void {
+		if (!html || !doc.body) return;
+		const wrapper = doc.createElement('div');
+		wrapper.setAttribute(attr, '');
+		wrapper.appendChild(parseHTML(doc, html));
+		doc.body.appendChild(wrapper);
+	}
 
 	/**
 	 * Generate a title from the post description text, falling back to

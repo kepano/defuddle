@@ -3,6 +3,7 @@ import { ExtractorResult } from '../types/extractors';
 import { escapeHtml, isDangerousUrl } from '../utils/dom';
 
 const C2_API = 'https://c2.com/wiki/remodel/pages/';
+const FETCH_TIMEOUT_MS = 4000;
 
 export class C2WikiExtractor extends BaseExtractor {
 	private pageTitle: string | null | undefined;
@@ -27,7 +28,7 @@ export class C2WikiExtractor extends BaseExtractor {
 		const title = this.getPageTitle();
 		if (!title) return { content: '', contentHtml: '' };
 
-		const json = await this.fetch(C2_API + title).then(res => res.json());
+		const json = await this.fetch(C2_API + title, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }).then(res => res.json());
 		if (!json || !json.text) return { content: '', contentHtml: '' };
 
 		const words = title.replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -68,7 +69,8 @@ export class C2WikiExtractor extends BaseExtractor {
 		let openTags: string[] = [];
 
 		for (const line of lines) {
-			const { html, openTags: nextTags } = this.applyBullets(line, openTags);
+			// Escape source before generated wiki markup is added.
+			const { html, openTags: nextTags } = this.applyBullets(escapeHtml(line), openTags);
 			parts.push(this.applyInline(html));
 			openTags = nextTags;
 		}
@@ -89,8 +91,10 @@ export class C2WikiExtractor extends BaseExtractor {
 				prefix += `</${newOpenTags.pop()}>`;
 			}
 			if (tag && newOpenTags.length < depth) {
-				prefix += `<${tag}>`;
-				newOpenTags.push(tag);
+				while (newOpenTags.length < depth) {
+					prefix += `<${tag}>`;
+					newOpenTags.push(tag);
+				}
 			} else if (tag && newOpenTags.length === depth && newOpenTags[depth - 1] !== tag) {
 				prefix += `</${newOpenTags.pop()}><${tag}>`;
 				newOpenTags.push(tag);
@@ -147,13 +151,14 @@ export class C2WikiExtractor extends BaseExtractor {
 			.replace(/'''(.*?)'''/g, '<strong>$1</strong>')
 			.replace(/''(.*?)''/g, '<em>$1</em>')
 			.replace(
-				/\b(https?|ftp|mailto|file|telnet|news):[^\s<>[\]"'()]*[^\s<>[\]"'(),.?]/g,
+				/\b(https?|ftp|mailto|file|telnet|news):(?:(?!&(?:lt|gt|quot);)[^\s<>[\]"'()])*(?:(?!&(?:lt|gt|quot);)[^\s<>[\]"'(),.?])/g,
 				(url) => {
-					if (isDangerousUrl(url)) return escapeHtml(url);
+					// Already escaped before inline processing; avoid double-escaping &.
+					if (isDangerousUrl(url)) return url;
 					if (/\.(gif|jpg|jpeg|png)$/i.test(url)) {
 						return `<img src="${escapeAttr(url)}">`;
 					}
-					return `<a href="${escapeAttr(url)}" rel="nofollow" target="_blank">${escapeHtml(url)}</a>`;
+					return `<a href="${escapeAttr(url)}" rel="nofollow" target="_blank">${url}</a>`;
 				}
 			);
 	}

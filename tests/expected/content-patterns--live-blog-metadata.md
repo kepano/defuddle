@@ -2,7 +2,7 @@
 {
   "title": "Breaking News Live Updates",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

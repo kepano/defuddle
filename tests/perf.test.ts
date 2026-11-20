@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test } from 'vitest';
 import { readFileSync } from 'fs';
 import { basename } from 'path';
 import DefuddleClass from '../src/index';
@@ -7,8 +7,14 @@ import { getFixtures, parseDocument } from './helpers';
 describe('Performance', () => {
 	const fixtures = getFixtures();
 
+	// This benchmark parses every fixture in one test; JSDOM on CI needs more
+	// time than the default timeout intended for an individual test.
 	test('parse time per fixture (total including DOM parsing)', async () => {
 		const results: { name: string; parseTime: number; domTime: number; totalTime: number; size: number; profile: Record<string, number> }[] = [];
+		// Measure local parsing only, without live API requests from async extractors.
+		const offlineFetch: typeof fetch = async () => {
+			throw new Error('network disabled in performance tests');
+		};
 
 		for (const { name, path } of fixtures) {
 			const html = readFileSync(path, 'utf-8');
@@ -24,7 +30,7 @@ describe('Performance', () => {
 
 			// Measure Defuddle parsing
 			const defuddleStart = performance.now();
-			const defuddle = new DefuddleClass(doc, { url, profile: true });
+			const defuddle = new DefuddleClass(doc, { url, profile: true, fetch: offlineFetch });
 			const result = await defuddle.parseAsync();
 			const defuddleTime = performance.now() - defuddleStart;
 
@@ -78,5 +84,5 @@ describe('Performance', () => {
 			console.log(`  ${ms.toString().padStart(4)}  ${pct.toString().padStart(3)}%  ${step}`);
 		}
 		console.log(`  ${profileTotal.toString().padStart(4)}       total`);
-	});
+	}, 120_000);
 });

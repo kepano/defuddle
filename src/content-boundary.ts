@@ -1,4 +1,5 @@
 import { countWords, normalizeText } from './utils';
+import { isNodeBefore } from './utils/dom';
 
 const DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const BYLINE_PATTERN = /^by\s+\S/i;
@@ -134,11 +135,5 @@ export function findContentStart(mainContent: Element, title: string): Element |
  */
 export function isAboveContentStart(el: Element, boundary: Element | null): boolean {
 	if (!boundary) return false;
-	if (el === boundary) return false;
-	const pos = el.compareDocumentPosition(boundary);
-	// DOCUMENT_POSITION_DISCONNECTED (1) — one of the nodes is detached; treat
-	// as unknown rather than above.
-	if (pos & 1) return false;
-	// DOCUMENT_POSITION_FOLLOWING (4) — boundary follows el → el is above it.
-	return !!(pos & 4);
+	return isNodeBefore(el, boundary);
 }

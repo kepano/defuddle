@@ -2,7 +2,7 @@
 {
   "title": "Article With Sidebar Toggle",
   "author": "",
-  "site": "",
+  "site": "sidebar-toggle-checkbox",
   "published": ""
 }
 ```

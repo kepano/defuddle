@@ -2,7 +2,7 @@
 {
   "title": "Temml Math Test",
   "author": "",
-  "site": "",
+  "site": "temml",
   "published": ""
 }
 ```
@@ -34,7 +34,7 @@ $$
 
 ## Environments
 
-| $\begin{pmatrix} a & b \\ c & d \end{pmatrix}$ | `\begin{pmatrix}`   `a & b \\`   `c & d`   `\end{pmatrix}` |
+| $\begin{pmatrix} a & b \\ c & d \end{pmatrix}$ | `\begin{pmatrix}`<br>`a & b \\`<br>`c & d`<br>`\end{pmatrix}` |
 | --- | --- |
 
 ## Greek and Symbols

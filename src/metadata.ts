@@ -2,13 +2,14 @@ import { DefuddleMetadata, MetaTagItem } from './types';
 import { countWords } from './utils';
 
 export class MetadataExtractor {
-	static extract(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): DefuddleMetadata {
+	static extract(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[], pageUrl?: string): DefuddleMetadata {
 		let domain = '';
 		let url = '';
 
 		try {
-			// Try to get URL from document location
-			url = doc.location?.href || '';
+			// Use the same page URL as extraction. Server-side DOMs may only expose
+			// document.URL; about:blank should still allow metadata URL fallbacks.
+			url = [pageUrl, doc.location?.href, doc.URL].find(value => value && value !== 'about:blank') || '';
 			
 			// If no URL from location, try other sources
 			if (!url) {
@@ -51,10 +52,10 @@ export class MetadataExtractor {
 
 		return {
 			title,
-			description: this.getDescription(doc, schemaOrgData, metaTags),
+			description: this.getDescription(schemaOrgData, metaTags),
 			domain,
 			favicon: this.getFavicon(doc, url, metaTags),
-			image: this.getImage(doc, schemaOrgData, metaTags),
+			image: this.getImage(schemaOrgData, metaTags),
 			language: this.getLanguage(doc, schemaOrgData, metaTags),
 			published: this.getPublished(doc, schemaOrgData, metaTags, url),
 			author,
@@ -66,11 +67,12 @@ export class MetadataExtractor {
 	}
 
 	// Returns true if the string is not a usable metadata value — either an
-	// unresolved template literal (e.g. "#author.fullName}", "{{title}}") or a
-	// placeholder containing no letters/digits (e.g. ". .", "-", "_") emitted
-	// by some CMSes when a field is empty.
+	// unresolved template literal (e.g. "#author.fullName}", "#author.fullName",
+	// "{{title}}") or a placeholder containing no letters/digits (e.g. ". .",
+	// "-", "_") emitted by some CMSes when a field is empty. A leading hashtag
+	// alone is real text ("#TidyTuesday week 12").
 	private static isPlaceholderValue(s: string): boolean {
-		if (/[{}]/.test(s) || /^#[a-zA-Z]/.test(s)) return true;
+		if (/[{}]/.test(s) || /^#[a-zA-Z_$][\w$]*(\.[\w$]+)+$/.test(s)) return true;
 		if (!/[\p{L}\p{N}]/u.test(s)) return true;
 		return false;
 	}
@@ -479,7 +481,7 @@ export class MetadataExtractor {
 		return null;
 	}
 
-	private static getDescription(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getDescription(schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return this.firstValid([
 			() => this.getMetaContent(metaTags, "name", "description"),
 			() => this.getMetaContent(metaTags, "property", "description"),
@@ -490,7 +492,7 @@ export class MetadataExtractor {
 		]);
 	}
 
-	private static getImage(doc: Document, schemaOrgData: any, metaTags: MetaTagItem[]): string {
+	private static getImage(schemaOrgData: any, metaTags: MetaTagItem[]): string {
 		return (
 			this.getMetaContent(metaTags, "property", "og:image") ||
 			this.getMetaContent(metaTags, "name", "twitter:image") ||

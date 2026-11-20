@@ -7,12 +7,13 @@ import { getTermsPage } from './terms';
 import { getPrivacyPage } from './privacy';
 import { getPricingPage } from './pricing';
 import { getSuccessPage } from './success';
+import { getPageMarkdown, markdownPaths } from './page-markdown';
 import { convertToHtml, convertToMarkdown, formatResponse, parseHtml } from './convert';
 
 const PRIMARY_HOST = 'defuddle.md';
 const BLOCKED_HOSTS = [PRIMARY_HOST, 'defuddle.dev', 'localhost'];
 
-const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/terms', '/privacy', '/pricing', '/favicon.ico']);
+const STATIC_PAGES = new Set(['/', '', '/playground', '/docs', '/terms', '/privacy', '/pricing', '/favicon.ico', ...markdownPaths]);
 const CACHE_TTL = 300; // 5 minutes
 const MONTHLY_RATE_LIMIT = 1000;
 
@@ -379,6 +380,10 @@ async function handleRequest(request: Request, url: URL, path: string, env: Env,
 	}
 
 	// Static pages
+	const markdown = getPageMarkdown(path);
+	if (markdown !== undefined) return new Response(markdown, {
+		headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
+	});
 	if (path === '/docs') return htmlResponse(getDocsPage());
 	if (path === '/terms') return htmlResponse(getTermsPage());
 	if (path === '/privacy') return htmlResponse(getPrivacyPage());

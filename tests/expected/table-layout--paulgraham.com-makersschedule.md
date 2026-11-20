@@ -2,7 +2,7 @@
 {
   "title": "Maker's Schedule, Manager's Schedule",
   "author": "",
-  "site": "",
+  "site": "table-layout--paulgraham.com-makersschedule",
   "published": ""
 }
 ```

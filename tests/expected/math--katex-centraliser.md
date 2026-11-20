@@ -2,7 +2,7 @@
 {
   "title": "Centraliser",
   "author": "",
-  "site": "",
+  "site": "katex-centraliser",
   "published": ""
 }
 ```

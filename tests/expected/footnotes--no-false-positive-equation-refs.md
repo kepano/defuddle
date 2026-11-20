@@ -2,7 +2,7 @@
 {
   "title": "Equation cross-references should not become footnotes",
   "author": "",
-  "site": "",
+  "site": "no-false-positive-equation-refs",
   "published": ""
 }
 ```

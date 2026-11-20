@@ -2,7 +2,7 @@
 {
   "title": "The Pattern Language of Project Xanadu",
   "author": "",
-  "site": "maggieappleton.com",
+  "site": "maggieappleton.com-xanadu-patterns",
   "published": "2024-05-24T02:20:06+00:00"
 }
 ```
@@ -13,9 +13,9 @@ It’s infamous in the technology community as a sixty-year project that never q
 
 Xanadu was a hypothetical hypertext system. [^1]
 
-It’s hard to read the word *hypertext* in 2021 <sub>5ya</sub> and not believe its synonymous with the system Tim Berners-Lee built in 1989 <sub>37ya</sub> – the World Wide Web that became so much more than linked text on digital screens. The version of hypertext you are reading this on is the only hypertext most of us have ever known.
+It’s hard to read the word *hypertext* in 2021<sub>5ya</sub> and not believe its synonymous with the system Tim Berners-Lee built in 1989<sub>37ya</sub> – the World Wide Web that became so much more than linked text on digital screens. The version of hypertext you are reading this on is the only hypertext most of us have ever known.
 
-And yet the idea of hypertext predates Berners-Lee by two decades. The term was coined in 1963 <sub>63ya</sub> by none other than Ted Nelson as part of a much larger vision; one small brick in the grand Xanadu dream mansion. [^2]
+And yet the idea of hypertext predates Berners-Lee by two decades. The term was coined in 1963<sub>63ya</sub> by none other than Ted Nelson as part of a much larger vision; one small brick in the grand Xanadu dream mansion. [^2]
 
 To talk about Xanadu, we need to put a pin in our current understanding of *hypertext*. Our preconceived notions of what a link is, how it works, and what digital text is capable of threatens to overwrite the alternate history we’re about to explore.
 
@@ -71,7 +71,7 @@ URL hover previews showing in the left hand corner of page
 
 These can only tell you so much when modern URLs are often obscured by link shorteners and overstuffed with tracking queries. These solutions are only a band-aid on the underlying wound. They suggest where you’re headed, rather than showing you.
 
-Nelson’s answer to jump links are **visible links** – links that show you the full context of where you’re headed. These were an essential feature of Xanadu. In the original mockups for “ *Xanadocs* ” linked text would be connected to its source in a rather literal fashion: brightly coloured highlights running between documents.
+Nelson’s answer to jump links are **visible links** – links that show you the full context of where you’re headed. These were an essential feature of Xanadu. In the original mockups for “*Xanadocs*” linked text would be connected to its source in a rather literal fashion: brightly coloured highlights running between documents.
 
 ![One of the original UI mockups for a Xanadoc with visible links between text blocks](https://res.cloudinary.com/dxj9qr5gj/image/upload/c_scale,f_auto,q_auto:good,w_1200/v1623916915/maggieappleton.com/notes/xanadu/xanadu_au17yq_shrink_tqkdxs.png)
 
@@ -81,7 +81,7 @@ This proposed solution relies on two other patterns – *parallel documents* and
 
 In lieu of Xanadoc links, the modern web has landed on some fairly decent solutions to this issue: **hover previews and unfurls**.
 
-**Hover previews** are when you can see a preview of the page you’re headed to when you hover over a link. It’s usually an excerpt that gives you the page title, the first few lines of text, and sometimes an image. Wikipedia was one of the first major sites to [add these](https://blog.wikimedia.org/2018/04/18/how-we-designed-page-previews-for-wikipedia/) in 2018 <sub>8ya</sub> .
+**Hover previews** are when you can see a preview of the page you’re headed to when you hover over a link. It’s usually an excerpt that gives you the page title, the first few lines of text, and sometimes an image. Wikipedia was one of the first major sites to [add these](https://blog.wikimedia.org/2018/04/18/how-we-designed-page-previews-for-wikipedia/) in 2018<sub>8ya</sub> .
 
 ![Wikipedia's interface showing one of the hover previews that appear over links](https://res.cloudinary.com/dg3gyk0gu/image/upload/c_scale,f_auto,q_auto:good,w_1000/v1592343673/maggieappleton.com/notes/Screenshot_-_2020-06-16_20.49.44.png)
 
@@ -103,7 +103,7 @@ An open graph image preview appearing in a tweet
 
 Open graph previews appear in Notion when you paste a link and select 'Create Bookmark'
 
-This system is powered by the [Open Graph Protocol](https://ogp.me/) which Facebook introduced in 2010 <sub>16ya</sub> . This standardised format helps website authors define *metadata* like titles, descriptions, authors, and images for each of their pages. These are automatically retrieved and “unfurled” when the link is pasted elsewhere on the web.
+This system is powered by the [Open Graph Protocol](https://ogp.me/) which Facebook introduced in 2010<sub>16ya</sub> . This standardised format helps website authors define *metadata* like titles, descriptions, authors, and images for each of their pages. These are automatically retrieved and “unfurled” when the link is pasted elsewhere on the web.
 
 Both hover previews and link unfurls give you a good sense of where you’re headed if you click on a link. They get us to *semi-visible* links.
 
@@ -123,7 +123,7 @@ This sounds great in theory. Being able to lay multiple sheets of paper down sid
 
 Ideally our digital mediums would lean into our ability to survey a large visual field. But the limitations of LCD screen sizes lead to some unsatisfying compromises. Instead, we end up squishing columns of documents onto our tiny screens.
 
-The existing prototypes of Xanadu don’t gracefully solve this problem in any way. Some of them – like the 2007 <sub>19ya</sub> *XanaduSpace* demo – suggest launching into the disorienting world of 3D paper where documents tower over you like skyscrapers.
+The existing prototypes of Xanadu don’t gracefully solve this problem in any way. Some of them – like the 2007<sub>19ya</sub> *XanaduSpace* demo – suggest launching into the disorienting world of 3D paper where documents tower over you like skyscrapers.
 
 Here’s Ted to give you an interactive tour:
 
@@ -245,7 +245,7 @@ Who knows, maybe Xanadu can still happen (if you clap for it) ✨
 
 [^1]: The word hypothetical is a bit strong. Many versions were built. There is a working demo showcasing a few of its features [here](http://xanadu.com/xanademos/MoeJusteOrigins.html). But there is no active version on the App Store or Product Hunt I can link you to.
 
-[^2]: While Nelson coined the word, the notion of linked documents goes back to Jorge Luis Borges The Garden of Forking Paths” in 1941 <sub>85ya</sub> and Vannevar Bush’s Memex machine in 1945 <sub>81ya</sub> – both significant, named influences for Nelson.
+[^2]: While Nelson coined the word, the notion of linked documents goes back to Jorge Luis Borges The Garden of Forking Paths” in 1941<sub>85ya</sub> and Vannevar Bush’s Memex machine in 1945<sub>81ya</sub> – both significant, named influences for Nelson.
 
 [^3]: No one seriously considered the possibility of adding videos or animations. The presumption visual images are a impoverished medium for serious intellectual thought is a whole other kettle of fish.
 

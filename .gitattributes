@@ -1,0 +1,2 @@
+# Expected outputs are compared byte for byte, so keep LF on every platform
+tests/expected/** text eol=lf

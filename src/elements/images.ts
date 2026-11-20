@@ -3,20 +3,22 @@
  */
 
 import { isElement, isTextNode } from '../utils';
-import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
+import { transferContent, parseHTML, serializeHTML, isDangerousUrl } from '../utils/dom';
 import { BLOCK_LEVEL_ELEMENTS } from '../constants';
 
 // Pre-compile regular expressions
 const b64DataUrlRegex = /^data:image\/([^;]+);base64,/;
-const srcsetPattern = /\.(jpg|jpeg|png|webp)\s+\d/;
-const srcPattern = /^\s*\S+\.(jpg|jpeg|png|webp)\S*\s*$/;
 const imageUrlPattern = /\.(jpg|jpeg|png|webp|gif|avif)(\?.*)?$/i;
 const widthPattern = /\s(\d+)w/;
 const dprPattern = /dpr=(\d+(?:\.\d+)?)/;
 const urlPattern = /^([^\s]+)/;
-const absoluteUrlPattern = /^https?:\/\//;
 const filenamePattern = /^[\w\-\.\/\\]+\.(jpg|jpeg|png|gif|webp|svg)$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+// Explicit lazy-loading conventions, in precedence order. Other attributes are metadata.
+const LAZY_IMAGE_ATTRIBUTES = [
+	['src', ['data-src', 'data-original', 'data-lazy-src']],
+	['srcset', ['data-srcset', 'data-lazy-srcset']]
+] as const;
 
 export const imageRules = [
 	// Handle picture elements first to ensure we get the highest resolution
@@ -49,7 +51,7 @@ export const imageRules = [
 				if (bestSource) {
 					bestSrcset = bestSource.getAttribute('srcset');
 					if (bestSrcset) {
-						bestSrc = extractFirstUrlFromSrcset(bestSrcset);
+						bestSrc = extractLargestUrlFromSrcset(bestSrcset);
 					}
 				}
 			}
@@ -60,7 +62,7 @@ export const imageRules = [
 			if (bestSrc && isValidImageUrl(bestSrc)) {
 				imgElement.setAttribute('src', bestSrc);
 			} else if (!imgElement.hasAttribute('src') || !isValidImageUrl(imgElement.getAttribute('src') || '')) {
-				const firstUrl = extractFirstUrlFromSrcset(imgElement.getAttribute('srcset') || bestSrcset || '');
+				const firstUrl = extractLargestUrlFromSrcset(imgElement.getAttribute('srcset') || bestSrcset || '');
 				if (firstUrl && isValidImageUrl(firstUrl)) {
 					imgElement.setAttribute('src', firstUrl);
 				}
@@ -140,71 +142,31 @@ export const imageRules = [
 		}
 	},
 	
-	// Handle lazy-loaded images
+	// Promote only explicit lazy sources; never infer image URLs from metadata.
 	{
-		selector: 'img[data-src], img[data-srcset], img[loading="lazy"], img.lazy, img.lazyload, img[src^="data:image/svg+xml"]',
+		selector: LAZY_IMAGE_ATTRIBUTES.flatMap(([, attrs]) => attrs.map(attr => `img[${attr}]`)).concat('img[data-image-loader]').join(', '),
 		element: 'img',
-		transform: (el: Element, doc: Document): Element => {
-			// Check for base64 placeholder images
+		transform: (el: Element): Element => {
+			for (const [target, attrs] of LAZY_IMAGE_ATTRIBUTES) {
+				const source = attrs.map(attr => el.getAttribute(attr)?.trim())
+					.find(value => value && !isDangerousUrl(value));
+				if (source) el.setAttribute(target, source);
+				for (const attr of attrs) el.removeAttribute(attr);
+			}
+			// This loader also remains on loaded images; use it only for missing or inline previews.
 			const src = el.getAttribute('src') || '';
-			const hasBetterSource = hasBetterImageSource(el);
-			
-			if ((isBase64Placeholder(src) || isSvgDataUrl(src)) && hasBetterSource) {
-				// Remove the placeholder src if we have better alternatives
-				el.removeAttribute('src');
+			const loader = el.getAttribute('data-image-loader')?.trim();
+			if (loader && !isDangerousUrl(loader) && (!src || isBase64Placeholder(src) || isSvgDataUrl(src))) {
+				el.setAttribute('src', loader);
 			}
-
-			// Handle data-src
-			const dataSrc = el.getAttribute('data-src');
-			if (dataSrc && !el.getAttribute('src')) {
-				el.setAttribute('src', dataSrc);
-			}
-
-			// Handle data-srcset
-			const dataSrcset = el.getAttribute('data-srcset');
-			if (dataSrcset && !el.getAttribute('srcset')) {
-				el.setAttribute('srcset', dataSrcset);
-			}
-
-			// Check for other attributes that might contain image URLs
-			for (let i = 0; i < el.attributes.length; i++) {
-				const attr = el.attributes[i];
-				if (attr.name === 'src' || attr.name === 'srcset' || attr.name === 'alt') {
-					continue; // Skip these attributes
-				}
-
-				// Skip JSON-like values (e.g., Substack's data-attrs containing image metadata)
-				const firstChar = attr.value.charAt(0);
-				if (firstChar === '{' || firstChar === '[') {
-					continue;
-				}
-
-				// Check if attribute contains an image URL
-				if (srcsetPattern.test(attr.value)) {
-					// This looks like a srcset value
-					el.setAttribute('srcset', attr.value);
-				} else if (srcPattern.test(attr.value)) {
-					const currentSrc = el.getAttribute('src') || '';
-					const hasAbsoluteSrc = absoluteUrlPattern.test(currentSrc);
-					const isAbsoluteNew = absoluteUrlPattern.test(attr.value);
-					// Prefer absolute URLs — don't replace one with a relative path
-					if (!hasAbsoluteSrc || isAbsoluteNew) {
-						el.setAttribute('src', attr.value);
-					}
-				}
-			}
-
-			// Remove lazy loading related classes and attributes
+			el.removeAttribute('data-image-loader');
 			el.classList.remove('lazy', 'lazyload');
 			el.removeAttribute('data-ll-status');
-			el.removeAttribute('data-src');
-			el.removeAttribute('data-srcset');
 			el.removeAttribute('loading');
-			
 			return el;
 		}
 	},
-	
+
 	// Handle span elements containing images with captions
 	{
 		selector: 'span:has(img)',
@@ -225,18 +187,18 @@ export const imageRules = [
 					}
 				}
 
-				const imgElement = findMainImage(el);
-				if (!imgElement) {
+				const images = findMainImages(el);
+				if (images.length === 0) {
 					return el;
 				}
 
 				const caption = findCaption(el);
 
-				// Process the image element (might return the img itself or handle picture/source)
-				const processedImg = processImageElement(imgElement, doc);
+				// Process the images (might return the img itself or handle picture/source)
+				const processedImages = images.map(image => keepImageLink(image, processImageElement(image, doc), el));
 
 				if (caption && hasMeaningfulCaption(caption)) {
-					const figure = createFigureWithCaption(processedImg, caption, doc);
+					const figure = createFigureWithCaption(processedImages, caption, doc);
 
 					// Remove the original caption element from its parent
 					// to prevent duplication, as the span itself might remain.
@@ -245,11 +207,10 @@ export const imageRules = [
 					}
 
 					return figure; // Replace the span (or its content) with the figure
-				} else {
-					// No meaningful caption, return just the processed image.
-					// This might replace the span content or the span itself depending on framework.
-					return processedImg;
 				}
+
+				// No meaningful caption: a single image replaces the span, several stay in it.
+				return processedImages.length === 1 ? processedImages[0] : el;
 			} catch (error) {
 				// Failed to process span with image, return as-is
 				return el;
@@ -263,60 +224,48 @@ export const imageRules = [
 		element: 'figure',
 		transform: (el: Element, doc: Document): Element => {
 			try {
-				const hasImage = containsImage(el);
-				if (!hasImage) {
-					return el; 
-				}
-				
-				const imgElement = findMainImage(el); // Initial find (might be picture)
-				if (!imgElement) {
-					return el; 
-				}
-
-				// Note: Previous rules might have processed the image inside 'el'.
-				
-				const caption = findCaption(el);
-				
-				if (caption && hasMeaningfulCaption(caption)) {
-					// Find the *current* image element inside 'el' again.
-					// It might have been modified (e.g., picture rule -> img)
-					const currentImg = findMainImage(el); 
-					let imageToAdd: Element;
-
-					if (currentImg) {
-						// We'll clone this inside the helper function
-						imageToAdd = currentImg; 
-					} else {
-						// Fallback: process the initially found element.
-						// Fallback: process the initially found element
-						// processImageElement will clone if needed
-						imageToAdd = processImageElement(imgElement, doc); 
-					}
-
-					// Use the helper function to create the figure
-					// The helper clones the imageToAdd before appending.
-					return createFigureWithCaption(imageToAdd, caption, doc);
-				} else {
-					// No meaningful caption found. Return the original element 'el'.
-					// Preceding rules should have processed the image content *within* 'el'.
+				// A gallery's own figures are standardized one by one.
+				if (!containsImage(el) || el.querySelector('figure')) {
 					return el;
 				}
+
+				const images = findMainImages(el);
+				const caption = findCaption(el);
+				if (images.length === 0 || !caption || !hasMeaningfulCaption(caption)) {
+					return el;
+				}
+
+				return createFigureWithCaption(images.map(image => keepImageLink(image, image, el)), caption, doc);
 			} catch (error) {
 				// Failed to process complex image element, return as-is
-				return el; 
+				return el;
 			}
 		}
 	},
 ];
 
 /**
- * Creates a standard <figure> element containing an image and a caption.
+ * Wrap the image in a copy of the link it had inside the container, so
+ * rebuilding a figure keeps linked images linked.
  */
-function createFigureWithCaption(imageElement: Element, captionElement: Element, doc: Document): Element {
+function keepImageLink(original: Element, image: Element, container: Element): Element {
+	const link = original.closest('a');
+	if (!link || link === container || !container.contains(link)) return image;
+	const copy = link.cloneNode(false) as Element;
+	copy.appendChild(image.cloneNode(true));
+	return copy;
+}
+
+/**
+ * Creates a standard <figure> element containing images and a caption.
+ */
+function createFigureWithCaption(images: Element[], captionElement: Element, doc: Document): Element {
 	const figure = doc.createElement('figure');
-	
-	// Append a clone of the image element to prevent side effects
-	figure.appendChild(imageElement.cloneNode(true)); 
+
+	// Append clones of the images to prevent side effects
+	for (const image of images) {
+		figure.appendChild(image.cloneNode(true));
+	}
 	
 	// Add caption
 	const figcaption = doc.createElement('figcaption');
@@ -333,8 +282,8 @@ function createFigureWithCaption(imageElement: Element, captionElement: Element,
 function applySrcsetToImage(srcset: string, img: Element): void {
 	img.setAttribute('srcset', srcset);
 	
-	// Extract the first URL from srcset as the src
-	const firstUrl = extractFirstUrlFromSrcset(srcset);
+	// Use the largest srcset candidate as the src
+	const firstUrl = extractLargestUrlFromSrcset(srcset);
 	if (firstUrl && isValidImageUrl(firstUrl)) {
 		img.setAttribute('src', firstUrl);
 	}
@@ -405,36 +354,6 @@ function isValidImageUrl(src: string): boolean {
 }
 
 /**
- * Check if an element has better image sources than the current src
- */
-function hasBetterImageSource(element: Element): boolean {
-	// Check for data-src or data-srcset
-	if (element.hasAttribute('data-src') || element.hasAttribute('data-srcset')) {
-		return true;
-	}
-	
-	// Check for other attributes that might contain image URLs
-	for (let i = 0; i < element.attributes.length; i++) {
-		const attr = element.attributes[i];
-		if (attr.name === 'src') {
-			continue;
-		}
-		
-		// Check if it's a data-* attribute and contains an image URL
-		if (attr.name.startsWith('data-') && /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(attr.value)) {
-			return true;
-		}
-		
-		// Check non-data attributes for image extensions
-		if (/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(attr.value)) {
-			return true;
-		}
-	}
-	
-	return false;
-}
-
-/**
  * Check if an element or its children contain an image
  */
 function containsImage(element: Element): boolean {
@@ -457,75 +376,30 @@ function isImageElement(element: Element): boolean {
 }
 
 /**
- * Find the main image element in a container
+ * Find the content images in a container, in document order. A <picture>
+ * counts as one image, and placeholders are skipped.
  */
-function findMainImage(element: Element): Element | null {
-	// If element itself is an image, return it
+function findMainImages(element: Element): Element[] {
 	if (isImageElement(element)) {
-		return element;
+		return [element];
 	}
-	
-	// Look for picture elements first - they often contain the highest quality images
-	const pictureElements = element.querySelectorAll('picture');
-	if (pictureElements.length > 0) {
-		// For picture elements, we want to return the picture itself
-		// so we can process all its sources
-		return pictureElements[0];
+
+	const images = Array.from(element.querySelectorAll('picture, img')).filter(node =>
+		node.tagName.toLowerCase() === 'picture' ||
+		(!node.closest('picture') && !isPlaceholderImage(node))
+	);
+	if (images.length > 0) {
+		return images;
 	}
-	
-	// Look for img elements next, but skip placeholder images
-	const imgElements = element.querySelectorAll('img');
-	const filteredImgElements = [];
-	
-	for (let i = 0; i < imgElements.length; i++) {
-		const img = imgElements[i];
-		// Skip placeholder images (SVG data URLs, empty alt, etc.)
-		const src = img.getAttribute('src') || '';
-		const alt = img.getAttribute('alt') || '';
-		
-		// Skip SVG data URLs (placeholders)
-		if (isSvgDataUrl(src)) {
-			continue;
-		}
-		
-		// Skip base64 placeholder images
-		if (isBase64Placeholder(src)) {
-			continue;
-		}
-		
-		// Skip empty alt text (often indicates decorative images)
-		// But only if we have other images with alt text
-		if (!alt.trim() && imgElements.length > 1) {
-			continue;
-		}
-		
-		filteredImgElements.push(img);
-	}
-	
-	if (filteredImgElements.length > 0) {
-		return filteredImgElements[0];
-	}
-	
-	// Look for video elements next
-	const videoElements = element.querySelectorAll('video');
-	if (videoElements.length > 0) {
-		return videoElements[0];
-	}
-	
-	// Look for any source elements as a last resort
-	const anySourceElements = element.querySelectorAll('source');
-	if (anySourceElements.length > 0) {
-		return anySourceElements[0];
-	}
-	
-	// If we still haven't found an image, try a more aggressive search
-	// This helps with deeply nested structures like Medium articles
-	const allImages = element.querySelectorAll('img, picture, source, video');
-	if (allImages.length > 0) {
-		return allImages[0];
-	}
-	
-	return null;
+
+	const fallback = element.querySelector('video') || element.querySelector('source') ||
+		element.querySelector('img, picture, source, video');
+	return fallback ? [fallback] : [];
+}
+
+function isPlaceholderImage(img: Element): boolean {
+	const src = img.getAttribute('src') || '';
+	return isSvgDataUrl(src) || isBase64Placeholder(src);
 }
 
 /**
@@ -797,52 +671,6 @@ function processImgElement(element: Element, doc: Document): Element {
 }
 
 /**
- * Process a picture element
- */
-function processPictureElement(element: Element, doc: Document): Element {
-	// For picture elements, we want to process all sources and select the best one
-	// Create a new img element
-	const newImg = doc.createElement('img');
-	
-	// Get all source elements
-	const sourceElements = element.querySelectorAll('source');
-	
-	// If we have multiple sources, try to select the best one
-	if (sourceElements.length > 1) {
-		// Find the best source based on media queries and srcset
-		const bestSource = selectBestSource(sourceElements);
-		if (bestSource) {
-			// Get the srcset from the best source
-			const srcset = bestSource.getAttribute('srcset');
-			if (srcset) {
-				applySrcsetToImage(srcset, newImg);
-			}
-		}
-	} else if (sourceElements.length === 1) {
-		// If only one source, use it
-		const srcset = sourceElements[0].getAttribute('srcset');
-		if (srcset) {
-			applySrcsetToImage(srcset, newImg);
-		}
-	}
-	
-	// Copy other attributes from the original img if it exists
-	const originalImg = element.querySelector('img');
-	if (originalImg) {
-		// Copy all attributes except srcset
-		copyAttributesExcept(originalImg, newImg, ['srcset']);
-		
-		// Always set the src attribute directly from the original img
-		const originalSrc = originalImg.getAttribute('src');
-		if (originalSrc) {
-			newImg.setAttribute('src', originalSrc);
-		}
-	}
-	
-	return newImg;
-}
-
-/**
  * Process a source element
  */
 function processSourceElement(element: Element, doc: Document): Element {
@@ -900,12 +728,14 @@ function processSourceElement(element: Element, doc: Document): Element {
 }
 
 /**
- * Extract the first URL from a srcset attribute.
+ * Extract the highest-resolution URL from a srcset attribute.
+ * Markdown keeps a single src, so pick the largest candidate rather than the
+ * first (which is usually the smallest).
  * Handles URLs that contain commas (e.g., Substack CDN URLs like
  * https://substackcdn.com/image/fetch/$s_!YemM!,w_424,c_limit,f_webp/...)
  * by parsing based on width/density descriptors rather than splitting on commas.
  */
-function extractFirstUrlFromSrcset(srcset: string): string | null {
+export function extractLargestUrlFromSrcset(srcset: string): string | null {
 	if (!srcset || !srcset.trim()) return null;
 
 	const trimmed = srcset.trim();
@@ -914,9 +744,11 @@ function extractFirstUrlFromSrcset(srcset: string): string | null {
 	// Each entry ends with a width descriptor (e.g., "424w") or density descriptor (e.g., "2x").
 	// The URL is everything before the whitespace that precedes the descriptor.
 	// This handles URLs containing commas (which would break a simple comma-split).
-	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?[wx])/g;
+	const entryPattern = /(.+?)\s+(\d+(?:\.\d+)?)[wx]/g;
 	let match;
 	let lastIndex = 0;
+	let bestUrl: string | null = null;
+	let bestSize = -1;
 
 	while ((match = entryPattern.exec(trimmed)) !== null) {
 		// Extract URL from this entry, trimming any leading comma+whitespace from previous entry
@@ -933,8 +765,14 @@ function extractFirstUrlFromSrcset(srcset: string): string | null {
 		// Skip SVG data URLs
 		if (isSvgDataUrl(url)) continue;
 
-		return url;
+		const size = parseFloat(match[2]);
+		if (size > bestSize) {
+			bestSize = size;
+			bestUrl = url;
+		}
 	}
+
+	if (bestUrl) return bestUrl;
 
 	// Fallback: try extracting URL before first whitespace (for srcset with single entry and no descriptor)
 	const urlMatch = trimmed.match(urlPattern);

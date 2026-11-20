@@ -2,7 +2,7 @@
 {
   "title": "Example Article",
   "author": "",
-  "site": "",
+  "site": "orgmode-css-sidenotes",
   "published": ""
 }
 ```

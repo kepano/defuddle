@@ -2,7 +2,7 @@
 {
   "title": "Blog Post Title",
   "author": "",
-  "site": "",
+  "site": "example.org",
   "published": ""
 }
 ```

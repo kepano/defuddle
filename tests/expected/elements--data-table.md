@@ -2,7 +2,7 @@
 {
   "title": "Data Table Test",
   "author": "",
-  "site": "",
+  "site": "data-table",
   "published": ""
 }
 ```

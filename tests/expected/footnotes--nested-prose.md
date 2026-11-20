@@ -2,7 +2,7 @@
 {
   "title": "Loose footnotes: nested prose div",
   "author": "",
-  "site": "",
+  "site": "nested-prose",
   "published": ""
 }
 ```

@@ -45,7 +45,7 @@ export class MastodonExtractor extends BaseExtractor {
 
 		for (const status of this.replyStatuses) {
 			const handle = this.getFullHandle(status).split('@')[0];
-			if (!threadEnded && handle === mainHandle) {
+			if (!threadEnded && mainHandle && handle === mainHandle) {
 				threadItems.push(status);
 			} else {
 				threadEnded = true;

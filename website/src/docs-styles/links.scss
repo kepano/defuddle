@@ -1,0 +1,44 @@
+:where(.lede, .used-by-heading, .get-started-link, .markdown-doc, .doc-section, .site-header-links, .site-footer, .footer-nav) a,
+:where(.playground-link) {
+  --link-color: var(--link-default-color, var(--paper));
+  color: var(--link-color);
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+
+  @media (hover: hover) {
+    &:hover {
+      --link-color: var(--link-hover-color, #f2f0e5);
+      text-decoration-color: currentColor;
+    }
+  }
+}
+
+:where(.site-header-links, .site-footer, .footer-nav) a:focus-visible,
+:where(.playground-link):focus-visible {
+  --link-color: var(--link-hover-color, #f2f0e5);
+  outline: 0;
+}
+
+:where(.lede, .used-by-heading, .get-started-link, .markdown-doc, .doc-section) a {
+  text-decoration-line: underline;
+  text-decoration-color: var(--link-decoration-color, var(--faint));
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+@each $section, $color, $underline, $hover in (
+  ("variables", #66a0c8, #205ea6, #92bfdb),
+  ("filters", #ec8b49, #bc5215, #f9ae77),
+  ("logic", #a0af54, #66800b, #bec97e)
+) {
+  :where(.lede, .markdown-doc :is(p, li, td, th), .doc-section :is(p, li, td, th)) a:is(
+    [href="/#{$section}"],
+    [href="/#{$section}.html"],
+    [href^="/#{$section}/"],
+    [href^="/#{$section}#"],
+    [href^="/#{$section}?"]
+  ) {
+    --link-default-color: #{$color};
+    --link-decoration-color: #{$underline};
+    --link-hover-color: #{$hover};
+  }
+}

@@ -2,7 +2,7 @@
 {
   "title": "Coffee Cooling Article",
   "author": "",
-  "site": "",
+  "site": "content-patterns--trailing-related-posts",
   "published": ""
 }
 ```

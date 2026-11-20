@@ -43,7 +43,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 	private findMainComment(): Element | null {
 		// Use the tr.athing row which contains both the comment metadata (.comhead)
 		// and the comment text (.commtext). The .comment div alone doesn't include
-		// the author (.hnuser) or timestamp (.age) which are in the sibling .comhead.
+		// the author (a[href^="user?id"]) or timestamp (.age) which are in the sibling .comhead.
 		return this.mainPost?.querySelector('tr.athing') || null;
 	}
 
@@ -123,7 +123,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 			// The subtext row is the next sibling tr
 			const subRow = row.nextElementSibling;
 			const score = subRow?.querySelector('.score')?.textContent?.trim() || '';
-			const author = subRow?.querySelector('.hnuser')?.textContent?.trim() || '';
+			const author = subRow?.querySelector('a[href^="user?id"]')?.textContent?.trim() || '';
 			const ageEl = subRow?.querySelector('.age');
 			const timestamp = ageEl?.getAttribute('title') || '';
 			const date = timestamp.split('T')[0] || '';
@@ -184,7 +184,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 		// If this is a comment page, use the comment as the main content
 		if (this.isCommentPage && this.mainComment) {
-			const author = this.mainComment.querySelector('.hnuser')?.textContent || '[deleted]';
+			const author = this.mainComment.querySelector('a[href^="user?id"]')?.textContent || '[deleted]';
 			const commtext = this.mainComment.querySelector('.commtext');
 			const commentText = commtext ? serializeHTML(commtext) : '';
 			const timeElement = this.mainComment.querySelector('.age');
@@ -202,7 +202,6 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 		// Otherwise handle regular post content
 		const titleRow = this.mainPost.querySelector('tr.athing');
-		const subRow = titleRow?.nextElementSibling;
 		const url = titleRow?.querySelector('.titleline a')?.getAttribute('href') || '';
 
 		let content = '';
@@ -235,7 +234,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 			const indent = comment.querySelector('.ind img')?.getAttribute('width') || '0';
 			const depth = parseInt(indent) / 40;
 			const commentText = comment.querySelector('.commtext');
-			const author = comment.querySelector('.hnuser')?.textContent || '[deleted]';
+			const author = comment.querySelector('a[href^="user?id"]')?.textContent || '[deleted]';
 			const timeElement = comment.querySelector('.age');
 			const points = comment.querySelector('.score')?.textContent?.trim() || '';
 
@@ -265,7 +264,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 
 	private getPostTitle(): string {
 		if (this.isCommentPage && this.mainComment) {
-			const author = this.mainComment.querySelector('.hnuser')?.textContent || '[deleted]';
+			const author = this.mainComment.querySelector('a[href^="user?id"]')?.textContent || '[deleted]';
 			const commentText = this.mainComment.querySelector('.commtext')?.textContent || '';
 			// Use first 50 characters of comment as title
 			const preview = commentText.trim().slice(0, 50) + (commentText.length > 50 ? '...' : '');
@@ -275,7 +274,7 @@ export class HackerNewsExtractor extends BaseExtractor {
 	}
 
 	private getPostAuthor(): string {
-		return this.mainPost?.querySelector('.hnuser')?.textContent?.trim() || '';
+		return this.mainPost?.querySelector('a[href^="user?id"]')?.textContent?.trim() || '';
 	}
 
 	private createDescription(): string {

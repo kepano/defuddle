@@ -2,7 +2,7 @@
 {
   "title": "Sample Technical Post",
   "author": "",
-  "site": "",
+  "site": "code-blocks--chroma-linenums",
   "published": ""
 }
 ```
@@ -17,7 +17,7 @@ auto process_values(const std::vector<uint8_t> &vec)
     return std::count_if(
         vec.begin(),
         vec.end(),
-         { return x % 2 == 0; }
+        [](uint8_t x) { return x % 2 == 0; }
     );
 }
 ```

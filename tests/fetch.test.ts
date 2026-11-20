@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach, beforeEach } from 'vitest';
-import { fetchPage, fetchPageWithRetry, BROWSER_UA, DEFAULT_UA } from '../src/fetch';
+import { fetchPage, fetchPageWithRetry, BROWSER_UA, DEFAULT_UA, cleanMarkdownContent } from '../src/fetch';
 
 const HTML = '<html><head></head><body>hello</body></html>';
 
@@ -135,5 +135,11 @@ describe('fetchPageWithRetry', () => {
 			'Page too large (6MB, max 5MB)'
 		);
 		expect(fetchMock).toHaveBeenCalledOnce();
+	});
+});
+
+describe('cleanMarkdownContent', () => {
+	test('collapses blank lines outside code fences only', () => {
+		expect(cleanMarkdownContent('Intro\n\n\n\n```\na\n\n\n\nb\n```')).toBe('Intro\n\n```\na\n\n\n\nb\n```');
 	});
 });

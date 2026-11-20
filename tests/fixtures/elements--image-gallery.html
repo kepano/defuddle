@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!-- {"url":"https://www.example.com/article/harbor-gallery"} -->
+<html>
+<head>
+	<title>Harbor Mornings</title>
+</head>
+<body>
+	<article>
+		<h1>Harbor Mornings</h1>
+		<p>The harbor wakes slowly. Fishing boats leave before dawn, gulls circle the pier, and the cafe on the corner opens its shutters at six. We spent a week there photographing the morning light.</p>
+
+		<!-- WordPress block gallery: nested figures, each with a caption, plus a gallery caption -->
+		<figure class="wp-block-gallery has-nested-images columns-3 is-cropped">
+			<figure class="wp-block-image size-large"><img src="https://www.example.com/uploads/harbor-dawn.jpg" alt="Harbor"><figcaption class="wp-element-caption">Harbor at dawn</figcaption></figure>
+			<figure class="wp-block-image size-large"><img src="https://www.example.com/uploads/boats-leaving.jpg" alt="Boats"><figcaption class="wp-element-caption">Boats leaving</figcaption></figure>
+			<figure class="wp-block-image size-large"><img src="https://www.example.com/uploads/gulls-pier.jpg" alt="Gulls"><figcaption class="wp-element-caption">Gulls on the pier</figcaption></figure>
+			<figcaption class="blocks-gallery-caption wp-element-caption">A morning at the harbor</figcaption>
+		</figure>
+
+		<p>Each morning brought a different sky, from heavy fog to clear gold, and the boats came back with the tide before noon.</p>
+
+		<!-- One figure with several images without alt text and one caption -->
+		<figure>
+			<img src="https://www.example.com/uploads/fog-1.jpg">
+			<img src="https://www.example.com/uploads/fog-2.jpg">
+			<img src="https://www.example.com/uploads/fog-3.jpg">
+			<figcaption>Three foggy mornings</figcaption>
+		</figure>
+
+		<p>On the last day the fog lifted early, and the fishing boats were back at the pier by ten.</p>
+
+		<!-- Images separated by line breaks in a paragraph with a caption -->
+		<p><img src="https://www.example.com/uploads/tide-low.jpg" alt="Low tide"><br><img src="https://www.example.com/uploads/tide-high.jpg" alt="High tide"><br><span class="caption">The tide over one afternoon</span></p>
+
+		<!-- Images in a span with a caption -->
+		<p>The cafe on the corner kept a wall of photos from every season.</p>
+		<span><img src="https://www.example.com/uploads/cafe-summer.jpg" alt="Summer"><img src="https://www.example.com/uploads/cafe-winter.jpg" alt="Winter"><span class="caption">The cafe in summer and winter</span></span>
+
+		<!-- Different images that share the post title as alt text -->
+		<figure>
+			<img src="https://www.example.com/uploads/pier-north.jpg" alt="Harbor Mornings">
+			<img src="https://www.example.com/uploads/pier-south.jpg" alt="Harbor Mornings">
+			<figcaption>Both ends of the pier</figcaption>
+		</figure>
+
+		<!-- Next.js image URLs without alt text -->
+		<figure>
+			<img src="https://www.example.com/_next/image?url=%2Fuploads%2Fferry-deck.jpg&w=640&q=75">
+			<img src="https://www.example.com/_next/image?url=%2Fuploads%2Fferry-wake.jpg&w=640&q=75">
+			<figcaption>The ferry home</figcaption>
+		</figure>
+
+		<!-- A video poster rendered twice: a srcset-only copy without alt, then the labeled image -->
+		<figure>
+			<img srcset="https://www.example.com/media/b41e9c/1920.jpg?width=620 1x, https://www.example.com/media/b41e9c/1920.jpg?width=1240 2x">
+			<img src="https://www.example.com/media/b41e9c/1920.jpg?width=620" alt="The ferry leaving the harbor">
+		</figure>
+
+		<!-- One image with alt text and one without -->
+		<figure>
+			<img src="https://www.example.com/uploads/lighthouse-day.jpg" alt="The lighthouse by day">
+			<img src="https://www.example.com/uploads/lighthouse-night.jpg">
+			<figcaption>The lighthouse by day and night</figcaption>
+		</figure>
+
+		<!-- A linked image, as on Wikipedia -->
+		<figure typeof="mw:File/Thumb">
+			<a href="https://www.example.com/wiki/File:Harbor_map.svg" class="mw-file-description"><img src="https://www.example.com/uploads/harbor-map.png" alt="Map of the harbor"></a>
+			<figcaption>The harbor and its two piers</figcaption>
+		</figure>
+
+		<p>We left on the evening ferry, with the lights of the harbor fading behind us.</p>
+	</article>
+</body>
+</html>

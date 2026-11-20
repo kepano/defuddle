@@ -2,7 +2,7 @@
 {
   "title": "AI Voice Tutorial",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```

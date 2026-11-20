@@ -107,7 +107,7 @@ A good bedroom air purifier should ideally have:
 
 ### Example products worth considering
 
-| Attribute | Coway Airmega 100 ilmanpuhdistin  €169.00•POWER.fi + others | Philips PureProtect Quiet 2200 Series  €279.00•Clas Ohlson FI + others | IKEA STARKVIND Air purifier  €149.00•IKEA |
+| Attribute | Coway Airmega 100 ilmanpuhdistin<br>€169.00•POWER.fi + others | Philips PureProtect Quiet 2200 Series<br>€279.00•Clas Ohlson FI + others | IKEA STARKVIND Air purifier<br>€149.00•IKEA |
 | --- | --- | --- | --- |
 | Bedroom-focused | Yes | Yes | Yes |
 | HEPA-style particle filtration | Yes | Yes | Yes |

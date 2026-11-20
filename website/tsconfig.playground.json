@@ -1,0 +1,13 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ES2022",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": [],
+		"strict": true,
+		"skipLibCheck": true,
+		"noEmit": true
+	},
+	"include": ["src/client/**/*.ts", "src/playground.ts", "src/styles.ts", "src/docs.ts", "src/privacy.ts", "src/terms.ts", "src/pricing.ts"]
+}

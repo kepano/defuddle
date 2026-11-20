@@ -6,11 +6,51 @@ import {
 	PARTIAL_SELECTORS_REGEX,
 	PARTIAL_SELECTORS_ANCHORED_REGEX,
 	TEST_ATTRIBUTES_SELECTOR,
-	FOOTNOTE_LIST_SELECTORS
+	FOOTNOTE_LIST_SELECTORS,
+	INLINE_ELEMENTS
 } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+
+const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
+	.map(name => `a [class*="${name}"]`).join(', ');
+const LINK_ANNOTATION_REGEX = /^[\s,(–-]*(?:(?:link )?opens in (?:a )?new (?:window|tab)|new (?:window|tab)|external(?: link| site| website)?)[\s).]*$/i;
+
+// Layout tables (email newsletters, old sites) put clutter in cells too, so only
+// protect cells of tables with header structure
+function isTableCellOrRow(el: Element): boolean {
+	const tag = el.tagName;
+	if (tag !== 'TR' && tag !== 'TD' && tag !== 'TH') return false;
+	return Boolean(el.closest('table')?.querySelector(
+		':scope > caption, :scope > thead, :scope > tr > th, :scope > tbody > tr > th'
+	));
+}
+
+function isInsideCodeTable(el: Element): boolean {
+	return Boolean(el.closest('table')?.querySelector('pre'));
+}
+
+function isLevelSectionHeadingId(el: Element, id: string): boolean {
+	if (el.tagName !== 'SECTION' || !id) {
+		return false;
+	}
+	if (!/\blevel\d+\b/i.test(getClassName(el))) {
+		return false;
+	}
+	if (id.startsWith('sec-')) {
+		return true;
+	}
+	const heading = el.querySelector('h1, h2, h3, h4, h5, h6');
+	if (!heading) {
+		return false;
+	}
+	const slug = (heading.textContent || '')
+		.toLowerCase()
+		.replace(/[^\p{L}\p{N}]+/gu, '-')
+		.replace(/^-+|-+$/g, '');
+	return Boolean(slug) && (id === slug || slug.endsWith('-' + id));
+}
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
@@ -37,6 +77,10 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				}
 				// Skip elements inside code blocks (e.g. syntax highlighting spans)
 				if (el.closest('pre, code')) {
+					return;
+				}
+				// Preserve table rows and cells unless hidden or inside a code block table (e.g. Hexo td.gutter)
+				if (isTableCellOrRow(el) && !el.matches(HIDDEN_EXACT_SELECTOR) && !isInsideCodeTable(el)) {
 					return;
 				}
 				// Skip elements with responsive show classes (e.g. "hidden sm:flex")
@@ -79,15 +123,23 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			if (tag === 'CODE' || tag === 'PRE' || el.querySelector('pre') || el.closest('code, pre')) {
 				return;
 			}
+			// Preserve table rows and cells except in tables holding code (e.g. Hexo td.gutter)
+			if (isTableCellOrRow(el) && !isInsideCodeTable(el)) {
+				return;
+			}
 
 			// Get all relevant attributes and combine into a single string
 			// (Hardcoded to match TEST_ATTRIBUTES in constants.ts — avoids array allocation per element)
 			// For headings, only check class — IDs are auto-slugs and data-testid
 			// values (e.g. "article-header") cause false positives.
 			const isHeading = /^H[1-6]$/.test(tag);
+			// Tailwind arbitrary values/variants contain CSS, not element labels.
+			// For example, scroll-mt-[var(--article-breadcrumb-height)] does not
+			// make a section heading a breadcrumb. Keep matching ordinary classes.
+			const className = getClassName(el).replace(/\[[^\]]*\]/g, '');
 			const attrs = (isHeading
-				? getClassName(el)
-				: getClassName(el) + ' ' +
+				? className
+				: className + ' ' +
 					(el.getAttribute('data-component') || '') + ' ' +
 					(el.getAttribute('data-test') || '') + ' ' +
 					(el.getAttribute('data-testid') || '') + ' ' +
@@ -101,8 +153,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 			// usually a content anchor concatenated from heading words (e.g.
 			// "theroleofthings", "loopsandfeedback") — substring matching would wrongly
 			// strip it (hitting 'hero'/'feedback'), so it must equal a selector token
-			// outright. Headings skip id entirely (they carry auto-generated slugs).
-			const id = isHeading ? '' : (el.id || '').toLowerCase();
+			// outright. Headings skip id entirely (they carry auto-generated slugs), as do
+			// inline elements inside paragraphs, which may anchor terms like "term-related-claim".
+			const skipId = isHeading || (INLINE_ELEMENTS.has(tag.toLowerCase()) && !!el.closest('p'));
+			const rawId = skipId ? '' : (el.id || '').toLowerCase();
+			const id = isLevelSectionHeadingId(el, rawId) ? '' : rawId;
 
 			// Skip if nothing to check
 			const hasAttrs = attrs.trim() !== '';
@@ -127,6 +182,23 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 				elementsToRemove.set(el, { type: 'partial', selector: matchedPattern });
 				partialSelectorCount++;
 			}
+		});
+
+		// Screen-reader text is content, except known link annotations such as
+		// "opens in a new window" on links that have visible text of their own.
+		const annotations = new Set<Element>([
+			...doc.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR),
+			...(mainContent ? mainContent.querySelectorAll(SCREEN_READER_LINK_TEXT_SELECTOR) : [])
+		]);
+		annotations.forEach(el => {
+			const link = el.closest('a');
+			if (!link || elementsToRemove.has(el) || el.closest('code, pre, [data-defuddle]') ||
+				!LINK_ANNOTATION_REGEX.test(el.textContent || '') ||
+				!hasVisibleText(link, annotations, elementsToRemove)) {
+				return;
+			}
+			elementsToRemove.set(el, { type: 'partial', selector: 'screen-reader link text' });
+			partialSelectorCount++;
 		});
 	}
 
@@ -191,4 +263,11 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 		total: elementsToRemove.size,
 		processingTime: `${(endTime - startTime).toFixed(2)}ms`
 	});
+}
+
+function hasVisibleText(node: Node, hidden: Set<Element>, elementsToRemove: Map<Element, unknown>): boolean {
+	return Array.from(node.childNodes).some(child =>
+		child.nodeType === 3 ? !!child.textContent?.trim() :
+		child.nodeType === 1 && !hidden.has(child as Element) && !elementsToRemove.has(child as Element) &&
+			hasVisibleText(child, hidden, elementsToRemove));
 }

@@ -2,7 +2,7 @@
 {
   "title": "example_size_t - Reference",
   "author": "",
-  "site": "",
+  "site": "example.com",
   "published": ""
 }
 ```
