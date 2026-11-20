@@ -27,6 +27,7 @@ export function serializeHTML(el: { innerHTML: string }): string {
  * Uses a <textarea> element which is safe for entity decoding.
  */
 export function decodeHTMLEntities(doc: Document, text: string): string {
+	if (!text || !text.includes('&')) return text;
 	const textarea = doc.createElement('textarea');
 	textarea.innerHTML = text;
 	return textarea.value;
@@ -85,21 +86,13 @@ const UNSAFE_ELEMENT_TAGS = new Set([
 	'ANIMATE', 'SET', 'ANIMATEMOTION', 'ANIMATETRANSFORM', 'ANIMATECOLOR', 'DISCARD'
 ]);
 
-// Keep iframes for embeds and math scripts for LaTeX.
-// Styles can load remote resources; SMIL can change sanitized URLs.
-// Templates hide content from descendant traversal.
-const UNSAFE_ELEMENT_SELECTOR =
-	'script:not([type^="math/"]), style, noscript, template, frame, frameset, object, embed, applet, base, ' +
-	'animate, set, animatemotion, animatetransform, animatecolor, discard, ' +
-	'animateMotion, animateTransform, animateColor, math title';
-
 const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'xlink:href']);
 
-function isUnsafeElement(el: Element): boolean {
+function isUnsafeElement(el: Element, inMath?: boolean): boolean {
 	const tag = el.tagName.toUpperCase();
 	if (tag === 'SCRIPT') return !(el.getAttribute('type') || '').toLowerCase().startsWith('math/');
 	// linkedom writes title text unescaped, but browsers parse it as markup inside math.
-	if (tag === 'TITLE') return !!el.closest('math');
+	if (tag === 'TITLE') return inMath !== undefined ? inMath : !!el.closest('math');
 	return UNSAFE_ELEMENT_TAGS.has(tag);
 }
 
@@ -112,32 +105,68 @@ function neutralizeUnsafeElement(el: Element): void {
 	}
 }
 
-/** Returns true if the root is unsafe and must not be serialized. */
-export function stripUnsafeElements(root: Element): boolean {
-	// querySelectorAll excludes the root.
-	const unsafeRoot = isUnsafeElement(root);
-	if (unsafeRoot) {
-		neutralizeUnsafeElement(root);
-	}
-
-	for (const el of Array.from(root.querySelectorAll(UNSAFE_ELEMENT_SELECTOR))) {
-		el.parentNode?.removeChild(el);
-	}
-
-	for (const el of [root, ...Array.from(root.querySelectorAll('*'))]) {
-		for (const attr of Array.from(el.attributes)) {
-			const name = attr.name.toLowerCase();
-			if (name.startsWith('on') || name === 'srcdoc') {
-				el.removeAttribute(attr.name);
-			} else if (URL_ATTRIBUTES.has(name)) {
-				// SVG data URLs can run scripts in iframes.
-				const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
-				if (isDangerousUrl(attr.value, allowInlineImage)) {
-					el.removeAttribute(attr.name);
-				}
+function stripUnsafeAttributes(el: Element): void {
+	const attrs = el.attributes;
+	if (attrs.length === 0) return;
+	let toRemove: string[] | null = null;
+	for (let i = 0; i < attrs.length; i++) {
+		const attr = attrs[i];
+		const name = attr.name.toLowerCase();
+		if (name.startsWith('on') || name === 'srcdoc') {
+			if (!toRemove) toRemove = [];
+			toRemove.push(attr.name);
+		} else if (URL_ATTRIBUTES.has(name)) {
+			// SVG data URLs can run scripts in iframes.
+			const allowInlineImage = !(name === 'src' && el.tagName.toUpperCase() === 'IFRAME');
+			if (isDangerousUrl(attr.value, allowInlineImage)) {
+				if (!toRemove) toRemove = [];
+				toRemove.push(attr.name);
 			}
 		}
 	}
+	if (toRemove) {
+		for (let i = 0; i < toRemove.length; i++) {
+			el.removeAttribute(toRemove[i]);
+		}
+	}
+}
+
+/** Returns true if the root is unsafe and must not be serialized. */
+export function stripUnsafeElements(root: Element): boolean {
+	const unsafeRoot = isUnsafeElement(root);
+	if (unsafeRoot) {
+		neutralizeUnsafeElement(root);
+	} else {
+		stripUnsafeAttributes(root);
+	}
+
+	let rootInMath = root.tagName.toUpperCase() === 'MATH';
+	if (!rootInMath) {
+		for (let cur = root.parentElement; cur; cur = cur.parentElement) {
+			if (cur.tagName.toUpperCase() === 'MATH') {
+				rootInMath = true;
+				break;
+			}
+		}
+	}
+
+	const walk = (parent: Element, inMath: boolean): void => {
+		let child = parent.firstElementChild;
+		while (child) {
+			const next = child.nextElementSibling;
+			if (isUnsafeElement(child, inMath)) {
+				child.parentNode?.removeChild(child);
+			} else {
+				stripUnsafeAttributes(child);
+				if (child.firstElementChild) {
+					walk(child, inMath || child.tagName.toUpperCase() === 'MATH');
+				}
+			}
+			child = next;
+		}
+	};
+
+	walk(root, rootInMath);
 
 	return unsafeRoot;
 }

@@ -290,6 +290,15 @@ export const codeBlockRules = [
 			// trigger a full parent subtree scan for every row.
 			const parentHasLines = new WeakMap<Element, boolean>();
 
+			const isCodeLineEl = (elem: Element): boolean => {
+				if (elem.hasAttribute('data-line') || elem.hasAttribute('data-line-number')) return true;
+				const cls = elem.getAttribute('class');
+				if (!cls || !cls.includes('line')) return false;
+				const tag = elem.tagName.toUpperCase();
+				if (tag === 'DIV' || tag === 'SPAN') return true;
+				return elem.classList?.contains('ec-line') ?? false;
+			};
+
 			// Recursively extract text content while preserving structure
 			const extractStructuredText = (element: Node): string => {
 				if (isTextNode(element)) {
@@ -311,51 +320,43 @@ export const codeBlockRules = [
 				
 				let text = '';
 				if (isElement(element)) {
-					// Verso hover tooltips duplicate inferred types/messages;
-					// keep the visible code token stream only.
-					if (element.matches('.hover-info, .hover-container')) {
-						return '';
-					}
+					const tag = element.tagName.toUpperCase();
 
 					// Skip UI chrome injected into <code> elements (e.g. rehype-pretty-copy
 					// buttons, injected <style> tags).
-					if (element.tagName === 'BUTTON' || element.tagName === 'STYLE') {
+					if (tag === 'BUTTON' || tag === 'STYLE') {
 						return '';
 					}
 
 					// Handle explicit line breaks.
 					// Skip <br> that immediately follows a line-based span (e.g. Hexo/Highlight.js
 					// `<span class="line">CODE</span><br>`) — the line span already appended '\n'.
-					if (element.tagName === 'BR') {
+					if (tag === 'BR') {
 						const prev = element.previousElementSibling;
-						if (prev && prev.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
+						if (prev && isCodeLineEl(prev)) {
 							return '';
 						}
 						return '\n';
 					}
 
-					// Hugo/Chroma line-number spans (<span class="lnt">1\n</span>) live in a
-					// separate table column from the code; skip them entirely.
-					if (element.matches('span.lnt')) {
-						return '';
-					}
-
-					// Pygments inline line number spans (<span class="lineno">1</span>)
-					// are interspersed directly in the code content; skip them.
-					if (element.matches('span.lineno')) {
-						return '';
-					}
-
-					// react-syntax-highlighter inline line number spans are interspersed
-					// directly in the code content; skip them.
-					if (element.matches('.react-syntax-highlighter-line-number')) {
-						return '';
-					}
-
-					// Rouge (Jekyll) line-number gutter lives in a separate table cell;
-					// skip it so only the code column is extracted.
-					if (element.matches('.rouge-gutter')) {
-						return '';
+					const cls = element.getAttribute('class') || '';
+					if (cls) {
+						// Fast class checks replacing 5 separate element.matches() calls per token
+						if (cls.includes('hover-') && (element.classList.contains('hover-info') || element.classList.contains('hover-container'))) {
+							return '';
+						}
+						if (tag === 'SPAN' && (
+							(cls.includes('lnt') && element.classList.contains('lnt')) ||
+							(cls.includes('lineno') && element.classList.contains('lineno'))
+						)) {
+							return '';
+						}
+						if (cls.includes('react-syntax-highlighter-line-number') && element.classList.contains('react-syntax-highlighter-line-number')) {
+							return '';
+						}
+						if (cls.includes('rouge-gutter') && element.classList.contains('rouge-gutter')) {
+							return '';
+						}
 					}
 
 					// Two-child div/span where the first child is all-digits (line number gutter).
@@ -363,7 +364,7 @@ export const codeBlockRules = [
 					// the first child and the actual code in the second (e.g. flex-row layout,
 					// or Chroma inline line numbers: <span style="display:flex"><span>N</span><span>code</span></span>).
 					// Without this, extractStructuredText concatenates them as "1AGENTS.md".
-					if ((element.tagName === 'DIV' || element.tagName === 'SPAN') && element.children.length === 2) {
+					if ((tag === 'DIV' || tag === 'SPAN') && element.children.length === 2) {
 						const gutter = (element.children[0].textContent || '').trim();
 						if (/^\d+$/.test(gutter)) {
 							return extractStructuredText(element.children[1]).replace(/\n$/, '') + '\n';
@@ -373,7 +374,7 @@ export const codeBlockRules = [
 					// Handle common line-based code formats
 					// This covers various syntax highlighter implementations that use
 					// divs or spans to represent individual lines
-					if (element.matches('div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]')) {
+					if (isCodeLineEl(element)) {
 						// Try to find the actual code content in common structures:
 						// 1. A dedicated code container
 						const codeContainer = element.querySelector('.code:not(.token), .content:not(.token), [class*="code-"], [class*="content-"]');
@@ -395,9 +396,9 @@ export const codeBlockRules = [
 						return (element.textContent || '').replace(/\n$/, '') + '\n';
 					}
 					
-					element.childNodes.forEach(child => {
+					for (let child = element.firstChild; child; child = child.nextSibling) {
 						text += extractStructuredText(child);
-					});
+					}
 				}
 				return text;
 			};

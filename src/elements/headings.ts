@@ -1,27 +1,42 @@
 import { ALLOWED_ATTRIBUTES } from "../constants";
 
-// Footnote references produced by standardizeFootnotes
-const FOOTNOTE_REF_MARKER = 'sup[id^="fnref:"]';
-const FOOTNOTE_REF = `${FOOTNOTE_REF_MARKER} > a[href^="#fn:"]`;
+const HEADING_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
 
 /**
  * Remove permalink anchors from headings and definition terms.
  * Handles symbols (#, ¶, §, 🔗), empty links, and class-based anchors.
  */
 export function removePermalinkAnchors(element: Element): void {
-	Array.from(element.querySelectorAll(
-		'h1 a, h2 a, h3 a, h4 a, h5 a, h6 a, a.permalink, a.anchor-link, a.heading-anchor'
-	)).forEach(link => {
+	const links = Array.from(element.getElementsByTagName('a'));
+	for (let i = 0; i < links.length; i++) {
+		const link = links[i];
+		let inHeading = false;
+		for (let cur = link.parentElement; cur; cur = cur.parentElement) {
+			if (HEADING_TAGS.has(cur.tagName.toUpperCase())) {
+				inHeading = true;
+				break;
+			}
+			if (cur === element) break;
+		}
+		if (!inHeading) {
+			const cls = link.getAttribute('class') || '';
+			if (!cls || (!link.classList.contains('permalink') && !link.classList.contains('anchor-link') && !link.classList.contains('heading-anchor'))) {
+				continue;
+			}
+		}
 		if (isPermalinkAnchor(link)) {
 			link.remove();
 		}
-	});
+	}
 }
 
 export function isPermalinkAnchor(node: Element): boolean {
-	if (node.tagName.toLowerCase() !== 'a') return false;
-	if (node.matches(FOOTNOTE_REF)) return false;
+	if (node.tagName.toUpperCase() !== 'A') return false;
 	const href = node.getAttribute('href') || '';
+	const parent = node.parentElement;
+	if (parent && parent.tagName.toUpperCase() === 'SUP' && parent.id.startsWith('fnref:') && href.startsWith('#fn:')) {
+		return false;
+	}
 	const title = (node.getAttribute('title') || '').toLowerCase();
 	const className = (node.getAttribute('class') || '').toLowerCase();
 	const text = (node.textContent || '').trim();
@@ -42,7 +57,8 @@ function appendHeadingContent(source: Node, target: Element): void {
 			target.appendChild(node);
 		} else if (node.nodeType === 1) {
 			const el = node as Element;
-			if (el.matches('math') || el.matches(FOOTNOTE_REF_MARKER)) {
+			const tag = el.tagName.toUpperCase();
+			if (tag === 'MATH' || (tag === 'SUP' && el.id.startsWith('fnref:'))) {
 				target.appendChild(el);
 			} else {
 				appendHeadingContent(el, target);
