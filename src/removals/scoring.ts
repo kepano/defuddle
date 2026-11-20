@@ -243,7 +243,7 @@ export class ContentScorer {
 	 * Scores blocks based on their content and structure
 	 * and removes those that are likely not content.
 	 */
-	public static scoreAndRemove(doc: Document, debug: boolean = false, debugRemovals?: DebugRemoval[], mainContent?: Element | null): void {
+	public static scoreAndRemove(doc: Document | Element, debug: boolean = false, debugRemovals?: DebugRemoval[], mainContent?: Element | null): void {
 		const startTime = Date.now();
 
 		// Track all elements to be removed

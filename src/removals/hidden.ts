@@ -2,7 +2,7 @@ import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { hasResponsiveShowClass } from '../utils/dom';
 
-export function removeHiddenElements(doc: Document, debug: boolean, debugRemovals?: DebugRemoval[]) {
+export function removeHiddenElements(doc: Document | Element, debug: boolean, debugRemovals?: DebugRemoval[]) {
 	let count = 0;
 	const elementsToRemove = new Map<Element, string>();
 
@@ -11,7 +11,7 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 
 	// Only use getComputedStyle in browser environments where it's meaningful.
 	// In JSDOM/linkedom without stylesheets, it's extremely slow and unreliable.
-	const defaultView = doc.defaultView;
+	const defaultView = ('defaultView' in doc ? doc.defaultView : doc.ownerDocument?.defaultView) ?? null;
 	const isBrowser = typeof window !== 'undefined' && defaultView === window;
 
 	const allElements = doc.querySelectorAll('*');

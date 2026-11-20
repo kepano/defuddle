@@ -55,7 +55,7 @@ function isLevelSectionHeadingId(el: Element, id: string): boolean {
 	return Boolean(slug) && (id === slug || slug.endsWith('-' + id));
 }
 
-export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
+export function removeBySelector(doc: Document | Element, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
 	const startTime = Date.now();
 	let exactSelectorCount = 0;
 	let partialSelectorCount = 0;

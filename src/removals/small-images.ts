@@ -123,7 +123,7 @@ export function findSmallImages(doc: Document, debug: boolean): Set<string> {
 	return smallImages;
 }
 
-export function removeSmallImages(doc: Document, smallImages: Set<string>, debug: boolean) {
+export function removeSmallImages(doc: Document | Element, smallImages: Set<string>, debug: boolean) {
 	let removedCount = 0;
 
 	['img', 'svg'].forEach(tag => {
