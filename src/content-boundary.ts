@@ -11,24 +11,53 @@ const CANDIDATE_TAGS = new Set(['P', 'DIV', 'SECTION', 'ARTICLE', 'BLOCKQUOTE', 
 // wrapper whose textContent happens to qualify doesn't outvote the real paragraph.
 const LEAF_CANDIDATE_TAGS = new Set(['P', 'BLOCKQUOTE', 'FONT']);
 
-const DIALOG_SELECTOR = '[role="dialog"], [role="alertdialog"]';
-const SKIP_ANCESTOR_SELECTOR = `aside, nav, header, footer, form, ${DIALOG_SELECTOR}`;
+const SKIP_ANCESTOR_TAGS = new Set(['ASIDE', 'NAV', 'HEADER', 'FOOTER', 'FORM']);
 const PROSE_MIN_WORDS = 7;
 
 function findTitleElement(mainContent: Element, title: string): Element | null {
 	const normalizedTitle = normalizeText(title);
 	if (!normalizedTitle) return null;
-	const headings = mainContent.querySelectorAll('h1, h2');
-	for (const h of headings) {
-		if (normalizeText(h.textContent || '') === normalizedTitle) return h;
+	const walk = (root: Element): Element | null => {
+		for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+			const tag = el.tagName.toUpperCase();
+			if ((tag === 'H1' || tag === 'H2') && normalizeText(el.textContent || '') === normalizedTitle) {
+				return el;
+			}
+			if (el.firstElementChild) {
+				const found = walk(el);
+				if (found) return found;
+			}
+		}
+		return null;
+	};
+	return walk(mainContent);
+}
+
+function hasSkipAncestor(el: Element): boolean {
+	for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+		if (SKIP_ANCESTOR_TAGS.has(cur.tagName.toUpperCase())) return true;
+		const role = cur.getAttribute('role');
+		if (role === 'dialog' || role === 'alertdialog') return true;
 	}
-	return null;
+	return false;
+}
+
+function hasDisallowedDescendant(root: Element): boolean {
+	for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+		const tag = el.tagName.toUpperCase();
+		if (tag === 'SCRIPT' || tag === 'STYLE') return true;
+		const role = el.getAttribute('role');
+		if (role === 'dialog' || role === 'alertdialog') return true;
+		if (el.firstElementChild && hasDisallowedDescendant(el)) return true;
+	}
+	return false;
 }
 
 function linkTextLength(el: Element): number {
 	let len = 0;
-	for (const a of el.querySelectorAll('a')) {
-		len += (a.textContent || '').length;
+	const links = el.getElementsByTagName('a');
+	for (let i = 0; i < links.length; i++) {
+		len += (links[i].textContent || '').length;
 	}
 	return len;
 }
@@ -36,13 +65,12 @@ function linkTextLength(el: Element): number {
 function isProseBlock(el: Element): boolean {
 	if (!el.tagName) return false;
 	if (!CANDIDATE_TAGS.has(el.tagName)) return false;
-	if (el.closest(SKIP_ANCESTOR_SELECTOR)) return false;
+	if (hasSkipAncestor(el)) return false;
 	const className = typeof el.className === 'string' ? el.className : '';
 	if (HIDDEN_CLASS_RE.test(className)) return false;
 	// A dialog inside the subtree pollutes the element's textContent with modal
 	// copy; a script/style descendant pollutes it with source code.
-	if (el.querySelector(DIALOG_SELECTOR)) return false;
-	if (el.querySelector('script, style')) return false;
+	if (hasDisallowedDescendant(el)) return false;
 
 	const text = (el.textContent || '').trim();
 	if (!text) return false;
@@ -57,7 +85,7 @@ function isProseBlock(el: Element): boolean {
 	if (linkTextLength(el) > text.length * 0.7) return false;
 	// A DIV whose text comes from spans/labels (cookie banners, button groups)
 	// can pass the word-count bar without actually containing article prose.
-	if (el.tagName === 'DIV' && !el.querySelector('p')) return false;
+	if (el.tagName === 'DIV' && el.getElementsByTagName('p').length === 0) return false;
 
 	return true;
 }

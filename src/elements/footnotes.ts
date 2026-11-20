@@ -1,7 +1,115 @@
-import { FOOTNOTE_LIST_SELECTORS, FOOTNOTE_INLINE_REFERENCES, BLOCK_LEVEL_ELEMENTS } from '../constants';
-import { transferContent, parseHTML, serializeHTML, getClassName } from '../utils/dom';
+import { FOOTNOTE_INLINE_REFERENCES, FOOTNOTE_LIST_SELECTORS, BLOCK_LEVEL_ELEMENTS } from '../constants';
+import { transferContent, parseHTML, serializeHTML } from '../utils/dom';
 import { isElement, isTextNode } from '../utils';
 import { removeOrphanedDividers } from '../standardize';
+
+const CLASS_SPLIT_RE = /[\t\n\f\r ]+/;
+
+interface FootnoteScan {
+	inlineSidenoteContainers: any[];
+	footrefLabels: any[];
+	standaloneSidenotes: any[];
+	dataDefinitionSpans: any[];
+	footnoteLists: any[];
+	sidenoteColumns: any[];
+	asideStartOls: any[];
+	latexmlNotes: any[];
+	dataTypeFootnotes: any[];
+	hashLinks: any[];
+	ftntPs: any[];
+	classFootnotePs: any[];
+	allPs: any[];
+	labeledSectionCandidates: any[];
+}
+
+function scanFootnoteCandidates(root: any): FootnoteScan {
+	const scan: FootnoteScan = {
+		inlineSidenoteContainers: [],
+		footrefLabels: [],
+		standaloneSidenotes: [],
+		dataDefinitionSpans: [],
+		footnoteLists: [],
+		sidenoteColumns: [],
+		asideStartOls: [],
+		latexmlNotes: [],
+		dataTypeFootnotes: [],
+		hashLinks: [],
+		ftntPs: [],
+		classFootnotePs: [],
+		allPs: [],
+		labeledSectionCandidates: [],
+	};
+
+	const walk = (parent: any, parentTag: string): void => {
+		for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+			const tag = el.tagName.toUpperCase();
+			const cls = el.getAttribute('class') || '';
+			const id = el.id || '';
+
+			let hasFootnoteClass = false;
+
+			if (cls) {
+				const tokens = cls.split(CLASS_SPLIT_RE);
+				let isSidenoteColumn = false;
+				let isInlineSidenoteContainer = false;
+				let isStandaloneSidenote = false;
+				let isFootrefLabel = false;
+				let hasLtxNote = false;
+				let hasLtxRoleFootnote = false;
+				for (let i = 0; i < tokens.length; i++) {
+					const tok = tokens[i];
+					if (!tok) continue;
+					if (tok === 'sidenotes-column') isSidenoteColumn = true;
+					if (tok === 'footnote') hasFootnoteClass = true;
+
+					if (tag === 'SPAN') {
+						if (tok === 'footnote-container' || tok === 'sidenote-container' || tok === 'inline-footnote') {
+							isInlineSidenoteContainer = true;
+						}
+						if (tok === 'sidenote') isStandaloneSidenote = true;
+						if (tok === 'ltx_note') hasLtxNote = true;
+						if (tok === 'ltx_role_footnote') hasLtxRoleFootnote = true;
+					} else if (tag === 'LABEL' && tok === 'footref') {
+						isFootrefLabel = true;
+					}
+				}
+				if (isSidenoteColumn) scan.sidenoteColumns.push(el);
+				if (isInlineSidenoteContainer) scan.inlineSidenoteContainers.push(el);
+				if (isStandaloneSidenote) scan.standaloneSidenotes.push(el);
+				if (isFootrefLabel) scan.footrefLabels.push(el);
+				if (hasLtxNote && hasLtxRoleFootnote) {
+					scan.latexmlNotes.push(el);
+				}
+			}
+
+			if (tag === 'SPAN') {
+				if (el.hasAttribute('data-definition')) scan.dataDefinitionSpans.push(el);
+			} else if (tag === 'A') {
+				const href = el.getAttribute('href');
+				if (href && href.includes('#')) scan.hashLinks.push(el);
+			} else if (tag === 'P') {
+				scan.allPs.push(el);
+				if (hasFootnoteClass) scan.classFootnotePs.push(el);
+				if (id && id.startsWith('ftnt')) scan.ftntPs.push(el);
+				if (id && el.getAttribute('data-type') === 'footnote') scan.dataTypeFootnotes.push(el);
+			} else if (tag === 'OL') {
+				if (parentTag === 'ASIDE' && el.hasAttribute('start')) scan.asideStartOls.push(el);
+			} else if (tag === 'DIV' || tag === 'SECTION' || tag === 'ASIDE') {
+				if (/footnote/i.test(cls) || /footnote/i.test(id)) {
+					scan.labeledSectionCandidates.push(el);
+				}
+			}
+
+			if (el.firstElementChild && tag !== 'TEMPLATE') {
+				walk(el, tag);
+			}
+		}
+	};
+
+	walk(root, root.tagName?.toUpperCase() || '');
+	scan.footnoteLists = Array.from(root.querySelectorAll(FOOTNOTE_LIST_SELECTORS));
+	return scan;
+}
 
 // Matches heading text for loose footnote section delimiters
 export const FOOTNOTE_SECTION_RE = /^(foot\s*notes?|end\s*notes?|notes?|references?)$/i;
@@ -107,9 +215,15 @@ class FootnoteHandler {
 	private pendingRemovals: any[] = [];
 	// References already pointing at a collected footnote, so matching must skip them.
 	private createdRefs = new Set<any>();
+	private scan!: FootnoteScan;
+	private scanMutated = false;
 
 	constructor(doc: any) {
 		this.doc = doc;
+	}
+
+	private isAlive(root: any, el: any): boolean {
+		return !this.scanMutated || (Boolean(el.parentNode) && root.contains(el));
 	}
 
 	private makeRefId(footnoteNumber: string, refsLength: number): string {
@@ -214,8 +328,9 @@ class FootnoteHandler {
 
 	collectFootnotes(element: any): FootnoteCollection {
 		const state: CollectState = { footnotes: {}, processedIds: new Set(), count: 1 };
-		const footnoteLists = element.querySelectorAll(FOOTNOTE_LIST_SELECTORS);
+		const footnoteLists = this.scan.footnoteLists;
 		footnoteLists.forEach((list: any) => {
+			if (!this.isAlive(element, list)) return;
 			// Wikidot uses div.footnotes-footer containing div.footnote-footer children
 			if (list.matches('div.footnotes-footer')) {
 				const footnoteDivs = list.querySelectorAll('div.footnote-footer');
@@ -348,8 +463,10 @@ class FootnoteHandler {
 	// from definitions to tryGenericIdDetection, which would mis-collect surrounding
 	// paragraphs as footnote content (#296), so handle this explicit markup first.
 	private tryDataTypeFootnotes(element: any, state: CollectState): void {
-		const defs = element.querySelectorAll('p[data-type="footnote"][id]');
+		const defs = this.scan.dataTypeFootnotes;
+		if (defs.length === 0) return;
 		defs.forEach((def: any) => {
+			if (!this.isAlive(element, def)) return;
 			const id = (def.id || '').toLowerCase();
 			if (!id) return;
 			const contentDiv = element.ownerDocument.createElement('div');
@@ -368,8 +485,10 @@ class FootnoteHandler {
 
 	// Generic fallback: detect footnotes by numeric anchor text referencing an in-container id.
 	private tryGenericIdDetection(element: any, state: CollectState): void {
+		if (this.scan.hashLinks.length < 2) return;
 		const candidateRefs = new Map<string, any[]>();
-		element.querySelectorAll('a[href*="#"]').forEach((a: any) => {
+		this.scan.hashLinks.forEach((a: any) => {
+			if (!this.isAlive(element, a)) return;
 			const fragment = getHrefFragment(a);
 			if (!fragment) return;
 			const text = a.textContent?.trim() || '';
@@ -458,7 +577,10 @@ class FootnoteHandler {
 	// Microsoft Word HTML export: body refs use href="#_ftn[N]",
 	// footnote list items contain back-links href="..#_ftnref[N]" (no IDs on elements).
 	private tryWordExport(element: any, state: CollectState): void {
-		const wordBackrefs = Array.from(element.querySelectorAll('a[href*="#_ftnref"]'));
+		if (this.scan.hashLinks.length < 2) return;
+		const wordBackrefs = this.scan.hashLinks.filter((a: any) =>
+			this.isAlive(element, a) && (a.getAttribute('href') || '').includes('#_ftnref')
+		);
 		if (wordBackrefs.length < 2) return;
 
 		const pairs: Array<{num: number, anchor: any}> = [];
@@ -498,8 +620,10 @@ class FootnoteHandler {
 
 	// Google Docs/Sites: p[id^="ftnt"] with back-link a[href*="#ftnt_ref"]
 	private tryGoogleDocs(element: any, state: CollectState): void {
+		if (this.scan.ftntPs.length < 2) return;
 		const gdocPairs: Array<{num: number, el: any}> = [];
-		element.querySelectorAll('p[id^="ftnt"]').forEach((p: any) => {
+		this.scan.ftntPs.forEach((p: any) => {
+			if (!this.isAlive(element, p)) return;
 			const match = (p.id || '').match(/^ftnt(\d+)$/);
 			if (match) gdocPairs.push({ num: parseInt(match[1]), el: p });
 		});
@@ -567,8 +691,10 @@ class FootnoteHandler {
 	// The "footnote" class is a strong enough signal that we don't require cross-validation
 	// or a minimum count, so even a single footnote is detected.
 	private tryClassFootnote(element: any, state: CollectState): void {
+		if (this.scan.classFootnotePs.length === 0) return;
 		const footnoteParagraphs: Array<{num: number; el: any}> = [];
-		element.querySelectorAll('p.footnote').forEach((p: any) => {
+		this.scan.classFootnotePs.forEach((p: any) => {
+			if (!this.isAlive(element, p)) return;
 			const num = this.parseFootnoteNum(p);
 			if (num !== null) footnoteParagraphs.push({ num, el: p });
 		});
@@ -584,11 +710,10 @@ class FootnoteHandler {
 	// is a strong enough signal that even a single footnote is detected. Handles CSS
 	// module hashes like "PostDetail__UQuRMa__footnotes".
 	private tryLabeledSection(element: any, state: CollectState): void {
-		const containers = element.querySelectorAll('div, section, aside');
-		for (const container of Array.from(containers) as any[]) {
-			const className = getClassName(container);
-			const id = container.id || '';
-			if (!/footnote/i.test(className) && !/footnote/i.test(id)) continue;
+		const containers = this.scan.labeledSectionCandidates;
+		for (let i = 0; i < containers.length; i++) {
+			const container = containers[i];
+			if (!this.isAlive(element, container)) continue;
 
 			const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
 			if (!heading || !FOOTNOTE_SECTION_RE.test(heading.textContent?.trim() || '')) continue;
@@ -608,8 +733,12 @@ class FootnoteHandler {
 	// Anchor names must be targeted by inline numeric links, so ordinary <br>-separated
 	// prose is not mistaken for footnotes.
 	private tryBrSeparatedFootnotes(element: any, state: CollectState): void {
+		if (this.scan.hashLinks.length < 2) return;
 		const linkedFragments = new Set<string>();
-		element.querySelectorAll('a[href^="#"]').forEach((a: any) => {
+		this.scan.hashLinks.forEach((a: any) => {
+			if (!this.isAlive(element, a)) return;
+			const href = a.getAttribute('href') || '';
+			if (!href.startsWith('#')) return;
 			if (FOOTNOTE_MARKER_RE.test(a.textContent?.trim() || '')) {
 				const fragment = getHrefFragment(a);
 				if (fragment) linkedFragments.add(fragment);
@@ -794,7 +923,9 @@ class FootnoteHandler {
 		element: any
 	): { paragraphs: Array<{num: number; el: any}>; toRemove: any[] } | null {
 		// Use parent of last <p> as scan container for nested layouts (e.g. Next.js)
-		const allPs = Array.from(element.querySelectorAll('p')) as any[];
+		const allPs = this.scanMutated
+			? this.scan.allPs.filter((p: any) => this.isAlive(element, p))
+			: this.scan.allPs;
 		const container = allPs.length > 0 ? (allPs[allPs.length - 1].parentElement ?? element) : element;
 		const children = Array.from(container.children) as any[];
 
@@ -1020,11 +1151,11 @@ class FootnoteHandler {
 	// Tufte-style and inline sidenotes embedded in text
 	collectInlineSidenotes(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
-		const containers = element.querySelectorAll('span.footnote-container, span.sidenote-container, span.inline-footnote');
+		const containers = this.scan.inlineSidenoteContainers;
 
 		if (containers.length === 0) {
 			// Org Mode CSS sidenotes: label.footref + input.footref-toggle + span.sidenote
-			const footrefs = element.querySelectorAll('label.footref');
+			const footrefs = this.scan.footrefLabels;
 			if (footrefs.length > 0) {
 				let footnoteCount = 1;
 				footrefs.forEach((label: any) => {
@@ -1056,6 +1187,7 @@ class FootnoteHandler {
 					}
 					sibling.remove();
 					label.replaceWith(ref);
+					this.scanMutated = true;
 
 					footnoteCount++;
 				});
@@ -1064,6 +1196,7 @@ class FootnoteHandler {
 				element.querySelectorAll('footer').forEach((footer: any) => {
 					if (footer.querySelector('.footdef')) {
 						footer.remove();
+						this.scanMutated = true;
 					}
 				});
 
@@ -1071,9 +1204,12 @@ class FootnoteHandler {
 			}
 
 			// Remove standalone sidenotes that duplicate the formal footnote list
-			element.querySelectorAll('span.sidenote').forEach((sidenote: any) => {
-				sidenote.remove();
-			});
+			if (this.scan.standaloneSidenotes.length > 0) {
+				this.scan.standaloneSidenotes.forEach((sidenote: any) => {
+					sidenote.remove();
+				});
+				this.scanMutated = true;
+			}
 			return footnotes;
 		}
 
@@ -1090,6 +1226,7 @@ class FootnoteHandler {
 
 			const ref = this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`);
 			container.replaceWith(ref);
+			this.scanMutated = true;
 
 			footnoteCount++;
 		});
@@ -1101,14 +1238,20 @@ class FootnoteHandler {
 	collectSidenotesColumn(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 
-		let columns = Array.from(element.querySelectorAll('.sidenotes-column')) as any[];
+		let columns = this.scanMutated
+			? this.scan.sidenoteColumns.filter((c: any) => this.isAlive(element, c))
+			: this.scan.sidenoteColumns;
 
 		// Sidenote columns are often siblings of an ancestor
 		// (e.g. <div class="wrapper"><article>…</article><aside class="sidenotes-column">)
 		if (columns.length === 0) {
 			let ancestor = element.parentElement;
 			for (let i = 0; i < 3 && ancestor && columns.length === 0; i++) {
-				columns = Array.from(ancestor.querySelectorAll(':scope > .sidenotes-column')) as any[];
+				const found: any[] = [];
+				for (let child = ancestor.firstElementChild; child; child = child.nextElementSibling) {
+					if (child.classList?.contains('sidenotes-column')) found.push(child);
+				}
+				columns = found;
 				ancestor = ancestor.parentElement;
 			}
 		}
@@ -1155,7 +1298,9 @@ class FootnoteHandler {
 	collectAsideFootnotes(element: any): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 
-		const ols = Array.from(element.querySelectorAll('aside > ol[start]')) as any[];
+		const ols = this.scanMutated
+			? this.scan.asideStartOls.filter((ol: any) => this.isAlive(element, ol))
+			: this.scan.asideStartOls;
 		if (ols.length === 0) return footnotes;
 
 		ols.forEach((ol: any) => {
@@ -1195,7 +1340,9 @@ class FootnoteHandler {
 	collectHiddenAsideFootnotes(element: any, firstNumber: number): FootnoteCollection {
 		const footnotes: FootnoteCollection = {};
 
-		const refs = Array.from(element.querySelectorAll('span[data-definition]')) as any[];
+		const refs = this.scanMutated
+			? this.scan.dataDefinitionSpans.filter((r: any) => this.isAlive(element, r))
+			: this.scan.dataDefinitionSpans;
 		if (refs.length === 0) return footnotes;
 
 		const asideMap = new Map<string, any>();
@@ -1225,6 +1372,7 @@ class FootnoteHandler {
 			};
 
 			ref.replaceWith(this.createFootnoteReference(footnoteNumber, refId));
+			this.scanMutated = true;
 			footnoteCount++;
 		});
 
@@ -1234,10 +1382,13 @@ class FootnoteHandler {
 	// LaTeXML (arXiv) keeps each footnote body in a hidden span.ltx_note_outer
 	// next to its marker. Replace each note with a reference to its body.
 	private collectLatexmlFootnotes(element: any, footnotes: FootnoteCollection): void {
+		const notes = this.scan.latexmlNotes;
+		if (notes.length === 0) return;
 		let footnoteCount = nextFootnoteNumber(footnotes);
 		// LaTeXML gives each repeated \footnotemark its own id, so match repeats by mark and text
 		const seen = new Map<string, number>();
-		element.querySelectorAll('span.ltx_note.ltx_role_footnote').forEach((note: any) => {
+		notes.forEach((note: any) => {
+			if (!this.isAlive(element, note)) return;
 			const content = note.querySelector('.ltx_note_content')?.cloneNode(true);
 			if (!content) return;
 			content.querySelectorAll('.ltx_note_mark, .ltx_tag_note').forEach((label: any) => label.remove());
@@ -1266,19 +1417,25 @@ class FootnoteHandler {
 	}
 
 	standardizeFootnotes(element: any) {
+		this.scan = scanFootnoteCandidates(element);
+		this.scanMutated = false;
+
 		const sidenotes = this.collectInlineSidenotes(element);
 		const footnotes = this.collectHiddenAsideFootnotes(element, nextFootnoteNumber(sidenotes));
 		this.mergeFootnotes(footnotes, this.collectFootnotes(element), sidenotes);
 		this.mergeFootnotes(footnotes, this.collectSidenotesColumn(element), sidenotes);
 		this.mergeFootnotes(footnotes, this.collectAsideFootnotes(element), sidenotes);
 
-		const footnoteInlineReferences = element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES);
 		const supGroups = new Map();
 
 		const footnotesByOriginalId = new Map<string, [string, FootnoteData]>();
 		Object.entries(footnotes).forEach(([num, data]) => {
 			footnotesByOriginalId.set(data.originalId.toLowerCase(), [num, data]);
 		});
+
+		const footnoteInlineReferences = footnotesByOriginalId.size > 0
+			? element.querySelectorAll(FOOTNOTE_INLINE_REFERENCES)
+			: [];
 
 		footnoteInlineReferences.forEach((el: any) => {
 			if (!el || !el.parentNode) return;
@@ -1423,7 +1580,7 @@ class FootnoteHandler {
 			orderedList.appendChild(this.createFootnoteItem(parseInt(number), data.content, data.refs));
 		});
 
-		element.querySelectorAll(FOOTNOTE_LIST_SELECTORS).forEach((list: any) => list.remove());
+		this.scan.footnoteLists.forEach((list: any) => { if (list.parentNode) list.remove(); });
 		this.pendingRemovals.forEach((el: any) => { if (el.parentNode) el.remove(); });
 
 		removeOrphanedDividers(element);

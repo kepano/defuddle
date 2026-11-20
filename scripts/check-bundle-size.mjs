@@ -5,8 +5,8 @@ import { gzipSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 
 const BUDGETS_KB = {
-	'dist/index.js': 97,       // core UMD bundle (defuddle)
-	'dist/index.full.js': 215, // full bundle with math (defuddle/full)
+	'dist/index.js': 99,       // core UMD bundle (defuddle)
+	'dist/index.full.js': 217, // full bundle with math (defuddle/full)
 };
 
 let failed = false;
