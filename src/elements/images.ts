@@ -195,7 +195,7 @@ export const imageRules = [
 				const caption = findCaption(el);
 
 				// Process the images (might return the img itself or handle picture/source)
-				const processedImages = images.map(image => processImageElement(image, doc));
+				const processedImages = images.map(image => keepImageLink(image, processImageElement(image, doc), el));
 
 				if (caption && hasMeaningfulCaption(caption)) {
 					const figure = createFigureWithCaption(processedImages, caption, doc);
@@ -235,7 +235,7 @@ export const imageRules = [
 					return el;
 				}
 
-				return createFigureWithCaption(images, caption, doc);
+				return createFigureWithCaption(images.map(image => keepImageLink(image, image, el)), caption, doc);
 			} catch (error) {
 				// Failed to process complex image element, return as-is
 				return el;
@@ -243,6 +243,18 @@ export const imageRules = [
 		}
 	},
 ];
+
+/**
+ * Wrap the image in a copy of the link it had inside the container, so
+ * rebuilding a figure keeps linked images linked.
+ */
+function keepImageLink(original: Element, image: Element, container: Element): Element {
+	const link = original.closest('a');
+	if (!link || link === container || !container.contains(link)) return image;
+	const copy = link.cloneNode(false) as Element;
+	copy.appendChild(image.cloneNode(true));
+	return copy;
+}
 
 /**
  * Creates a standard <figure> element containing images and a caption.
@@ -365,21 +377,17 @@ function isImageElement(element: Element): boolean {
 
 /**
  * Find the content images in a container, in document order. A <picture>
- * counts as one image. Placeholders are skipped, and so are images with an
- * empty alt when others have one, since those are usually decorative.
+ * counts as one image, and placeholders are skipped.
  */
 function findMainImages(element: Element): Element[] {
 	if (isImageElement(element)) {
 		return [element];
 	}
 
-	const candidates = Array.from(element.querySelectorAll('picture, img')).filter(node =>
+	const images = Array.from(element.querySelectorAll('picture, img')).filter(node =>
 		node.tagName.toLowerCase() === 'picture' ||
 		(!node.closest('picture') && !isPlaceholderImage(node))
 	);
-	const hasAlt = (node: Element) =>
-		node.tagName.toLowerCase() === 'picture' || !!node.getAttribute('alt')?.trim();
-	const images = candidates.some(hasAlt) ? candidates.filter(hasAlt) : candidates;
 	if (images.length > 0) {
 		return images;
 	}

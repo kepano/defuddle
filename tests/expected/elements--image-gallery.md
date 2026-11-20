@@ -63,4 +63,14 @@ The ferry home
 
 ![The ferry leaving the harbor](https://www.example.com/media/b41e9c/1920.jpg?width=620)
 
+![The lighthouse by day](https://www.example.com/uploads/lighthouse-day.jpg)
+
+![](https://www.example.com/uploads/lighthouse-night.jpg)
+
+The lighthouse by day and night
+
+[![Map of the harbor](https://www.example.com/uploads/harbor-map.png)](https://www.example.com/wiki/File:Harbor_map.svg)
+
+The harbor and its two piers
+
 We left on the evening ferry, with the lights of the harbor fading behind us.

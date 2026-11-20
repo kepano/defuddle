@@ -154,6 +154,14 @@ function formatEmbed(url: string): string {
 	return `\n![](${formatMarkdownLinkDestination(url)})\n`;
 }
 
+/** The href of a link around the image inside the figure, if any. */
+function getImageLinkHref(img: GenericElement, figure: GenericElement): string {
+	for (let parent = img.parentNode; parent && parent !== figure; parent = parent.parentNode) {
+		if (parent.nodeName === 'A') return parent.getAttribute('href') || '';
+	}
+	return '';
+}
+
 function getBestImageSrc(node: GenericElement): string {
 	const srcset = node.getAttribute('srcset');
 	if (srcset) {
@@ -484,7 +492,9 @@ export function createMarkdownContent(content: string, url: string) {
 			const imageMarkdown = images.map(img => {
 				const alt = escapeInlineText(img.getAttribute('alt') || '');
 				const src = formatMarkdownLinkDestination(getBestImageSrc(img));
-				return src ? `![${alt}](${src})` : alt;
+				if (!src) return alt;
+				const href = getImageLinkHref(img, node);
+				return href ? `[![${alt}](${src})](${formatMarkdownLinkDestination(href)})` : `![${alt}](${src})`;
 			}).filter(Boolean).join('\n\n');
 			let caption = '';
 
