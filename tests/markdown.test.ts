@@ -539,4 +539,22 @@ describe('Markdown conversion', () => {
 			expect(markdown).not.toContain('[ ]');
 		});
 	});
+
+	describe('intraword underscores', () => {
+		test('does not escape underscores inside words or URLs', () => {
+			expect(
+				createMarkdownContent('<p>Get one at https://platform.deepseek.com/api_keys today.</p>', 'https://example.com')
+			).toBe('Get one at https://platform.deepseek.com/api_keys today.');
+
+			expect(
+				createMarkdownContent('<p>and demo_txt and a__b files</p>', 'https://example.com')
+			).toBe('and demo_txt and a__b files');
+		});
+
+		test('still escapes boundary underscores that could form emphasis', () => {
+			expect(
+				createMarkdownContent('<p>literal _word_ here</p>', 'https://example.com')
+			).toBe('literal \\_word\\_ here');
+		});
+	});
 });

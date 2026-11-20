@@ -29,7 +29,7 @@ We tracked retry success rates across all integrations and found that roughly se
 
 ## Parsing Response Formats
 
-Different APIs return data in wildly different formats even when they claim to follow REST conventions. Some nest the actual data inside envelope objects with metadata, while others return flat arrays. Some use camelCase field names, others use snake\_case, and a few use inconsistent mixtures of both within the same response.
+Different APIs return data in wildly different formats even when they claim to follow REST conventions. Some nest the actual data inside envelope objects with metadata, while others return flat arrays. Some use camelCase field names, others use snake_case, and a few use inconsistent mixtures of both within the same response.
 
 We built a normalization layer that transforms each API response into a consistent internal format before passing it to business logic. This decouples our application code from the quirks of individual APIs and makes it easier to swap out or upgrade integrations without touching the rest of the codebase.
 
