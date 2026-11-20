@@ -264,8 +264,10 @@ export function createMarkdownContent(content: string, url: string) {
 	// <https://x> have "@"/":" after the name and are left intact, as is "a < b". Real
 	// kept elements (video/iframe/svg/…) are DOM nodes, not text, so keep rules are safe.
 	const baseEscape = (turndownService.escape as (s: string) => string).bind(turndownService);
+	const unescapeIntrawordUnderscores = (s: string): string =>
+		s.replace(/(?<=[\p{L}\p{N}])(?:\\_)+(?=[\p{L}\p{N}])/gu, (m) => m.replace(/\\_/g, '_'));
 	turndownService.escape = (s: string) => {
-		const escaped = baseEscape(s);
+		const escaped = unescapeIntrawordUnderscores(baseEscape(s));
 		if (!escaped.includes('<')) return escaped;
 		return escaped
 			.replace(/<(?=\/?[A-Za-z][A-Za-z0-9-]*(?:\s|\/?>))/g, '\\<')
@@ -275,7 +277,7 @@ export function createMarkdownContent(content: string, url: string) {
 				isDangerousUrl(destination, false) ? `\\${match}` : match);
 	};
 	const escapeInlineText = (value: string): string =>
-		escapeEntityLike(baseEscape(value.replace(/[\r\n]+/g, ' ')).replace(/</g, '\\<'));
+		escapeEntityLike(unescapeIntrawordUnderscores(baseEscape(value.replace(/[\r\n]+/g, ' '))).replace(/</g, '\\<'));
 
 	turndownService.addRule('table', {
 		filter: 'table',
