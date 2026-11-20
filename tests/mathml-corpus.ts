@@ -265,12 +265,19 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 	add('entities:numeric-hex', 'entities', '<math><mo>&#x2211;</mo><mi>&#x03B1;</mi><mo>&#x2061;</mo><mo>&#x222B;</mo><mi>&#x221E;</mi></math>');
 	add('entities:html-named', 'entities', '<math><mi>&alpha;</mi><mo>&plusmn;</mo><mi>&infin;</mi><mo>&le;</mo><mo>&ge;</mo></math>');
 	add('symbols:greek-lower', 'symbols', '<math><mi>α</mi><mi>β</mi><mi>γ</mi><mi>δ</mi><mi>ε</mi><mi>ζ</mi><mi>η</mi><mi>θ</mi><mi>ι</mi><mi>κ</mi><mi>λ</mi><mi>μ</mi><mi>ν</mi><mi>ξ</mi><mi>ο</mi><mi>π</mi><mi>ρ</mi><mi>σ</mi><mi>τ</mi><mi>υ</mi><mi>φ</mi><mi>χ</mi><mi>ψ</mi><mi>ω</mi></math>');
-	add('symbols:greek-upper-standard', 'symbols', '<math><mi>Γ</mi><mi>Δ</mi><mi>Θ</mi><mi>Λ</mi><mi>Ξ</mi><mi>Π</mi><mi>Σ</mi><mi>Φ</mi><mi>Ψ</mi><mi>Ω</mi><mi>Ζ</mi><mi>Η</mi><mi>Μ</mi><mi>Ν</mi><mi>Ο</mi><mi>Ρ</mi><mi>Τ</mi><mi>Υ</mi></math>');
+	add('symbols:greek-upper-standard', 'symbols', '<math><mi>Γ</mi><mi>Δ</mi><mi>Θ</mi><mi>Λ</mi><mi>Ξ</mi><mi>Π</mi><mi>Σ</mi><mi>Φ</mi><mi>Ψ</mi><mi>Ω</mi><mi>Ρ</mi><mi>Υ</mi></math>');
+	add('symbols:greek-upper-latin-lookalikes', 'symbols', '<math><mi>Ζ</mi><mi>Η</mi><mi>Μ</mi><mi>Ν</mi><mi>Ο</mi><mi>Τ</mi></math>', {
+		expectedDiff: {
+			ours: 'Z H M N O T',
+			theirs: 'Ζ Η Μ \\nu Ο Τ',
+			reason: 'LaTeX has no commands for Greek capitals that look like Latin letters, so ours writes the Latin letter; mathml-to-latex leaves most as Unicode, which pdfLaTeX rejects, and turns capital Nu into lowercase \\nu.',
+		},
+	});
 	add('symbols:greek-upper-homoglyphs', 'symbols', '<math><mi>Α</mi><mi>Β</mi><mi>Ε</mi><mi>Ι</mi><mi>Κ</mi><mi>Χ</mi></math>', {
 		expectedDiff: {
-			ours: 'Α Β Ε Ι Κ Χ',
+			ours: 'A B E I K X',
 			theirs: '\\mathsf{A} \\mathsf{B} \\mathbf{E} \\mathit{I} \\mathsf{K} \\mathsf{X}',
-			reason: 'mathml-to-latex accidentally placed plain Greek capitals Α/Β/Ε/Ι/Κ/Χ into specialFontChars, corrupting them into random sans/bold/italic Latin fonts.',
+			reason: 'LaTeX has no commands for Greek capitals that look like Latin letters, so ours writes the Latin letter; mathml-to-latex lists them as special font characters and changes their style (Epsilon becomes a bold E).',
 		},
 	});
 	add('operators:relations-and-arrows', 'operators', '<math><mo>≤</mo><mo>≥</mo><mo>≠</mo><mo>≈</mo><mo>≡</mo><mo>∈</mo><mo>∉</mo><mo>⊂</mo><mo>⊃</mo><mo>⊆</mo><mo>⊇</mo><mo>→</mo><mo>←</mo><mo>↔</mo><mo>⇒</mo><mo>⇐</mo><mo>⇔</mo><mo>↦</mo></math>');

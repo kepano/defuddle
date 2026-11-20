@@ -36,6 +36,9 @@ const BOLD_GREEK_UPPER = [
 	'P', '\\Theta', '\\Sigma', 'T', '\\Upsilon', '\\Phi', 'X', '\\Psi', '\\Omega',
 ];
 
+// LaTeX has no commands for Greek capitals that look like Latin letters.
+const GREEK_LATIN_CAPITALS = 'ΑAΒBΕEΖZΗHΙIΚKΜMΝNΟOΡPΤTΧX';
+
 let opMap: Map<string, string> | null = null;
 let symMap: Map<string, string> | null = null;
 let vowelMap: Map<string, string> | null = null;
@@ -68,6 +71,11 @@ function ensureTables(): void {
 	symMap = new Map(shared);
 	decodeDeltaTable(SYM_ONLY_DATA, symMap);
 	for (const k of Object.keys(MULTI_SYM)) symMap.set(k, MULTI_SYM[k]);
+
+	for (let i = 0; i < GREEK_LATIN_CAPITALS.length; i += 2) {
+		opMap.set(GREEK_LATIN_CAPITALS[i], GREEK_LATIN_CAPITALS[i + 1]);
+		symMap.set(GREEK_LATIN_CAPITALS[i], GREEK_LATIN_CAPITALS[i + 1]);
+	}
 
 	vowelMap = new Map();
 	decodeDeltaTable(VOWELS_DATA, vowelMap);
