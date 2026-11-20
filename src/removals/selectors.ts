@@ -1,5 +1,5 @@
 import {
-	EXACT_SELECTORS_JOINED,
+	EXACT_SELECTORS,
 	HIDDEN_EXACT_SELECTOR,
 	HIDDEN_EXACT_SKIP_SELECTOR,
 	PARTIAL_SELECTORS,
@@ -12,6 +12,9 @@ import {
 import { DebugRemoval } from '../types';
 import { textPreview, logDebug } from '../utils';
 import { getClassName, hasResponsiveShowClass } from '../utils/dom';
+import { compileSelectors, querySelectorList } from '../utils/selector-matcher';
+
+const EXACT_SELECTOR_MATCHER = compileSelectors(EXACT_SELECTORS);
 
 const SCREEN_READER_LINK_TEXT_SELECTOR = ['sr-only', 'visually-hidden', 'screen-reader-text']
 	.map(name => `a [class*="${name}"]`).join(', ');
@@ -62,7 +65,7 @@ export function removeBySelector(doc: Document, debug: boolean, removeExact: boo
 
 	// First collect elements matching exact selectors
 	if (removeExact) {
-		const exactElements = doc.querySelectorAll(EXACT_SELECTORS_JOINED);
+		const exactElements = querySelectorList(doc, EXACT_SELECTOR_MATCHER);
 		exactElements.forEach(el => {
 			if (el?.parentNode) {
 				if (skipHiddenExactSelectors) {
