@@ -12,9 +12,9 @@ This release brings a number of changes to the layout engine. Most of them are s
 New layout options include:
 
 - for the scrolling layout:
-	- option\_one
-	- option\_two
+	- option_one
+	- option_two
 - for the stacked layout:
-	- option\_three
+	- option_three
 
 See the documentation for the full list of options.
