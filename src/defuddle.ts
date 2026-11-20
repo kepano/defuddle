@@ -7,13 +7,15 @@ import {
 	MOBILE_WIDTH,
 	BLOCK_ELEMENTS_SELECTOR,
 	HIDDEN_EXACT_SKIP_SELECTOR,
-	ENTRY_POINT_ELEMENTS
+	ENTRY_POINT_ELEMENTS,
+	FOOTNOTE_INLINE_REFERENCES,
+	FOOTNOTE_LIST_SELECTORS
 } from './constants';
 import { standardizeContent, standardizeExtractorOutput } from './standardize';
 import { standardizeFootnotes, FOOTNOTE_SECTION_RE } from './elements/footnotes';
 import { standardizeCallouts } from './elements/callouts';
 import { extractLargestUrlFromSrcset } from './elements/images';
-import { ContentScorer, ContentScore } from './removals/scoring';
+import { ContentScorer, ContentScore, ScoreFootnoteContext } from './removals/scoring';
 import { findSmallImages, removeSmallImages } from './removals/small-images';
 import { removeHiddenElements } from './removals/hidden';
 import { removeBySelector } from './removals/selectors';
@@ -29,6 +31,25 @@ interface StyleChange {
 
 /** Keys from extractor variables that map to top-level DefuddleResponse fields */
 const STANDARD_VARIABLE_KEYS = new Set(['title', 'author', 'published', 'site', 'description', 'image', 'language']);
+
+function markAncestors(el: Element, set: Set<Element>): void {
+	for (let cur = el.parentElement; cur && !set.has(cur); cur = cur.parentElement) {
+		set.add(cur);
+	}
+}
+
+function scanEntryPointsAndFootnotes(doc: Document): {
+	buckets: Element[][];
+	footnoteContext: ScoreFootnoteContext;
+} {
+	const buckets: Element[][] = ENTRY_POINT_ELEMENTS.map(selector => Array.from(doc.querySelectorAll(selector)));
+	const footnoteRefAncestors = new Set<Element>();
+	const footnoteListAncestors = new Set<Element>();
+	doc.querySelectorAll(FOOTNOTE_INLINE_REFERENCES).forEach(el => markAncestors(el, footnoteRefAncestors));
+	doc.querySelectorAll(FOOTNOTE_LIST_SELECTORS).forEach(el => markAncestors(el, footnoteListAncestors));
+
+	return { buckets, footnoteContext: { footnoteRefAncestors, footnoteListAncestors } };
+}
 
 const IMAGE_SIZE_WORD = /^(?:large|medium|small|thumb|thumbnail|full|original|scaled|\d+x\d+|\d+x|[wh]\d+|\d+[wh])$/;
 
@@ -1292,25 +1313,29 @@ export class Defuddle {
 	}
 
 	private findMainContent(doc: Document): Element | null {
-		// Find all potential content containers
+		// Find all potential content containers and footnote ancestor sets in one pass
+		const { buckets, footnoteContext } = scanEntryPointsAndFootnotes(doc);
 		const candidates: { element: Element; score: number; selectorIndex: number }[] = [];
+		const elementScores = new Map<Element, number>();
 
-		ENTRY_POINT_ELEMENTS.forEach((selector, index) => {
-			const elements = doc.querySelectorAll(selector);
-			elements.forEach(element => {
-				// Base score from selector priority (earlier = higher)
-				let score = (ENTRY_POINT_ELEMENTS.length - index) * 40;
-
-				// Add score based on content analysis
-				score += ContentScorer.scoreElement(element);
-
-				candidates.push({ element, score, selectorIndex: index });
-			});
-		});
+		for (let index = 0; index < buckets.length; index++) {
+			const elements = buckets[index];
+			if (elements.length === 0) continue;
+			const baseScore = (ENTRY_POINT_ELEMENTS.length - index) * 40;
+			for (let i = 0; i < elements.length; i++) {
+				const element = elements[i];
+				let contentScore = elementScores.get(element);
+				if (contentScore === undefined) {
+					contentScore = ContentScorer.scoreElement(element, footnoteContext);
+					elementScores.set(element, contentScore);
+				}
+				candidates.push({ element, score: baseScore + contentScore, selectorIndex: index });
+			}
+		}
 
 		if (candidates.length === 0) {
 			// Fall back to scoring block elements
-			return this.findContentByScoring(doc);
+			return this.findContentByScoring(doc, footnoteContext);
 		}
 
 		// Sort by score descending
@@ -1345,8 +1370,7 @@ export class Defuddle {
 		let best = top;
 		for (let i = 1; i < candidates.length; i++) {
 			const child = candidates[i];
-			const childWords = countWords(child.element.textContent || '');
-			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element) && childWords > 50) {
+			if (child.selectorIndex < best.selectorIndex && best.element.contains(child.element) && countWords(child.element.textContent || '') > 50) {
 				// Count how many candidates share this selector index inside
 				// the top element. Use top (not best) as the stable reference
 				// so the check isn't affected by earlier iterations.
@@ -1409,11 +1433,11 @@ export class Defuddle {
 		return bestCell;
 	}
 
-	private findContentByScoring(doc: Document): Element | null {
+	private findContentByScoring(doc: Document, footnoteContext?: ScoreFootnoteContext): Element | null {
 		const candidates: ContentScore[] = [];
 
 		doc.querySelectorAll(BLOCK_ELEMENTS_SELECTOR).forEach((element: Element) => {
-			const score = ContentScorer.scoreElement(element);
+			const score = ContentScorer.scoreElement(element, footnoteContext);
 			if (score > 0) {
 				candidates.push({ score, element });
 			}

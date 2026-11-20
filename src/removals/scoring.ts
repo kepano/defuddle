@@ -1,7 +1,65 @@
-import { FOOTNOTE_INLINE_REFERENCES, BLOCK_ELEMENTS_SELECTOR, FOOTNOTE_LIST_SELECTORS } from '../constants';
+import { BLOCK_ELEMENTS, FOOTNOTE_INLINE_REFERENCES, FOOTNOTE_LIST_SELECTORS } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords, logDebug } from '../utils';
 import { getClassName } from '../utils/dom';
+
+const BLOCK_ELEMENTS_UPPER = new Set(BLOCK_ELEMENTS.map(t => t.toUpperCase()));
+const CONTENT_PROTECTED_TAGS = new Set(['PRE', 'TABLE', 'FIGURE', 'PICTURE']);
+const HEADING_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+const CONTENT_ROLES = new Set(['article', 'main', 'contentinfo']);
+
+function collectFootnoteListElements(root: Element, footnoteListSet: Set<Element>, footnoteListAncestors: Set<Element>): void {
+	const lists = Array.from(root.querySelectorAll(FOOTNOTE_LIST_SELECTORS));
+	if (root.matches(FOOTNOTE_LIST_SELECTORS)) lists.unshift(root);
+	for (const el of lists) {
+		footnoteListSet.add(el);
+		for (let cur: Element | null = el; cur && !footnoteListAncestors.has(cur); cur = cur.parentElement) {
+			footnoteListAncestors.add(cur);
+		}
+	}
+}
+
+function hasDescendantTag(root: Element, tags: Set<string>): boolean {
+	for (let child = root.firstElementChild; child; child = child.nextElementSibling) {
+		if (tags.has(child.tagName.toUpperCase()) || hasDescendantTag(child, tags)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function findFirstHeading(root: Element): Element | null {
+	for (let child = root.firstElementChild; child; child = child.nextElementSibling) {
+		if (HEADING_TAGS.has(child.tagName.toUpperCase())) return child;
+		if (child.firstElementChild) {
+			const found = findFirstHeading(child);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+
+function collectHeadings(root: Element, out: Element[] = []): Element[] {
+	for (let child = root.firstElementChild; child; child = child.nextElementSibling) {
+		if (HEADING_TAGS.has(child.tagName.toUpperCase())) {
+			out.push(child);
+		}
+		if (child.firstElementChild) {
+			collectHeadings(child, out);
+		}
+	}
+	return out;
+}
+
+function countCommas(text: string): number {
+	let count = 0;
+	let pos = text.indexOf(',');
+	while (pos !== -1) {
+		count++;
+		pos = text.indexOf(',', pos + 1);
+	}
+	return count;
+}
 
 const contentIndicators = [
 	'admonition',
@@ -123,8 +181,13 @@ export interface ContentScore {
 	element: Element;
 }
 
+export interface ScoreFootnoteContext {
+	footnoteRefAncestors: Set<Element>;
+	footnoteListAncestors: Set<Element>;
+}
+
 export class ContentScorer {
-	static scoreElement(element: Element): number {
+	static scoreElement(element: Element, footnoteContext?: ScoreFootnoteContext): number {
 		let score = 0;
 
 		// Text density
@@ -171,10 +234,14 @@ export class ContentScorer {
 		}
 
 		// Check for footnotes/references
-		const hasFootnotes = element.querySelector(FOOTNOTE_INLINE_REFERENCES);
+		const hasFootnotes = footnoteContext
+			? footnoteContext.footnoteRefAncestors.has(element)
+			: Boolean(element.querySelector(FOOTNOTE_INLINE_REFERENCES));
 		if (hasFootnotes) score += 10;
 
-		const hasFootnotesList = element.querySelector(FOOTNOTE_LIST_SELECTORS);
+		const hasFootnotesList = footnoteContext
+			? footnoteContext.footnoteListAncestors.has(element)
+			: Boolean(element.querySelector(FOOTNOTE_LIST_SELECTORS));
 		if (hasFootnotesList) score += 10;
 
 		// Check for nested tables (penalize)
@@ -249,54 +316,86 @@ export class ContentScorer {
 		// Track all elements to be removed
 		const elementsToRemove = new Map<Element, number>();
 
-		// Get all block elements
-		const blockElements = Array.from(doc.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
+		// Precompute ancestors of mainContent so el.contains(mainContent) is O(1)
+		const mainAncestors = new Set<Element>();
+		if (mainContent) {
+			for (let cur: Element | null = mainContent; cur; cur = cur.parentElement) {
+				mainAncestors.add(cur);
+			}
+		}
 
-		// Process each block element
-		blockElements.forEach(element => {
-			// Skip elements that are already marked for removal
-			if (elementsToRemove.has(element)) {
-				return;
+		// Precompute footnote list containers and their ancestors once
+		const footnoteListSet = new Set<Element>();
+		const footnoteListAncestors = new Set<Element>();
+		const isDoc = 'documentElement' in doc;
+		const root = isDoc ? doc.documentElement : doc;
+		if (root) {
+			collectFootnoteListElements(root, footnoteListSet, footnoteListAncestors);
+		}
+
+		// Single-pass pre-order walk tracking ancestor context instead of
+		// querySelectorAll(BLOCK_ELEMENTS_SELECTOR) + 3 closest() calls per block.
+		const visit = (
+			el: Element,
+			inPre: boolean,
+			inDefuddle: boolean,
+			inTableCell: boolean,
+			inFootnoteList: boolean
+		): void => {
+			const tag = el.tagName.toUpperCase();
+			const selfOrAncPre = inPre || tag === 'PRE';
+			if (selfOrAncPre) return;
+
+			const selfOrAncDefuddle = inDefuddle || el.hasAttribute('data-defuddle');
+			if (selfOrAncDefuddle) return;
+
+			const selfOrAncTableCell = inTableCell || tag === 'TD' || tag === 'TH';
+			if (selfOrAncTableCell) return;
+
+			const selfOrAncFootnote = inFootnoteList || footnoteListSet.has(el);
+			if (selfOrAncFootnote) return;
+
+			let removed = false;
+			if (
+				BLOCK_ELEMENTS_UPPER.has(tag) &&
+				!mainAncestors.has(el) &&
+				!footnoteListAncestors.has(el)
+			) {
+				const score = ContentScorer.evaluateBlockForRemoval(el);
+				if (score < 0) {
+					elementsToRemove.set(el, score);
+					removed = true;
+				}
 			}
 
-			// Skip ancestors of mainContent to avoid disconnecting it
-			if (mainContent && element.contains(mainContent)) {
-				return;
-			}
+			// Outside debug mode, descendants of a removed element are removed with it.
+			if ((removed && !debug) || tag === 'TEMPLATE') return;
 
-			// Skip elements inside code blocks — they are code structure, not page navigation
-			if (element.closest('pre')) {
-				return;
+			for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+				visit(child, selfOrAncPre, selfOrAncDefuddle, selfOrAncTableCell, selfOrAncFootnote);
 			}
+		};
 
-			// Skip elements inside defuddle extractor output
-			if (element.closest('[data-defuddle]')) {
-				return;
+		if (root) {
+			if (isDoc) {
+				visit(root, false, false, false, false);
+			} else {
+				let rootInPre = false;
+				let rootInDefuddle = false;
+				let rootInTableCell = false;
+				for (let cur: Element | null = root; cur; cur = cur.parentElement) {
+					const t = cur.tagName.toUpperCase();
+					if (t === 'PRE') rootInPre = true;
+					if (t === 'TD' || t === 'TH') rootInTableCell = true;
+					if (cur.hasAttribute('data-defuddle')) rootInDefuddle = true;
+				}
+				if (!rootInPre && !rootInDefuddle && !rootInTableCell && !footnoteListSet.has(root)) {
+					for (let child = root.firstElementChild; child; child = child.nextElementSibling) {
+						visit(child, false, false, false, false);
+					}
+				}
 			}
-
-			// Skip elements inside table cells — a cell's content is structural, not a
-			// standalone navigation block, and removing individual cells leaves the table
-			// malformed. The table element itself is still scored as a whole, so genuine
-			// navigation tables are still removed. Common-word navigation indicators such
-			// as "header" otherwise strip legitimate cells (e.g. cppreference's
-			// "Defined in header <cstddef>" declaration rows, #284).
-			if (element.closest('td, th')) {
-				return;
-			}
-
-			// Skip elements that are likely to be content
-			if (ContentScorer.isLikelyContent(element)) {
-				return;
-			}
-
-			// Score the element based on various criteria
-			const score = ContentScorer.scoreNonContentBlock(element);
-
-			// If the score is below the threshold, mark for removal
-			if (score < 0) {
-				elementsToRemove.set(element, score);
-			}
-		});
+		}
 
 		// Remove all collected elements in a single pass
 		elementsToRemove.forEach((score, el) => {
@@ -318,13 +417,15 @@ export class ContentScorer {
 	}
 
 	/**
-	 * Determines if an element is likely to be content based on its structure and attributes.
+	 * Combined likely-content check + non-content scoring that reuses textContent,
+	 * word count, heading collection, link list, social check, and card-grid check.
+	 * Returns 0 when the element should be kept, or a negative score when removable.
 	 */
-	private static isLikelyContent(element: Element): boolean {
+	private static evaluateBlockForRemoval(element: Element): number {
 		// Check if the element has a role that indicates content
 		const role = element.getAttribute('role');
-		if (role && ['article', 'main', 'contentinfo'].includes(role)) {
-			return true;
+		if (role && CONTENT_ROLES.has(role)) {
+			return 0;
 		}
 
 		// Check if the element has a class or id that indicates content
@@ -333,50 +434,54 @@ export class ContentScorer {
 
 		for (const indicator of contentIndicators) {
 			if (className.includes(indicator) || id.includes(indicator)) {
-				return true;
+				return 0;
 			}
 		}
 
 		// Elements containing code blocks, tables, or figures are likely content
-		if (element.querySelector('pre, table, figure, picture')) {
-			return true;
+		if (hasDescendantTag(element, CONTENT_PROTECTED_TAGS)) {
+			return 0;
 		}
 
 		const text = element.textContent || '';
 		const words = countWords(text);
 
-		// Heading wrappers — elements whose only content is a heading tag
-		// (common in page builders like Elementor). These are section headings,
-		// not widgets, even if the wrapper class contains "widget".
-		// Exclude navigation headings (e.g. "Related articles") and ToC labels.
-		const headingChild = element.querySelector('h1, h2, h3, h4, h5, h6');
-		if (headingChild) {
-			const headingText = (headingChild.textContent || '').trim();
+		// Very small elements are never removed (scoreNonContentBlock returns 0 for words < 3)
+		if (words < 3) {
+			return 0;
+		}
+
+		// Heading wrapper check: stop at the first heading; only collect all headings when words < 1000.
+		const headings = words < 1000 ? collectHeadings(element) : null;
+		const firstHeading = headings ? (headings[0] ?? null) : findFirstHeading(element);
+		if (firstHeading) {
+			const headingText = (firstHeading.textContent || '').trim();
 			if (headingText && headingText === text.trim()) {
 				const headingLower = headingText.toLowerCase();
 				if (!navigationHeadingPattern.test(headingLower) &&
 					!tocHeadingPattern.test(headingLower)) {
-					return true;
+					return 0;
 				}
 			}
 		}
 
-		// Check for headings that signal non-content sections (e.g. "Related articles")
-		// even if the element has enough text/paragraphs to otherwise look like content.
-		// Skip very large elements (1000+ words) as they are likely page-level wrappers.
-		// Also skip elements that contain a non-navigation <h1>: the page title
-		// marks an article wrapper, and a "Comments" or "Related" subsection inside
-		// it is scored as its own block. Otherwise a short article body is removed
-		// together with its trailing comments section (#460).
-		if (words < 1000) {
-			const headings = element.querySelectorAll('h1, h2, h3, h4, h5, h6');
+		let linkElements: HTMLCollectionOf<Element> | null = null;
+		const getLinks = () => {
+			if (!linkElements) linkElements = element.getElementsByTagName('a');
+			return linkElements;
+		};
+
+		let likelyContent = false;
+		let rejectedByNavHeading = false;
+
+		if (headings && headings.length > 0) {
 			let hasNavigationHeading = false;
 			let hasTitleHeading = false;
 			for (let i = 0; i < headings.length; i++) {
 				const headingText = (headings[i].textContent || '').toLowerCase().trim();
 				if (navigationHeadingPattern.test(headingText)) {
 					hasNavigationHeading = true;
-				} else if (headingText && headings[i].tagName.toLowerCase() === 'h1') {
+				} else if (headingText && headings[i].tagName.toUpperCase() === 'H1') {
 					hasTitleHeading = true;
 				}
 			}
@@ -386,100 +491,61 @@ export class ContentScorer {
 
 			if (hasNavigationHeading) {
 				if (words < 200) {
-					return false;
-				}
-				// Larger sections (e.g. card grids) are also non-content
-				// if they have high link density
-				const linkCount = element.getElementsByTagName('a').length;
-				const linkDensity = linkCount / (words || 1);
-				if (linkDensity > 0.2) {
-					return false;
-				}
-			}
-		}
-
-		// Article card listing detection: blocks with many headings and images
-		// but very little prose per heading are likely article card grids
-		// (e.g. "related articles", "more stories"), not single-article content.
-		// Also checked in scoreNonContentBlock as a score penalty for elements
-		// that pass the content checks above but still look like card grids.
-		if (ContentScorer.isCardGrid(element, words)) {
-			return false;
-		}
-
-		// Small elements containing social media profile links are likely
-		// author bios or social widgets, not article content.
-		if (words < 80) {
-			const links = element.getElementsByTagName('a');
-			for (let i = 0; i < links.length; i++) {
-				const href = (links[i].getAttribute('href') || '').toLowerCase();
-				if (socialProfilePattern.test(href)) {
-					return false;
+					rejectedByNavHeading = true;
+				} else {
+					const linkCount = getLinks().length;
+					const linkDensity = linkCount / (words || 1);
+					if (linkDensity > 0.2) {
+						rejectedByNavHeading = true;
+					}
 				}
 			}
 		}
 
-		const paragraphs = element.getElementsByTagName('p').length;
-		const listItems = element.getElementsByTagName('li').length;
-		const contentBlocks = paragraphs + listItems;
+		let cardGrid: boolean | undefined;
+		let hasSocialProfile: boolean | undefined;
 
-		// If the element has a significant amount of text and paragraphs/list items, it's likely content
-		if (words > 50 && contentBlocks > 1) {
-			return true;
-		}
+		if (!rejectedByNavHeading) {
+			cardGrid = headings ? ContentScorer.isCardGrid(element, words, headings) : false;
+			if (!cardGrid) {
+				if (words < 80) {
+					const links = getLinks();
+					hasSocialProfile = false;
+					for (let i = 0; i < links.length; i++) {
+						const href = (links[i].getAttribute('href') || '').toLowerCase();
+						if (socialProfilePattern.test(href)) {
+							hasSocialProfile = true;
+							break;
+						}
+					}
+				}
+				if (!hasSocialProfile) {
+					if (words > 100) {
+						likelyContent = true;
+					} else {
+						const paragraphs = element.getElementsByTagName('p').length;
+						const listItems = element.getElementsByTagName('li').length;
+						const contentBlocks = paragraphs + listItems;
 
-		// Check for elements with significant text content, even if they don't have many paragraphs
-		if (words > 100) {
-			return true;
-		}
-
-		// Check for elements with text content and some paragraphs/list items
-		if (words > 30 && contentBlocks > 0) {
-			return true;
-		}
-
-		// Prose text with sentence-ending punctuation and low link density is
-		// likely content even without <p> tags (e.g. transcript segments using divs/spans)
-		if (words >= 10 && /[.?!]/.test(text)) {
-			const linkCount = element.getElementsByTagName('a').length;
-			const linkDensity = linkCount / words;
-			if (linkDensity < 0.1) {
-				return true;
+						if ((words > 50 && contentBlocks > 1) || (words > 30 && contentBlocks > 0)) {
+							likelyContent = true;
+						} else if (words >= 10 && /[.?!]/.test(text)) {
+							const linkCount = getLinks().length;
+							if (linkCount / words < 0.1) {
+								likelyContent = true;
+							}
+						}
+					}
+				}
 			}
 		}
 
-		return false;
-	}
-
-	/**
-	 * Scores a block element based on various criteria to determine if it's likely not content.
-	 * Returns a negative score if the element is likely not content, a positive score if it is.
-	 */
-	private static scoreNonContentBlock(element: Element): number {
-		// Skip footnote list elements and their descendants
-		try {
-			if (element.matches(FOOTNOTE_LIST_SELECTORS) ||
-				element.querySelector(FOOTNOTE_LIST_SELECTORS) ||
-				element.closest(FOOTNOTE_LIST_SELECTORS)) {
-				return 0;
-			}
-		} catch (e) {}
-
-		let score = 0;
-
-		// Get text content
-		const text = element.textContent || '';
-		const words = countWords(text);
-
-		// Skip very small elements
-		if (words < 3) {
+		if (likelyContent) {
 			return 0;
 		}
 
-		// Comma counting — prose has commas, navigation/boilerplate doesn't.
-		// This counterbalances negative signals from navigation indicators.
-		const commas = text.split(/,/).length - 1;
-		score += commas;
+		// Score as non-content block, reusing already-computed data
+		let score = countCommas(text);
 
 		const textLower = text.toLowerCase();
 		let indicatorMatches = 0;
@@ -490,21 +556,16 @@ export class ContentScorer {
 		}
 		score -= indicatorMatches * 10;
 
-		// Check for high link density (navigation)
-		const linkElements = element.getElementsByTagName('a');
-		const links = linkElements.length;
-		const linkDensity = links / (words || 1);
-		if (linkDensity > 0.5) {
+		const links = getLinks();
+		const linkCount = links.length;
+		if (linkCount / words > 0.5) {
 			score -= 15;
 		}
 
-		// Check for high link text ratio (e.g. card groups, nav sections)
-		// Requires multiple links to avoid penalizing content paragraphs
-		// that happen to be wrapped in a single link
-		if (links > 1 && words < 80) {
+		if (linkCount > 1 && words < 80) {
 			let linkTextLength = 0;
-			for (let i = 0; i < linkElements.length; i++) {
-				linkTextLength += (linkElements[i].textContent || '').length;
+			for (let i = 0; i < linkCount; i++) {
+				linkTextLength += (links[i].textContent || '').length;
 			}
 			const totalTextLength = text.length;
 			if (totalTextLength > 0 && linkTextLength / totalTextLength > 0.8) {
@@ -512,41 +573,39 @@ export class ContentScorer {
 			}
 		}
 
-		// Check for list structure (navigation)
 		const lists = element.getElementsByTagName('ul').length + element.getElementsByTagName('ol').length;
-		if (lists > 0 && links > lists * 3) {
+		if (lists > 0 && linkCount > lists * 3) {
 			score -= 10;
 		}
 
-		// Check for social media profile links (author bios, social widgets)
 		if (words < 80) {
-			const elLinks = element.getElementsByTagName('a');
-			for (let i = 0; i < elLinks.length; i++) {
-				const href = (elLinks[i].getAttribute('href') || '').toLowerCase();
-				if (socialProfilePattern.test(href)) {
-					score -= 15;
-					break;
+			if (hasSocialProfile === undefined) {
+				hasSocialProfile = false;
+				for (let i = 0; i < linkCount; i++) {
+					const href = (links[i].getAttribute('href') || '').toLowerCase();
+					if (socialProfilePattern.test(href)) {
+						hasSocialProfile = true;
+						break;
+					}
 				}
+			}
+			if (hasSocialProfile) {
+				score -= 15;
 			}
 		}
 
-		// Penalize very small blocks that look like standalone author bylines with dates
-		// e.g. "By Author Name · March 4, 2026". Requires both an author attribution
-		// and a date to avoid false positives.
 		if (words < 15) {
 			if (bylinePattern.test(text) && datePattern.test(text)) {
 				score -= 10;
 			}
 		}
 
-		// Penalize blocks that look like article card grids
-		if (ContentScorer.isCardGrid(element, words)) {
+		if (cardGrid === undefined) {
+			cardGrid = headings ? ContentScorer.isCardGrid(element, words, headings) : false;
+		}
+		if (cardGrid) {
 			score -= 15;
 		}
-
-		// Check for specific class patterns that indicate non-content
-		const className = getClassName(element).toLowerCase();
-		const id = element.id.toLowerCase();
 
 		for (const pattern of nonContentPatterns) {
 			if (className.includes(pattern) || id.includes(pattern)) {
@@ -561,17 +620,25 @@ export class ContentScorer {
 	 * Detects article card grids: blocks with 3+ headings and 2+ images
 	 * but very little prose per heading.
 	 */
-	private static isCardGrid(element: Element, words: number): boolean {
+	private static isCardGrid(element: Element, words: number, allHeadings: Element[]): boolean {
 		if (words < 3 || words >= 500) return false;
-		const headings = element.querySelectorAll('h2, h3, h4');
-		if (headings.length < 3) return false;
-		const images = element.querySelectorAll('img');
-		if (images.length < 2) return false;
+		let hCount = 0;
 		let headingWordCount = 0;
-		for (let i = 0; i < headings.length; i++) {
-			headingWordCount += countWords(headings[i].textContent || '');
+		for (let i = 0; i < allHeadings.length; i++) {
+			const t = allHeadings[i].tagName.toUpperCase();
+			if (t === 'H2' || t === 'H3' || t === 'H4') {
+				hCount++;
+			}
 		}
-		const prosePerHeading = (words - headingWordCount) / headings.length;
+		if (hCount < 3) return false;
+		if (element.getElementsByTagName('img').length < 2) return false;
+		for (let i = 0; i < allHeadings.length; i++) {
+			const t = allHeadings[i].tagName.toUpperCase();
+			if (t === 'H2' || t === 'H3' || t === 'H4') {
+				headingWordCount += countWords(allHeadings[i].textContent || '');
+			}
+		}
+		const prosePerHeading = (words - headingWordCount) / hCount;
 		return prosePerHeading < 20;
 	}
 }
