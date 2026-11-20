@@ -1,8 +1,8 @@
-import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 import { DebugRemoval } from '../types';
 import { textPreview, countWords, normalizeText } from '../utils';
 import { findContentStart, isAboveContentStart } from '../content-boundary';
 import { isNodeBefore } from '../utils/dom';
+import { CONTENT_ELEMENT_SELECTOR } from '../constants';
 
 const CONTENT_DATE_PATTERN = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*|\d{4}[-/]\d{1,2}[-/]\d{1,2})/i;
 const RELATIVE_TIME_PATTERN = /\b\d+\s+(?:second|minute|hour|day|week|month|year)s?\s+ago\b/i;
@@ -10,43 +10,105 @@ const CONTENT_READ_TIME_PATTERN = /\d+\s*min(?:ute)?s?\s+read\b|(?:read(?:ing)?\
 const BYLINE_UPPERCASE_PATTERN = /^\p{Lu}/u;
 const STARTS_WITH_BY_PATTERN = /^(?:posted\s+)?by\s+\S/i;
 const METADATA_LABEL_PATTERN = /^(?:date|published|updated|posted|from|to|subject)\s*:/i;
-const BOILERPLATE_PATTERNS = [
-	/^This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b/i,
-	/^A version of this (?:article|story) (?:appeared|was published) in\b/i,
-	/^Originally (?:published|appeared) (?:in|on|at)\b/i,
-	/^Any re-?use permitted\b/i,
-	/^©\s*(?:Copyright\s+)?\d{4}/i,
-	/^Comments$/i,
-	/^Leave a (?:comment|reply)$/i,
-	/^Loading\.{3}$/,
-	/^Affiliate links\b.*\b(?:earn|commission)/i,
-	/\bRead our Comment Policy\b/i,
-	/^Thank you for (?:being part of|joining) our community\b/i,
-];
+const BOILERPLATE_CI_PATTERN = /^(?:This (?:article|story|piece) (?:appeared|was published|originally appeared) in\b|A version of this (?:article|story) (?:appeared|was published) in\b|Originally (?:published|appeared) (?:in|on|at)\b|Any re-?use permitted\b|©\s*(?:Copyright\s+)?\d{4}|Comments$|Leave a (?:comment|reply)$|Affiliate links\b.*\b(?:earn|commission)|Thank you for (?:being part of|joining) our community\b)|\bRead our Comment Policy\b/i;
 const NEWSLETTER_PATTERN = /\bsubscribe\b[\s\S]{0,40}\bnewsletter\b|\bnewsletter\b[\s\S]{0,40}\bsubscribe\b|\bsign[- ]up\b[\s\S]{0,80}\b(?:newsletter|email alert)|\b(?:don[\u2019']?t (?:want to )?miss|never miss)\b[\s\S]{0,80}\b(?:latest|best|exclusive|reports?|updates?|source)/i;
 const SOCIAL_COUNTER_PATTERN = /^\d+\s+(?:Likes?|Comments?|Shares?|Retweets?|Reposts?|Restacks?)$/i;
 const TIMEZONE_WIDGET_PATTERN = /^current time in$/i;
 const PINNED_LABEL_PATTERN = /^pinned$/i;
 const AUTHOR_CONTACT_LABEL_PATTERN = /^(?:written by|(?:author|contact|reporter|correspondent)s?)$/i;
 const SHARE_AUTHOR_LABEL = /^(?:share|follow|authors?|written\s+by)$/i;
-// CONTENT_ELEMENT_SELECTOR minus img/picture — author avatars are common in metadata widgets
-const CONTENT_ELEMENT_NO_IMG_SELECTOR = CONTENT_ELEMENT_SELECTOR.replace(/img, picture, /, '');
 const EMAIL_PATTERN = /[\w.-]+@[\w.-]+\.\w+/;
 const PHONE_PATTERN = /\(?\d{3}\)?[\s.‑–-]?\d{3}[\s.‑–-]?\d{4}/;
 const HEADING_TAG_PATTERN = /^H[1-6]$/;
-const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
+const HEADING_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+const BLOCK_LEAF_TAGS = new Set(['P', 'DIV', 'SECTION', 'ARTICLE']);
+const PRE_CODE_TAGS = new Set(['PRE', 'CODE']);
+const IMG_PICTURE_TAGS = new Set(['IMG', 'PICTURE']);
+const CARD_HEADING_TAGS = new Set(['H2', 'H3', 'H4']);
+const MEDIA_BANNER_TAGS = new Set(['IMG', 'PICTURE', 'VIDEO']);
+
+function hasDescendantTag(root: Element, tags: Set<string>): boolean {
+	for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+		if (tags.has(el.tagName.toUpperCase()) || (el.firstElementChild && hasDescendantTag(el, tags))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// CONTENT_ELEMENT_SELECTOR minus img/picture — author avatars are common in metadata widgets
+const CONTENT_ELEMENT_NO_IMG_SELECTOR = CONTENT_ELEMENT_SELECTOR.replace(/img, picture, /, '');
+
+function hasDescendantContentElement(root: Element, excludeImg: boolean = false): boolean {
+	return root.querySelector(excludeImg ? CONTENT_ELEMENT_NO_IMG_SELECTOR : CONTENT_ELEMENT_SELECTOR) !== null;
+}
+
+function findFirstHrefLink(root: Element): Element | null {
+	for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+		if (el.tagName.toUpperCase() === 'A' && el.hasAttribute('href')) return el;
+		if (el.firstElementChild) {
+			const found = findFirstHrefLink(el);
+			if (found) return found;
+		}
+	}
+	return null;
+}
+
+function collectHrefLinks(root: Element, out: Element[] = []): Element[] {
+	for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+		if (el.tagName.toUpperCase() === 'A' && el.hasAttribute('href')) out.push(el);
+		if (el.firstElementChild) collectHrefLinks(el, out);
+	}
+	return out;
+}
+
+function hasAtLeastTwoImgOrPicture(root: Element): boolean {
+	let count = 0;
+	const walk = (node: Element): boolean => {
+		for (let el = node.firstElementChild; el; el = el.nextElementSibling) {
+			if (IMG_PICTURE_TAGS.has(el.tagName.toUpperCase())) {
+				if (++count >= 2) return true;
+			}
+			if (el.firstElementChild && walk(el)) return true;
+		}
+		return false;
+	};
+	return walk(root);
+}
+
+function hasAncestorTag(el: Element, tags: Set<string>, includeSelf: boolean = true): boolean {
+	for (let cur: Element | null = includeSelf ? el : el.parentElement; cur; cur = cur.parentElement) {
+		if (tags.has(cur.tagName.toUpperCase())) return true;
+	}
+	return false;
+}
+
+function hasAncestorId(el: Element, id: string): boolean {
+	for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+		if (cur.id === id) return true;
+	}
+	return false;
+}
+
+function isConnectedTo(el: Element, root: Element): boolean {
+	if (!el.parentNode) return false;
+	for (let cur = el.parentElement; cur; cur = cur.parentElement) {
+		if (cur === root) return true;
+	}
+	return false;
+}
 
 function isOrContainsHeading(el: Element): boolean {
-	return HEADING_TAG_PATTERN.test(el.tagName) || !!el.querySelector(HEADING_SELECTOR);
+	return HEADING_TAGS.has(el.tagName.toUpperCase()) || hasDescendantTag(el, HEADING_TAGS);
 }
 
 function isNewsletterElement(el: Element, maxWords: number): boolean {
 	const text = el.textContent?.trim() || '';
 	const words = countWords(text);
 	if (words < 2 || words > maxWords) return false;
-	if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) return false;
 	const normalizedText = text.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[\u2018\u2019]/g, "'");
-	return NEWSLETTER_PATTERN.test(normalizedText);
+	if (!NEWSLETTER_PATTERN.test(normalizedText)) return false;
+	return !hasDescendantContentElement(el);
 }
 const RELATED_HEADING_PATTERN = /^(?:related (?:posts?|articles?|content|stories|reads?|reading)|you (?:might|may|could) (?:also )?(?:like|enjoy|be interested in)|read (?:next|more|also)|further reading|see also|more (?:from .*|from|articles?|posts?|like this)|more to (?:read|explore)|explore more|about (?:the )?author|latest (?:news|events?|posts?|articles?|stories)(?:\s*[&+]\s*(?:news|events?|posts?|articles?|stories))?)$/i;
 // CTA headings that are never real content — safe to remove even as direct children
@@ -200,7 +262,7 @@ function removeThinPrecedingSection(target: Element, debug: boolean, debugRemova
 	const prevSib = target.previousElementSibling;
 	if (!prevSib) return;
 	if (countWords(prevSib.textContent || '') >= 50) return;
-	if (prevSib.querySelector(CONTENT_ELEMENT_SELECTOR)) return;
+	if (hasDescendantContentElement(prevSib)) return;
 
 	// If prevSib is preceded by a heading (or a wrapper containing one), it's
 	// the body of a named section, not a CTA block — leave it alone.
@@ -225,11 +287,11 @@ function removeThinPrecedingSection(target: Element, debug: boolean, debugRemova
  * the largest ancestor that still has little prose (contains h1 + time but
  * < 30 non-metadata words).
  */
-function removeHeroHeader(mainContent: Element, contentStart: Element | null, debug: boolean, debugRemovals?: DebugRemoval[]) {
-	const timeElements = mainContent.querySelectorAll('time');
+function removeHeroHeader(mainContent: Element, contentStart: Element | null, timeElements: Element[], debug: boolean, debugRemovals?: DebugRemoval[]) {
 	if (timeElements.length === 0) return;
 
 	for (const time of timeElements) {
+		if (!isConnectedTo(time, mainContent)) continue;
 		// Must sit above the content body — i.e. pre-content metadata.
 		if (!isAboveContentStart(time, contentStart)) continue;
 
@@ -357,10 +419,153 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// pre-content use this as the authoritative above/below check — replacing
 	// ad-hoc `contentText.indexOf(text) < N` byte-offset thresholds.
 	const contentStart = findContentStart(mainContent, title);
-	const isPreContent = (el: Element): boolean => isAboveContentStart(el, contentStart);
+
+	// Single pre-order DOM walk of mainContent to build document-order indices,
+	// ancestor context, and tag buckets shared across all pattern passes.
+	const docOrder = new Map<Element, number>();
+	const inPreOrCode = new Set<Element>();
+	const hasDescendantHref = new Set<Element>();
+	const lists: Element[] = [];
+	const listsAndDls: Element[] = [];
+	const uls: Element[] = [];
+	const linksWithHref: Element[] = [];
+	const mediaEls: Element[] = [];
+	const timeEls: Element[] = [];
+	const h1s: Element[] = [];
+	const h123s: Element[] = [];
+	const subHeadings: Element[] = [];
+	const ps: Element[] = [];
+	const divs: Element[] = [];
+	const divSections: Element[] = [];
+	const divSectionAsides: Element[] = [];
+	const divUlOls: Element[] = [];
+	const metaCandidates: Element[] = [];
+	const breadcrumbCandidates: Element[] = [];
+	const boilerplateCandidates: Element[] = [];
+	const shareAuthorCandidates: Element[] = [];
+	const socialCounterCandidates: Element[] = [];
+
+	let orderCounter = 0;
+	const rootInPreOrCode = hasAncestorTag(mainContent, PRE_CODE_TAGS, true);
+
+	const walkMain = (parent: Element, ancPreOrCode: boolean): boolean => {
+		let parentHasHref = false;
+		for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+			docOrder.set(el, ++orderCounter);
+			const tag = el.tagName.toUpperCase();
+			const selfOrAncPreOrCode = ancPreOrCode || tag === 'PRE' || tag === 'CODE';
+			if (selfOrAncPreOrCode) inPreOrCode.add(el);
+
+			let selfIsHrefLink = false;
+			switch (tag) {
+				case 'P':
+					ps.push(el);
+					metaCandidates.push(el);
+					breadcrumbCandidates.push(el);
+					boilerplateCandidates.push(el);
+					shareAuthorCandidates.push(el);
+					socialCounterCandidates.push(el);
+					break;
+				case 'SPAN':
+					metaCandidates.push(el);
+					breadcrumbCandidates.push(el);
+					boilerplateCandidates.push(el);
+					shareAuthorCandidates.push(el);
+					socialCounterCandidates.push(el);
+					break;
+				case 'DIV':
+					divs.push(el);
+					divSections.push(el);
+					divSectionAsides.push(el);
+					divUlOls.push(el);
+					metaCandidates.push(el);
+					breadcrumbCandidates.push(el);
+					boilerplateCandidates.push(el);
+					shareAuthorCandidates.push(el);
+					socialCounterCandidates.push(el);
+					break;
+				case 'SECTION':
+					divSections.push(el);
+					divSectionAsides.push(el);
+					boilerplateCandidates.push(el);
+					break;
+				case 'ASIDE':
+					divSectionAsides.push(el);
+					break;
+				case 'TIME':
+					timeEls.push(el);
+					metaCandidates.push(el);
+					break;
+				case 'A':
+					socialCounterCandidates.push(el);
+					if (el.hasAttribute('href')) {
+						selfIsHrefLink = true;
+						linksWithHref.push(el);
+						breadcrumbCandidates.push(el);
+					}
+					break;
+				case 'UL':
+					lists.push(el);
+					listsAndDls.push(el);
+					uls.push(el);
+					divUlOls.push(el);
+					break;
+				case 'OL':
+					lists.push(el);
+					listsAndDls.push(el);
+					divUlOls.push(el);
+					break;
+				case 'DL':
+					listsAndDls.push(el);
+					break;
+				case 'AUDIO':
+				case 'VIDEO':
+					mediaEls.push(el);
+					break;
+				case 'H1':
+					h1s.push(el);
+					h123s.push(el);
+					break;
+				case 'H2':
+				case 'H3':
+					h123s.push(el);
+					subHeadings.push(el);
+					break;
+				case 'H4':
+				case 'H5':
+				case 'H6':
+					subHeadings.push(el);
+					break;
+			}
+
+			let childHasHref = false;
+			if (el.firstElementChild) {
+				childHasHref = walkMain(el, selfOrAncPreOrCode);
+				if (childHasHref) hasDescendantHref.add(el);
+			}
+			if (selfIsHrefLink || childHasHref) parentHasHref = true;
+		}
+		return parentHasHref;
+	};
+	walkMain(mainContent, rootInPreOrCode);
+
+	const contentStartOrder = contentStart ? (docOrder.get(contentStart) ?? -1) : -1;
+	const isPreContent = (el: Element): boolean => {
+		if (!contentStart) return false;
+		const o = docOrder.get(el);
+		if (o !== undefined && contentStartOrder !== -1) return o < contentStartOrder;
+		return isAboveContentStart(el, contentStart);
+	};
+	const isBeforeNode = (a: Element, b: Element): boolean => {
+		const oa = docOrder.get(a);
+		const ob = docOrder.get(b);
+		if (oa !== undefined && ob !== undefined) return oa < ob;
+		return isNodeBefore(a, b);
+	};
+
 	const normalizedTitle = normalizeText(title);
 	const normalizedDesc = normalizeText(description);
-	const firstList = mainContent.querySelector('ul, ol');
+	const firstList = lists[0] || null;
 	if (firstList && isBreadcrumbList(firstList)) {
 		let target: Element = firstList;
 		while (target.parentElement && target.parentElement !== mainContent &&
@@ -376,13 +581,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove promotional block <a> elements appearing before the first heading.
 	// These are announcement banners (e.g. "You're Invited: ...") injected above the article.
 	// Identified by: appears before the first <h1>, has block children (a <div>), short text.
-	const firstH1 = mainContent.querySelector('h1');
+	const firstH1 = h1s.find(h => isConnectedTo(h, mainContent)) || null;
 	if (firstH1) {
-		for (const link of mainContent.querySelectorAll('a[href]')) {
-			if (!link.parentNode) continue;
-			if (!isNodeBefore(link, firstH1)) continue;
-			if (!link.querySelector('div')) continue;
-			if (link.querySelector('img, picture, video')) continue;
+		const firstH1Order = docOrder.get(firstH1)!;
+		for (const link of linksWithHref) {
+			if ((docOrder.get(link) ?? Infinity) >= firstH1Order) break;
+			if (!isConnectedTo(link, mainContent)) continue;
+			if (link.getElementsByTagName('div').length === 0) continue;
+			if (hasDescendantTag(link, MEDIA_BANNER_TAGS)) continue;
 			const text = link.textContent?.trim() || '';
 			if (countWords(text) > 25) continue;
 			if (/[.!?]\s/.test(text)) continue;
@@ -398,14 +604,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// wrap date, title heading, author, tags, and a hero image together.
 	// After individual metadata elements are stripped, these leave behind
 	// orphaned images and empty wrappers. Detect and remove the whole block.
-	removeHeroHeader(mainContent, contentStart, debug, debugRemovals);
+	removeHeroHeader(mainContent, contentStart, timeEls, debug, debugRemovals);
 
 	// Remove "Listen to this article" audio player widgets.
 	// TTS services inject audio/video players with "Listen to this article/story" text.
 	// Also remove pre-content audio/video in short containers (player UI without prose).
-	for (const media of mainContent.querySelectorAll('audio, video')) {
-		if (!media.parentNode) continue;
-		if (!media.getAttribute('src') && !media.querySelector('source')) continue;
+	for (const media of mediaEls) {
+		if (!isConnectedTo(media, mainContent)) continue;
+		if (!media.getAttribute('src') && media.getElementsByTagName('source').length === 0) continue;
 
 		let container = media as Element;
 		while (container.parentElement && container.parentElement !== mainContent) {
@@ -435,19 +641,19 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 	// Remove table of contents — lists of same-page anchor links near the top of content.
 	// These are navigation aids that duplicate heading text and add noise to extracted content.
-	for (const list of mainContent.querySelectorAll('ul, ol')) {
-		if (!list.parentNode) continue;
-		if (list.closest('#footnotes')) continue;
+	for (const list of lists) {
+		if (!isConnectedTo(list, mainContent)) continue;
+		if (hasAncestorId(list, 'footnotes')) continue;
 
 		// Must be near the top of content — check before enumerating links
 		const listText = list.textContent?.trim() || '';
 		const listPos = contentText.indexOf(listText.substring(0, 60));
 		if (listPos < 0 || listPos > contentText.length * 0.3) continue;
 
-		const links = Array.from(list.querySelectorAll('a[href]'));
+		const links = collectHrefLinks(list);
 		if (links.length < 3) continue;
 
-		if (list.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+		if (hasDescendantContentElement(list)) continue;
 
 		// Count same-page anchor links (fragment-only or same-page URL with fragment)
 		let anchorCount = 0;
@@ -500,16 +706,14 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		break;
 	}
 
-	const candidates = Array.from(mainContent.querySelectorAll('p, span, div, time'));
-
 	// Single pass over candidates for all metadata-removal checks.
 	// Shared work (text extraction, word count, closest check, indexOf) is computed
 	// once per element instead of once per loop per element.
 	let bylineFound = false;
 	let authorDateFound = false;
 
-	for (const el of candidates) {
-		if (!el.parentNode) continue;
+	for (const el of metaCandidates) {
+		if (!isConnectedTo(el, mainContent)) continue;
 
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
@@ -517,7 +721,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// All checks target short metadata elements; skip anything clearly too long.
 		if (words > 15 || words === 0) continue;
 
-		if (el.closest('pre, code')) continue;
+		if (inPreOrCode.has(el)) continue;
 
 		const tag = el.tagName;
 		const hasDate = CONTENT_DATE_PATTERN.test(text);
@@ -611,7 +815,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		// Remove read time metadata (e.g. "8 min read", "Mar 4th 2026 | 3 min read").
 		// With a date: any position, no block children. Without: short text near the start.
 		if (CONTENT_READ_TIME_PATTERN.test(text) &&
-			(hasDate ? el.querySelectorAll('p, div, section, article').length === 0
+			(hasDate ? !hasDescendantTag(el, BLOCK_LEAF_TAGS)
 			         : words <= 5 && isPreContent(el))) {
 			let cleaned = text;
 			for (const pattern of READ_TIME_STRIP_PATTERNS) {
@@ -669,9 +873,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove standalone time/date elements near the start or end of content.
 	// A <time> in its own paragraph at the boundary is metadata (publish date),
 	// but <time> inline within prose should be preserved (see issue #136).
-	const timeElements = Array.from(mainContent.querySelectorAll('time'));
-	for (const time of timeElements) {
-		if (!time.parentNode) continue;
+	for (const time of timeEls) {
+		if (!isConnectedTo(time, mainContent)) continue;
 		// Walk up through inline/formatting wrappers only (i, em, span, b, strong)
 		// Stop at block elements to avoid removing containers with other content.
 		let target: Element = time;
@@ -717,16 +920,17 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// none contain sentence-ending punctuation, and the total text is minimal.
 	// <dl> elements are also checked: they often appear as author metadata
 	// blocks in Next.js/Tailwind blog templates (avatar + name + social handle).
-	const metadataLists = mainContent.querySelectorAll('ul, ol, dl');
-	for (const list of metadataLists) {
-		if (!list.parentNode) continue;
+	const LI_TAGS = new Set(['LI']);
+	const TD_TH_TAGS = new Set(['TD', 'TH']);
+	for (const list of listsAndDls) {
+		if (!isConnectedTo(list, mainContent)) continue;
 		// Skip the standardized footnotes list
-		if (list.closest('#footnotes')) continue;
+		if (hasAncestorId(list, 'footnotes')) continue;
 		// Skip sub-lists — they belong to the parent list item, and are
 		// typically introduced by its text (e.g. "for scrolling:")
-		if (list.parentElement?.closest('li')) continue;
+		if (hasAncestorTag(list, LI_TAGS, false)) continue;
 		// A list in a table cell is the cell's content
-		if (list.closest('td, th')) continue;
+		if (hasAncestorTag(list, TD_TH_TAGS, true)) continue;
 		const isDl = list.tagName === 'DL';
 		const items = Array.from(list.children).filter(el =>
 			isDl ? el.tagName === 'DD' : el.tagName === 'LI'
@@ -792,29 +996,32 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	const urlPath = parsedPageUrl?.pathname || '';
 	const pageHost = parsedPageUrl?.hostname.replace(/^www\./, '') || '';
 	if (urlPath) {
-		const shortElements = mainContent.querySelectorAll('div, span, p, a[href]');
-		const firstHeading = mainContent.querySelector('h1, h2, h3');
-		for (const el of shortElements) {
-			if (!el.parentNode) continue;
+		const P_TAGS = new Set(['P']);
+		const firstHeading = h123s.find(h => isConnectedTo(h, mainContent)) || null;
+		for (const el of breadcrumbCandidates) {
+			const isHrefLink = el.tagName.toUpperCase() === 'A';
+			// Fast pre-filter: non-link elements without any descendant a[href] can never match
+			if (!isHrefLink && !hasDescendantHref.has(el)) continue;
+			if (!isConnectedTo(el, mainContent)) continue;
+			const link: Element | null = isHrefLink ? el : findFirstHrefLink(el);
+			if (!link) continue;
 			const text = el.textContent?.trim() || '';
 			const words = countWords(text);
 			if (words > 10) continue;
 			// Must be a leaf-ish element (no block children)
-			if (el.querySelectorAll('p, div, section, article').length > 0) continue;
+			if (hasDescendantTag(el, BLOCK_LEAF_TAGS)) continue;
 			// For bare <a> elements, skip if embedded in flowing prose (parent has other text).
 			// Exception: allow embedded <a> elements that appear before the first heading —
 			// these are back-navigation links in page headers, not inline prose links.
-			if (el.matches('a[href]') && el.parentElement && el.parentElement !== mainContent) {
+			if (isHrefLink && el.parentElement && el.parentElement !== mainContent) {
 				const parentText = el.parentElement.textContent?.trim() || '';
 				if (parentText !== text) {
 					// Skip links inside paragraphs — these are inline prose links, not breadcrumbs
-					if (el.closest('p')) continue;
+					if (hasAncestorTag(el, P_TAGS, false)) continue;
 					if (!firstHeading) continue;
-					if (!isNodeBefore(el, firstHeading)) continue;
+					if (!isBeforeNode(el, firstHeading)) continue;
 				}
 			}
-			const link: Element | null = el.matches('a[href]') ? el : el.querySelector('a[href]');
-			if (!link) continue;
 			try {
 				const linkUrl = new URL(link.getAttribute('href') || '', url);
 				// Breadcrumbs point within the same site — an off-site path prefix match is content
@@ -843,9 +1050,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// off-site links as the last content block (affiliate picks, product
 	// roundups, etc.). Only removed when nothing meaningful follows.
 	if (pageHost) {
-		const headings = mainContent.querySelectorAll('h2, h3, h4, h5, h6');
-		for (const heading of headings) {
-			if (!heading.parentNode) continue;
+		for (const heading of subHeadings) {
+			if (!isConnectedTo(heading, mainContent)) continue;
 			const list = heading.nextElementSibling;
 			if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) continue;
 			const items = Array.from(list.children).filter(el => el.tagName === 'LI');
@@ -988,7 +1194,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		if (trailingEls.length >= 1 && trailingWords < totalWords * 0.15) {
 			const hasHeading = trailingEls.some(el => isOrContainsHeading(el));
 			const hasContent = trailingEls.some(el =>
-				el.querySelector(CONTENT_ELEMENT_SELECTOR)
+				hasDescendantContentElement(el)
 			);
 			// Multiple prose paragraphs indicate a conclusion, not a CTA/promo block.
 			let proseParagraphs = 0;
@@ -1013,54 +1219,50 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Search elements for end-of-article boilerplate, then truncate
 	// from the best ancestor that has siblings to remove.
 	const fullText = mainContent.textContent || '';
-	const boilerplateElements = mainContent.querySelectorAll('p, div, span, section');
-	for (const el of boilerplateElements) {
-		if (!el.parentNode) continue;
-		if (el.closest('pre, code')) continue;
+	for (const el of boilerplateCandidates) {
+		if (!isConnectedTo(el, mainContent)) continue;
+		if (inPreOrCode.has(el)) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 		if (words > 50 || words < 1) continue;
 
-		for (const pattern of BOILERPLATE_PATTERNS) {
-			if (pattern.test(text)) {
-				// Walk up to find an ancestor that has next siblings to truncate.
-				// Don't walk all the way to mainContent's direct child — if there's
-				// a single wrapper div, that would remove everything.
-				let target: Element = el;
-				while (target.parentElement && target.parentElement !== mainContent) {
-					if (target.nextElementSibling) break;
-					target = target.parentElement;
-				}
-
-				// Only truncate if there's substantial content before the boilerplate
-				const targetText = target.textContent || '';
-				const targetPos = fullText.indexOf(targetText);
-				if (targetPos < 200) {
-					// Walk-up reached a high-level wrapper (targetPos ≈ 0). Can't
-					// safely truncate from there. But if the original element is a
-					// trailing orphan with no following siblings, remove it directly.
-					if (target !== el && !el.nextElementSibling) {
-						if (debug && debugRemovals) {
-							debugRemovals.push({
-								step: 'removeByContentPattern',
-								reason: 'boilerplate text',
-								text: textPreview(el)
-							});
-						}
-						el.remove();
-					}
-					continue;
-				}
-
-				removeTrailingWithCascade(target, mainContent, debug, debugRemovals);
-				break;
+		if (text === 'Loading...' || BOILERPLATE_CI_PATTERN.test(text)) {
+			// Walk up to find an ancestor that has next siblings to truncate.
+			// Don't walk all the way to mainContent's direct child — if there's
+			// a single wrapper div, that would remove everything.
+			let target: Element = el;
+			while (target.parentElement && target.parentElement !== mainContent) {
+				if (target.nextElementSibling) break;
+				target = target.parentElement;
 			}
+
+			// Only truncate if there's substantial content before the boilerplate
+			const targetText = target.textContent || '';
+			const targetPos = fullText.indexOf(targetText);
+			if (targetPos < 200) {
+				// Walk-up reached a high-level wrapper (targetPos ≈ 0). Can't
+				// safely truncate from there. But if the original element is a
+				// trailing orphan with no following siblings, remove it directly.
+				if (target !== el && !el.nextElementSibling) {
+					if (debug && debugRemovals) {
+						debugRemovals.push({
+							step: 'removeByContentPattern',
+							reason: 'boilerplate text',
+							text: textPreview(el)
+						});
+					}
+					el.remove();
+				}
+				continue;
+			}
+
+			removeTrailingWithCascade(target, mainContent, debug, debugRemovals);
 		}
 	}
 
 	// Remove "Related posts" / "Read next" / "About the Author" sections identified by their heading text.
-	for (const heading of mainContent.querySelectorAll('h2, h3, h4, h5, h6')) {
-		if (!heading.parentNode) continue;
+	for (const heading of subHeadings) {
+		if (!isConnectedTo(heading, mainContent)) continue;
 		const headingText = heading.textContent?.trim() || '';
 		const isCta = CTA_HEADING_PATTERN.test(headingText);
 		if (!isCta && !RELATED_HEADING_PATTERN.test(headingText)) continue;
@@ -1102,12 +1304,12 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 	// Remove orphaned "For more on/about ..." intro paragraphs left behind
 	// after related content embeds are stripped by selector removal.
-	for (const el of mainContent.querySelectorAll('p')) {
-		if (!el.parentNode) continue;
+	for (const el of ps) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		const text = el.textContent?.trim() || '';
 		if (!RELATED_INTRO_PATTERN.test(text)) continue;
 		if (countWords(text) > 20) continue;
-		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+		if (hasDescendantContentElement(el)) continue;
 
 		if (debug && debugRemovals) {
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'related content intro', text: textPreview(el) });
@@ -1119,18 +1321,18 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// (e.g. the heading was removed by removeLowScoring before this step runs).
 	// Matches a container whose children are predominantly image-bearing cards (img + heading).
 	const contentWordCount = countWords(contentText);
-	for (const el of mainContent.querySelectorAll('div, ul, ol')) {
-		if (!el.parentNode) continue;
+	for (const el of divUlOls) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		if (el.children.length < 2) continue;
 		// Two cards need two images, so one subtree scan rejects nav and footer
 		// lists before paying for the per-child scans below.
-		if (el.querySelectorAll('img, picture').length < 2) continue;
+		if (!hasAtLeastTwoImgOrPicture(el)) continue;
 		const children = Array.from(el.children);
 
 		// Each qualifying card must contain an image and either a heading or a link
 		// (headings may have been stripped by earlier selector removal steps)
 		const cardCount = children.filter(c =>
-			c.querySelector('img, picture') && (c.querySelector('h2, h3, h4') || c.querySelector('a[href]'))
+			hasDescendantTag(c, IMG_PICTURE_TAGS) && (hasDescendantTag(c, CARD_HEADING_TAGS) || !!findFirstHrefLink(c))
 		).length;
 		if (cardCount < 2 || cardCount < children.length * 0.7) continue;
 
@@ -1141,7 +1343,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 		const firstText = children[0].textContent?.trim().substring(0, 30) || '';
 		const followsContent = firstText.length >= 5
 			? contentText.indexOf(firstText) >= 500
-			: children.every(c => c.querySelector('a[href]')) && precedingProseWords(el, mainContent) >= 100;
+			: children.every(c => !!findFirstHrefLink(c)) && precedingProseWords(el, mainContent) >= 100;
 		if (!followsContent) continue;
 
 		// Skip grids whose text is a large share of total content (e.g. numbered takeaways).
@@ -1177,9 +1379,9 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// after the <form> element itself has been removed by selector removal.
 	// Note: textContent in some DOM implementations (e.g. linkedom) concatenates adjacent
 	// element text without whitespace, so we normalize camelCase boundaries before matching.
-	for (const el of mainContent.querySelectorAll('div, section, aside')) {
-		if (!el.parentNode) continue;
-		if (el.closest('pre, code')) continue;
+	for (const el of divSectionAsides) {
+		if (!isConnectedTo(el, mainContent)) continue;
+		if (inPreOrCode.has(el)) continue;
 		if (!isNewsletterElement(el, 60)) continue;
 
 		// Walk up while the parent doesn't have significantly more content
@@ -1201,8 +1403,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 	// Remove newsletter signup lists — <ul> elements whose only content is
 	// newsletter signup links (e.g. Guardian standfirst).
-	for (const el of mainContent.querySelectorAll('ul')) {
-		if (!el.parentNode) continue;
+	for (const el of uls) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		if (!isNewsletterElement(el, 30)) continue;
 
 		if (debug && debugRemovals) {
@@ -1215,8 +1417,8 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove author/contact info blocks near the end of content.
 	// These contain labels like "Written by" or "Contact" alongside names,
 	// email addresses, and phone numbers — common in news/university sites.
-	for (const el of mainContent.querySelectorAll('div, section')) {
-		if (!el.parentNode) continue;
+	for (const el of divSections) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 		if (words < 2 || words > 40) continue;
@@ -1254,11 +1456,11 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove author/share metadata widgets — short containers with labels like
 	// "Author", "Share", "Written by" common in Tailwind/Next.js blog templates.
 	// Images excluded from content check since author avatars are common.
-	for (const el of mainContent.querySelectorAll('p, span, div')) {
-		if (!el.parentNode) continue;
+	for (const el of shareAuthorCandidates) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		const elText = el.textContent?.trim() || '';
 		if (!SHARE_AUTHOR_LABEL.test(elText)) continue;
-		if (el.closest('pre, code') || el.querySelector('pre, code')) continue;
+		if (inPreOrCode.has(el) || hasDescendantTag(el, PRE_CODE_TAGS)) continue;
 
 		let container = el;
 		while (container.parentElement && container.parentElement !== mainContent) {
@@ -1267,7 +1469,7 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 			container = parent;
 		}
 
-		if (container.querySelector(CONTENT_ELEMENT_NO_IMG_SELECTOR)) continue;
+		if (hasDescendantContentElement(container, true)) continue;
 
 		if (debug && debugRemovals) {
 			debugRemovals.push({ step: 'removeByContentPattern', reason: 'author/share widget', text: textPreview(container) });
@@ -1277,11 +1479,11 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 
 	// Remove social engagement counters ("9 Likes", "3 Comments", etc.)
 	// Check block elements near the end of content, and bare <a> elements (no href) anywhere
-	for (const el of mainContent.querySelectorAll('a, p, div, span')) {
-		if (!el.parentNode) continue;
+	for (const el of socialCounterCandidates) {
+		if (!isConnectedTo(el, mainContent)) continue;
 		const text = el.textContent?.trim() || '';
 		if (!SOCIAL_COUNTER_PATTERN.test(text)) continue;
-		if (el.closest('pre, code') || el.querySelector('pre, code')) continue;
+		if (inPreOrCode.has(el) || hasDescendantTag(el, PRE_CODE_TAGS)) continue;
 		if (el.tagName === 'A' && el.getAttribute('href')) continue;
 		if (el.tagName !== 'A') {
 			const pos = contentText.indexOf(text);
@@ -1298,20 +1500,21 @@ export function removeByContentPattern(mainContent: Element, debug: boolean, url
 	// Remove trailing tag/category link blocks — short blocks near the end of
 	// content containing only links (e.g. "Features", "Amazon", "Amazon Kindle").
 	// These are tag clouds or category link sections appended after the article body.
-	for (const el of mainContent.querySelectorAll('div')) {
-		if (!el.parentNode) continue;
+	for (const el of divs) {
+		if (!hasDescendantHref.has(el)) continue;
+		if (!isConnectedTo(el, mainContent)) continue;
 		const text = el.textContent?.trim() || '';
 		const words = countWords(text);
 		if (words < 1 || words > 10) continue;
 		if (/[.!?]/.test(text)) continue;
-		if (el.querySelector(CONTENT_ELEMENT_SELECTOR)) continue;
+		if (hasDescendantContentElement(el)) continue;
 
 		const pos = contentText.indexOf(text);
 		if (pos < 0) continue;
 		const distFromEnd = contentText.length - (pos + text.length);
 		if (distFromEnd > 300) continue;
 
-		const links = el.querySelectorAll('a[href]');
+		const links = collectHrefLinks(el);
 		if (links.length === 0) continue;
 		let linkTextLen = 0;
 		for (const link of links) linkTextLen += (link.textContent?.trim() || '').length;
