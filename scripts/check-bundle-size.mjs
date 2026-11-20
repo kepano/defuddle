@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 const BUDGETS_KB = {
 	'dist/index.js': 90,       // core UMD bundle (defuddle)
-	'dist/index.full.js': 207, // full bundle with math (defuddle/full)
+	'dist/index.full.js': 180, // full bundle with math (defuddle/full)
 };
 
 let failed = false;
