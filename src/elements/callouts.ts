@@ -35,13 +35,59 @@ export function standardizeCallouts(element: Element): void {
 	const doc = element.ownerDocument;
 	if (!doc) return;
 
+	const obsidianCollapsed: Element[] = [];
+	const githubAlerts: Element[] = [];
+	const calloutAsides: Element[] = [];
+	const admonitions: Element[] = [];
+	const bootstrapAlerts: Element[] = [];
+
+	// Single DOM walk to collect all callout candidates instead of 5 querySelectorAll scans
+	const walk = (root: Element): void => {
+		for (let el = root.firstElementChild; el; el = el.nextElementSibling) {
+			const cls = el.getAttribute('class');
+			if (cls) {
+				const tag = el.tagName.toUpperCase();
+				if (tag === 'ASIDE' && cls.includes('callout')) {
+					calloutAsides.push(el);
+				}
+				if (
+					cls.includes('callout') ||
+					cls.includes('markdown-alert') ||
+					cls.includes('admonition') ||
+					cls.includes('alert')
+				) {
+					const tokens = cls.split(/[\t\n\f\r ]+/);
+					let hasCallout = false;
+					let hasCollapse = false;
+					let hasGithubAlert = false;
+					let hasAdmonition = false;
+					let hasAlert = false;
+					for (let i = 0; i < tokens.length; i++) {
+						const t = tokens[i];
+						if (t === 'callout') hasCallout = true;
+						else if (t === 'is-collapsed' || t === 'is-collapsible') hasCollapse = true;
+						else if (t === 'markdown-alert') hasGithubAlert = true;
+						else if (t === 'admonition') hasAdmonition = true;
+						else if (t === 'alert') hasAlert = true;
+					}
+					if (hasCallout && hasCollapse) obsidianCollapsed.push(el);
+					if (hasGithubAlert) githubAlerts.push(el);
+					if (hasAdmonition) admonitions.push(el);
+					if (hasAlert && cls.includes('alert-')) bootstrapAlerts.push(el);
+				}
+			}
+			if (el.firstElementChild) walk(el);
+		}
+	};
+	walk(element);
+
 	// Obsidian callouts — already use data-callout and
 	// .callout-content, but collapsed ones need to be expanded so
 	// removeHiddenElements doesn't strip their content.
 	// Preserve fold state via data-callout-fold (already set by Obsidian)
 	// and transfer is-collapsible/is-collapsed to the standardized element.
-	const obsidianCollapsed = Array.from(element.querySelectorAll('.callout.is-collapsed, .callout.is-collapsible'));
 	for (const el of obsidianCollapsed) {
+		if (!el.parentNode) continue;
 		const isCollapsed = el.classList.contains('is-collapsed');
 		el.classList.remove('is-collapsed', 'is-collapsible');
 
@@ -71,8 +117,8 @@ export function standardizeCallouts(element: Element): void {
 	}
 
 	// GitHub markdown alerts (div.markdown-alert)
-	const githubAlerts = Array.from(element.querySelectorAll('.markdown-alert'));
 	for (const el of githubAlerts) {
+		if (!el.parentNode) continue;
 		const typeClass = Array.from(el.classList).find(c => c.startsWith('markdown-alert-') && c !== 'markdown-alert');
 		const type = typeClass ? typeClass.replace('markdown-alert-', '') : 'note';
 		const title = type.charAt(0).toUpperCase() + type.slice(1);
@@ -87,8 +133,8 @@ export function standardizeCallouts(element: Element): void {
 	}
 
 	// Callout asides (aside.callout-*)
-	const calloutAsides = Array.from(element.querySelectorAll('aside[class*="callout"]'));
 	for (const el of calloutAsides) {
+		if (!el.parentNode) continue;
 		const typeClass = Array.from(el.classList).find(c => c.startsWith('callout-'));
 		const type = typeClass ? typeClass.replace('callout-', '') : 'note';
 		const title = type.charAt(0).toUpperCase() + type.slice(1);
@@ -98,31 +144,33 @@ export function standardizeCallouts(element: Element): void {
 	}
 
 	// Hugo/Docsy admonitions (div.admonition)
-	const admonitionTypes = new Set(['info', 'warning', 'note', 'tip', 'danger', 'caution', 'important', 'abstract', 'success', 'question', 'failure', 'bug', 'example', 'quote']);
-	const admonitions = Array.from(element.querySelectorAll('.admonition'));
-	for (const el of admonitions) {
-		// Skip if already processed as a callout
-		if (el.getAttribute('data-callout')) continue;
+	if (admonitions.length > 0) {
+		const admonitionTypes = new Set(['info', 'warning', 'note', 'tip', 'danger', 'caution', 'important', 'abstract', 'success', 'question', 'failure', 'bug', 'example', 'quote']);
+		for (const el of admonitions) {
+			if (!el.parentNode) continue;
+			// Skip if already processed as a callout
+			if (el.getAttribute('data-callout')) continue;
 
-		// Type from class: info, warning, note, tip, danger, etc.
-		const type = Array.from(el.classList).find(c => admonitionTypes.has(c)) || 'note';
+			// Type from class: info, warning, note, tip, danger, etc.
+			const type = Array.from(el.classList).find(c => admonitionTypes.has(c)) || 'note';
 
-		// Title from .admonition-title
-		const titleEl = el.querySelector('.admonition-title');
-		const title = titleEl?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
-		if (titleEl) {
-			titleEl.remove();
+			// Title from .admonition-title
+			const titleEl = el.querySelector('.admonition-title');
+			const title = titleEl?.textContent?.trim() || type.charAt(0).toUpperCase() + type.slice(1);
+			if (titleEl) {
+				titleEl.remove();
+			}
+
+			// Content from .admonition-content or .details-content, fall back to the element itself
+			const contentEl = el.querySelector('.admonition-content') || el.querySelector('.details-content') || el;
+
+			el.replaceWith(createCallout(doc, type, title, contentEl));
 		}
-
-		// Content from .admonition-content or .details-content, fall back to the element itself
-		const contentEl = el.querySelector('.admonition-content') || el.querySelector('.details-content') || el;
-
-		el.replaceWith(createCallout(doc, type, title, contentEl));
 	}
 
 	// Bootstrap alerts (div.alert.alert-*)
-	const bootstrapAlerts = Array.from(element.querySelectorAll('.alert[class*="alert-"]'));
 	for (const el of bootstrapAlerts) {
+		if (!el.parentNode) continue;
 		const typeClass = Array.from(el.classList).find(c => c.startsWith('alert-') && c !== 'alert-dismissible');
 		const type = typeClass ? typeClass.replace('alert-', '') : 'note';
 
