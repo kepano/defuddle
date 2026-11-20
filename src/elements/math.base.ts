@@ -338,7 +338,7 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 	}
 
 	// KaTeX formats
-	if (el.matches('.katex')) {
+	if (el.classList?.contains('katex')) {
 		const katexAnnotation = el.querySelector('.katex-mathml annotation[encoding="application/x-tex"]');
 		if (katexAnnotation?.textContent) {
 			return katexAnnotation.textContent.trim();
@@ -346,21 +346,28 @@ export const getBasicLatexFromElement = (el: Element): string | null => {
 	}
 
 	// MathJax scripts
-	if (el.matches('script[type="math/tex"]') || el.matches('script[type="math/tex; mode=display"]')) {
-		return el.textContent?.trim() || null;
+	const tagLower = el.tagName.toLowerCase();
+	if (tagLower === 'script') {
+		const scriptType = el.getAttribute('type');
+		if (scriptType === 'math/tex' || scriptType === 'math/tex; mode=display') {
+			return el.textContent?.trim() || null;
+		}
 	}
 
 	// Check for sibling script element
 	if (el.parentElement) {
-		const siblingScript = el.parentElement.querySelector('script[type="math/tex"], script[type="math/tex; mode=display"]');
-		if (siblingScript) {
-			return siblingScript.textContent?.trim() || null;
+		const scripts = el.parentElement.getElementsByTagName('script');
+		for (let i = 0; i < scripts.length; i++) {
+			const t = scripts[i].getAttribute('type');
+			if (t === 'math/tex' || t === 'math/tex; mode=display') {
+				return scripts[i].textContent?.trim() || null;
+			}
 		}
 	}
 
 	// For <math> elements, textContent gives clean Unicode (e.g. "f′", "a~")
 	// Only safe for <math> — other containers (mjx-container, .katex) have garbage textContent
-	if (el.tagName.toLowerCase() === 'math' && el.textContent?.trim()) {
+	if (tagLower === 'math' && el.textContent?.trim()) {
 		return el.textContent.trim();
 	}
 
@@ -381,10 +388,13 @@ export const isBlockDisplay = (el: Element): boolean => {
 		return true;
 	}
 
-	// Check container classes
-	const container = el.closest('.katex-display, .MathJax_Display, [data-display="block"]');
-	if (container) {
-		return true;
+	// Check container classes (direct ancestor walk avoids css-select compilation)
+	for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+		if (cur.getAttribute('data-display') === 'block') return true;
+		const cls = cur.getAttribute('class');
+		if (cls && (cur.classList.contains('katex-display') || cur.classList.contains('MathJax_Display'))) {
+			return true;
+		}
 	}
 
 	// Check if preceded by block element
@@ -394,31 +404,31 @@ export const isBlockDisplay = (el: Element): boolean => {
 	}
 
 	// Check specific formats
-	if (el.matches('.mwe-math-fallback-image-display')) {
+	if (el.classList?.contains('mwe-math-fallback-image-display')) {
 		return true;
 	}
 
 	// Check KaTeX display mode
-	if (el.matches('.katex')) {
-		// KaTeX elements are inline by default
-		// Only block if explicitly marked as display
-		return el.closest('.katex-display') !== null;
+	if (el.classList?.contains('katex')) {
+		// KaTeX elements are inline by default (katex-display already checked above)
+		return false;
 	}
 
 	// Check MathJax v3 display attribute
 	if (el.hasAttribute('display')) {
-		return el.getAttribute('display') === 'true';
+		return displayAttr === 'true';
 	}
 
 	// Check MathJax script display attribute
-	if (el.matches('script[type="math/tex; mode=display"]')) {
+	if (el.tagName.toUpperCase() === 'SCRIPT' && el.getAttribute('type') === 'math/tex; mode=display') {
 		return true;
 	}
 
 	// Check parent container display attribute
-	const parentContainer = el.closest('[display]');
-	if (parentContainer) {
-		return parentContainer.getAttribute('display') === 'true';
+	for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+		if (cur.hasAttribute('display')) {
+			return cur.getAttribute('display') === 'true';
+		}
 	}
 
 	return false;
@@ -524,17 +534,17 @@ function decodeLatex(raw: string): string | null {
  * pages that are known to use a math rendering library.
  */
 function hasMathLibrary(doc: Document): boolean {
-	// Check for MathJax/KaTeX script src
-	const scripts = Array.from(doc.querySelectorAll('script[src]'));
-	for (const s of scripts) {
-		const src = (s.getAttribute('src') || '').toLowerCase();
-		if (src.includes('mathjax') || src.includes('katex')) return true;
-	}
-	// Check for MathJax config objects
-	const inlineScripts = Array.from(doc.querySelectorAll('script:not([src])'));
-	for (const s of inlineScripts) {
-		const text = s.textContent || '';
-		if (/MathJax\s*[.=]/.test(text) || /katex/i.test(text)) return true;
+	const scripts = doc.getElementsByTagName('script');
+	for (let i = 0; i < scripts.length; i++) {
+		const s = scripts[i];
+		const src = s.getAttribute('src');
+		if (src !== null) {
+			const lower = src.toLowerCase();
+			if (lower.includes('mathjax') || lower.includes('katex')) return true;
+		} else {
+			const text = s.textContent || '';
+			if (/MathJax\s*[.=]/.test(text) || /katex/i.test(text)) return true;
+		}
 	}
 	return false;
 }
@@ -692,7 +702,19 @@ export const createMathElement = (
 	return cleanMathEl;
 };
 
-const MATH_SCRIPT_CLEANUP_SELECTOR = 'script[type^="math/"], .MathJax_Preview, script[type="text/javascript"][src*="mathjax"], script[type="text/javascript"][src*="katex"]';
+function removeMathJaxPreviews(root: Element): void {
+	let child = root.firstElementChild;
+	while (child) {
+		const next = child.nextElementSibling;
+		const cls = child.getAttribute('class');
+		if (cls && cls.includes('MathJax_Preview') && child.classList.contains('MathJax_Preview')) {
+			child.remove();
+		} else if (child.firstElementChild) {
+			removeMathJaxPreviews(child);
+		}
+		child = next;
+	}
+}
 
 export const createMathRules = (
 	getLatex: (el: Element) => string | null,
@@ -717,8 +739,19 @@ export const createMathRules = (
 			// Clean up any associated math scripts after we've extracted their content.
 			// Skip when el itself is a math script — it will be replaced by the
 			// caller, and removing siblings here would destroy unprocessed scripts.
-			if (el.parentElement && !el.matches('script[type^="math/"]')) {
-				el.parentElement.querySelectorAll(MATH_SCRIPT_CLEANUP_SELECTOR).forEach(script => script.remove());
+			const isMathScript = el.tagName.toUpperCase() === 'SCRIPT' && (el.getAttribute('type') || '').startsWith('math/');
+			if (el.parentElement && !isMathScript) {
+				const parent = el.parentElement;
+				const scripts = Array.from(parent.getElementsByTagName('script'));
+				for (let i = 0; i < scripts.length; i++) {
+					const s = scripts[i];
+					const type = s.getAttribute('type') || '';
+					const src = s.getAttribute('src') || '';
+					if (type.startsWith('math/') || (type === 'text/javascript' && (src.includes('mathjax') || src.includes('katex')))) {
+						s.remove();
+					}
+				}
+				removeMathJaxPreviews(parent);
 			}
 
 			return cleanMathEl;

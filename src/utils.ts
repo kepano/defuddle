@@ -11,9 +11,13 @@ export function isTextNode(node: Node): node is Text {
 	return node.nodeType === NODE_TYPE.TEXT_NODE;
 }
 
-// Uses closest('svg') as fallback since linkedom may not set namespaceURI correctly
+// Walks ancestors instead of el.closest('svg') to avoid CSS selector compilation.
 export function isSVGElement(el: Element): boolean {
-	return el.closest?.('svg') !== null || el.namespaceURI === 'http://www.w3.org/2000/svg';
+	if (el.namespaceURI === 'http://www.w3.org/2000/svg') return true;
+	for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+		if (cur.tagName === 'svg' || cur.tagName === 'SVG') return true;
+	}
+	return false;
 }
 
 export function getComputedStyle(element: Element): CSSStyleDeclaration | null {

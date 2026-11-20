@@ -1,6 +1,5 @@
 import {
 	BLOCK_ELEMENTS_SET,
-	BLOCK_ELEMENTS_SELECTOR,
 	BLOCK_LEVEL_ELEMENTS,
 	PRESERVE_ELEMENTS,
 	INLINE_ELEMENTS,
@@ -208,38 +207,62 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 		step('unwrapBareSpans', () => unwrapBareSpans(element));
 
 		step('unwrapSpecialLinks', () => {
-			// Unwrap links inside inline code — markdown can't render links in backtick code
-			Array.from(element.querySelectorAll('code a')).forEach(unwrapElement);
-			// Unwrap javascript: links — keep text, remove the link
-			Array.from(element.querySelectorAll('a[href^="javascript:"]')).forEach(unwrapElement);
-			// Restructure links that wrap block content containing a heading (e.g. article cards).
-			// <a href="/x"><h2>Title</h2><p>desc</p></a>
-			// → <h2><a href="/x">Title</a></h2><p>desc</p>
-			// This produces valid HTML that any markdown converter handles correctly.
-			Array.from(element.querySelectorAll('a')).forEach(link => {
+			const links = Array.from(element.getElementsByTagName('a'));
+			// 1. Unwrap links inside inline code — markdown can't render links in backtick code
+			for (let i = 0; i < links.length; i++) {
+				const link = links[i];
+				if (!link.parentNode) continue;
+				for (let cur = link.parentElement; cur; cur = cur.parentElement) {
+					if (cur.tagName.toUpperCase() === 'CODE') {
+						unwrapElement(link);
+						break;
+					}
+					if (cur === element) break;
+				}
+			}
+			// 2. Unwrap javascript: links — keep text, remove the link
+			for (let i = 0; i < links.length; i++) {
+				const link = links[i];
+				if (!link.parentNode) continue;
 				const href = link.getAttribute('href');
-				if (!href || href.startsWith('#')) return;
-				const heading = Array.from(link.children).find(
-					c => /^H[1-6]$/.test(c.nodeName)
-				) as Element | undefined;
-				if (!heading) return;
-				// Move the href into the heading by wrapping its children in a new <a>
+				if (href && href.startsWith('javascript:')) {
+					unwrapElement(link);
+				}
+			}
+			// 3. Restructure links that wrap block content containing a heading (e.g. article cards).
+			for (let i = 0; i < links.length; i++) {
+				const link = links[i];
+				if (!link.parentNode) continue;
+				const href = link.getAttribute('href');
+				if (!href || href.startsWith('#')) continue;
+				let heading: Element | null = null;
+				for (let c = link.firstElementChild; c; c = c.nextElementSibling) {
+					if (/^H[1-6]$/.test(c.nodeName)) { heading = c; break; }
+				}
+				if (!heading) continue;
 				const innerLink = doc.createElement('a');
 				innerLink.setAttribute('href', href);
 				while (heading.firstChild) innerLink.appendChild(heading.firstChild);
 				heading.appendChild(innerLink);
-				// Unwrap the outer <a>, leaving the heading and siblings in place
 				unwrapElement(link);
-			});
-			// Unwrap anchor links that wrap headings (e.g. clickable section headers)
-			Array.from(element.querySelectorAll('a[href^="#"]')).forEach(link => {
-				if (link.querySelector('h1, h2, h3, h4, h5, h6')) {
+			}
+			// 4. Unwrap anchor links that wrap headings (e.g. clickable section headers)
+			for (let i = 0; i < links.length; i++) {
+				const link = links[i];
+				if (!link.parentNode) continue;
+				const href = link.getAttribute('href');
+				if (href && href.startsWith('#') && link.querySelector('h1, h2, h3, h4, h5, h6')) {
 					unwrapElement(link);
 				}
-			});
+			}
 		});
 
-		step('removeObsoleteElements', () => element.querySelectorAll('object, embed, applet').forEach(el => el.remove()));
+		step('removeObsoleteElements', () => {
+			for (const tag of ['object', 'embed', 'applet']) {
+				const els = element.getElementsByTagName(tag);
+				if (els.length > 0) Array.from(els).forEach(el => el.remove());
+			}
+		});
 		step('removeEmptyElements', () => removeEmptyElements(element));
 		step('removeTrailingHeadings', () => removeTrailingHeadings(element));
 		step('removeOrphanedDividers[1]', () => removeOrphanedDividers(element));
@@ -260,10 +283,16 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
  * in a <pre> element, so they get treated as code blocks.
  */
 function wrapPreformattedCode(element: Element, doc: Document): void {
-	const codeElements = Array.from(element.querySelectorAll('code'));
+	const codeList = element.getElementsByTagName('code');
+	if (codeList.length === 0) return;
+	const codeElements = Array.from(codeList);
 	for (const code of codeElements) {
 		// Skip if already inside a <pre>
-		if (code.closest('pre')) continue;
+		let inPre = false;
+		for (let cur = code.parentElement; cur; cur = cur.parentElement) {
+			if (cur.tagName.toUpperCase() === 'PRE') { inPre = true; break; }
+		}
+		if (inPre) continue;
 
 		const style = code.getAttribute('style') || '';
 		if (!/white-space\s*:\s*pre/.test(style) && !isLineBrokenCodeBlock(code)) continue;
@@ -277,7 +306,11 @@ function wrapPreformattedCode(element: Element, doc: Document): void {
 
 // <br> marks code lines only when the code stands alone in its block, not inline in prose or a table cell.
 function isLineBrokenCodeBlock(code: Element): boolean {
-	if (!code.querySelector('br') || code.closest('td, th')) return false;
+	if (code.getElementsByTagName('br').length === 0) return false;
+	for (let cur = code.parentElement; cur; cur = cur.parentElement) {
+		const t = cur.tagName.toUpperCase();
+		if (t === 'TD' || t === 'TH') return false;
+	}
 	const parent = code.parentElement;
 	return !!parent && (parent.textContent || '').trim() === (code.textContent || '').trim();
 }
@@ -477,80 +510,91 @@ function filterExtractorClasses(value: string): string {
 function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutput: boolean = false): void {
 	let attributeCount = 0;
 
-	const processElement = (el: Element) => {
+	const processElement = (el: Element, inSvg: boolean) => {
+		const isSvg = inSvg || el.tagName === 'svg' || el.tagName === 'SVG' || el.namespaceURI === 'http://www.w3.org/2000/svg';
 		// SVG elements: preserve all rendering attributes but strip class
 		// (CSS is no longer available, so classes serve no purpose)
-		if (isSVGElement(el)) {
+		if (isSvg) {
 			if (!debug && el.hasAttribute('class')) {
 				el.removeAttribute('class');
 				attributeCount++;
 			}
+			for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+				processElement(child, true);
+			}
 			return;
 		}
 
-		const attributes = Array.from(el.attributes);
-		const tag = el.tagName.toLowerCase();
-		
-		attributes.forEach(attr => {
-			const attrName = attr.name.toLowerCase();
-			const attrValue = attr.value;
+		const attrs = el.attributes;
+		if (attrs.length > 0) {
+			const attributes = Array.from(attrs);
+			const tag = el.tagName.toLowerCase();
 
-			// Special cases for preserving specific attributes
-			if (
-				// Preserve footnote IDs
-				(attrName === 'id' && (
-					attrValue.startsWith('fnref:') || // Footnote reference
-					attrValue.startsWith('fn:') || // Footnote content
-					attrValue === 'footnotes' // Footnotes container
-				)) ||
-				// Preserve code block language classes, footnote backref class, and callout classes
-				(attrName === 'class' && (
-					(tag === 'code' && attrValue.startsWith('language-')) ||
-					attrValue === 'footnote-backref' ||
-					/^callout(?:-|$)/.test(attrValue)
-				)) ||
-				// Marks the extractor output wrapper (emitted by buildContentHtml).
-				(extractorOutput && attrName === 'data-defuddle') ||
-				// Transcript start times (emitted by buildTranscript).
-				(extractorOutput && attrName === 'data-timestamp' && el.classList.contains('timestamp'))
-			) {
-				return;
-			}
+			for (let i = 0; i < attributes.length; i++) {
+				const attr = attributes[i];
+				const attrName = attr.name.toLowerCase();
+				const attrValue = attr.value;
 
-			// Extractor markup classes survive. The page-authored classes sitting
-			// next to them in the same attribute do not. Skipped in debug mode,
-			// which keeps every class so the structure stays inspectable.
-			if (extractorOutput && !debug && attrName === 'class') {
-				const kept = filterExtractorClasses(attrValue);
-				if (kept) {
-					if (kept !== attrValue) {
-						el.setAttribute('class', kept);
+				// Special cases for preserving specific attributes
+				if (
+					// Preserve footnote IDs
+					(attrName === 'id' && (
+						attrValue.startsWith('fnref:') || // Footnote reference
+						attrValue.startsWith('fn:') || // Footnote content
+						attrValue === 'footnotes' // Footnotes container
+					)) ||
+					// Preserve code block language classes, footnote backref class, and callout classes
+					(attrName === 'class' && (
+						(tag === 'code' && attrValue.startsWith('language-')) ||
+						attrValue === 'footnote-backref' ||
+						/^callout(?:-|$)/.test(attrValue)
+					)) ||
+					// Marks the extractor output wrapper (emitted by buildContentHtml).
+					(extractorOutput && attrName === 'data-defuddle') ||
+					// Transcript start times (emitted by buildTranscript).
+					(extractorOutput && attrName === 'data-timestamp' && el.classList.contains('timestamp'))
+				) {
+					continue;
+				}
+
+				// Extractor markup classes survive. The page-authored classes sitting
+				// next to them in the same attribute do not. Skipped in debug mode,
+				// which keeps every class so the structure stays inspectable.
+				if (extractorOutput && !debug && attrName === 'class') {
+					const kept = filterExtractorClasses(attrValue);
+					if (kept) {
+						if (kept !== attrValue) {
+							el.setAttribute('class', kept);
+							attributeCount++;
+						}
+						continue;
+					}
+				}
+
+				// In debug mode, allow debug attributes and data- attributes
+				if (debug) {
+					if (!ALLOWED_ATTRIBUTES.has(attrName) &&
+						!ALLOWED_ATTRIBUTES_DEBUG.has(attrName) &&
+						!attrName.startsWith('data-')) {
+						el.removeAttribute(attr.name);
 						attributeCount++;
 					}
-					return;
+				} else {
+					// In normal mode, only allow standard attributes
+					if (!ALLOWED_ATTRIBUTES.has(attrName)) {
+						el.removeAttribute(attr.name);
+						attributeCount++;
+					}
 				}
 			}
+		}
 
-			// In debug mode, allow debug attributes and data- attributes
-			if (debug) {
-				if (!ALLOWED_ATTRIBUTES.has(attrName) && 
-					!ALLOWED_ATTRIBUTES_DEBUG.has(attrName) && 
-					!attrName.startsWith('data-')) {
-					el.removeAttribute(attr.name);
-					attributeCount++;
-				}
-			} else {
-				// In normal mode, only allow standard attributes
-				if (!ALLOWED_ATTRIBUTES.has(attrName)) {
-					el.removeAttribute(attr.name);
-					attributeCount++;
-				}
-			}
-		});
+		for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+			processElement(child, false);
+		}
 	};
 
-	processElement(element);
-	element.querySelectorAll('*').forEach(processElement);
+	processElement(element, isSVGElement(element));
 
 	logDebug(_debug, 'Stripped attributes:', attributeCount);
 }
@@ -569,7 +613,9 @@ function unwrapElement(el: Element): void {
  * a layout wrapper and should be unwrapped.
  */
 function unwrapLayoutTables(element: Element): void {
-	const tables = Array.from(element.querySelectorAll('table'));
+	const tableList = element.getElementsByTagName('table');
+	if (tableList.length === 0) return;
+	const tables = Array.from(tableList);
 	let count = 0;
 
 	for (const table of tables) {
@@ -606,14 +652,23 @@ const DISPLAY_BLOCK_RE = /display\s*:\s*block/i;
  * participate in block-level flattening instead of being treated as inline.
  */
 function replaceCustomElements(element: Element, doc: Document): void {
-	const customElements = Array.from(element.querySelectorAll('*')).filter(
-		el => el.tagName.includes('-')
-			&& !INLINE_ELEMENTS.has(el.tagName.toLowerCase())
-			&& !isSVGElement(el)
-	).reverse();
+	const customElements: Element[] = [];
+	const walk = (parent: Element, inSvg: boolean): void => {
+		for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+			const isSvg = inSvg || el.tagName === 'svg' || el.tagName === 'SVG' || el.namespaceURI === 'http://www.w3.org/2000/svg';
+			if (!isSvg) {
+				if (el.tagName.includes('-') && !INLINE_ELEMENTS.has(el.tagName.toLowerCase())) {
+					customElements.push(el);
+				}
+				if (el.firstElementChild) walk(el, false);
+			}
+		}
+	};
+	walk(element, isSVGElement(element));
 
 	let replacedCount = 0;
-	for (const el of customElements) {
+	for (let i = customElements.length - 1; i >= 0; i--) {
+		const el = customElements[i];
 		if (!el.parentNode) continue;
 		const div = doc.createElement('div');
 		while (el.firstChild) {
@@ -633,7 +688,12 @@ const DATA_AS_ALLOWED = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 
  * which produces "T HE REST" as text. This merges them into "THE REST".
  */
 function standardizeDropCaps(element: Element): void {
-	const caps = Array.from(element.querySelectorAll('span[data-caps="initial"]'));
+	const spans = element.getElementsByTagName('span');
+	if (spans.length === 0) return;
+	const caps: Element[] = [];
+	for (let i = 0; i < spans.length; i++) {
+		if (spans[i].getAttribute('data-caps') === 'initial') caps.push(spans[i]);
+	}
 	let count = 0;
 
 	for (const span of caps) {
@@ -664,8 +724,13 @@ function standardizeDropCaps(element: Element): void {
  * stripping so data-as is still present.
  */
 function convertDataAsSpans(element: Element, doc: Document): void {
+	const allSpans = element.getElementsByTagName('span');
+	if (allSpans.length === 0) return;
+	const spans: Element[] = [];
+	for (let i = 0; i < allSpans.length; i++) {
+		if (allSpans[i].hasAttribute('data-as')) spans.push(allSpans[i]);
+	}
 	let convertedCount = 0;
-	const spans = Array.from(element.querySelectorAll('span[data-as]'));
 	for (const span of spans) {
 		if (!span.parentNode) continue;
 		const target = span.getAttribute('data-as')!.toLowerCase();
@@ -686,8 +751,18 @@ function convertDataAsSpans(element: Element, doc: Document): void {
  * stripping and bare-span unwrapping.
  */
 function convertBlockSpans(element: Element, doc: Document): void {
+	const allSpans = element.getElementsByTagName('span');
+	if (allSpans.length === 0) return;
+	const spans: Element[] = [];
+	for (let i = 0; i < allSpans.length; i++) {
+		const s = allSpans[i];
+		const cls = s.getAttribute('class');
+		const style = s.getAttribute('style');
+		if ((cls && cls.includes('block')) || (style && style.includes('block'))) {
+			spans.push(s);
+		}
+	}
 	let convertedCount = 0;
-	const spans = Array.from(element.querySelectorAll('span[class*="block"], span[style*="block"]'));
 	for (const span of spans) {
 		if (!span.parentNode) continue;
 
@@ -706,10 +781,13 @@ function convertBlockSpans(element: Element, doc: Document): void {
 
 function unwrapBareSpans(element: Element): void {
 	// Process deepest spans first so nested bare spans collapse in one pass
-	const spans = Array.from(element.querySelectorAll('span')).reverse();
+	const spanList = element.getElementsByTagName('span');
+	if (spanList.length === 0) return;
+	const spans = Array.from(spanList);
 	let unwrappedCount = 0;
 
-	for (const span of spans) {
+	for (let i = spans.length - 1; i >= 0; i--) {
+		const span = spans[i];
 		if (!span.parentNode) continue;
 		if (span.attributes.length > 0) continue;
 
@@ -743,7 +821,7 @@ const SVG_COLOR_ATTRS = ['fill', 'stroke', 'color', 'stop-color', 'flood-color',
  * infers colors from variable names so SVGs remain legible outside the page.
  */
 function resolveSvgColors(element: Element, doc: Document): void {
-	const svgs = element.querySelectorAll('svg');
+	const svgs = element.getElementsByTagName('svg');
 	if (svgs.length === 0) return;
 
 	const defaultView = doc.defaultView;
@@ -965,11 +1043,12 @@ function resolveTailwindClasses(el: Element): void {
 function removeEmptyElements(element: Element): void {
 	let removedCount = 0;
 
-	const isEmptyElement = (el: Element): boolean => {
-		if (ALLOWED_EMPTY_ELEMENTS.has(el.tagName.toLowerCase())) return false;
+	const isEmptyElement = (el: Element, inMath: boolean): boolean => {
+		const tagLower = el.tagName.toLowerCase();
+		if (ALLOWED_EMPTY_ELEMENTS.has(tagLower)) return false;
 		// Empty MathML nodes can be argument slots, spacing or matrix cells
-		if (el.parentElement?.closest('math')) return false;
-		if (el.tagName.toLowerCase() === 'math' && el.getAttribute('data-latex')?.trim()) return false;
+		if (inMath) return false;
+		if (tagLower === 'math' && el.getAttribute('data-latex')?.trim()) return false;
 
 		// Special case: divs that only contain spans with commas
 		if (el.tagName === 'DIV') {
@@ -1003,15 +1082,31 @@ function removeEmptyElements(element: Element): void {
 		return true;
 	};
 
-	// Process deepest-first in a single pass by reversing the element list
-	// (querySelectorAll returns document order, reverse gives deepest last → first)
-	const allElements = Array.from(element.querySelectorAll('*')).reverse();
-	for (const el of allElements) {
-		if (el.parentNode && isEmptyElement(el)) {
-			el.remove();
-			removedCount++;
+	// Process deepest-first in a single post-order walk, tracking math ancestry
+	let rootInMath = element.tagName.toUpperCase() === 'MATH';
+	if (!rootInMath) {
+		for (let cur = element.parentElement; cur; cur = cur.parentElement) {
+			if (cur.tagName.toUpperCase() === 'MATH') { rootInMath = true; break; }
 		}
 	}
+
+	const walkPostOrder = (parent: Element, inMath: boolean): void => {
+		let child = parent.lastElementChild;
+		while (child) {
+			const prev = child.previousElementSibling;
+			const childInMath = inMath || child.tagName.toUpperCase() === 'MATH';
+			if (child.firstElementChild) {
+				walkPostOrder(child, childInMath);
+			}
+			if (child.parentNode && isEmptyElement(child, inMath)) {
+				child.remove();
+				removedCount++;
+			}
+			child = prev;
+		}
+	};
+
+	walkPostOrder(element, rootInMath);
 
 	logDebug(_debug, 'Removed empty elements:', removedCount);
 }
@@ -1234,8 +1329,31 @@ function removeEmptyLines(element: Element, doc: Document, keepSpaceBeforeHighPu
 			.filter(isElement)
 			.forEach(cleanupEmptyElements);
 
-		// Then normalize this element's whitespace
-		node.normalize(); // Combine adjacent text nodes
+		// Merge adjacent direct text children in O(children) instead of O(subtree) node.normalize()
+		// (descendants were already normalized bottom-up).
+		let childNode = node.firstChild;
+		while (childNode) {
+			if (childNode.nodeType === 3) {
+				let nextNode = childNode.nextSibling;
+				if (nextNode && nextNode.nodeType === 3) {
+					let merged = childNode.nodeValue || '';
+					while (nextNode && nextNode.nodeType === 3) {
+						merged += nextNode.nodeValue || '';
+						const toRemove = nextNode;
+						nextNode = nextNode.nextSibling;
+						node.removeChild(toRemove);
+					}
+					childNode.nodeValue = merged;
+				}
+				if (!(childNode.nodeValue || '')) {
+					const empty = childNode;
+					childNode = childNode.nextSibling;
+					node.removeChild(empty);
+					continue;
+				}
+			}
+			childNode = childNode.nextSibling;
+		}
 
 		// Special handling for block elements
 		const isBlockElement = getComputedStyle(node)?.display === 'block';
@@ -1339,7 +1457,9 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 	// Uses URL-based heuristics (not domain allowlists) to detect encoded LaTeX,
 	// then falls back to alt text containing LaTeX commands.
 	stepSE('convertLatexImages', () => {
-		for (const img of Array.from(element.querySelectorAll('img[src]'))) {
+		const imgs = element.getElementsByTagName('img');
+		if (imgs.length === 0) return;
+		for (const img of Array.from(imgs)) {
 			const src = img.getAttribute('src');
 			if (!src) continue;
 
@@ -1365,10 +1485,118 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 		}
 	});
 
+	// Single pure-JS presence scan so rules and post-passes whose tags/classes/attrs
+	// are absent from `element` skip querySelectorAll entirely.
+	let hasMathHint = false;
+	let hasCodeHint = false;
+	let hasHeading = false;
+	let hasImg = false;
+	let hasPicture = false;
+	let hasUniImage = false;
+	let hasSpan = false;
+	let hasFigure = false;
+	let hasCaptionClass = false;
+	let hasRoleDiv = false;
+	let hasCodeTag = false;
+	let hasTable = false;
+	let hasVideo = false;
+	let hasLiteYoutube = false;
+	let hasLtxClass = false;
+
+	const scanPresence = (parent: Element): void => {
+		for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+			const tag = el.tagName.toUpperCase();
+			switch (tag) {
+				case 'MATH':
+				case 'MJX-CONTAINER':
+				case 'ANNOTATION':
+					hasMathHint = true;
+					break;
+				case 'SCRIPT':
+					if ((el.getAttribute('type') || '').startsWith('math/')) hasMathHint = true;
+					break;
+				case 'PRE':
+					hasCodeHint = true;
+					break;
+				case 'CODE':
+					hasCodeTag = true;
+					break;
+				case 'H1':
+				case 'H2':
+				case 'H3':
+				case 'H4':
+				case 'H5':
+				case 'H6':
+					hasHeading = true;
+					break;
+				case 'IMG':
+					hasImg = true;
+					break;
+				case 'PICTURE':
+					hasPicture = true;
+					break;
+				case 'UNI-IMAGE-FULL-WIDTH':
+					hasUniImage = true;
+					break;
+				case 'SPAN':
+					hasSpan = true;
+					break;
+				case 'FIGURE':
+					hasFigure = true;
+					break;
+				case 'TABLE':
+					hasTable = true;
+					break;
+				case 'VIDEO':
+					hasVideo = true;
+					break;
+				case 'LITE-YOUTUBE':
+					hasLiteYoutube = true;
+					break;
+				case 'DIV':
+					if (!hasRoleDiv && (el.hasAttribute('role') || el.hasAttribute('data-testid'))) {
+						hasRoleDiv = true;
+					}
+					break;
+			}
+
+			if (!hasMathHint && (el.hasAttribute('data-math') || el.hasAttribute('data-latex') || el.hasAttribute('data-tex') || el.hasAttribute('data-katex'))) {
+				hasMathHint = true;
+			}
+			const cls = el.getAttribute('class');
+			if (cls) {
+				if (!hasMathHint && (cls.includes('MathJax') || cls.includes('katex') || cls.includes('mwe-math') || (tag === 'IMG' && cls.includes('latex')))) {
+					hasMathHint = true;
+				}
+				if (!hasCodeHint && (cls.includes('prismjs') || cls.includes('syntaxhighlighter') || cls.includes('highlight') || cls.includes('wp-block-code') || cls.includes('language-') || cls.includes('code-block') || (tag === 'CODE' && cls.includes('hl')))) {
+					hasCodeHint = true;
+				}
+				if (!hasCaptionClass && cls.includes('caption')) {
+					hasCaptionClass = true;
+				}
+				if (!hasLtxClass && cls.includes('ltx_')) {
+					hasLtxClass = true;
+				}
+			}
+
+			if (el.firstElementChild) scanPresence(el);
+		}
+	};
+	scanPresence(element);
+
 	// Convert elements based on standardization rules
 	ELEMENT_STANDARDIZATION_RULES.forEach(rule => {
 		const selectorKey = rule.selector.substring(0, 30);
 		stepSE(selectorKey, () => {
+			if (rule.element === 'math' && !hasMathHint) return;
+			if (rule.element === 'pre' && !hasCodeHint) return;
+			if (rule.element === 'keep' && !hasHeading) return;
+			if (rule.selector === 'picture' && !hasPicture) return;
+			if (rule.selector === 'uni-image-full-width' && !hasUniImage) return;
+			if (rule.element === 'img' && !hasImg) return;
+			if (rule.selector === 'span:has(img)' && (!hasSpan || !hasImg)) return;
+			if (rule.selector.startsWith('figure') && !hasFigure && !hasCaptionClass) return;
+			if (rule.selector.startsWith('div[') && !hasRoleDiv) return;
 			if (rule.fastCheck && !element.querySelector(rule.fastCheck)) return;
 			let elements: NodeListOf<Element>;
 			try {
@@ -1393,159 +1621,171 @@ function standardizeElements(element: Element, doc: Document, subProfile?: Recor
 	// as a highlight container. After codeBlockRules transforms the inner <pre>, the outer
 	// <code> still wraps it, producing <code><pre><code>...</code></pre></code> instead of
 	// the standard <pre><code>...</code></pre>.
-	Array.from(element.querySelectorAll('code > pre')).forEach(pre => {
-		const outerCode = pre.parentElement;
-		if (!outerCode || outerCode.tagName !== 'CODE') return;
-		outerCode.replaceWith(pre);
-	});
+	if (hasCodeTag) {
+		Array.from(element.querySelectorAll('code > pre')).forEach(pre => {
+			const outerCode = pre.parentElement;
+			if (!outerCode || outerCode.tagName !== 'CODE') return;
+			outerCode.replaceWith(pre);
+		});
+	}
 
 	// arXiv LaTeXML: Convert equation tables to <math> elements before attribute stripping
-	const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
-	const hasPresentationalMathContent = (mathEl: Element): boolean => {
-		const isPresentationalNode = (node: Node): boolean => {
-			if (isTextNode(node)) return Boolean(node.textContent?.trim());
-			if (!isElement(node)) return false;
+	if (hasLtxClass) {
+		const equationTables = Array.from(element.querySelectorAll('table.ltx_equation, table.ltx_eqn_table, table.ltx_equationgroup'));
+		const hasPresentationalMathContent = (mathEl: Element): boolean => {
+			const isPresentationalNode = (node: Node): boolean => {
+				if (isTextNode(node)) return Boolean(node.textContent?.trim());
+				if (!isElement(node)) return false;
 
-			const tag = node.tagName.toLowerCase();
-			if (tag === 'annotation' || tag === 'annotation-xml') return false;
-			if (tag === 'semantics') {
-				return Array.from(node.childNodes).some(isPresentationalNode);
-			}
+				const tag = node.tagName.toLowerCase();
+				if (tag === 'annotation' || tag === 'annotation-xml') return false;
+				if (tag === 'semantics') {
+					return Array.from(node.childNodes).some(isPresentationalNode);
+				}
 
-			return true;
+				return true;
+			};
+
+			return Array.from(mathEl.childNodes).some(isPresentationalNode);
 		};
+		equationTables.forEach(table => {
+			const mathElements = table.querySelectorAll('math');
+			if (mathElements.length === 0) return;
 
-		return Array.from(mathEl.childNodes).some(isPresentationalNode);
-	};
-	equationTables.forEach(table => {
-		const mathElements = table.querySelectorAll('math');
-		if (mathElements.length === 0) return;
+			const fragment = doc.createDocumentFragment();
+			mathElements.forEach(mathEl => {
+				// Extract LaTeX from alttext or annotation
+				const alttext = mathEl.getAttribute('alttext');
+				const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]');
+				const latex = alttext || annotation?.textContent?.trim() || '';
 
-		const fragment = doc.createDocumentFragment();
-		mathElements.forEach(mathEl => {
-			// Extract LaTeX from alttext or annotation
-			const alttext = mathEl.getAttribute('alttext');
-			const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]');
-			const latex = alttext || annotation?.textContent?.trim() || '';
+				if (!latex) return;
 
-			if (!latex) return;
+				const isBlock = mathEl.getAttribute('display') === 'block' ||
+					table.classList.contains('ltx_equation') ||
+					table.classList.contains('ltx_equationgroup');
 
-			const isBlock = mathEl.getAttribute('display') === 'block' ||
-				table.classList.contains('ltx_equation') ||
-				table.classList.contains('ltx_equationgroup');
+				const cleanMath = mathEl.cloneNode(true) as Element;
+				cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
+				cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
+				cleanMath.setAttribute('data-latex', latex);
+				if (!hasPresentationalMathContent(cleanMath)) {
+					cleanMath.textContent = latex;
+				}
+				fragment.appendChild(cleanMath);
+			});
 
-			const cleanMath = mathEl.cloneNode(true) as Element;
-			cleanMath.setAttribute('xmlns', 'http://www.w3.org/1998/Math/MathML');
-			cleanMath.setAttribute('display', isBlock ? 'block' : 'inline');
-			cleanMath.setAttribute('data-latex', latex);
-			if (!hasPresentationalMathContent(cleanMath)) {
-				cleanMath.textContent = latex;
+			if (fragment.childNodes.length > 0) {
+				table.replaceWith(fragment);
+				processedCount++;
 			}
-			fragment.appendChild(cleanMath);
 		});
 
-		if (fragment.childNodes.length > 0) {
+		// arXiv LaTeXML: Remove hidden ltx_note_outer spans (CSS display:none on arxiv.org)
+		// These contain duplicated footnote marks and "footnotemark:" text
+		const noteOuters = Array.from(element.querySelectorAll('span.ltx_note_outer'));
+		noteOuters.forEach(outer => {
+			outer.remove();
+			processedCount++;
+		});
+
+		// arXiv LaTeXML: Unwrap ltx_ref_tag spans so cross-reference numbers are preserved
+		// These spans (e.g. <span class="ltx_text ltx_ref_tag">1</span>) get stripped to bare
+		// spans during attribute stripping, then unwrapped — but their parent <a> links get
+		// removed by the exact selector `a[href^="#"][class*="ref" i]`. Fix by unwrapping the
+		// link and keeping the text inline.
+		const refLinks = Array.from(element.querySelectorAll('a.ltx_ref'));
+		refLinks.forEach(link => {
+			const refTag = link.querySelector('span.ltx_ref_tag, span.ltx_text.ltx_ref_tag');
+			if (refTag) {
+				// Replace the link with just the text content
+				const text = doc.createTextNode(link.textContent || '');
+				link.replaceWith(text);
+				processedCount++;
+			}
+		});
+	}
+
+	if (hasTable) {
+		// Remove tables with no text and no media in any cell
+		for (const table of Array.from(element.getElementsByTagName('table'))) {
+			if (!table.parentNode) continue;
+			const cells = table.querySelectorAll('td, th');
+			if (cells.length > 0
+				&& Array.from(cells).every(cell => !(cell.textContent || '').trim())
+				&& !table.querySelector('img, picture, video, audio, iframe, svg, math')) {
+				table.remove();
+				processedCount++;
+			}
+		}
+
+		// Unwrap single-column layout tables (used for styling/positioning, not data)
+		const tables = Array.from(element.getElementsByTagName('table'));
+		tables.forEach(table => {
+			if (!table.parentNode) return;
+
+			const directCells = Array.from(table.querySelectorAll('td, th'))
+				.filter(cell => isDirectTableChild(cell, table));
+
+			// Skip data tables that have direct header cells
+			if (directCells.some(cell => cell.tagName === 'TH')) return;
+
+			const directRows = Array.from(table.querySelectorAll('tr'))
+				.filter(row => isDirectTableChild(row, table));
+			if (directRows.length === 0) return;
+
+			// Check that every row has at most one direct cell
+			const isSingleColumn = directRows.every(tr =>
+				directCells.filter(cell => cell.parentNode === tr).length <= 1
+			);
+			if (!isSingleColumn) return;
+
+			const fragment = doc.createDocumentFragment();
+			directCells.forEach(cell => {
+				while (cell.firstChild) {
+					fragment.appendChild(cell.firstChild);
+				}
+			});
 			table.replaceWith(fragment);
 			processedCount++;
-		}
-	});
+		});
+	}
 
-	// arXiv LaTeXML: Remove hidden ltx_note_outer spans (CSS display:none on arxiv.org)
-	// These contain duplicated footnote marks and "footnotemark:" text
-	const noteOuters = Array.from(element.querySelectorAll('span.ltx_note_outer'));
-	noteOuters.forEach(outer => {
-		outer.remove();
-		processedCount++;
-	});
-
-	// arXiv LaTeXML: Unwrap ltx_ref_tag spans so cross-reference numbers are preserved
-	// These spans (e.g. <span class="ltx_text ltx_ref_tag">1</span>) get stripped to bare
-	// spans during attribute stripping, then unwrapped — but their parent <a> links get
-	// removed by the exact selector `a[href^="#"][class*="ref" i]`. Fix by unwrapping the
-	// link and keeping the text inline.
-	const refLinks = Array.from(element.querySelectorAll('a.ltx_ref'));
-	refLinks.forEach(link => {
-		const refTag = link.querySelector('span.ltx_ref_tag, span.ltx_text.ltx_ref_tag');
-		if (refTag) {
-			// Replace the link with just the text content
-			const text = doc.createTextNode(link.textContent || '');
-			link.replaceWith(text);
-			processedCount++;
-		}
-	});
-
-	// Remove tables with no text and no media in any cell
-	for (const table of Array.from(element.querySelectorAll('table'))) {
-		if (!table.parentNode) continue;
-		const cells = table.querySelectorAll('td, th');
-		if (cells.length > 0
-			&& Array.from(cells).every(cell => !(cell.textContent || '').trim())
-			&& !table.querySelector('img, picture, video, audio, iframe, svg, math')) {
-			table.remove();
-			processedCount++;
+	// Add controls to video elements that don't have them
+	if (hasVideo) {
+		for (const el of Array.from(element.getElementsByTagName('video'))) {
+			if (!el.hasAttribute('controls')) el.setAttribute('controls', '');
 		}
 	}
 
-	// Unwrap single-column layout tables (used for styling/positioning, not data)
-	const tables = Array.from(element.querySelectorAll('table'));
-	tables.forEach(table => {
-		if (!table.parentNode) return;
-
-		const directCells = Array.from(table.querySelectorAll('td, th'))
-			.filter(cell => isDirectTableChild(cell, table));
-
-		// Skip data tables that have direct header cells
-		if (directCells.some(cell => cell.tagName === 'TH')) return;
-
-		const directRows = Array.from(table.querySelectorAll('tr'))
-			.filter(row => isDirectTableChild(row, table));
-		if (directRows.length === 0) return;
-
-		// Check that every row has at most one direct cell
-		const isSingleColumn = directRows.every(tr =>
-			directCells.filter(cell => cell.parentNode === tr).length <= 1
-		);
-		if (!isSingleColumn) return;
-
-		const fragment = doc.createDocumentFragment();
-		directCells.forEach(cell => {
-			while (cell.firstChild) {
-				fragment.appendChild(cell.firstChild);
-			}
-		});
-		table.replaceWith(fragment);
-		processedCount++;
-	});
-
-	// Add controls to video elements that don't have them
-	element.querySelectorAll('video:not([controls])').forEach(el => {
-		el.setAttribute('controls', '');
-	});
-
 	// Convert lite-youtube elements
-	const liteYoutubeElements = element.querySelectorAll('lite-youtube');
-	liteYoutubeElements.forEach(el => {
-		const videoId = el.getAttribute('videoid');
-		if (!videoId) return;
+	if (hasLiteYoutube) {
+		const liteYoutubeElements = element.querySelectorAll('lite-youtube');
+		liteYoutubeElements.forEach(el => {
+			const videoId = el.getAttribute('videoid');
+			if (!videoId) return;
 
-		const iframe = doc.createElement('iframe');
-		iframe.width = '560';
-		iframe.height = '315';
-		iframe.src = `https://www.youtube.com/embed/${videoId}`;
-		iframe.title = el.getAttribute('videotitle') || 'YouTube video player';
-		iframe.frameBorder = '0';
-		iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-		iframe.setAttribute('allowfullscreen', '');
+			const iframe = doc.createElement('iframe');
+			iframe.width = '560';
+			iframe.height = '315';
+			iframe.src = `https://www.youtube.com/embed/${videoId}`;
+			iframe.title = el.getAttribute('videotitle') || 'YouTube video player';
+			iframe.frameBorder = '0';
+			iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+			iframe.setAttribute('allowfullscreen', '');
 
-		el.replaceWith(iframe);
-		processedCount++;
-	});
+			el.replaceWith(iframe);
+			processedCount++;
+		});
+	}
 
 	logDebug(_debug, 'Converted embedded elements:', processedCount);
 
 	// Verso (Lean docs) emits many adjacent command/output blocks.
 	// Merge contiguous transformed blocks back into one readable block.
-	mergeAdjacentVersoCodeBlocks(element);
+	if (hasCodeHint) {
+		mergeAdjacentVersoCodeBlocks(element);
+	}
 }
 
 function mergeAdjacentVersoCodeBlocks(root: Element): void {
@@ -1655,6 +1895,32 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return false;
 	}
 
+	const SEMANTIC_CLASS_RE = /(?:article|main|content|footnote|reference|bibliography)/;
+	const SEMANTIC_ROLES = new Set(['article', 'main', 'navigation', 'banner', 'contentinfo']);
+
+	// Check once whether any callout exists in or above `element` so we skip closest('[data-callout]') when absent
+	let hasCallouts = false;
+	for (let cur: Element | null = element; cur; cur = cur.parentElement) {
+		if (cur.hasAttribute('data-callout')) { hasCallouts = true; break; }
+	}
+	if (!hasCallouts) {
+		const checkCallouts = (parent: Element): boolean => {
+			for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+				if (el.hasAttribute('data-callout') || (el.firstElementChild && checkCallouts(el))) return true;
+			}
+			return false;
+		};
+		hasCallouts = checkCallouts(element);
+	}
+
+	const hasCalloutAncestor = (el: Element): boolean => {
+		if (!hasCallouts) return false;
+		for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+			if (cur.hasAttribute('data-callout')) return true;
+		}
+		return false;
+	};
+
 	const shouldPreserveElement = (el: Element): boolean => {
 		const tagName = el.tagName.toLowerCase();
 
@@ -1665,28 +1931,33 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		if (PRESERVE_ELEMENTS.has(tagName)) return true;
 
 		// Preserve callout structure (div.callout[data-callout] and children)
-		if (el.getAttribute('data-callout') || el.closest?.('[data-callout]')) return true;
+		if (hasCalloutAncestor(el)) return true;
 
 		// Check for semantic roles
 		const role = el.getAttribute('role');
-		if (role && ['article', 'main', 'navigation', 'banner', 'contentinfo'].includes(role)) {
+		if (role && SEMANTIC_ROLES.has(role)) {
 			return true;
 		}
 		
 		// Check for semantic classes
 		const className = getClassName(el);
-		if (className && className.toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)) {
+		if (className && SEMANTIC_CLASS_RE.test(className.toLowerCase())) {
 			return true;
 		}
 
 		// Check if element contains mixed content types that should be preserved
-		const children = Array.from(el.children);
-		const hasPreservedElements = children.some(child => 
-			PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
-			child.getAttribute('role') === 'article' ||
-			!!getClassName(child) && getClassName(child).toLowerCase().match(/(?:article|main|content|footnote|reference|bibliography)/)
-		);
-		if (hasPreservedElements) return true;
+		for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+			if (
+				PRESERVE_ELEMENTS.has(child.tagName.toLowerCase()) ||
+				child.getAttribute('role') === 'article'
+			) {
+				return true;
+			}
+			const childCls = getClassName(child);
+			if (childCls && SEMANTIC_CLASS_RE.test(childCls.toLowerCase())) {
+				return true;
+			}
+		}
 		
 		return false;
 	};
@@ -1783,43 +2054,51 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 		return modified;
 	};
 
+	const collectBlockElementsWithDepth = (root: Element): Array<{ el: Element; depth: number }> => {
+		const out: Array<{ el: Element; depth: number }> = [];
+		const walk = (parent: Element, depth: number): void => {
+			for (let el = parent.firstElementChild; el; el = el.nextElementSibling) {
+				const isBlock = BLOCK_ELEMENTS_SET.has(el.tagName.toLowerCase());
+				if (isBlock) out.push({ el, depth });
+				if (el.firstElementChild) walk(el, isBlock ? depth + 1 : depth);
+			}
+		};
+		walk(root, 0);
+		return out;
+	};
+
 	// Second pass: Process remaining wrapper elements from deepest to shallowest
 	const processRemainingElements = () => {
-		// Get all wrapper elements
-		const allElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR))
-			.sort((a, b) => {
-				// Count nesting depth
-				const getDepth = (el: Element): number => {
-					let depth = 0;
-					let parent = el.parentElement;
-					while (parent) {
-						const parentTag = parent.tagName.toLowerCase();
-						if (BLOCK_ELEMENTS_SET.has(parentTag)) depth++;
-						parent = parent.parentElement;
-					}
-					return depth;
-				};
-				return getDepth(b) - getDepth(a); // Process deepest first
-			});
+		// Collect block elements with precomputed block nesting depth in one walk
+		// (avoids querySelectorAll + O(N log N * depth) ancestor walks inside .sort())
+		const allElements = collectBlockElementsWithDepth(element)
+			.sort((a, b) => b.depth - a.depth);
 
 		let modified = false;
-		allElements.forEach(el => {
-			if (processElement(el)) {
+		for (let i = 0; i < allElements.length; i++) {
+			if (processElement(allElements[i].el)) {
 				modified = true;
 			}
-		});
+		}
 		return modified;
 	};
 
 	// Final cleanup pass - aggressively flatten remaining wrapper elements
 	const finalCleanup = () => {
-		const remainingElements = Array.from(element.querySelectorAll(BLOCK_ELEMENTS_SELECTOR));
+		const remainingElements = collectBlockElementsWithDepth(element);
 		let modified = false;
 		
-		remainingElements.forEach(el => {
+		for (let i = 0; i < remainingElements.length; i++) {
+			const el = remainingElements[i].el;
+			if (!el.parentNode) continue;
 			// Check if element only contains paragraphs
-			const children = Array.from(el.children);
-			const onlyParagraphs = children.length > 0 && children.every(child => child.tagName.toLowerCase() === 'p');
+			let hasChild = false;
+			let onlyParagraphs = true;
+			for (let child = el.firstElementChild; child; child = child.nextElementSibling) {
+				hasChild = true;
+				if (child.tagName.toLowerCase() !== 'p') { onlyParagraphs = false; break; }
+			}
+			onlyParagraphs = hasChild && onlyParagraphs;
 			
 			// Unwrap if it only contains paragraphs OR is a non-preserved wrapper element
 			if (onlyParagraphs || (!shouldPreserveElement(el) && !hasDirectInlineContent(el))) {
@@ -1831,7 +2110,7 @@ function flattenWrapperElements(element: Element, doc: Document): void {
 				processedCount++;
 				modified = true;
 			}
-		});
+		}
 		return modified;
 	};
 
