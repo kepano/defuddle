@@ -123,7 +123,7 @@ const CODE_LANGUAGES = new Set([
 // Convert code blocks with different syntax highlighters and line numbers
 // to a standard <pre> and <code> element with a language attribute
 const LINE_ELEMENT_SELECTOR =
-	'div[class*="line"], span[class*="line"], .ec-line, [data-line-number], [data-line]';
+	'div[class*="line"]:not([class*="line-number"]), span[class*="line"]:not(.lineno):not(.react-syntax-highlighter-line-number):not([class*="line-number"]), .ec-line, [data-line-number], [data-line]';
 
 export const codeBlockRules = [
 	{
