@@ -195,6 +195,24 @@ export function standardizeContent(element: Element, metadata: DefuddleMetadata,
 	step('standardizeHeadings', () => standardizeHeadings(element, metadata.title, doc));
 	step('wrapPreformattedCode', () => wrapPreformattedCode(element, doc));
 	step('standardizeElements', () => standardizeElements(element, doc, subProfile));
+	step('convertSvgObjects', () => {
+		element.querySelectorAll('object').forEach(el => {
+			const data = el.getAttribute('data')?.trim();
+			const type = (el.getAttribute('type') || '').trim().toLowerCase();
+			const isSvgObject = type.startsWith('image/svg+xml') || (data ? /^(?:data:image\/svg\+xml\b|[^?#]*\.svg(?:[?#]|$))/i.test(data) : false);
+			if (data && isSvgObject) {
+				const img = doc.createElement('img');
+				img.setAttribute('src', data);
+				const alt = el.getAttribute('aria-label') || el.getAttribute('title') || el.querySelector('img')?.getAttribute('alt') || '';
+				if (alt) img.setAttribute('alt', alt);
+				const width = el.getAttribute('width');
+				if (width) img.setAttribute('width', width);
+				const height = el.getAttribute('height');
+				if (height) img.setAttribute('height', height);
+				el.parentNode?.replaceChild(img, el);
+			}
+		});
+	});
 	step('resolveSvgColors', () => resolveSvgColors(element, doc));
 
 	if (!debug) {
