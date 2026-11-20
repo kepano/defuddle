@@ -342,13 +342,13 @@ describe('Markdown conversion', () => {
 			expect(markdown).toContain('- bullet\n\t1. first\n\t2. second');
 		});
 
-		test('should keep indenting continuation lines inside a list item', () => {
+		test('should keep indenting continuation paragraphs inside a list item', () => {
 			const markdown = createMarkdownContent(
 				'<article><ul><li><p>para one</p><p>para two</p></li><li>next</li></ul></article>',
 				'https://example.com'
 			);
 
-			expect(markdown).toContain('- para one\n\tpara two\n- next');
+			expect(markdown).toContain('- para one\n\n\tpara two\n- next');
 		});
 
 		// Malformed but common markup

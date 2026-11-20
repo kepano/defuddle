@@ -63,6 +63,7 @@ function getLeadingCheckbox(li: GenericElement): GenericElement | null {
 
 
 // Inline math opens with $ before a non-space and closes with $ after one, not before a digit, so `$10<br>Children $5` isn't math.
+const LIST_MARKER_RE = /^\s*(?:[-*+]|\d+[.)])\s/;
 const CELL_ONE_LINE_RE = /```[\s\S]*?```|\$\$[\s\S]*?\$\$|\$(?=\S)(?:[^$]*?\S)?\$(?!\d)/g;
 const WIDTH_DESCRIPTOR_RE = /^(\d+)w,?$/;
 const DENSITY_DESCRIPTOR_RE = /^\d+(?:\.\d+)?x,?$/;
@@ -446,11 +447,18 @@ export function createMarkdownContent(content: string, url: string) {
 
 			const lines = content.replace(/\n+$/, '').split('\n');
 			const inFence = fencedLines(lines);
+			// Keep one blank line between the item's blocks, so a paragraph, quote,
+			// table or code block after the first line stays its own block. A nested
+			// list can follow its line directly, which keeps tight lists tight.
 			content = lines
-				// Remove empty lines, except inside code blocks
-				.filter((line, i) => line.length > 0 || inFence[i])
-				// Add indentation to continued lines
-				.join('\n\t');
+				.map((line, i) => {
+					if (line.length > 0 || inFence[i]) return i === 0 ? line : '\t' + line;
+					const next = lines.slice(i + 1).find(l => l.length > 0);
+					const separatesBlocks = lines[i - 1] && next && !LIST_MARKER_RE.test(next);
+					return separatesBlocks ? '' : null;
+				})
+				.filter((line): line is string => line !== null)
+				.join('\n');
 
 			let prefix = options.bulletListMarker + ' ';
 			let parent = node.parentNode;
