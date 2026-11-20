@@ -24,6 +24,13 @@ export function removeHiddenElements(doc: Document, debug: boolean, debugRemoval
 			continue;
 		}
 
+		// HighWire keeps the inactive full-text view (and each section inside
+		// it) at display:none until that view is selected. The browser clipper
+		// would delete the subtree; preserve the node and its descendants.
+		if (element.closest('.fulltext-view')) {
+			continue;
+		}
+
 		// Check inline style for hidden patterns
 		const style = element.getAttribute('style');
 		if (style && hiddenStylePattern.test(style)) {

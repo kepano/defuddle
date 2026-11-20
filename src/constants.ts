@@ -15,7 +15,10 @@ export const ENTRY_POINT_ELEMENTS = [
 	'.post',
 	'.markdown-body',
 	'article',
-	'[role="article"]',
+	// HighWire full-text root (bioRxiv, medRxiv, and other HighWire journals).
+	// Same slot as [role="article"]: below `article`, above `main`. A new
+	// slot would raise every earlier selector by 40 points over `main`.
+	'[role="article"], .fulltext-view',
 	'main',
 	'[role="main"]',
 	'.article-body',
