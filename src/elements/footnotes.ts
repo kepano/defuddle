@@ -408,7 +408,7 @@ class FootnoteHandler {
 			externalTotal++;
 			if (footnoteFragments.has(frag)) externalMatch++;
 		});
-		if (externalMatch < Math.max(2, Math.ceil(externalTotal * 0.75))) bestContainer = null;
+		if (externalMatch < Math.max(2, Math.ceil(externalTotal * 0.75))) return;
 
 		orderedElements.forEach(({ el, id }) => {
 			if (state.processedIds.has(id)) return;
@@ -452,7 +452,7 @@ class FootnoteHandler {
 			this.addFootnote(state, id, contentDiv);
 		});
 
-		if (bestContainer) this.pendingRemovals.push(bestContainer);
+		this.pendingRemovals.push(bestContainer);
 	}
 
 	// Microsoft Word HTML export: body refs use href="#_ftn[N]",

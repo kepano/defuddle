@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Example Guidelines</title>
+</head>
+<body>
+  <!--
+    Spec generators such as ReSpec add a hidden "Referenced in" panel for each
+    definition. The panel links back to every use of the term with numbered
+    anchors like <a href="#ref-for-dfn-widget-2">(2)</a>, and each use carries a
+    matching id. These back-links are not footnote references, and the paragraphs
+    that use a term must stay where they are instead of being copied into a
+    footnote list.
+  -->
+  <main>
+    <h1>Example Guidelines</h1>
+    <section id="conformance">
+      <h2>Conformance</h2>
+      <p>Every <a href="#dfn-widget" id="ref-for-dfn-widget-1">widget</a> on the page needs a visible label and a role that assistive software can read.</p>
+      <div class="note" role="note"><div role="heading" class="note-title marker" aria-level="3"><span>Note 1</span></div><p>A <a href="#dfn-widget" id="ref-for-dfn-widget-2">widget</a> that only shows an icon still needs a text label.</p></div>
+      <div class="note" role="note"><div role="heading" class="note-title marker" aria-level="3"><span>Note 2</span></div><p>A gadget inside a <a href="#dfn-widget" id="ref-for-dfn-widget-3">widget</a> follows the same rule.</p></div>
+      <p>The rest of this section lists the levels at which a page can conform to these guidelines.</p>
+    </section>
+    <section id="glossary">
+      <h2>Glossary</h2>
+      <dl>
+        <dt><dfn id="dfn-gadget">gadget</dfn></dt>
+        <dd>A part of a <a href="#dfn-widget" id="ref-for-dfn-widget-4">widget</a> that a user can operate on its own, such as a button in a toolbar <a href="#dfn-widget" id="ref-for-dfn-widget-5">widget</a>.</dd>
+        <dt><dfn id="dfn-widget">widget</dfn></dt>
+        <dd>A control made of one or more <a href="#dfn-gadget" id="ref-for-dfn-gadget-1">gadgets</a>, where each <a href="#dfn-gadget" id="ref-for-dfn-gadget-2">gadget</a> has its own label.</dd>
+      </dl>
+    </section>
+    <div class="dfn-panel" hidden="" role="dialog" id="dfn-panel-for-dfn-gadget">
+      <p><b>Referenced in:</b></p>
+      <ul><li><a href="#ref-for-dfn-gadget-1">§ 2 Glossary</a> <a href="#ref-for-dfn-gadget-2">(2)</a></li></ul>
+    </div>
+    <div class="dfn-panel" hidden="" role="dialog" id="dfn-panel-for-dfn-widget">
+      <p><b>Referenced in:</b></p>
+      <ul><li><a href="#ref-for-dfn-widget-1">§ 1 Conformance</a> <a href="#ref-for-dfn-widget-2">(2)</a> <a href="#ref-for-dfn-widget-3">(3)</a></li><li><a href="#ref-for-dfn-widget-4">§ 2 Glossary</a> <a href="#ref-for-dfn-widget-5">(2)</a></li></ul>
+    </div>
+  </main>
+</body>
+</html>
