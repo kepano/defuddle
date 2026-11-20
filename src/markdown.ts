@@ -1,5 +1,5 @@
 import TurndownService from 'turndown';
-import { MathMLToLaTeX } from 'mathml-to-latex';
+import { MathMLToLaTeX } from './elements/mathml-to-latex';
 import { isElement, isTextNode } from './utils';
 import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import { fencedLines, transformOutsideCodeFences } from './utils/code-fences';
@@ -956,7 +956,7 @@ export function createMarkdownContent(content: string, url: string) {
 		}
 
 		// Fallback: convert MathML → LaTeX for renderers like MathJax SVG that embed no LaTeX.
-		// Fails silently when mathml-to-latex is unavailable (core bundle).
+		// markdown.ts is excluded from the core bundle, so the converter stays full-bundle only.
 		if (element.nodeName.toLowerCase() === 'math' && hasMathML) {
 			const converted = convertMathMLToLatex(element);
 			if (converted) return converted;
@@ -989,12 +989,9 @@ export function createMarkdownContent(content: string, url: string) {
 
 	function convertMathMLToLatex(element: GenericElement): string {
 		try {
-			const mathML = (element.outerHTML || `<math>${element.innerHTML}</math>`)
-				.replace(/&amp;nbsp;/g, '&#xA0;')
-				.replace(/&nbsp;/g, '&#xA0;');
-			return MathMLToLaTeX.convert(mathML).trim();
+			return MathMLToLaTeX.convert(element).trim();
 		} catch (e) {
-			// not available or conversion failed
+			// conversion failed
 		}
 		return '';
 	}
@@ -1025,9 +1022,9 @@ export function createMarkdownContent(content: string, url: string) {
 		const latex = value.trim();
 		if (!latex) return latex;
 
-		// mathml-to-latex wraps an unfenced <mtable> in a bare matrix
-		// environment. In block math these are aligned equation systems rather
-		// than matrices, so realign at the & columns.
+		// An unfenced <mtable> without right/left columnalign converts to a bare
+		// matrix environment. In block math these are aligned equation systems
+		// rather than matrices, so realign at the & columns.
 		const bareMatrix = latex.match(/^\\begin\{matrix\}([\s\S]*?)\\end\{matrix\}$/);
 		if (bareMatrix && !hasLatexEnvironment(bareMatrix[1])) {
 			return `\\begin{aligned}\n${bareMatrix[1].trim()}\n\\end{aligned}`;

@@ -59,7 +59,6 @@ module.exports = (env, argv) => {
 		name: 'core',
 		entry: './src/index.ts',
 		externals: {
-			'mathml-to-latex': 'mathml-to-latex',
 			'temml': 'temml'
 		},
 		output: {

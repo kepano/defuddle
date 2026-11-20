@@ -5,6 +5,7 @@ export interface MathData {
 	mathml: string;
 	latex: string | null;
 	isBlock: boolean;
+	element?: Element;
 }
 
 // --- MathJax CHTML (mjx-*) → MathML reconstruction -------------------------
@@ -162,7 +163,7 @@ export const reconstructMathMLFromMjx = (mjxMath: Element, doc: Document): MathD
 	const isBlock = mjxMath.getAttribute('display') === 'true';
 	if (isBlock) math.setAttribute('display', 'block');
 
-	return { mathml: math.outerHTML, latex: null, isBlock };
+	return { mathml: math.outerHTML, latex: null, isBlock, element: math };
 };
 
 /**
@@ -217,21 +218,23 @@ const flattenTaggedEquationTables = (mathEl: Element): void => {
 	}
 };
 
-/** Clone a math element, flatten tagged-equation tables, and serialize it. */
-const serializeNormalizedMathML = (mathEl: Element): string => {
+/** Clone a math element and flatten tagged-equation tables. */
+const normalizeMathElement = (mathEl: Element): Element => {
 	const clone = mathEl.cloneNode(true) as Element;
 	flattenTaggedEquationTables(clone);
-	return clone.outerHTML;
+	return clone;
 };
 
 export const getMathMLFromElement = (el: Element): MathData | null => {
 	// 1. Direct MathML content
 	if (el.tagName.toLowerCase() === 'math') {
 		const isBlock = el.getAttribute('display') === 'block';
+		const normalized = normalizeMathElement(el);
 		return {
-			mathml: serializeNormalizedMathML(el),
+			mathml: normalized.outerHTML,
 			latex: el.getAttribute('alttext') || null,
-			isBlock
+			isBlock,
+			element: normalized
 		};
 	}
 
@@ -243,10 +246,12 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		const mathElement = fragment.querySelector('math');
 		if (mathElement) {
 			const isBlock = mathElement.getAttribute('display') === 'block';
+			const normalized = normalizeMathElement(mathElement);
 			return {
-				mathml: serializeNormalizedMathML(mathElement),
+				mathml: normalized.outerHTML,
 				latex: mathElement.getAttribute('alttext') || null,
-				isBlock
+				isBlock,
+				element: normalized
 			};
 		}
 	}
@@ -262,11 +267,13 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 			const mathDisplayAttr = mathElement.getAttribute('display');
 			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');
 			const isBlock = mathDisplayAttr === 'block' || containerDisplayAttr === 'block';
+			const normalized = normalizeMathElement(mathElement);
 
 			return {
-				mathml: serializeNormalizedMathML(mathElement),
+				mathml: normalized.outerHTML,
 				latex: mathElement.getAttribute('alttext') || null,
-				isBlock
+				isBlock,
+				element: normalized
 			};
 		}
 	}
@@ -274,10 +281,12 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 	// 4. KaTeX MathML
 	const katexMathml = el.querySelector('.katex-mathml math');
 	if (katexMathml) {
+		const normalized = normalizeMathElement(katexMathml);
 		return {
-			mathml: serializeNormalizedMathML(katexMathml),
+			mathml: normalized.outerHTML,
 			latex: null, // We'll get LaTeX separately for KaTeX
-			isBlock: false // We'll determine this from container
+			isBlock: false, // We'll determine this from container
+			element: normalized
 		};
 	}
 
@@ -717,7 +726,7 @@ function removeMathJaxPreviews(root: Element): void {
 }
 
 export const createMathRules = (
-	getLatex: (el: Element) => string | null,
+	getLatex: (el: Element, mathData?: MathData | null) => string | null,
 	latexToMathML?: LatexToMathML
 ) => [
 	{
@@ -730,7 +739,7 @@ export const createMathRules = (
 			}
 
 			const mathData = getMathMLFromElement(el);
-			const latex = getLatex(el);
+			const latex = getLatex(el, mathData);
 			const isBlock = isBlockDisplay(el);
 			// Create nodes in the element's own document; the pipeline passes the
 			// original document while standardizing a clone.
