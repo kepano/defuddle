@@ -18,21 +18,27 @@ export function removePermalinkAnchors(element: Element): void {
 	});
 }
 
-export function isPermalinkAnchor(node: Element): boolean {
+function isExplicitPermalinkAnchor(node: Element): boolean {
 	if (node.tagName.toLowerCase() !== 'a') return false;
 	if (node.matches(FOOTNOTE_REF)) return false;
-	const href = node.getAttribute('href') || '';
 	const title = (node.getAttribute('title') || '').toLowerCase();
 	const className = (node.getAttribute('class') || '').toLowerCase();
 	const text = (node.textContent || '').trim();
 
-	if (href.startsWith('#')) return true;
 	if (title.includes('permalink')) return true;
-	const isPermalinkClass = className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link');
-	if (isPermalinkClass) return true;
-	if (/^[#¶§🔗\uFEFF]$/.test(text)) return true;
+	if (className.includes('permalink') || className.includes('heading-anchor') || className.includes('anchor-link')) {
+		return true;
+	}
+	return !text || /^[#¶§🔗\uFEFF]$/.test(text);
+}
 
-	return false;
+export function isPermalinkAnchor(node: Element): boolean {
+	if (node.tagName.toLowerCase() !== 'a') return false;
+	if (node.matches(FOOTNOTE_REF)) return false;
+	const href = node.getAttribute('href') || '';
+
+	if (href.startsWith('#')) return true;
+	return isExplicitPermalinkAnchor(node);
 }
 
 // Headings are flattened to text, except for math and footnote references
@@ -95,17 +101,22 @@ export const headingRules = [
 			const clone = el.cloneNode(true) as Element;
 
 			const toRemove = Array.from(clone.querySelectorAll('*')).filter(isHeadingNavElement);
-			// Keep the first navigation element in case it holds the whole title
-			const fallback = toRemove[0]?.cloneNode(true) as Element | undefined;
-			// A wrapper holding the whole title can also hold its permalink
-			if (fallback) {
-				const stripped = fallback.cloneNode(true) as Element;
-				stripped.querySelectorAll('a').forEach(a => { if (isPermalinkAnchor(a)) a.remove(); });
-				if (stripped.textContent?.trim()) fallback.replaceChildren(...Array.from(stripped.childNodes));
-			}
 			toRemove.forEach(element => element.remove());
 
-			const source = !clone.textContent?.trim() && fallback ? fallback : clone;
+			let source = clone;
+			if (!clone.textContent?.trim() && toRemove.length > 0) {
+				// All content lived inside internal hash links (e.g. numbered RFC headings
+				// with separate number and title anchors). Fall back to stripping only
+				// buttons and explicit symbol/permalink-class anchors.
+				const fallback = el.cloneNode(true) as Element;
+				Array.from(fallback.querySelectorAll('button, .permalink-widget, a')).forEach(node => {
+					const tag = node.tagName.toLowerCase();
+					if (tag !== 'a' || isExplicitPermalinkAnchor(node)) {
+						node.remove();
+					}
+				});
+				source = fallback.textContent?.trim() ? fallback : el;
+			}
 			appendHeadingContent(source, newHeading);
 			const { firstChild, lastChild } = newHeading;
 			if (firstChild?.nodeType === 3) firstChild.textContent = firstChild.textContent!.trimStart();
