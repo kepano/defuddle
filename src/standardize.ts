@@ -1287,7 +1287,7 @@ function removeEmptyLines(element: Element, doc: Document, keepSpaceBeforeHighPu
 					// 3. Current content ends with punctuation, an opening quote or bracket, or a dash
 					// 4. There's already a space
 					const nextIsFootnoteRef = isFootnoteRef(next);
-					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’—–]/);
+					const nextStartsWithPunctuation = nextContent.match(/^[,.!?:;)\]”’'—–]/);
 					const currentEndsWithPunctuation = currentContent.match(/[,.!?:;(\[“‘—–]\s*$/);
 
 					const hasSpace = (isTextNode(current) &&
