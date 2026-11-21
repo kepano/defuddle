@@ -2,26 +2,23 @@ import { MathMLToLaTeX } from './mathml-to-latex';
 import {
 	MathData,
 	LatexToMathML,
-	getMathMLFromElement,
 	getBasicLatexFromElement,
 	createMathElement,
 	createMathRules
 } from './math.base';
 import { parseHTML } from '../utils/dom';
 
-export const getLatexFromElement = (el: Element, mathData?: MathData | null): string | null => {
+export const getLatexFromElement = (el: Element, mathData: MathData | null): string | null => {
 	// First try basic LaTeX extraction
 	const basicLatex = getBasicLatexFromElement(el);
 	if (basicLatex) {
 		return basicLatex;
 	}
 
-	// If no LaTeX found but we have MathML, convert it directly from the DOM element
-	const data = mathData !== undefined ? mathData : getMathMLFromElement(el);
-	const mathEl = data?.element ?? (data?.mathml ? parseHTML(el.ownerDocument || document, data.mathml).querySelector('math') : null);
-	if (mathEl) {
+	// If no LaTeX found but we have MathML, convert it
+	if (mathData) {
 		try {
-			return MathMLToLaTeX.convert(mathEl);
+			return MathMLToLaTeX.convert(mathData.element);
 		} catch (e) {
 			console.warn('Failed to convert MathML to LaTeX:', e);
 		}

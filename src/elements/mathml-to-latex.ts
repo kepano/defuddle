@@ -599,7 +599,6 @@ function convertNode(node: IRNode): string {
 
 /**
  * Convert a DOM MathML `<math>` element directly to LaTeX without XML re-parsing.
- * Works identically across browser DOM, linkedom, JSDOM, and happy-dom.
  */
 export function convertMathMLToLatex(element: MathMLNodeLike): string {
 	const root = buildIR(element);

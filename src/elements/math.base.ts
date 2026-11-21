@@ -5,7 +5,7 @@ export interface MathData {
 	mathml: string;
 	latex: string | null;
 	isBlock: boolean;
-	element?: Element;
+	element: Element;
 }
 
 // --- MathJax CHTML (mjx-*) → MathML reconstruction -------------------------
@@ -726,7 +726,7 @@ function removeMathJaxPreviews(root: Element): void {
 }
 
 export const createMathRules = (
-	getLatex: (el: Element, mathData?: MathData | null) => string | null,
+	getLatex: (el: Element, mathData: MathData | null) => string | null,
 	latexToMathML?: LatexToMathML
 ) => [
 	{
