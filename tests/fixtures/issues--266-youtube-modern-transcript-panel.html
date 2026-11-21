@@ -1,0 +1,90 @@
+<!-- {"url": "https://www.youtube.com/watch?v=test266abcd"} -->
+<html>
+<head>
+<title>Example Video Title - YouTube</title>
+<script type="application/ld+json">
+{
+	"@context": "https://schema.org",
+	"@type": "VideoObject",
+	"@id": "https://www.youtube.com/watch?v=test266abcd",
+	"name": "Example Video Title",
+	"author": "Example Channel",
+	"description": "A short example video description.",
+	"uploadDate": "2026-01-15T08:00:00-08:00",
+	"thumbnailUrl": ["https://i.ytimg.com/vi/test266abcd/maxresdefault.jpg"]
+}
+</script>
+</head>
+<body>
+<script>
+	var ytInitialPlayerResponse = {
+		"videoDetails": { "videoId": "test266abcd" },
+		"captions": {
+			"playerCaptionsTracklistRenderer": {
+				"captionTracks": [
+					{ "languageCode": "en", "kind": "asr", "name": { "simpleText": "English (auto-generated)" } }
+				]
+			}
+		}
+	};
+</script>
+<!-- The panel labelled PAmodern_transcript_view only holds a loading spinner -->
+<ytd-engagement-panel-section-list-renderer target-id="PAmodern_transcript_view" visibility="ENGAGEMENT_PANEL_VISIBILITY_HIDDEN">
+	<div id="content">
+		<yt-content-loading-renderer panel-target-id="PAmodern_transcript_view"></yt-content-loading-renderer>
+	</div>
+</ytd-engagement-panel-section-list-renderer>
+<!-- The open transcript renders in an unlabelled sync-scroll panel -->
+<ytd-engagement-panel-section-list-renderer visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED" is-sync-scroll-panel="">
+	<div id="content">
+		<yt-section-list-renderer data-target-id="PAmodern_transcript_view" panel-content-visible="">
+			<div>
+				<yt-item-section-renderer>
+					<div id="contents">
+						<div>
+							<macro-markers-panel-item-view-model>
+								<timeline-item-view-model>
+									<div>
+										<transcript-segment-view-model class="ytwTranscriptSegmentViewModelHost">
+											<div aria-hidden="true" class="ytwTranscriptSegmentViewModelTimestamp">0:00</div>
+											<div class="ytwTranscriptSegmentViewModelTimestampA11yLabel">0 seconds</div>
+											<span class="ytAttributedStringHost ytAttributedStringLinkInheritColor" role="text">Welcome to the example video.</span>
+										</transcript-segment-view-model>
+									</div>
+								</timeline-item-view-model>
+							</macro-markers-panel-item-view-model>
+							<macro-markers-panel-item-view-model>
+								<timeline-item-view-model>
+									<div>
+										<transcript-segment-view-model class="ytwTranscriptSegmentViewModelHost">
+											<div aria-hidden="true" class="ytwTranscriptSegmentViewModelTimestamp">0:04</div>
+											<div class="ytwTranscriptSegmentViewModelTimestampA11yLabel">4 seconds</div>
+											<span class="ytAttributedStringHost ytAttributedStringLinkInheritColor" role="text">Today we cover the first topic.</span>
+										</transcript-segment-view-model>
+									</div>
+								</timeline-item-view-model>
+							</macro-markers-panel-item-view-model>
+							<macro-markers-panel-item-view-model>
+								<timeline-item-view-model>
+									<div>
+										<transcript-segment-view-model class="ytwTranscriptSegmentViewModelHost">
+											<div aria-hidden="true" class="ytwTranscriptSegmentViewModelTimestamp">0:09</div>
+											<div class="ytwTranscriptSegmentViewModelTimestampA11yLabel">9 seconds</div>
+											<span class="ytAttributedStringHost ytAttributedStringLinkInheritColor" role="text">Thanks for watching.</span>
+										</transcript-segment-view-model>
+									</div>
+								</timeline-item-view-model>
+							</macro-markers-panel-item-view-model>
+						</div>
+					</div>
+				</yt-item-section-renderer>
+			</div>
+		</yt-section-list-renderer>
+	</div>
+</ytd-engagement-panel-section-list-renderer>
+<!-- The old transcript panel is still in the page, but hidden and empty -->
+<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript" visibility="ENGAGEMENT_PANEL_VISIBILITY_HIDDEN">
+	<div id="content"></div>
+</ytd-engagement-panel-section-list-renderer>
+</body>
+</html>

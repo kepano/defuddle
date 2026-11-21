@@ -69,7 +69,7 @@ const DESKTOP_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 const MOBILE_TRANSCRIPT_SELECTORS: TranscriptSelectors = {
 	segments: 'transcript-segment-view-model',
 	timestamp: '.ytwTranscriptSegmentViewModelTimestamp',
-	text: 'span.yt-core-attributed-string',
+	text: '.ytAttributedStringHost, span.yt-core-attributed-string',
 	chapters: 'timeline-chapter-view-model h3',
 };
 
@@ -303,11 +303,30 @@ export class YoutubeExtractor extends BaseExtractor {
 	}
 
 	private getTranscriptContainer(): Element | null {
-		// Desktop YouTube
-		const desktop = this.document.querySelector(
-			'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"] #segments-container'
+		const panelSelector = 'ytd-engagement-panel-section-list-renderer';
+		const isExpanded = (element: Element) =>
+			element.closest(panelSelector)?.getAttribute('visibility') === 'ENGAGEMENT_PANEL_VISIBILITY_EXPANDED';
+
+		// Desktop YouTube, modern panel. Find it by its rows: the panel with
+		// target-id="PAmodern_transcript_view" may only hold a spinner while the
+		// rows render in an unlabelled panel. Requiring rows also keeps
+		// waitForTranscriptContainer from stopping on the panel's header.
+		const modernPanels = Array.from(this.document.querySelectorAll(panelSelector))
+			.filter(panel => panel.querySelector(MOBILE_TRANSCRIPT_SELECTORS.segments));
+		// Desktop YouTube, legacy panel
+		const legacy = this.document.querySelector(
+			`${panelSelector}[target-id="engagement-panel-searchable-transcript"] #segments-container`
 		);
-		if (desktop) return desktop;
+
+		// A hidden panel can hold rows that are not on screen, so the expanded
+		// transcript wins, whichever layout it uses.
+		const expandedModern = modernPanels.find(isExpanded);
+		if (expandedModern) return expandedModern;
+		if (legacy && isExpanded(legacy) && legacy.querySelector(DESKTOP_TRANSCRIPT_SELECTORS.segments)) {
+			return legacy;
+		}
+		if (modernPanels.length > 0) return modernPanels[0];
+		if (legacy) return legacy;
 
 		// Mobile YouTube (m.youtube.com)
 		return this.document.querySelector(
