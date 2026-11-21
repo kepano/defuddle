@@ -539,4 +539,31 @@ describe('Markdown conversion', () => {
 			expect(markdown).not.toContain('[ ]');
 		});
 	});
+
+	describe('footnote definitions', () => {
+		test('should indent continuation paragraphs and lists so they stay in the footnote', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>Claim<sup id="fnref:1"><a href="#fn:1">1</a></sup></p>' +
+				'<div id="footnotes"><ol><li id="fn:1">' +
+				'<p>First paragraph.</p><ul><li>Point A</li><li>Point B</li></ul><p>Second paragraph.</p>' +
+				'</li></ol></div></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain(
+				'[^1]: First paragraph.\n\n    - Point A\n    - Point B\n\n    Second paragraph.'
+			);
+		});
+
+		test('should leave single-paragraph footnotes unchanged', () => {
+			const markdown = createMarkdownContent(
+				'<article><p>Claim<sup id="fnref:1"><a href="#fn:1">1</a></sup></p>' +
+				'<div id="footnotes"><ol><li id="fn:1"><p>Only paragraph.</p></li></ol></div></article>',
+				'https://example.com'
+			);
+
+			expect(markdown).toContain('[^1]: Only paragraph.');
+			expect(markdown).not.toContain('    Only paragraph.');
+		});
+	});
 });

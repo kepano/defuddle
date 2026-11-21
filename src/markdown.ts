@@ -720,7 +720,12 @@ export function createMarkdownContent(content: string, url: string) {
 					const referenceContent = turndownService.turndown(serializeHTML(li));
 					// Remove the backlink from the footnote content
 					const cleanedContent = referenceContent.replace(/\s*↩︎$/, '').trim();
-					return `[^${formatFootnoteId(id || '')}]: ${cleanedContent}`;
+					// Indent continuation lines so later paragraphs and lists stay in the footnote
+					const indentedContent = cleanedContent
+						.split('\n')
+						.map((line, index) => (index === 0 || line === '' ? line : `    ${line}`))
+						.join('\n');
+					return `[^${formatFootnoteId(id || '')}]: ${indentedContent}`;
 				}
 				return '';
 			});
