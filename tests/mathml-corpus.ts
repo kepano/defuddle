@@ -98,6 +98,15 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 			reason: 'MathML bevelled="false" requests a standard horizontal fraction bar; mathml-to-latex checks truthiness of the string "false".',
 		},
 	});
+	add('mfrac:bevelled-uppercase', 'mfrac', '<math><mfrac bevelled="TRUE"><mi>a</mi><mi>b</mi></mfrac></math>');
+	add('mfrac:bevelled-other-value', 'mfrac', '<math><mfrac bevelled="yes"><mi>a</mi><mi>b</mi></mfrac></math>');
+	add('mfrac:bevelled-false-uppercase', 'mfrac', '<math><mfrac bevelled="FALSE"><mi>a</mi><mi>b</mi></mfrac></math>', {
+		expectedDiff: {
+			ours: '\\frac{a}{b}',
+			theirs: 'a/b',
+			reason: 'mathml-to-latex treats any non-empty bevelled value as true.',
+		},
+	});
 	const thicknesses = ['0', '0pt', '0px', 'medium', 'thin', 'thick', '1', '2', '0.5', '2pt', '3px', '50%', '150%', '0.2em', '1mm', '1.5ex', 'bogus', '2foo'];
 	for (const lt of thicknesses) {
 		add(`mfrac:linethickness:${lt}`, 'mfrac', `<math><mfrac linethickness="${lt}"><mi>n</mi><mi>k</mi></mfrac></math>`);

@@ -518,7 +518,7 @@ function convertNode(node: IRNode): string {
 			if (children.length !== 2) throw new InvalidNumberOfChildrenError(name, 2, children.length);
 			const num = children[0].out;
 			const den = children[1].out;
-			if (node.bevelled === 'true') return `${wrapParenIfGT1(num)}/${wrapParenIfGT1(den)}`;
+			if (node.bevelled && node.bevelled.toLowerCase() !== 'false') return `${wrapParenIfGT1(num)}/${wrapParenIfGT1(den)}`;
 			const thickness = parseLineThickness(node.linethickness);
 			if (thickness !== null) return `\\genfrac{}{}{${thickness}}{}{${num}}{${den}}`;
 			return `\\frac{${num}}{${den}}`;
