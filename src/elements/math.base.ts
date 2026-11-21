@@ -658,6 +658,17 @@ export function wrapRawLatexDelimiters(element: Element, doc: Document): void {
 
 export type LatexToMathML = (latex: string, isBlock: boolean, doc: Document) => Element | null;
 
+const hasPresentationalMathContent = (math: Element): boolean => {
+	const isPresentationalNode = (node: Node): boolean => {
+		if (isTextNode(node)) return Boolean(node.textContent?.trim());
+		if (!isElement(node)) return false;
+		const tag = node.tagName.toLowerCase();
+		if (tag === 'annotation' || tag === 'annotation-xml') return false;
+		return tag !== 'semantics' || Array.from(node.childNodes).some(isPresentationalNode);
+	};
+	return Array.from(math.childNodes).some(isPresentationalNode);
+};
+
 export const createMathElement = (
 	mathData: MathData | null,
 	latex: string | null,
@@ -676,7 +687,11 @@ export const createMathElement = (
 		const fragment = parseHTML(doc, mathData.mathml);
 		const mathContent = fragment.querySelector('math');
 		if (mathContent) {
-			transferContent(mathContent, cleanMathEl);
+			if (latex && !hasPresentationalMathContent(mathContent) && !mathContent.querySelector('annotation-xml')) {
+				cleanMathEl.textContent = latex;
+			} else {
+				transferContent(mathContent, cleanMathEl);
+			}
 		}
 	}
 	// If no MathML but we have LaTeX, convert it when possible or keep it as text
