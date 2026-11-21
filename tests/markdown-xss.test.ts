@@ -38,6 +38,7 @@ const cases = [
 	['callout title', `<div class="admonition"><p class="admonition-title">${escapeHtml(payload)}</p><p>Example callout content.</p></div>`],
 	['callout type', `<div class="callout" data-callout="${escapeHtml('note]\n\n' + payload)}"><div class="callout-content">Example callout content.</div></div>`],
 	['code language', `<pre><code data-lang="${escapeHtml('js\n```\n\n' + payload + '\n\n```')}">const example = 1;</code></pre>`],
+	['code wrapper language', `<div data-lang="${escapeHtml('js\n```\n\n' + payload + '\n\n```')}"><pre><code>const example = 1;</code></pre></div>`],
 	['math annotation', `<math display="block"><annotation encoding="application/x-tex">${escapeHtml('x\n$$\n\n' + payload + '\n\n$$')}</annotation></math>`],
 	['math attribute', `<math display="block" data-latex="${escapeHtml(payload)}"><mi>x</mi></math>`],
 	['katex attribute', `<span class="katex" data-latex="${escapeHtml(payload)}">x</span>`],

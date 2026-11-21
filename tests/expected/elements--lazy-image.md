@@ -33,7 +33,7 @@ Basically, for Node.js, CPU profiling is nothing more than collecting data about
 
 Node.js provides a way to collect data about CPU with two command lines.
 
-```c
+```
 node --prof app.js
 ```
 ![](https://miro.medium.com/max/60/1*e7gjTlzi55udTXbbPeEs2A.png?q=20)

@@ -2,14 +2,17 @@ import { isTextNode, isElement, countWords } from '../utils';
 
 // Language patterns
 const HIGHLIGHTER_PATTERNS = [
-	/^language-(\w+)$/,          // language-javascript
-	/^lang-(\w+)$/,              // lang-javascript
+	/^language-([\w+]+)$/,       // language-javascript, language-c++
+	/^lang-([\w+]+)$/,           // lang-javascript, lang-c++
 	/^(\w+)-code$/,              // javascript-code
 	/^code-(\w+)$/,              // code-javascript
 	/^syntax-(\w+)$/,            // syntax-javascript
 	/^code-snippet__(\w+)$/,     // code-snippet__javascript
 	/^highlight-(\w+)$/,         // highlight-javascript
+	/^highlight-source-(\w+)$/,  // highlight-source-javascript (GitHub)
 	/^(\w+)-snippet$/,           // javascript-snippet
+	/^mw-highlight-lang-([\w+#]+)$/, // mw-highlight-lang-go, mw-highlight-lang-c# (MediaWiki)
+	/^sp-(?!console$)(\w+)$/,    // sp-javascript (Sandpack; sp-console is its log panel)
 
 	// fallback
 	/(?:^|\s)(?:language|lang|brush|syntax)-(\w+)(?:\s|$)/i
@@ -36,10 +39,13 @@ const CODE_LANGUAGES = new Set([
 	'cmake',
 	'cobol',
 	'coffeescript',
+	'console',
 	'cpp', 'c++',
 	'crystal',
-	'csharp', 'cs',
+	'csharp', 'cs', 'c#',
+	'css',
 	'dart',
+	'diff',
 	'django',
 	'dockerfile',
 	'dotnet',
@@ -51,7 +57,7 @@ const CODE_LANGUAGES = new Set([
 	'gdscript',
 	'gitignore',
 	'glsl',
-	'golang',
+	'go', 'golang',
 	'gradle',
 	'graphql',
 	'groovy',
@@ -92,7 +98,8 @@ const CODE_LANGUAGES = new Set([
 	'powershell',
 	'prolog',
 	'puppet',
-	'python',
+	'pycon',
+	'python', 'py', 'python3',
 	'regex',
 	'rss',
 	'ruby', 'rb',
@@ -117,8 +124,15 @@ const CODE_LANGUAGES = new Set([
 	'webassembly', 'wasm',
 	'xml',
 	'yaml', 'yml',
-	'zig'
+	'zig',
+	'zsh'
 ]);
+
+// How many ancestors above a code block may still carry its language
+// (e.g. GitHub's div.highlight-source-go or Sphinx's div.highlight-python).
+const MAX_LANGUAGE_WRAPPER_DEPTH = 3;
+// A wrapper holding more text than this beyond the block is content, not a wrapper.
+const MAX_LANGUAGE_WRAPPER_EXTRA_TEXT = 40;
 
 // Convert code blocks with different syntax highlighters and line numbers
 // to a standard <pre> and <code> element with a language attribute
@@ -172,7 +186,9 @@ export const codeBlockRules = [
 				}
 			});
 
-			const getCodeLanguage = (element: Element): string => {
+			// Bare class names ("hljs go") only count on the block's own markup;
+			// on wrappers they are usually styling ("markdown", "go").
+			const getCodeLanguage = (element: Element, allowBareNames: boolean): string => {
 				// Check data-lang attribute first
 				const dataLang = element.getAttribute('data-lang') || element.getAttribute('data-language') || element.getAttribute('language');
 				if (dataLang) {
@@ -200,7 +216,9 @@ export const codeBlockRules = [
 					}
 				}
 
-				// If all else fails, check for bare language names
+				if (!allowBareNames) return '';
+
+				// If all else fails, check for bare language names (e.g. highlight.js "hljs go")
 				for (const className of classNames) {
 					if (CODE_LANGUAGES.has(className.toLowerCase())) {
 						return className.toLowerCase();
@@ -210,29 +228,57 @@ export const codeBlockRules = [
 				return '';
 			};
 
-			// Try to get the language from the element and its ancestors.
-			// Only search inside the element itself (not ancestors) to avoid
-			// picking up language from already-processed sibling code blocks.
-			let language = '';
-			let currentElement: Element | null = el;
+			// Read the language from the block's own markup first: the matched
+			// element, then its <code>, then its <pre> (when el is a wrapper).
+			const getOwnLanguage = (): string => {
+				const language = getCodeLanguage(el, true);
+				if (language) return language;
 
-			while (currentElement && !language) {
-				language = getCodeLanguage(currentElement);
+				// Prefer a code element that already has language attributes;
+				// fall back to the first code element if none found.
+				// (In table-based layouts like Hugo/Chroma, the first <code>
+				// is the line-number column and has no language attribute.)
+				const codeEl = el.querySelector('code[data-lang], code[class*="language-"]')
+					|| el.querySelector('code');
+				const codeLanguage = codeEl ? getCodeLanguage(codeEl, true) : '';
+				if (codeLanguage) return codeLanguage;
 
-				if (!language && currentElement === el) {
-					// Prefer a code element that already has language attributes;
-					// fall back to the first code element if none found.
-					// (In table-based layouts like Hugo/Chroma, the first <code>
-					// is the line-number column and has no language attribute.)
-					const codeEl = currentElement.querySelector('code[data-lang], code[class*="language-"]')
-						|| currentElement.querySelector('code');
-					if (codeEl) {
-						language = getCodeLanguage(codeEl);
-					}
+				for (const pre of Array.from(el.querySelectorAll('pre'))) {
+					const preLanguage = getCodeLanguage(pre, true);
+					if (preLanguage) return preLanguage;
 				}
+				return '';
+			};
 
-				currentElement = currentElement.parentElement;
-			}
+			// A wrapper belongs to this block alone if it holds no other <pre>
+			// and only a short label's worth of text beyond the block.
+			const isOwnWrapper = (wrapper: Element): boolean => {
+				const hasOtherPre = Array.from(wrapper.querySelectorAll('pre'))
+					.some(pre => !el.contains(pre)); // contains() is true for el itself
+				if (hasOtherPre) return false;
+
+				const extraText = (wrapper.textContent || '').length - (el.textContent || '').length;
+				return extraText <= MAX_LANGUAGE_WRAPPER_EXTRA_TEXT;
+			};
+
+			// Then check close wrappers (e.g. div.highlight-source-go). Only the
+			// nearest wrapper naming a language is considered, and only if it is
+			// the block's own wrapper, so unrelated page classes such as
+			// article.markdown are never used. Other blocks and text only grow
+			// going up, so validating that one wrapper is enough (and avoids
+			// scanning large ancestors for every block).
+			const getWrapperLanguage = (): string => {
+				let wrapper = el.parentElement;
+				for (let depth = 0; depth < MAX_LANGUAGE_WRAPPER_DEPTH; depth++) {
+					if (!wrapper || wrapper.tagName === 'BODY') return '';
+					const language = getCodeLanguage(wrapper, false);
+					if (language) return isOwnWrapper(wrapper) ? language : '';
+					wrapper = wrapper.parentElement;
+				}
+				return '';
+			};
+
+			let language = getOwnLanguage() || getWrapperLanguage();
 
 			// Detect CodeMirror-based code blocks (e.g. ChatGPT's runnable code blocks).
 			// The language is only in the header text, not in class/data attributes.
