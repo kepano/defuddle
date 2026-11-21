@@ -1,0 +1,30 @@
+<!--{"url":"https://www.youtube.com/watch?v=abcdEFGH123"}-->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Current video - YouTube</title>
+  <meta property="og:url" content="https://www.youtube.com/watch?v=oldVIDEO123">
+  <meta property="og:title" content="Previous video">
+  <meta property="og:description" content="Previous description">
+  <meta name="description" content="Previous description">
+  <script type="application/ld+json">
+    {"@type":"VideoObject","@id":"https://www.youtube.com/watch?v=oldVIDEO123","name":"Previous video","description":"Previous description"}
+  </script>
+  <script>var ytInitialPlayerResponse = {"videoDetails":{"videoId":"oldVIDEO123","title":"Previous video","shortDescription":"Previous description"}};</script>
+</head>
+<body>
+  <ytd-watch-flexy video-id="abcdEFGH123">
+    <ytd-watch-metadata>
+      <h1><yt-formatted-string>Current video</yt-formatted-string></h1>
+      <ytd-video-owner-renderer>
+        <div id="channel-name"><a href="/@example">Example Channel</a></div>
+      </ytd-video-owner-renderer>
+      <ytd-text-inline-expander id="description-inline-expander">
+        <div id="expanded"><yt-attributed-string>Current description &amp; details.</yt-attributed-string></div>
+        <div id="snippet"><span id="attributed-snippet-text">Current description...</span></div>
+        <button>Show more</button>
+      </ytd-text-inline-expander>
+    </ytd-watch-metadata>
+  </ytd-watch-flexy>
+</body>
+</html>

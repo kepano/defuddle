@@ -431,12 +431,39 @@ export class YoutubeExtractor extends BaseExtractor {
 		return {
 			content: contentHtml,
 			contentHtml: contentHtml,
+			// getVideoData validates the video ID. Generic metadata does not, and
+			// could restore the previous video's values after SPA navigation.
+			skipMetadataFallback: this.hasStaleMetadata() ? ['title', 'description'] : undefined,
 			extractedContent: {
 				videoId: this.getVideoId(),
 				author: channelName,
 			},
 			variables,
 		};
+	}
+
+	// True when the page's own metadata names a different video, as it does
+	// after SPA navigation. Metadata that names no video is not stale, so
+	// channel pages and sparse watch pages keep the generic fallback.
+	private hasStaleMetadata(): boolean {
+		const videoId = this.getVideoId();
+		if (!videoId) return false;
+
+		const urls: unknown[] = [
+			this.document.querySelector('meta[property="og:url"]')?.getAttribute('content'),
+			this.document.querySelector('link[rel="canonical"]')?.getAttribute('href'),
+		];
+		for (const script of Array.from(this.document.querySelectorAll('script[type="application/ld+json"]'))) {
+			try {
+				const data = JSON.parse(script.textContent || '');
+				for (const item of Array.isArray(data) ? data : [data]) {
+					if (item?.['@type'] === 'VideoObject') urls.push(item['@id'] || item['url'] || item['embedUrl']);
+				}
+			} catch {
+				// ignore invalid JSON
+			}
+		}
+		return urls.some(url => typeof url === 'string' && url !== '' && !url.includes(videoId));
 	}
 
 	private formatDescription(description: string): string {
@@ -475,8 +502,16 @@ export class YoutubeExtractor extends BaseExtractor {
 			}
 		}
 		
-		// If we found a VideoObject with comments but no description, return it as a fallback to at least get the title and thumbnail.
-		if (fallbackVideoObject) return fallbackVideoObject;
+		// A matching comment-derived VideoObject may lack the description. The
+		// rendered watch page can supply it even when the head metadata is stale.
+		const domVideoData = this.getVideoDataFromDom();
+		if (fallbackVideoObject) {
+			return {
+				...domVideoData,
+				...fallbackVideoObject,
+				description: fallbackVideoObject.description ?? domVideoData.description,
+			};
+		}
 
 		// Fall back to og:* meta tags. YouTube usually does not update these after SPA navigation.
 		if (videoId) {
@@ -484,14 +519,36 @@ export class YoutubeExtractor extends BaseExtractor {
 			// Validate that the og:url corresponds to the current video ID to avoid using stale metadata after SPA navigation.
 			if (ogUrl.includes(videoId)) {
 				return {
-					name: this.document.querySelector('meta[property="og:title"]')?.getAttribute('content') || '',
-					description: this.document.querySelector('meta[property="og:description"]')?.getAttribute('content') || '',
+					name: this.document.querySelector('meta[property="og:title"]')?.getAttribute('content') || domVideoData.name || '',
+					description: this.document.querySelector('meta[property="og:description"]')?.getAttribute('content') || domVideoData.description || '',
 					thumbnailUrl: this.document.querySelector('meta[property="og:image"]')?.getAttribute('content') || '',
 				};
 			}
 		}
 
-		return {};
+		return domVideoData;
+	}
+
+	private getVideoDataFromDom(): { name?: string; description?: string } {
+		const videoId = this.getVideoId();
+		const watch = Array.from(this.document.querySelectorAll('ytd-watch-flexy'))
+			.find(element => videoId && element.getAttribute('video-id') === videoId);
+		if (!watch) return {};
+
+		const name = watch.querySelector('ytd-watch-metadata h1')?.textContent?.trim();
+		// Read only the description text, excluding expansion buttons, chapters,
+		// and other UI in the expander. The expanded text can be empty until opened.
+		const selectors = [
+			'#description-inline-expander #expanded yt-attributed-string',
+			'#description-inline-expander #expanded yt-formatted-string',
+			'#description-inline-expander #attributed-snippet-text',
+			'#description-inline-expander #plain-snippet-text',
+		];
+		for (const selector of selectors) {
+			const description = watch.querySelector(selector)?.textContent?.trim();
+			if (description) return { name, description };
+		}
+		return { name };
 	}
 
 	private getChannelName(videoData: any): string {
