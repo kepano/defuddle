@@ -11,6 +11,7 @@ import {
 } from './constants';
 import { standardizeContent, standardizeExtractorOutput } from './standardize';
 import { standardizeFootnotes, FOOTNOTE_SECTION_RE } from './elements/footnotes';
+import { standardizeTables } from './elements/tables';
 import { standardizeCallouts } from './elements/callouts';
 import { extractLargestUrlFromSrcset } from './elements/images';
 import { ContentScorer, ContentScore } from './removals/scoring';
@@ -1043,6 +1044,12 @@ export class Defuddle {
 			profileStep('adoptExternalFootnotes', () => {
 				if (options.standardize) {
 					this.adoptExternalFootnotes(mainContent!, clone);
+				}
+			});
+
+			profileStep('standardizeTables', () => {
+				if (options.standardize) {
+					standardizeTables(mainContent!);
 				}
 			});
 

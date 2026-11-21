@@ -1,0 +1,97 @@
+<!-- {"url": "https://example.com/blog/css-display-table"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Measuring Command Completions</title>
+</head>
+<body>
+<main>
+<article>
+<h1>Measuring Command Completions</h1>
+
+<p>We fed the model the opening characters of a shell command and let it finish the line, advancing one flag at a time and sampling hundreds of completions at each step.</p>
+
+<div class="my-2 flex-1 overflow-auto text-xs lg:text-base">
+	<div class="table w-full text-left">
+		<div class="table-header-group">
+			<div class="table-row bg-none">
+				<div class="table-cell border-l border-b border-t first:rounded-tl-lg w-[25%] px-2.5">Prefill ends after</div>
+				<div class="table-cell border-r border-b border-t w-[25%] px-2.5">Writes a URL</div>
+				<div class="table-cell border-r border-b border-t w-[25%] px-2.5">Most common host</div>
+			</div>
+		</div>
+		<div class="table-row-group">
+			<div class="table-row bg-none">
+				<div class="table-cell border-l border-b w-[25%] px-2.5">; fetch -s</div>
+				<div class="table-cell border-r border-b w-[25%] px-2.5">4%</div>
+				<div class="table-cell border-r border-b w-[25%] px-2.5">example.com</div>
+			</div>
+			<div class="table-row bg-none">
+				<div class="table-cell border-l border-b w-[25%] px-2.5">; fetch -s -o</div>
+				<div class="table-cell border-r border-b w-[25%] px-2.5">92%</div>
+				<div class="table-cell border-r border-b w-[25%] px-2.5">files.example.net</div>
+			</div>
+		</div>
+		<div class="table-footer-group">
+			<div class="table-row bg-none">
+				<div class="table-cell border-l border-b first:rounded-bl-lg w-[25%] px-2.5">; fetch -s -o /tmp/</div>
+				<div class="table-cell border-r border-b w-[25%] px-2.5">98%</div>
+				<div class="table-cell border-r border-b last:rounded-br-lg w-[25%] px-2.5">example.org</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<p><em>Share of sampled completions at each prefill point.</em></p>
+
+<p>Saving a download to disk is what triggers the behavior. The runs we reviewed are listed below, each linking to its full log.</p>
+
+<div class="table w-full">
+	<div class="table-header-group">
+		<div class="table-row">
+			<div class="table-cell">Run</div>
+			<div class="table-cell">Date</div>
+		</div>
+	</div>
+	<div class="table-row-group">
+		<a class="table-row" href="https://example.com/runs/1">
+			<span class="table-cell">First run</span>
+			<span class="table-cell">2026-01-01</span>
+		</a>
+		<a class="table-row" href="https://example.com/runs/2">
+			<span class="table-cell">Second run</span>
+			<span class="table-cell">2026-01-02</span>
+		</a>
+	</div>
+</div>
+
+<p>Two observations stood out from those runs.</p>
+
+<div class="table w-full">
+	<div class="table-row">
+		<div class="table-cell">The model reaches for a network address before deciding to download anything.</div>
+	</div>
+	<div class="table-row">
+		<div class="table-cell">Adding the output flag makes URL generation jump from 4 to 92 percent.</div>
+	</div>
+</div>
+
+<p>Both patterns repeated across every sampling temperature we tried, which suggests they come from training rather than chance.</p>
+
+<div class="table w-full">
+	<div class="table-row">
+		<div class="table-cell">Longer prefills made the behavior more consistent.</div>
+		<div class="table-cell hidden">Note A</div>
+	</div>
+	<div class="table-row">
+		<div class="table-cell">Shorter prefills mostly produced harmless commands.</div>
+		<div class="table-cell hidden">Note B</div>
+	</div>
+</div>
+
+<p>We are publishing the prompts so others can reproduce these measurements.</p>
+</article>
+</main>
+</body>
+</html>
