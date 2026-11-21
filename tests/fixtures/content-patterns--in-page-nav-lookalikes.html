@@ -1,0 +1,42 @@
+<!-- {"url": "https://example.com/docs/setup"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setting Up the Tool - Example Docs</title>
+<meta name="author" content="Jane Doe">
+</head>
+<body>
+<article>
+<h1>Setting Up the Tool</h1>
+<p>This page walks through a first installation. It assumes a recent operating system and a working network connection, and it takes about fifteen minutes from start to finish on most machines.</p>
+<h2>Steps</h2>
+<ol>
+<li><a href="#step-1">Download the installer</a></li>
+<li><a href="#step-2">Run the installer and accept the license</a></li>
+<li><a href="#step-3">Restart your computer</a></li>
+</ol>
+<h2 id="step-1">Step 1</h2>
+<p>Download the installer from the release page. Pick the build that matches your processor, and check the file size against the value listed next to the download link before opening it.</p>
+<h2 id="step-2">Step 2</h2>
+<p>Open the installer and follow the prompts. The default location works for most people, but you can choose another folder if your system drive is short on space.</p>
+<h2 id="step-3">Step 3</h2>
+<p>Restart the computer so that the background service starts with the new settings. After the restart, the tool appears in the application menu and is ready to use.</p>
+<p>The package is also available through the common package managers. Pick the one your project already uses:</p>
+<div class="c1">
+<ul>
+<li><a href="#pm-one">npm</a></li>
+<li><a href="#pm-two">yarn</a></li>
+<li><a href="#pm-three">pnpm</a></li>
+</ul>
+<div id="pm-one"><p>Run the install command with npm in the project folder.</p></div>
+<div id="pm-two"><p>Run the add command with yarn in the project folder.</p></div>
+<div id="pm-three"><p>Run the add command with pnpm in the project folder.</p></div>
+</div>
+<p>Whichever manager you pick, keep the lock file under version control. It records the exact versions that were installed, so every machine that builds the project ends up with the same set of files.</p>
+<p>Each manager installs the same files, so the choice only affects how the dependency is recorded in your project and how updates are applied later on.</p>
+<p><a href="https://partner.example.net/offer">Next</a></p>
+<p>Next: <a href="/docs/configure">Configure the tool</a></p>
+</article>
+</body>
+</html>

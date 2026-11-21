@@ -1,0 +1,62 @@
+<!-- {"url": "https://example.org/docs/current/datatype-range.html"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Example DB: Documentation: 4.2. Range Types</title>
+</head>
+<body>
+<div id="docContent">
+<div class="navheader">
+  <table width="100%" summary="Navigation header">
+    <tr>
+      <th colspan="5" align="center">4.2.&nbsp;Range Types</th>
+    </tr>
+    <tr>
+      <td width="10%" align="left"><a accesskey="p" href="datatype-array.html" title="4.1.&nbsp;Array Types">Prev</a>&nbsp;</td>
+      <td width="10%" align="left"><a accesskey="u" href="datatype.html" title="Chapter&nbsp;4.&nbsp;Data Types">Up</a></td>
+      <th width="60%" align="center">Chapter&nbsp;4.&nbsp;Data Types</th>
+      <td width="10%" align="right"><a accesskey="h" href="index.html" title="Example DB Documentation">Home</a></td>
+      <td width="10%" align="right">&nbsp;<a accesskey="n" href="datatype-enum.html" title="4.3.&nbsp;Enumerated Types">Next</a></td>
+    </tr>
+  </table>
+  <hr />
+</div>
+<div class="sect1" id="DATATYPE-RANGE">
+  <div class="titlepage"><div><div><h2 class="title" style="clear: both">4.2.&nbsp;Range Types <a href="#DATATYPE-RANGE" class="id_link">#</a></h2></div></div></div>
+  <p>Range types are data types representing a range of values of some element type. For instance, ranges of timestamps might be used to represent the ranges of time that a meeting room is reserved.</p>
+  <p>Every range has a lower bound and an upper bound. Either bound can be inclusive or exclusive, and either can be omitted to make the range unbounded on that side.</p>
+  <div class="table" id="RANGE-BOUNDS-TABLE">
+    <p class="title"><strong>Table&nbsp;4.4.&nbsp;Range Bound Notation</strong></p>
+    <div class="table-contents">
+      <table class="table" summary="Range Bound Notation" border="1">
+        <thead>
+          <tr><th>Notation</th><th>Previous value</th><th>Next value</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code class="literal">[1,5)</code></td><td>includes 1</td><td>excludes 5</td></tr>
+          <tr><td><code class="literal">(1,5]</code></td><td>excludes 1</td><td>includes 5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p>The constructor function for each range type accepts the two bounds and an optional string that states which of them are inclusive.</p>
+</div>
+<div class="navfooter">
+  <hr />
+  <table width="100%" summary="Navigation footer">
+    <tr>
+      <td width="40%" align="left"><a accesskey="p" href="datatype-array.html">Prev</a>&nbsp;</td>
+      <td width="20%" align="center"><a accesskey="u" href="datatype.html">Up</a></td>
+      <td width="40%" align="right">&nbsp;<a accesskey="n" href="datatype-enum.html">Next</a></td>
+    </tr>
+    <tr>
+      <td width="40%" align="left" valign="top">4.1.&nbsp;Array Types&nbsp;</td>
+      <td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td>
+      <td width="40%" align="right" valign="top">&nbsp;4.3.&nbsp;Enumerated Types</td>
+    </tr>
+  </table>
+</div>
+</div>
+</body>
+</html>

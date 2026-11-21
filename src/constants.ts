@@ -157,6 +157,12 @@ export const EXACT_SELECTORS = [
 	'[role="alertdialog" i]',
 	'[role*="complementary" i]',
 	'[class*="pagination" i]',
+	// DocBook prev/up/home/next bars: navheader/navfooter from the XSL
+	// stylesheets, NAVHEADER/NAVFOOTER from DSSSL (e.g. tldp.org)
+	'[class~="navheader" i]',
+	'[class~="navfooter" i]',
+	'table[summary="Navigation header" i]',
+	'table[summary="Navigation footer" i]',
 	'.menu',
 	// '#menu', // see issue #106
 	'#siteSub',
