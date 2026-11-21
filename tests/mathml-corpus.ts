@@ -268,6 +268,8 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 	add('entities:xml-basic', 'entities', '<math><mo>&amp;</mo><mo>&lt;</mo><mo>&gt;</mo><mo>&lt;=</mo><mo>&gt;=</mo><mo>&amp;&amp;</mo></math>');
 	add('entities:numeric-hex', 'entities', '<math><mo>&#x2211;</mo><mi>&#x03B1;</mi><mo>&#x2061;</mo><mo>&#x222B;</mo><mi>&#x221E;</mi></math>');
 	add('entities:html-named', 'entities', '<math><mi>&alpha;</mi><mo>&plusmn;</mo><mi>&infin;</mi><mo>&le;</mo><mo>&ge;</mo></math>');
+	add('entities:escaped-nbsp', 'entities', '<math><mtext>a&amp;nbsp;b</mtext></math>');
+	add('entities:escaped-nbsp-mi', 'entities', '<math><mi>&amp;nbsp;</mi></math>');
 	add('symbols:greek-lower', 'symbols', '<math><mi>α</mi><mi>β</mi><mi>γ</mi><mi>δ</mi><mi>ε</mi><mi>ζ</mi><mi>η</mi><mi>θ</mi><mi>ι</mi><mi>κ</mi><mi>λ</mi><mi>μ</mi><mi>ν</mi><mi>ξ</mi><mi>ο</mi><mi>π</mi><mi>ρ</mi><mi>σ</mi><mi>τ</mi><mi>υ</mi><mi>φ</mi><mi>χ</mi><mi>ψ</mi><mi>ω</mi></math>');
 	add('symbols:greek-upper-standard', 'symbols', '<math><mi>Γ</mi><mi>Δ</mi><mi>Θ</mi><mi>Λ</mi><mi>Ξ</mi><mi>Π</mi><mi>Σ</mi><mi>Φ</mi><mi>Ψ</mi><mi>Ω</mi><mi>Ρ</mi><mi>Υ</mi></math>');
 	add('symbols:greek-upper-latin-lookalikes', 'symbols', '<math><mi>Ζ</mi><mi>Η</mi><mi>Μ</mi><mi>Ν</mi><mi>Ο</mi><mi>Τ</mi></math>', {

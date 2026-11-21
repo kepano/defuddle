@@ -115,7 +115,7 @@ function buildIR(rootEl: MathMLNodeLike): IRNode {
 
 		const node: IRNode = {
 			name,
-			value: elemChildren.length === 0 ? (el.textContent || '').replace(/[\r\n]/g, '') : '',
+			value: elemChildren.length === 0 ? (el.textContent || '').replace(/[\r\n]/g, '').replace(/&nbsp;/g, '\u00A0') : '',
 			children: [],
 			out: '',
 		};
