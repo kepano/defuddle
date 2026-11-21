@@ -271,6 +271,10 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 	add('msword:valueless-matrix', 'msword', `<math><mfenced open="[" close= >${table2x2}</mfenced></math>`);
 	add('msword:unquoted-bevelled', 'msword', '<math><mfrac bevelled=true><mi>a</mi><mi>b</mi></mfrac></math>');
 	add('msword:unquoted-linethickness', 'msword', '<math><mfrac linethickness=0><mi>n</mi><mi>k</mi></mfrac></math>');
+	add('attributes:line-break-separators', 'msword', '<math><mfenced open="(" close=")" separators=",&#10;;"><mi>a</mi><mi>b</mi><mi>c</mi></mfenced></math>');
+	add('attributes:line-break-notation', 'msword', '<math><menclose notation="box&#10;"><mi>x</mi></menclose></math>');
+	add('attributes:line-break-mathvariant', 'msword', '<math><mi mathvariant="bold\r\n">x</mi></math>');
+	add('attributes:line-break-valueless', 'msword', '<math><mfenced open="&#10;open"><mi>x</mi></mfenced></math>');
 	add('msword:line-breaks', 'msword', '<math>\r\n  <mi>a</mi>\n  <mo>+</mo>\r\n  <mtext>hello\nworld</mtext>\n</math>');
 
 	// --- Entities & Unicode symbols/operators/accents/special fonts ---

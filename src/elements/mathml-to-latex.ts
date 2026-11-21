@@ -56,8 +56,9 @@ function normalizeTagName(el: MathMLNodeLike): string {
 }
 
 function readAttr(el: MathMLNodeLike, name: string): string | undefined {
-	const val = el.getAttribute(name);
-	if (val === null) return undefined;
+	const raw = el.getAttribute(name);
+	if (raw === null) return undefined;
+	const val = raw.replace(/[\r\n]/g, '');
 	return val === name ? '' : val;
 }
 
