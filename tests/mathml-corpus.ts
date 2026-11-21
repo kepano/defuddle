@@ -284,6 +284,20 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 			reason: 'LaTeX has no commands for Greek capitals that look like Latin letters, so ours writes the Latin letter; mathml-to-latex lists them as special font characters and changes their style (Epsilon becomes a bold E).',
 		},
 	});
+	add('mtext:greek-capital-after-command', 'symbols', '<math><mtext>αΑ</mtext></math>', {
+		expectedDiff: {
+			ours: '\\alpha\\text{A}',
+			theirs: '\\alpha\\mathsf{A}',
+			reason: 'Greek capitals that look like Latin letters become Latin letters, and stay in \\text so they do not join the preceding command.',
+		},
+	});
+	add('mtext:rho-after-command', 'symbols', '<math><mtext>αΡ</mtext></math>', {
+		expectedDiff: {
+			ours: '\\alpha\\text{P}',
+			theirs: '\\alphaP',
+			reason: 'mathml-to-latex writes the undefined command \\alphaP.',
+		},
+	});
 	add('operators:relations-and-arrows', 'operators', '<math><mo>≤</mo><mo>≥</mo><mo>≠</mo><mo>≈</mo><mo>≡</mo><mo>∈</mo><mo>∉</mo><mo>⊂</mo><mo>⊃</mo><mo>⊆</mo><mo>⊇</mo><mo>→</mo><mo>←</mo><mo>↔</mo><mo>⇒</mo><mo>⇐</mo><mo>⇔</mo><mo>↦</mo></math>');
 	add('operators:calculus-and-logic', 'operators', '<math><mo>∑</mo><mo>∏</mo><mo>∫</mo><mo>∬</mo><mo>∭</mo><mo>∮</mo><mo>∂</mo><mo>∇</mo><mo>∀</mo><mo>∃</mo><mo>¬</mo><mo>∧</mo><mo>∨</mo><mo>⊕</mo><mo>⊗</mo><mo>⊥</mo><mo>±</mo><mo>×</mo><mo>÷</mo><mo>·</mo></math>');
 	add('operators:invisible', 'operators', '<math><mi>f</mi><mo>&#x2061;</mo><mo>(</mo><mi>x</mi><mo>)</mo><mo>&#x2062;</mo><mi>y</mi><mo>&#x2063;</mo><mi>z</mi><mo>&#x2064;</mo><mn>1</mn></math>');

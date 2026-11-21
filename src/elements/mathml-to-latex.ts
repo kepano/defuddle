@@ -384,11 +384,17 @@ function convertMText(value: string, mathvariant: string | undefined): string {
 		if (isAlnumOrSpace) {
 			run += char;
 		} else {
+			const converted = convertMIValue(char, undefined);
+			// A bare letter after a command like \\alpha would become part of its name.
+			if (/^[a-z0-9]$/i.test(converted)) {
+				run += converted;
+				continue;
+			}
 			if (run) {
 				result += wrapTextVariant(run, mathvariant);
 				run = '';
 			}
-			result += convertMIValue(char, undefined);
+			result += converted;
 		}
 	}
 	if (run) result += wrapTextVariant(run, mathvariant);
