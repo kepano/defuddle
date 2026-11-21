@@ -531,15 +531,24 @@ export class MetadataExtractor {
 		return code.replace(/_/g, '-');
 	}
 
+	private static resolveUrl(candidate: string, baseUrl: string): string {
+		if (!candidate || !baseUrl) return candidate;
+		try {
+			return new URL(candidate, baseUrl).href;
+		} catch {
+			return candidate;
+		}
+	}
+
 	private static getFavicon(doc: Document, baseUrl: string, metaTags: MetaTagItem[]): string {
 		const iconFromMeta = this.getMetaContent(metaTags, "property", "og:image:favicon");
-		if (iconFromMeta) return iconFromMeta;
+		if (iconFromMeta) return this.resolveUrl(iconFromMeta, baseUrl);
 
 		const iconLink = doc.querySelector("link[rel='icon']")?.getAttribute("href");
-		if (iconLink) return iconLink;
+		if (iconLink) return this.resolveUrl(iconLink, baseUrl);
 
 		const shortcutLink = doc.querySelector("link[rel='shortcut icon']")?.getAttribute("href");
-		if (shortcutLink) return shortcutLink;
+		if (shortcutLink) return this.resolveUrl(shortcutLink, baseUrl);
 
 		// Only try to construct favicon URL if we have a valid HTTP base URL
 		if (baseUrl && /^https?:\/\//.test(baseUrl)) {
