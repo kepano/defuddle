@@ -1,4 +1,4 @@
-import { lookupOperator, lookupSymbol, lookupMathNumber, convertUtf8Char } from './mathml-tables';
+import { lookupOperator, lookupSymbol, lookupMathNumber } from './mathml-tables';
 
 export interface MathMLNodeLike {
 	nodeName: string;
@@ -365,10 +365,7 @@ function wrapTextVariant(value: string, variant: string | undefined): string {
 function convertMIValue(rawValue: string, mathvariant: string | undefined): string {
 	const normalized = normalizeWhitespace(rawValue);
 	if (normalized === ' ') return lookupSymbol(' ');
-	const converted = lookupSymbol(normalized.trim());
-	const parsed = convertUtf8Char(converted);
-	if (parsed !== converted) return parsed;
-	return wrapMathVariant(converted, mathvariant);
+	return wrapMathVariant(lookupSymbol(normalized.trim()), mathvariant);
 }
 
 function convertMText(value: string, mathvariant: string | undefined): string {
@@ -621,7 +618,3 @@ export function convertMathMLToLatex(element: MathMLNodeLike): string {
 
 	return normalizeWhitespace(root.out).trim();
 }
-
-export const MathMLToLaTeX = {
-	convert: convertMathMLToLatex,
-};

@@ -2,7 +2,6 @@ import { describe, test, expect, vi, afterEach } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
-import { MathMLToLaTeX } from '../src/elements/mathml-to-latex';
 import * as core from '../src/elements/math.core';
 import * as full from '../src/elements/math.full';
 import { parseDocument, normalizeHtmlAttributes } from './helpers';
@@ -150,9 +149,8 @@ describe('math rules variant differences', () => {
 	});
 
 	test('full keeps MathML and empty data-latex when MathML conversion throws', () => {
-		vi.spyOn(MathMLToLaTeX, 'convert').mockImplementation(() => { throw new Error('boom'); });
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const { result } = transform(full, MATHML_ONLY);
+		const { result } = transform(full, MATHML_ONLY.replace('<mi>b</mi>', ''));
 		expect(result.getAttribute('data-latex')).toBe('');
 		expect(result.querySelector('mfrac')).not.toBeNull();
 	});

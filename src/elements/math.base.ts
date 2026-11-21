@@ -218,24 +218,18 @@ const flattenTaggedEquationTables = (mathEl: Element): void => {
 	}
 };
 
-/** Clone a math element and flatten tagged-equation tables. */
-const normalizeMathElement = (mathEl: Element): Element => {
-	const clone = mathEl.cloneNode(true) as Element;
-	flattenTaggedEquationTables(clone);
-	return clone;
+/** Clone a math element, flatten tagged-equation tables, and describe the clone. */
+const toMathData = (mathEl: Element, latex: string | null, isBlock: boolean): MathData => {
+	const element = mathEl.cloneNode(true) as Element;
+	flattenTaggedEquationTables(element);
+	return { mathml: element.outerHTML, latex, isBlock, element };
 };
 
 export const getMathMLFromElement = (el: Element): MathData | null => {
 	// 1. Direct MathML content
 	if (el.tagName.toLowerCase() === 'math') {
 		const isBlock = el.getAttribute('display') === 'block';
-		const normalized = normalizeMathElement(el);
-		return {
-			mathml: normalized.outerHTML,
-			latex: el.getAttribute('alttext') || null,
-			isBlock,
-			element: normalized
-		};
+		return toMathData(el, el.getAttribute('alttext') || null, isBlock);
 	}
 
 	// 2. MathML in data-mathml attribute
@@ -246,13 +240,7 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 		const mathElement = fragment.querySelector('math');
 		if (mathElement) {
 			const isBlock = mathElement.getAttribute('display') === 'block';
-			const normalized = normalizeMathElement(mathElement);
-			return {
-				mathml: normalized.outerHTML,
-				latex: mathElement.getAttribute('alttext') || null,
-				isBlock,
-				element: normalized
-			};
+			return toMathData(mathElement, mathElement.getAttribute('alttext') || null, isBlock);
 		}
 	}
 
@@ -267,27 +255,15 @@ export const getMathMLFromElement = (el: Element): MathData | null => {
 			const mathDisplayAttr = mathElement.getAttribute('display');
 			const containerDisplayAttr = assistiveMmlContainer.getAttribute('display');
 			const isBlock = mathDisplayAttr === 'block' || containerDisplayAttr === 'block';
-			const normalized = normalizeMathElement(mathElement);
-
-			return {
-				mathml: normalized.outerHTML,
-				latex: mathElement.getAttribute('alttext') || null,
-				isBlock,
-				element: normalized
-			};
+			return toMathData(mathElement, mathElement.getAttribute('alttext') || null, isBlock);
 		}
 	}
 
 	// 4. KaTeX MathML
 	const katexMathml = el.querySelector('.katex-mathml math');
 	if (katexMathml) {
-		const normalized = normalizeMathElement(katexMathml);
-		return {
-			mathml: normalized.outerHTML,
-			latex: null, // We'll get LaTeX separately for KaTeX
-			isBlock: false, // We'll determine this from container
-			element: normalized
-		};
+		// KaTeX's LaTeX and display mode are read separately
+		return toMathData(katexMathml, null, false);
 	}
 
 	// 5. MathJax v3 CHTML render tree (no assistive MathML / annotation) —

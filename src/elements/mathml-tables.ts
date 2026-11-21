@@ -104,7 +104,7 @@ export function lookupMathNumber(value: string): string | undefined {
 	return undefined;
 }
 
-export function convertUtf8Char(char: string): string {
+function convertUtf8Char(char: string): string {
 	if (/[a-z0-9]/i.test(char)) return char;
 	ensureTables();
 	const vowel = vowelMap!.get(char);
@@ -128,20 +128,16 @@ export function convertUtf8Char(char: string): string {
 	return char;
 }
 
+function lookup(table: Map<string, string>, value: string): string {
+	return table.get(value) ?? lookupMathNumber(value) ?? convertUtf8Char(value);
+}
+
 export function lookupSymbol(value: string): string {
 	ensureTables();
-	const found = symMap!.get(value);
-	if (found !== undefined) return found;
-	const num = lookupMathNumber(value);
-	if (num !== undefined) return num;
-	return convertUtf8Char(value);
+	return lookup(symMap!, value);
 }
 
 export function lookupOperator(value: string): string {
 	ensureTables();
-	const found = opMap!.get(value);
-	if (found !== undefined) return found;
-	const num = lookupMathNumber(value);
-	if (num !== undefined) return num;
-	return convertUtf8Char(value);
+	return lookup(opMap!, value);
 }

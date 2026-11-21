@@ -1,5 +1,5 @@
 import TurndownService from 'turndown';
-import { MathMLToLaTeX } from './elements/mathml-to-latex';
+import { convertMathMLToLatex } from './elements/mathml-to-latex';
 import { isElement, isTextNode } from './utils';
 import { escapeHtml, serializeHTML, isDirectTableChild, isDangerousUrl, stripUnsafeElements } from './utils/dom';
 import { fencedLines, transformOutsideCodeFences } from './utils/code-fences';
@@ -958,7 +958,7 @@ export function createMarkdownContent(content: string, url: string) {
 		// Fallback: convert MathML → LaTeX for renderers like MathJax SVG that embed no LaTeX.
 		// markdown.ts is excluded from the core bundle, so the converter stays full-bundle only.
 		if (element.nodeName.toLowerCase() === 'math' && hasMathML) {
-			const converted = convertMathMLToLatex(element);
+			const converted = tryConvertMathML(element);
 			if (converted) return converted;
 		}
 
@@ -987,9 +987,9 @@ export function createMarkdownContent(content: string, url: string) {
 		return visit(element);
 	}
 
-	function convertMathMLToLatex(element: GenericElement): string {
+	function tryConvertMathML(element: GenericElement): string {
 		try {
-			return MathMLToLaTeX.convert(element).trim();
+			return convertMathMLToLatex(element);
 		} catch (e) {
 			// conversion failed
 		}

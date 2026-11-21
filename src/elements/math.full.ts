@@ -1,4 +1,4 @@
-import { MathMLToLaTeX } from './mathml-to-latex';
+import { convertMathMLToLatex } from './mathml-to-latex';
 import {
 	MathData,
 	LatexToMathML,
@@ -18,7 +18,7 @@ export const getLatexFromElement = (el: Element, mathData: MathData | null): str
 	// If no LaTeX found but we have MathML, convert it
 	if (mathData) {
 		try {
-			return MathMLToLaTeX.convert(mathData.element);
+			return convertMathMLToLatex(mathData.element);
 		} catch (e) {
 			console.warn('Failed to convert MathML to LaTeX:', e);
 		}
