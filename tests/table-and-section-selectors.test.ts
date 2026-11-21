@@ -92,4 +92,41 @@ describe.each(['linkedom', 'jsdom'])('Table and section selector preservation (%
 		expect(result.content).toContain('Classification of forecasting models');
 		expect(result.content).not.toContain('More articles you might like');
 	});
+
+	test('preserves level sections with punctuation-stripped or custom heading IDs while still removing non-heading or clutter-classed sections', async () => {
+		const prose = '<p>This FAQ documents practical evaluation techniques for language models, including trace inspection, error analysis, and selecting reliable metrics for production monitoring.</p>'.repeat(3);
+		const html = `<!doctype html><html><head><title>Evals FAQ</title></head><body><article>
+			<h1>Evals FAQ</h1>
+			${prose}
+			<section id="q-whats-your-favorite-eval-vendor" class="level2">
+				<h2>Q: What’s your favorite eval vendor?</h2>
+				<p>Choose tools that make inspecting raw traces fast and frictionless.</p>
+			</section>
+			<section id="q-why-do-you-recommend-binary-passfail-evaluations" class="level2">
+				<h2>Q: Why do you recommend binary (pass/fail) evaluations?</h2>
+				<p>Binary labels force clear failure criteria and reduce rater drift.</p>
+			</section>
+			<section id="q-how-can-i-do-error-analysis-when-traces-contain-sensitive-data" class="level2">
+				<h2>Q: How can I do evals when traces contain sensitive data?</h2>
+				<p>Mask personal identifiers before sharing traces with domain reviewers.</p>
+			</section>
+			<section id="related-posts" class="level2">
+				<p>Unheaded clutter block should still be removed.</p>
+			</section>
+			<section id="topic-overview" class="level2 related-posts">
+				<h2>Topic Overview</h2>
+				<p>Clutter-classed level section should still be removed.</p>
+			</section>
+		</article></body></html>`;
+
+		const result = await Defuddle(parse(html), URL_, { markdown: true });
+		expect(result.content).toContain('favorite eval vendor');
+		expect(result.content).toContain('inspecting raw traces');
+		expect(result.content).toContain('binary (pass/fail)');
+		expect(result.content).toContain('reduce rater drift');
+		expect(result.content).toContain('traces contain sensitive data');
+		expect(result.content).toContain('Mask personal identifiers');
+		expect(result.content).not.toContain('Unheaded clutter block');
+		expect(result.content).not.toContain('Clutter-classed level section');
+	});
 });

@@ -31,6 +31,8 @@ function isInsideCodeTable(el: Element): boolean {
 	return Boolean(el.closest('table')?.querySelector('pre'));
 }
 
+// Pandoc/Quarto --section-divs hoists heading anchor IDs (auto-slugs, sec-*
+// labels, or explicit {#custom-id} anchors) onto <section class="levelN">.
 function isLevelSectionHeadingId(el: Element, id: string): boolean {
 	if (el.tagName !== 'SECTION' || !id) {
 		return false;
@@ -38,18 +40,7 @@ function isLevelSectionHeadingId(el: Element, id: string): boolean {
 	if (!/\blevel\d+\b/i.test(getClassName(el))) {
 		return false;
 	}
-	if (id.startsWith('sec-')) {
-		return true;
-	}
-	const heading = el.querySelector('h1, h2, h3, h4, h5, h6');
-	if (!heading) {
-		return false;
-	}
-	const slug = (heading.textContent || '')
-		.toLowerCase()
-		.replace(/[^\p{L}\p{N}]+/gu, '-')
-		.replace(/^-+|-+$/g, '');
-	return Boolean(slug) && (id === slug || slug.endsWith('-' + id));
+	return id.startsWith('sec-') || Boolean(el.querySelector('h1, h2, h3, h4, h5, h6'));
 }
 
 export function removeBySelector(doc: Document, debug: boolean, removeExact: boolean = true, removePartial: boolean = true, mainContent?: Element | null, debugRemovals?: DebugRemoval[], skipHiddenExactSelectors: boolean = false) {
