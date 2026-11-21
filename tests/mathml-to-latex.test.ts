@@ -1,11 +1,15 @@
 import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { JSDOM } from 'jsdom';
-import { MathMLToLaTeX as RefMathMLToLaTeX } from 'mathml-to-latex';
 import { parseLinkedomHTML } from '../src/utils/linkedom-compat';
 import { convertMathMLToLatex } from '../src/elements/mathml-to-latex';
 import { getFullMathMLCorpus, type MathMLCase } from './mathml-corpus';
 
 const corpus = getFullMathMLCorpus();
+
+// Output of mathml-to-latex 1.8.0, the library this converter replaced, under linkedom and JSDOM.
+const reference: Record<string, string> = JSON.parse(readFileSync(join(__dirname, 'mathml-reference.json'), 'utf8'));
 
 function parseMathRoot(html: string, domImpl: 'linkedom' | 'jsdom'): Element {
 	const wrapped = `<!doctype html><html><body>${html}</body></html>`;
@@ -17,30 +21,28 @@ function parseMathRoot(html: string, domImpl: 'linkedom' | 'jsdom'): Element {
 	return el;
 }
 
-// What Defuddle passed to mathml-to-latex before: the parsed element, serialized.
-function convertWithReference(el: Element): string {
-	const mathML = el.outerHTML.replace(/&amp;nbsp;/g, '&#xA0;').replace(/&nbsp;/g, '&#xA0;');
-	return RefMathMLToLaTeX.convert(mathML);
-}
-
-describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)', (domImpl) => {
+describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX reference output (%s)', (domImpl) => {
 	test('corpus covers all fixture <math> elements plus generated cases', () => {
 		const fixtureCount = corpus.filter(c => c.category === 'fixture').length;
 		expect(fixtureCount).toBeGreaterThanOrEqual(90);
 		expect(corpus.length).toBeGreaterThanOrEqual(220);
 	});
 
-	const matchingCases = corpus.filter(c => !c.expectedDiff && !c.expectThrow);
+	// A fixture added later has no reference output.
+	const matchingCases = corpus.filter(c => !c.expectedDiff && !c.expectThrow && (c.category !== 'fixture' || c.id in reference));
 	const diffCases = corpus.filter(c => !!c.expectedDiff);
 	const throwCases = corpus.filter(c => !!c.expectThrow);
+
+	test('every reference output has a corpus case', () => {
+		const ids = new Set(matchingCases.map(c => c.id));
+		expect(Object.keys(reference).filter(id => !ids.has(id))).toEqual([]);
+	});
 
 	test.each(matchingCases.map(c => [c.id, c] as [string, MathMLCase]))(
 		'matches mathml-to-latex: %s',
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
-			const ours = convertMathMLToLatex(el);
-			const theirs = convertWithReference(el);
-			expect(ours).toBe(theirs);
+			expect(convertMathMLToLatex(el)).toBe(reference[c.id]);
 		}
 	);
 
@@ -48,10 +50,7 @@ describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)
 		'documents intentional improvement: %s',
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
-			const ours = convertMathMLToLatex(el);
-			const theirs = convertWithReference(el);
-			expect(ours).toBe(c.expectedDiff!.ours);
-			expect(theirs).toBe(c.expectedDiff!.theirs);
+			expect(convertMathMLToLatex(el)).toBe(c.expectedDiff!.ours);
 		}
 	);
 
@@ -60,7 +59,6 @@ describe.each(['linkedom', 'jsdom'] as const)('MathML-to-LaTeX differential (%s)
 		(_id, c) => {
 			const el = parseMathRoot(c.html, domImpl);
 			expect(() => convertMathMLToLatex(el)).toThrow();
-			expect(() => convertWithReference(el)).toThrow();
 		}
 	);
 });

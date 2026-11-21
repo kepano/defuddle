@@ -12,7 +12,7 @@ export interface MathMLCase {
 		theirs: string;
 		reason: string;
 	};
-	/** When true, both converters are expected to throw InvalidNumberOfChildrenError. */
+	/** When true, the converter is expected to throw InvalidNumberOfChildrenError, as mathml-to-latex 1.8.0 did. */
 	expectThrow?: boolean;
 }
 
