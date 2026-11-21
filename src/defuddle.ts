@@ -367,7 +367,7 @@ export class Defuddle {
 	private _deduplicateImages(body: Element): void {
 		for (const figure of body.querySelectorAll('figure')) {
 			const figImgs = Array.from(figure.querySelectorAll('img'))
-				.filter(img => !img.closest('noscript') && img.parentElement);
+				.filter(img => !img.closest('noscript') && img.closest('figure') === figure && img.parentElement);
 			if (figImgs.length < 2) continue;
 
 			// A copy has the same file name apart from size words, and the same

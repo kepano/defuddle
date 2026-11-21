@@ -484,6 +484,8 @@ export function createMarkdownContent(content: string, url: string) {
 		filter: 'figure',
 		replacement: function(content, node) {
 			if (!isGenericElement(node)) return content;
+			// Let each subfigure convert its own image and caption.
+			if (node.querySelector('figure')) return content;
 
 			// A gallery's own figures convert one by one.
 			if (node.querySelector('figure')) return content;
