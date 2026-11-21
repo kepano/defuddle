@@ -1,0 +1,40 @@
+<!-- {"url":"https://example.com/algorithm"} -->
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Register operations</title></head>
+<body>
+<article>
+	<h1>Register operations</h1>
+	<p>This procedure describes how a receiver processes an encoded state after transmission. The sender prepares a collection of physical systems and applies an encoding operation before delivering the result. The receiver uses a decoding operation to recover the original information. Each operation acts on a specified group of systems rather than on the entire collection. The names attached to these groups distinguish the input from the output and make the instructions precise. Intermediate states may contain errors introduced during transmission. The decoding procedure identifies those errors and corrects them without changing the information that the sender intended to convey. The ordering of the operations is therefore important.</p>
+	<p>The steps below describe the final part of that procedure. Read each instruction in order and keep the named systems separate throughout the calculation. An operation written beside a system name applies only to that system. A dagger denotes the inverse operation in this example. After the inverse operations have been applied the receiver can produce the decoded state. The final instruction identifies which system contains that state. These conventions also allow the same procedure to be described in ordinary prose without equations. Both descriptions specify the same sequence of operations and the same final result.</p>
+	<h2>Algorithm</h2>
+	<ol>
+		<li>Decode the received state.
+			<ol>
+				<li><div><p>Apply <math><semantics><mi>D</mi><annotation encoding="application/x-tex">D</annotation></semantics></math> and output register <math><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>.</p></div></li>
+				<li><div><p>Apply <math><semantics><mrow><msup><mi>U</mi><mo>†</mo></msup><msup><mi>P</mi><mo>†</mo></msup></mrow><annotation encoding="application/x-tex">U^\dagger P^\dagger</annotation></semantics></math> to the received register <math><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>.</p></div></li>
+			</ol>
+		</li>
+	</ol>
+	<div><h3>Quantum register operations</h3></div>
+	<div><p>Initialize the register before decoding.</p></div>
+	<div><p>Use the <code>register</code> keyword.</p></div>
+	<div><p>See the <a href="/reference/register"><code>register</code></a> keyword.</p></div>
+	<div><p>Check <code>register_state</code> before returning.</p></div>
+	<div><p>Registered values remain unchanged.</p></div>
+	<div><p>Use the cash register carefully.</p></div>
+	<div><p>The register now contains output.</p></div>
+	<div><p>Call <code>register</code> to continue.</p></div>
+	<div><p>We register an account in this example.</p></div>
+	<div><p>Inspect register <a href="/state">state</a> before returning.</p></div>
+	<div><p>Account access <a href="/register">Register</a></p></div>
+	<div><p>Register now for free access.</p></div>
+	<div><p>Register an account to proceed.</p></div>
+	<div><p>Please register to continue.</p></div>
+	<div><p>Account access <a href="/register">Register now</a></p></div>
+	<div><p>Sign up for updates.</p></div>
+	<div><p>Register now for <math><mi>X</mi></math> access.</p></div>
+	<nav><p>Account access <a href="/register">Register</a> <math><mi>Y</mi></math></p></nav>
+</article>
+</body>
+</html>
