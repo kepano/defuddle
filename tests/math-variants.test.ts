@@ -2,7 +2,6 @@ import { describe, test, expect, vi, afterEach } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
-import { MathMLToLaTeX } from 'mathml-to-latex';
 import * as core from '../src/elements/math.core';
 import * as full from '../src/elements/math.full';
 import { parseDocument, normalizeHtmlAttributes } from './helpers';
@@ -150,9 +149,8 @@ describe('math rules variant differences', () => {
 	});
 
 	test('full keeps MathML and empty data-latex when MathML conversion throws', () => {
-		vi.spyOn(MathMLToLaTeX, 'convert').mockImplementation(() => { throw new Error('boom'); });
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
-		const { result } = transform(full, MATHML_ONLY);
+		const { result } = transform(full, MATHML_ONLY.replace('<mi>b</mi>', ''));
 		expect(result.getAttribute('data-latex')).toBe('');
 		expect(result.querySelector('mfrac')).not.toBeNull();
 	});
@@ -160,36 +158,37 @@ describe('math rules variant differences', () => {
 
 describe('core math dependencies', () => {
 	// The core bundle must not pull in the full build's conversion libraries.
-	const FULL_ONLY_DEPS = ['mathml-to-latex', 'temml'];
+	const FULL_ONLY_DEPS = [resolve(__dirname, '../src/elements/mathml-to-latex.ts'), 'temml'];
 
-	function collectSpecifiers(entry: string, seen = new Set<string>(), bare = new Set<string>()) {
-		if (seen.has(entry)) return bare;
+	function collectDeps(entry: string, seen = new Set<string>(), deps = new Set<string>()) {
+		if (seen.has(entry)) return deps;
 		seen.add(entry);
+		deps.add(entry);
 		const source = readFileSync(entry, 'utf8');
 		const pattern = /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)['"]([^'"]+)['"]/g;
 		for (const [, specifier] of source.matchAll(pattern)) {
 			if (!specifier.startsWith('.')) {
-				bare.add(specifier);
+				deps.add(specifier);
 				continue;
 			}
 			const base = resolve(dirname(entry), specifier);
 			const file = [`${base}.ts`, resolve(base, 'index.ts')].find(existsSync);
-			if (file) collectSpecifiers(file, seen, bare);
+			if (file) collectDeps(file, seen, deps);
 		}
-		return bare;
+		return deps;
 	}
 
 	test('math.core does not import full-build conversion libraries', () => {
-		const bare = collectSpecifiers(resolve(__dirname, '../src/elements/math.core.ts'));
+		const deps = collectDeps(resolve(__dirname, '../src/elements/math.core.ts'));
 		for (const dep of FULL_ONLY_DEPS) {
-			expect(bare.has(dep), `math.core imports ${dep}`).toBe(false);
+			expect(deps.has(dep), `math.core imports ${dep}`).toBe(false);
 		}
 	});
 
 	test('dependency scan detects full-build libraries in math.full', () => {
-		const bare = collectSpecifiers(resolve(__dirname, '../src/elements/math.full.ts'));
+		const deps = collectDeps(resolve(__dirname, '../src/elements/math.full.ts'));
 		for (const dep of FULL_ONLY_DEPS) {
-			expect(bare.has(dep)).toBe(true);
+			expect(deps.has(dep)).toBe(true);
 		}
 	});
 });
