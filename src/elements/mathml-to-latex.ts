@@ -575,8 +575,17 @@ function convertNode(node: IRNode): string {
 		case 'annotation':
 		case 'annotation-xml':
 			return '';
-		case 'semantics':
-			return children[0]?.out ?? '';
+		case 'semantics': {
+			const primary = children.map(c => c.out).join(' ');
+			if (primary.trim()) return primary;
+			// Content MathML has no LaTeX form, so use its presentation annotation.
+			for (const child of children) {
+				if (child.name !== 'annotation-xml') continue;
+				const fallback = child.children.map(c => c.out).join(' ');
+				if (fallback.trim()) return fallback;
+			}
+			return '';
+		}
 		default:
 			return children.map(c => c.out).join(' ');
 	}

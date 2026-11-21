@@ -238,6 +238,10 @@ export function getGeneratedMathMLCases(): MathMLCase[] {
 			reason: 'Per MathML spec <semantics> renders only its first child; mathml-to-latex falls through to GenericSpacingWrapper and leaks presentation elements inside <annotation-xml>.',
 		},
 	});
+	add('semantics:multiple-children', 'semantics', '<math><semantics><mi>x</mi><mo>+</mo><mn>1</mn><annotation encoding="application/x-tex">x+1</annotation></semantics></math>');
+	add('semantics:annotation-first', 'semantics', '<math><semantics><annotation encoding="application/x-tex">x</annotation><mrow><mi>x</mi></mrow></semantics></math>');
+	add('semantics:content-with-presentation', 'semantics', '<math><semantics><apply><plus/><ci>a</ci><ci>b</ci></apply><annotation-xml encoding="application/mathml-presentation+xml"><mi>a</mi><mo>+</mo><mi>b</mi></annotation-xml></semantics></math>');
+	add('semantics:ci-with-presentation', 'semantics', '<math><semantics><ci>x</ci><annotation-xml encoding="MathML-Presentation"><mi>x</mi></annotation-xml></semantics></math>');
 	add('unknown:wrapper', 'other-elements', '<math><mcustom><mi>a</mi><mo>+</mo><mi>b</mi></mcustom></math>');
 	add('unknown:leaf', 'other-elements', '<math><mcustom>ignored</mcustom></math>');
 	add('empty:math', 'empty', '<math></math>');
