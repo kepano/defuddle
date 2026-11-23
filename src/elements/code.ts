@@ -340,9 +340,10 @@ export const codeBlockRules = [
 						return '';
 					}
 
-					// Pygments inline line number spans (<span class="lineno">1</span>)
+					// Pygments inline line number spans (<span class="lineno">1</span>, or
+					// <span class="linenos">1</span> as Sphinx renders them)
 					// are interspersed directly in the code content; skip them.
-					if (element.matches('span.lineno')) {
+					if (element.matches('span.lineno, span.linenos')) {
 						return '';
 					}
 
@@ -426,7 +427,7 @@ export const codeBlockRules = [
 					const codePre = pres.find(p =>
 						p.querySelector('code[data-lang], code[class*="language-"], .line, [data-line]')
 					) || pres.find(p =>
-						p.querySelector('span[class]') && !p.classList.contains('lineno')
+						p.querySelector('span[class]') && !p.classList.contains('lineno') && !p.classList.contains('linenos')
 					);
 					if (codePre) {
 						extractTarget = codePre;
