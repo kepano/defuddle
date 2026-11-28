@@ -3,8 +3,12 @@ import { getClassName } from '../utils/dom';
 import { isBase64Placeholder } from '../elements/images';
 import { LOOKS_LIKE_LATEX_RE } from '../elements/math.base';
 
-const STYLE_WIDTH_PATTERN = /width\s*:\s*(\d+)/;
-const STYLE_HEIGHT_PATTERN = /height\s*:\s*(\d+)/;
+// Only match the `width`/`height` CSS properties, not substrings of other
+// properties such as `stroke-width`, `border-width` or `line-height`. A CSS
+// property name starts at the beginning of the style string or after a `;`
+// (ignoring surrounding whitespace).
+const STYLE_WIDTH_PATTERN = /(?:^|;)\s*width\s*:\s*(\d+)/;
+const STYLE_HEIGHT_PATTERN = /(?:^|;)\s*height\s*:\s*(\d+)/;
 // Matches width hints in CDN image URLs: ?w=48, &width=48, /w:48/, /width:48/
 const URL_WIDTH_PATTERN = /(?:width[=:/]|[/,?&]w[_:=])(\d+)/;
 
