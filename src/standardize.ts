@@ -503,11 +503,10 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 					attrValue.startsWith('fn:') || // Footnote content
 					attrValue === 'footnotes' // Footnotes container
 				)) ||
-				// Preserve code block language classes, footnote backref class, and callout classes
+				// Preserve code block language classes and footnote backref class
 				(attrName === 'class' && (
 					(tag === 'code' && attrValue.startsWith('language-')) ||
-					attrValue === 'footnote-backref' ||
-					/^callout(?:-|$)/.test(attrValue)
+					attrValue === 'footnote-backref'
 				)) ||
 				// Marks the extractor output wrapper (emitted by buildContentHtml).
 				(extractorOutput && attrName === 'data-defuddle') ||
@@ -515,6 +514,21 @@ function stripUnwantedAttributes(element: Element, debug: boolean, extractorOutp
 				(extractorOutput && attrName === 'data-timestamp' && el.classList.contains('timestamp'))
 			) {
 				return;
+			}
+
+			// Preserve callout classes (even when combined with other classes like "callout tip")
+			if (attrName === 'class') {
+				const calloutClasses = attrValue.split(/\s+/).filter(c => /^callout(?:-|$)/.test(c));
+				if (calloutClasses.length > 0) {
+					if (!debug) {
+						const kept = calloutClasses.join(' ');
+						if (kept !== attrValue) {
+							el.setAttribute('class', kept);
+							attributeCount++;
+						}
+					}
+					return;
+				}
 			}
 
 			// Extractor markup classes survive. The page-authored classes sitting
