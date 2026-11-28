@@ -835,6 +835,36 @@ function hasStyleProp(el: Element, prop: string): boolean {
 	return new RegExp(`(?:^|;)\\s*${prop}\\s*:`).test(style);
 }
 
+function removeUnstyledMaskReferences(svg: Element, allEls: Element[]): void {
+	const unstyledMaskIds = new Set<string>();
+	for (const mask of Array.from(svg.querySelectorAll('mask[id]'))) {
+		const id = mask.getAttribute('id');
+		if (!id) continue;
+		const children = Array.from(mask.querySelectorAll('*'));
+		if (children.length === 0) continue;
+		const hasInlinePaint = children.some(
+			el =>
+				el.hasAttribute('fill') ||
+				hasStyleProp(el, 'fill') ||
+				el.hasAttribute('stroke') ||
+				hasStyleProp(el, 'stroke')
+		);
+		if (!hasInlinePaint) {
+			unstyledMaskIds.add(id);
+		}
+	}
+	if (unstyledMaskIds.size === 0) return;
+
+	for (const el of allEls) {
+		const maskAttr = el.getAttribute('mask');
+		if (!maskAttr) continue;
+		const match = maskAttr.match(/^url\(\s*#([^)]+)\s*\)$/);
+		if (match && unstyledMaskIds.has(match[1])) {
+			el.removeAttribute('mask');
+		}
+	}
+}
+
 /**
  * Apply fallback fill/stroke to SVG elements that have class attributes
  * but lost their CSS-based styling. Only triggers when at least one
@@ -845,6 +875,7 @@ function applySvgFallbackStyles(svg: Element): void {
 	if (svg.querySelector('style')) return;
 
 	const allEls = Array.from(svg.querySelectorAll('*'));
+	removeUnstyledMaskReferences(svg, allEls);
 
 	// Only apply fallbacks if at least one filled shape has a class but no
 	// fill — indicating CSS-based styling was lost.
