@@ -38,4 +38,18 @@ describe('Footnote numbering across styles', () => {
 
 		expect(markdown).toBe('Text[^1].\n\n[^1]: Only note');
 	});
+
+	test('converts Tufte CSS sidenotes with label.sidenote-number and input.margin-toggle into footnotes', () => {
+		const markdown = footnoteMarkdown(`
+			<p>The collective knowledge of shops and kitchens is scattered across every shopkeeper and chef.<label for="sn-mission-1" class="sidenote-number"></label><input type="checkbox" id="sn-mission-1" class="margin-toggle"/><span class="sidenote">Michael Polanyi, <a href="https://press.uchicago.edu/ucp/books/book/chicago/T/bo6035368.html">The Tacit Dimension</a> (1966)</span></p>
+			<p>Second note<label for="sn-2" class="margin-toggle sidenote-number"></label><input type="checkbox" id="sn-2" class="margin-toggle"/><span class="sidenote">Second sidenote</span>.</p>
+		`);
+
+		expect(markdown).toBe(
+			'The collective knowledge of shops and kitchens is scattered across every shopkeeper and chef.[^1]\n\n' +
+			'Second note[^2].\n\n' +
+			'[^1]: Michael Polanyi, [The Tacit Dimension](https://press.uchicago.edu/ucp/books/book/chicago/T/bo6035368.html) (1966)\n\n' +
+			'[^2]: Second sidenote'
+		);
+	});
 });

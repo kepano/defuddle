@@ -1024,13 +1024,17 @@ class FootnoteHandler {
 
 		if (containers.length === 0) {
 			// Org Mode CSS sidenotes: label.footref + input.footref-toggle + span.sidenote
-			const footrefs = element.querySelectorAll('label.footref');
+			// Tufte CSS sidenotes: label.sidenote-number + input.margin-toggle + span.sidenote
+			const footrefs = element.querySelectorAll('label.footref, label.sidenote-number');
 			if (footrefs.length > 0) {
 				let footnoteCount = 1;
 				footrefs.forEach((label: any) => {
 					// Find the sidenote that follows this label (possibly with input in between)
 					let sibling = label.nextElementSibling;
-					if (sibling?.tagName === 'INPUT' && sibling.classList?.contains('footref-toggle')) {
+					const isToggleInput = (el: any) =>
+						el?.tagName === 'INPUT' &&
+						(el.classList?.contains('footref-toggle') || el.classList?.contains('margin-toggle'));
+					if (isToggleInput(sibling)) {
 						sibling = sibling.nextElementSibling;
 					}
 					if (!sibling || sibling.tagName !== 'SPAN' || !sibling.classList?.contains('sidenote')) return;
@@ -1051,7 +1055,7 @@ class FootnoteHandler {
 					// Replace label + input + sidenote with a footnote reference
 					const ref = this.createFootnoteReference(String(footnoteCount), `fnref:${footnoteCount}`);
 					const inputEl = label.nextElementSibling;
-					if (inputEl?.tagName === 'INPUT' && inputEl.classList?.contains('footref-toggle')) {
+					if (isToggleInput(inputEl)) {
 						inputEl.remove();
 					}
 					sibling.remove();
