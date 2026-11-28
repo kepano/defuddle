@@ -36,6 +36,15 @@ describe('Inline content anchor IDs', () => {
 		expect(doc.querySelector('p')!.textContent).toBe('Article text.');
 	});
 
+	test('removes Elementor off-canvas menu widgets (#529)', () => {
+		const doc = parseDocument(
+			'<html><body><header class="elementor"><div class="elementor-element elementor-widget-off-canvas"><div id="off-canvas-268e99f"><p>Menu item</p></div></div></header><main><p>Article body.</p></main></body></html>'
+		);
+		removeBySelector(doc, false);
+		expect(doc.querySelector('.elementor-widget-off-canvas')).toBeNull();
+		expect(doc.querySelector('main p')!.textContent).toBe('Article body.');
+	});
+
 	test('still checks IDs on the paragraph itself', () => {
 		const doc = parseDocument('<html><body><p id="related-posts">Read more stories.</p></body></html>');
 		removeBySelector(doc, false);

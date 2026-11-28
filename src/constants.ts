@@ -537,6 +537,7 @@ export const PARTIAL_SELECTORS = [
 	'editorial-contact',
 	'element-invisible',
 	'elementor-shortcode',
+	'elementor-widget-off-canvas',
 	'eletters',
 	'emailsignup',
 	'emoji-bar',
