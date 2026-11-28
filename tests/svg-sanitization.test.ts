@@ -75,4 +75,30 @@ describe('SVG sanitization', () => {
 			expect(result.content).not.toMatch(/<animate|<set\b/i);
 		});
 	}
+
+	test('removes mask attribute when mask content has no inline fill or stroke', async () => {
+		const html = `<!DOCTYPE html><html><head><title>SVG mask</title></head>
+<body><article><h1>SVG mask</h1>${PARA}
+<svg viewBox="0 0 720 472" width="720" height="472" role="img" aria-label="Chart">
+  <defs>
+    <mask id="tf-curve" maskUnits="userSpaceOnUse" x="0" y="0" width="720" height="472">
+      <path class="reveal" d="M170,110 C535,110 600,143 600,330" pathLength="1" />
+    </mask>
+    <mask id="styled-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="720" height="472">
+      <rect x="0" y="0" width="720" height="472" fill="white" />
+    </mask>
+  </defs>
+  <path class="hoped" d="M170,110 C535,110 600,143 600,330" mask="url(#tf-curve)" />
+  <rect x="0" y="0" width="10" height="10" fill="red" mask="url(#styled-mask)" />
+</svg>
+${PARA}</article></body></html>`;
+
+		const result = await Defuddle(
+			parseDocument(html, 'https://example.com/svg-mask'),
+			'https://example.com/svg-mask'
+		);
+
+		expect(result.content).not.toContain('mask="url(#tf-curve)"');
+		expect(result.content).toContain('mask="url(#styled-mask)"');
+	});
 });
