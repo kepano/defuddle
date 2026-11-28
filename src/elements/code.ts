@@ -340,9 +340,10 @@ export const codeBlockRules = [
 						return '';
 					}
 
-					// Pygments inline line number spans (<span class="lineno">1</span>)
-					// are interspersed directly in the code content; skip them.
-					if (element.matches('span.lineno')) {
+					// Pygments inline line number spans are interspersed directly in
+					// the code content; skip them. labml.ai uses `lineno`, while
+					// Sphinx / Read the Docs (`:linenos:`) uses `linenos`.
+					if (element.matches('span.lineno, span.linenos')) {
 						return '';
 					}
 
