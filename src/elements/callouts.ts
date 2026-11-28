@@ -46,7 +46,7 @@ export function standardizeCallouts(element: Element): void {
 		el.classList.remove('is-collapsed', 'is-collapsible');
 
 		// Ensure data-callout-fold is set for the markdown converter
-		if (!el.hasAttribute('data-callout-fold')) {
+		if (!el.getAttribute('data-callout-fold')) {
 			el.setAttribute('data-callout-fold', isCollapsed ? '-' : '+');
 		}
 
